@@ -1,2 +1,5 @@
-_G.Keys = require("beastvim.libs.keys")
+require("beastvim.option")
+
+_G.Keys = require("beastvim.libs.key")
+
 Keys.setup()
