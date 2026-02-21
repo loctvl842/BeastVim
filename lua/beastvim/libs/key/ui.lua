@@ -1,13 +1,54 @@
+---@class Beast.KeyUI.Float
+---@field buf integer
+---@field win integer
+---@field close fun()
+
+---@class Beast.KeyUI.Overlay
+---@field buf integer
+---@field win integer
+---@field ns integer
+---@field reposition fun()
+---@field close fun()
+
+---@class Beast.KeyUI.Action
+---@field key string
+---@field label string
+---@field key_hl string
+---@field label_hl string
+
+---@class Beast.KeyUI.Segment
+---@field text string
+---@field hl? string
+
+---@alias Beast.KeyUI.Line Beast.KeyUI.Segment[]
+
+---@class Beast.KeyUI.Entry
+---@field source string
+---@field mode string
+---@field lhs string
+---@field rhs string
+---@field desc? string
+---@field group? string
+---@field src? string
+---@field buffer? integer
+
 local M = {}
 
+---@type Beast.KeyUI.Config?
 local cfg
 -- filters/state
+---@type string
 local filter_mode = "all" -- one of: all | n|v|i|x|s|o|c|t
+---@type boolean
 local beast_only = true
+---@type string[]
 local mode_order = { "n", "v", "i", "x", "s", "o", "c", "t" }
+---@type table<string, boolean>
 local expanded = {} -- map id (lhs) -> true when showing source
 
+---@return Beast.KeyUI.Config
 function M.defaults()
+	---@class Beast.KeyUI.Config
 	return {
 		border = "rounded",
 		width = 0.7,
@@ -19,6 +60,7 @@ function M.defaults()
 	}
 end
 
+---@return Beast.KeyUI.Float
 local function create_layout()
 	local width = math.floor(vim.o.columns * cfg.width)
 	local height = math.floor(vim.o.lines * cfg.height)
@@ -128,8 +170,9 @@ local function create_layout()
 	}
 end
 
--- Put a vertical "actions column" at the top-right of the float using extmarks.
--- Draw one action per line, right-aligned, starting at `start_line0`.
+---@param buf integer
+---@param start_line0 integer
+---@param actions Beast.KeyUI.Action[]
 local function set_topright_actions_column(buf, start_line0, actions)
 	local ns = vim.api.nvim_create_namespace("beast_key_actions")
 	vim.api.nvim_buf_clear_namespace(buf, ns, 0, -1)
@@ -157,6 +200,10 @@ local function set_topright_actions_column(buf, start_line0, actions)
 	end
 end
 
+---@param main_win integer
+---@param actions Beast.KeyUI.Action[]
+---@param opts? { row?: integer, width?: integer, border?: string, zindex?: integer, margin_right?: integer }
+---@return Beast.KeyUI.Overlay
 local function create_actions_layout(main_win, actions, opts)
 	opts = opts or {}
 	local ns = vim.api.nvim_create_namespace("beast_key_actions")
@@ -244,6 +291,8 @@ local function create_actions_layout(main_win, actions, opts)
 	}
 end
 
+---@param rhs string|function|boolean|nil
+---@return string
 local function rhs_to_string(rhs)
   --stylua: ignore start
   if type(rhs) == "string" then return rhs end
@@ -253,6 +302,7 @@ local function rhs_to_string(rhs)
   return tostring(rhs)
 end
 
+---@return Beast.KeyUI.Entry[]
 local function collect_beast_managed()
 	local list = {}
 	for _, km in pairs(Key.managed) do
@@ -269,16 +319,19 @@ local function collect_beast_managed()
 	return list
 end
 
---- Normalize action labels to the same length by adding spaces,
---- so that the key is always left-aligned.
-local function normalize_length(actions, field)
+---@generic T : table
+---@param list T[]
+---@param field string
+---@return T[]
+local function normalize_length(list, field)
   -- stylua: ignore start
   local max_len = 0
-  for _, a in ipairs(actions) do max_len = math.max(max_len, #a[field]) end
-  for _, a in ipairs(actions) do a[field] = a[field] .. string.rep(" ", max_len - #a[field]) end
-  return actions
+  for _, a in ipairs(list) do max_len = math.max(max_len, #a[field]) end
+  for _, a in ipairs(list) do a[field] = a[field] .. string.rep(" ", max_len - #a[field]) end
+  return list
 end
 
+---@return Beast.KeyUI.Entry[]
 local function filtered_entries()
 	local entries = {}
 	if beast_only then
@@ -329,6 +382,7 @@ local function filtered_entries()
 	return entries
 end
 
+---@return Beast.KeyUI.Action[]
 local function get_actions()
 	local actions = {
     -- stylua: ignore start
@@ -341,6 +395,8 @@ local function get_actions()
 	return normalize_length(actions, "label")
 end
 
+---@param buf integer
+---@param lines_segments Beast.KeyUI.Line[]
 local function render_lines(buf, lines_segments)
 	local lines = {}
 	local ns = vim.api.nvim_create_namespace("beastkeys")
@@ -365,6 +421,8 @@ local function render_lines(buf, lines_segments)
 	end
 end
 
+---@param entries Beast.KeyUI.Entry[]
+---@return Beast.KeyUI.Line[]
 local function build_content_lines(entries)
 	local lines = {}
 	local title = "  🦁 Keymaps"
@@ -485,7 +543,7 @@ local function build_content_lines(entries)
 	return lines
 end
 
----@param float table { buf: integer, win: integer }
+---@param float Beast.KeyUI.Float
 local function render_layout(float)
 	create_actions_layout(float.win, get_actions(), {
 		width = 26,
@@ -505,11 +563,13 @@ function M.open()
 	render_layout(float)
 end
 
+---@param opts? Beast.KeyUI.Config
 function M.setup(opts)
 	cfg = vim.tbl_deep_extend("force", M.defaults(), opts or {})
 	-- do module wiring with cfg (keymaps, state, etc.)
 end
 
+---@return Beast.KeyUI.Config
 function M.get()
 	return cfg or M.defaults()
 end
