@@ -40,11 +40,15 @@ local cfg
 ---@type string
 local filter_mode = "all" -- one of: all | n|v|i|x|s|o|c|t
 ---@type boolean
-local beast_only = true
+local beast_only = false
 ---@type string[]
 local mode_order = { "n", "v", "i", "x", "s", "o", "c", "t" }
 ---@type table<string, boolean>
 local expanded = {} -- map id (lhs) -> true when showing source
+---@type table<integer, string>?
+local script_map -- lazily populated map: sid -> script path
+---@type integer?
+local target_buf -- buffer whose local keymaps we display (the editor buffer active before opening UI)
 
 ---@return Beast.KeyUI.Config
 function M.defaults()
@@ -216,8 +220,10 @@ local function create_actions_layout(main_win, actions, opts)
 
 	-- Decide overlay size (simple + robust)
 	local height = #actions
-  local max_len = 0
-  for _, a in ipairs(actions) do max_len = math.max(max_len, #a.label) end
+	local max_len = 0
+	for _, a in ipairs(actions) do
+		max_len = math.max(max_len, #a.label)
+	end
 	local width = max_len + 4 -- Width of the longest label + padding
 
 	local win = vim.api.nvim_open_win(buf, false, {
@@ -302,6 +308,114 @@ local function rhs_to_string(rhs)
   return tostring(rhs)
 end
 
+---@return table<integer, string>
+local function get_script_map()
+  --stylua: ignore
+  if script_map then return script_map end
+	script_map = {}
+	local ok, out = pcall(vim.api.nvim_exec2, "scriptnames", { output = true })
+	if ok and out and out.output then
+		for line in out.output:gmatch("[^\n]+") do
+			-- lines look like: " 42: /path/to/file.lua"
+			local sid, path = line:match("^%s*(%d+):%s+(.+)$")
+      --stylua: ignore
+      if sid and path then script_map[tonumber(sid)] = path end
+		end
+	end
+	return script_map
+end
+
+---@param mode string
+---@param lhs string
+---@param cb? function
+---@return string?
+local function get_map_source(mode, lhs, cb)
+	local file, lnum
+	local ok, arg = pcall(vim.fn.maparg, lhs, mode, false, true)
+	if ok and type(arg) == "table" and next(arg) ~= nil then
+		if type(arg.sid) == "number" and arg.sid > 0 then
+			local m = get_script_map()
+			file = m[arg.sid]
+		end
+    --stylua: ignore
+    if type(arg.lnum) == "number" then lnum = arg.lnum end
+	end
+	if (not file) and type(cb) == "function" then
+		local info = debug.getinfo(cb, "S")
+		if info and type(info.source) == "string" then
+			if info.source:sub(1, 1) == "@" then
+				file = info.source:sub(2)
+				lnum = info.linedefined or lnum
+			else
+				file = info.short_src or info.source
+			end
+		end
+	end
+	if file then
+		local disp = vim.fn.fnamemodify(file, ":~")
+    --stylua: ignore
+    if lnum then disp = string.format("%s:%d", disp, lnum) end
+		return disp
+	end
+	return nil
+end
+
+---@param lhs string
+---@return string
+local function normalize_lhs(lhs)
+	lhs = lhs or ""
+	-- Prefer raw leader tokens if present
+	lhs = lhs:gsub("<Leader>", "<leader>")
+	-- If leader is space and we see <Space>, show <leader>
+	if (vim.g.mapleader == " " or vim.g.mapleader == "<Space>") and lhs:find("^<Space>") then
+		lhs = lhs:gsub("^<Space>", "<leader>")
+	end
+	-- If lhs begins with the concrete leader character(s), re-canonicalize
+	local ml = vim.g.mapleader
+	if type(ml) == "string" and #ml > 0 and not lhs:match("^<") and lhs:sub(1, #ml) == ml then
+		lhs = "<leader>" .. lhs:sub(#ml + 1)
+	end
+	return lhs
+end
+
+---@return Beast.KeyUI.Entry[]
+local function collect_nvim_maps()
+	local modes = mode_order
+	local list = {}
+	for _, m in ipairs(modes) do
+		local global = vim.api.nvim_get_keymap(m)
+		for _, it in ipairs(global) do
+			local lhs = normalize_lhs(it.lhs)
+			local src = get_map_source(m, lhs, it.callback)
+			table.insert(list, {
+				source = "NVIM",
+				mode = m,
+				lhs = lhs,
+				rhs = it.rhs or rhs_to_string(it.callback),
+				desc = it.desc,
+				src = src,
+				buffer = nil,
+			})
+		end
+		local buf = target_buf or 0
+		local buf_local = vim.api.nvim_buf_get_keymap(buf, m)
+		for _, it in ipairs(buf_local) do
+			local lhs = normalize_lhs(it.lhs)
+			local src = get_map_source(m, lhs, it.callback)
+			table.insert(list, {
+				source = "BUF",
+				mode = m,
+				lhs = lhs,
+				rhs = it.rhs or rhs_to_string(it.callback),
+				desc = it.desc,
+				src = src,
+				buffer = 0,
+			})
+		end
+	end
+	return list
+end
+
 ---@return Beast.KeyUI.Entry[]
 local function collect_beast_managed()
 	local list = {}
@@ -340,7 +454,7 @@ local function filtered_entries()
 		entries = collect_nvim_maps()
 		-- annotate managed ones for visibility
 		local managed = {}
-		for _, km in pairs(require("beastvim.libs.keys").managed) do
+		for _, km in pairs(require("beastvim.libs.key").managed) do
 			managed[(km.mode or "n") .. "\t" .. km.lhs] = true
 		end
 		for _, e in ipairs(entries) do
@@ -386,11 +500,9 @@ end
 local function get_actions()
 	local actions = {
     -- stylua: ignore start
-    { key = "I", label = "Install",  key_hl = "DiagnosticError", label_hl = "Comment" },
-    { key = "U", label = "Update",   key_hl = "DiagnosticWarn",  label_hl = "Comment" },
-    { key = "S", label = "Sync",     key_hl = "DiagnosticInfo",  label_hl = "Comment" },
-    { key = "X", label = "Clean",    key_hl = "DiagnosticHint",  label_hl = "Comment" },
-    { key = "?", label = "Help",     key_hl = "Question",        label_hl = "Comment" },
+    { key = "M",   label = "Cycle mode",  key_hl = "DiagnosticWarn",  label_hl = "Comment" },
+    { key = "B",   label = "Toggle beast", key_hl = "DiagnosticInfo", label_hl = "Comment" },
+    { key = "q",   label = "Close",       key_hl = "DiagnosticError", label_hl = "Comment" },
 	}
 	return normalize_length(actions, "label")
 end
@@ -550,8 +662,40 @@ local function render_layout(float)
 		margin_right = 0,
 		zindex = 60,
 	})
-	local lines = build_content_lines(filtered_entries())
-	render_lines(float.buf, lines)
+
+	local function refresh()
+		local lines = build_content_lines(filtered_entries())
+		render_lines(float.buf, lines)
+	end
+
+	-- Cycle mode filter: all -> n -> v -> i -> x -> s -> o -> c -> t -> all
+	vim.keymap.set("n", "M", function()
+		if filter_mode == "all" then
+			filter_mode = mode_order[1]
+		else
+			local idx
+			for i, m in ipairs(mode_order) do
+				if m == filter_mode then
+					idx = i
+					break
+				end
+			end
+			if idx and idx < #mode_order then
+				filter_mode = mode_order[idx + 1]
+			else
+				filter_mode = "all"
+			end
+		end
+		refresh()
+	end, { buffer = float.buf, silent = true, nowait = true })
+
+	-- Toggle beast-only / all keymaps
+	vim.keymap.set("n", "B", function()
+		beast_only = not beast_only
+		refresh()
+	end, { buffer = float.buf, silent = true, nowait = true })
+
+	refresh()
 end
 
 function M.open()
