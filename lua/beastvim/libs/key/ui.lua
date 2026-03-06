@@ -1,6 +1,8 @@
 ---@class Beast.KeyUI.Float
 ---@field buf integer
 ---@field win integer
+---@field group integer
+---@field overlay? Beast.KeyUI.Overlay
 ---@field close fun()
 
 ---@class Beast.KeyUI.Overlay
@@ -34,13 +36,17 @@
 
 local M = {}
 
----@type Beast.KeyUI.Config?
-local cfg
+---@type Beast.KeyUI.Float?
+local current
+local NS = {
+	actions = vim.api.nvim_create_namespace("beast_key_actions"),
+	content = vim.api.nvim_create_namespace("beastkeys"),
+}
 -- filters/state
 ---@type string
 local filter_mode = "all" -- one of: all | n|v|i|x|s|o|c|t
 ---@type boolean
-local beast_only = false
+local beast_only = true
 ---@type string[]
 local mode_order = { "n", "v", "i", "x", "s", "o", "c", "t" }
 ---@type table<string, boolean>
@@ -50,26 +56,26 @@ local script_map -- lazily populated map: sid -> script path
 ---@type integer?
 local target_buf -- buffer whose local keymaps we display (the editor buffer active before opening UI)
 
----@return Beast.KeyUI.Config
-function M.defaults()
-	---@class Beast.KeyUI.Config
-	return {
-		border = "rounded",
-		width = 0.7,
-		height = 0.7,
-		backdrop = 30,
-		keymaps = {
-			close = { "q", "<Esc>" },
-		},
-	}
-end
+---@class Beast.KeyUI.Config
+local cfg = {
+	border = "rounded",
+	width = 0.7,
+	height = 0.7,
+	backdrop = 30,
+	keymaps = {
+		close = { "q", "<Esc>" },
+	},
+}
 
+---@param config Beast.KeyUI.Config
 ---@return Beast.KeyUI.Float
-local function create_layout()
-	local width = math.floor(vim.o.columns * cfg.width)
-	local height = math.floor(vim.o.lines * cfg.height)
+local function create_layout(config)
+	local width = math.floor(vim.o.columns * config.width)
+	local height = math.floor(vim.o.lines * config.height)
 	local row = math.floor((vim.o.lines - height) / 2)
 	local col = math.floor((vim.o.columns - width) / 2)
+
+	local group = vim.api.nvim_create_augroup("BeastKeyUI_" .. tostring(vim.loop.hrtime()), { clear = true })
 
 	-- ==========================================================================
 	-- Backdrop
@@ -89,7 +95,7 @@ local function create_layout()
 		focusable = false,
 		zindex = 1,
 	})
-	Util.wo(backdrop_win, "winblend", cfg.backdrop)
+	Util.wo(backdrop_win, "winblend", config.backdrop)
 
 	-- ==========================================================================
 	-- Main floating window
@@ -107,7 +113,7 @@ local function create_layout()
 		width = width,
 		height = height,
 		style = "minimal",
-		border = cfg.border or "rounded",
+		border = config.border or "rounded",
 		zindex = 2,
 	})
 	Util.wo(win, "wrap", false)
@@ -118,17 +124,35 @@ local function create_layout()
 	-- ==========================================================================
 	-- Close logic (shared)
 	-- ==========================================================================
+	local closed = false
+	local float
+
 	local function close_all()
+		if closed then
+			return
+		end
+		closed = true
+
+		if float and float.overlay then
+			float.overlay.close()
+			float.overlay = nil
+		end
+
+		pcall(vim.api.nvim_del_augroup_by_id, group)
+
 		if vim.api.nvim_win_is_valid(win) then
 			vim.api.nvim_win_close(win, true)
 		end
 		if vim.api.nvim_win_is_valid(backdrop_win) then
 			vim.api.nvim_win_close(backdrop_win, true)
 		end
+
+    -- stylua: ignore
+		if current == float then current = nil end
 	end
 
 	-- Keymaps
-	for _, key in ipairs(cfg.keymaps.close) do
+	for _, key in ipairs(config.keymaps.close) do
 		vim.keymap.set("n", key, close_all, {
 			buffer = buf,
 			silent = true,
@@ -137,26 +161,35 @@ local function create_layout()
 	end
 
 	-- Auto-close if user switches windows
-	vim.api.nvim_create_autocmd("WinLeave", {
+	vim.api.nvim_create_autocmd("WinEnter", {
+		group = group,
 		once = true,
-		callback = close_all,
+		callback = function()
+			local cur = vim.api.nvim_get_current_win()
+			if cur ~= win then
+				close_all()
+			end
+		end,
 	})
 
 	-- Reposition backdrop + main float on resize
 	vim.api.nvim_create_autocmd("VimResized", {
+		group = group,
 		callback = function()
 			if not vim.api.nvim_win_is_valid(win) then
-				return true -- delete autocmd
+				return
 			end
-			vim.api.nvim_win_set_config(backdrop_win, {
-				relative = "editor",
-				row = 0,
-				col = 0,
-				width = vim.o.columns,
-				height = vim.o.lines,
-			})
-			local new_width = math.floor(vim.o.columns * cfg.width)
-			local new_height = math.floor(vim.o.lines * cfg.height)
+			if vim.api.nvim_win_is_valid(backdrop_win) then
+				vim.api.nvim_win_set_config(backdrop_win, {
+					relative = "editor",
+					row = 0,
+					col = 0,
+					width = vim.o.columns,
+					height = vim.o.lines,
+				})
+			end
+			local new_width = math.floor(vim.o.columns * config.width)
+			local new_height = math.floor(vim.o.lines * config.height)
 			vim.api.nvim_win_set_config(win, {
 				relative = "editor",
 				row = math.floor((vim.o.lines - new_height) / 2),
@@ -167,18 +200,20 @@ local function create_layout()
 		end,
 	})
 
-	return {
+	float = {
 		buf = buf,
 		win = win,
+		group = group,
 		close = close_all,
 	}
+	return float
 end
 
 ---@param buf integer
 ---@param start_line0 integer
 ---@param actions Beast.KeyUI.Action[]
 local function set_topright_actions_column(buf, start_line0, actions)
-	local ns = vim.api.nvim_create_namespace("beast_key_actions")
+	local ns = NS.actions
 	vim.api.nvim_buf_clear_namespace(buf, ns, 0, -1)
 
 	for i, a in ipairs(actions) do
@@ -204,13 +239,13 @@ local function set_topright_actions_column(buf, start_line0, actions)
 	end
 end
 
----@param main_win integer
+---@param float Beast.KeyUI.Float
 ---@param actions Beast.KeyUI.Action[]
 ---@param opts? { row?: integer, width?: integer, border?: string, zindex?: integer, margin_right?: integer }
 ---@return Beast.KeyUI.Overlay
-local function create_actions_layout(main_win, actions, opts)
+local function create_actions_layout(float, actions, opts)
 	opts = opts or {}
-	local ns = vim.api.nvim_create_namespace("beast_key_actions")
+	local ns = NS.actions
 
 	-- actions buffer (separate from content buffer -> won't scroll)
 	local buf = vim.api.nvim_create_buf(false, true)
@@ -224,11 +259,11 @@ local function create_actions_layout(main_win, actions, opts)
 	for _, a in ipairs(actions) do
 		max_len = math.max(max_len, #a.label)
 	end
-	local width = max_len + 4 -- Width of the longest label + padding
+	local width = opts.width or (max_len + 4) -- Width of the longest label + padding
 
 	local win = vim.api.nvim_open_win(buf, false, {
 		relative = "win",
-		win = main_win,
+		win = float.win,
 		row = opts.row or 0,
 		col = 0, -- set after we know main width
 		width = width,
@@ -243,16 +278,16 @@ local function create_actions_layout(main_win, actions, opts)
 
 	-- Position it at top-right INSIDE the main float
 	local function reposition()
-		if not (vim.api.nvim_win_is_valid(main_win) and vim.api.nvim_win_is_valid(win)) then
+		if not (vim.api.nvim_win_is_valid(float.win) and vim.api.nvim_win_is_valid(win)) then
 			return
 		end
-		local main_cfg = vim.api.nvim_win_get_config(main_win)
+		local main_cfg = vim.api.nvim_win_get_config(float.win)
 		local main_w = main_cfg.width
 		local margin_right = opts.margin_right or 0
 		local col = math.max(0, main_w - width - margin_right)
 		vim.api.nvim_win_set_config(win, {
 			relative = "win",
-			win = main_win,
+			win = float.win,
 			row = opts.row or 0,
 			col = col,
 			width = width,
@@ -263,9 +298,14 @@ local function create_actions_layout(main_win, actions, opts)
 	reposition()
 
 	-- Render actions into overlay buffer using your existing function
-	set_topright_actions_column(buf, 0, actions, ns)
+	set_topright_actions_column(buf, 0, actions)
 
+	local closed = false
 	local function close()
+		if closed then
+			return
+		end
+		closed = true
 		if vim.api.nvim_win_is_valid(win) then
 			vim.api.nvim_win_close(win, true)
 		end
@@ -276,13 +316,15 @@ local function create_actions_layout(main_win, actions, opts)
 
 	-- Overlay manages its own lifecycle
 	vim.api.nvim_create_autocmd("VimResized", {
+		group = float.group,
 		callback = function()
 			reposition()
 		end,
 	})
 
 	vim.api.nvim_create_autocmd("WinClosed", {
-		pattern = tostring(main_win),
+		group = float.group,
+		pattern = tostring(float.win),
 		callback = function()
 			close()
 		end,
@@ -409,7 +451,7 @@ local function collect_nvim_maps()
 				rhs = it.rhs or rhs_to_string(it.callback),
 				desc = it.desc,
 				src = src,
-				buffer = 0,
+				buffer = buf,
 			})
 		end
 	end
@@ -511,7 +553,7 @@ end
 ---@param lines_segments Beast.KeyUI.Line[]
 local function render_lines(buf, lines_segments)
 	local lines = {}
-	local ns = vim.api.nvim_create_namespace("beastkeys")
+	local ns = NS.content
 	for _, segs in ipairs(lines_segments) do
 		local s = ""
     --stylua: ignore
@@ -657,7 +699,7 @@ end
 
 ---@param float Beast.KeyUI.Float
 local function render_layout(float)
-	create_actions_layout(float.win, get_actions(), {
+	float.overlay = create_actions_layout(float, get_actions(), {
 		width = 26,
 		margin_right = 0,
 		zindex = 60,
@@ -699,23 +741,27 @@ local function render_layout(float)
 end
 
 function M.open()
-	if cfg == nil then
-		cfg = M.defaults()
+	if current and vim.api.nvim_win_is_valid(current.win) then
+		vim.api.nvim_set_current_win(current.win)
+		return current
 	end
 
-	local float = create_layout()
+	target_buf = vim.api.nvim_get_current_buf()
+
+	local float = create_layout(cfg)
+	current = float
 	render_layout(float)
+	return float
 end
 
 ---@param opts? Beast.KeyUI.Config
 function M.setup(opts)
-	cfg = vim.tbl_deep_extend("force", M.defaults(), opts or {})
-	-- do module wiring with cfg (keymaps, state, etc.)
+	cfg = vim.tbl_deep_extend("force", cfg, opts or {})
 end
 
 ---@return Beast.KeyUI.Config
 function M.get()
-	return cfg or M.defaults()
+	return cfg
 end
 
 return M
