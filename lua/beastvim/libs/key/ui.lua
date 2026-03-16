@@ -1,27 +1,95 @@
 ---@class Beast.Key.UI.View
 ---@field buf integer
 ---@field win integer
+---@field ns integer
+local View = {}
+View.__index = View
+
+---@param buf integer
+---@param win integer
+---@param ns? integer
+---@return Beast.Key.UI.View
+function View:new(buf, win, ns)
+	return setmetatable({
+		buf = buf,
+		win = win,
+		ns = ns,
+	}, self)
+end
+
+---@return boolean
+function View:is_valid()
+	return self.buf and self.win and vim.api.nvim_buf_is_valid(self.buf) and vim.api.nvim_win_is_valid(self.win)
+end
+
+function View:close()
+	if self.win and vim.api.nvim_win_is_valid(self.win) then
+		vim.api.nvim_win_close(self.win, true)
+	end
+	self.buf = nil
+	self.win = nil
+end
 
 ---@class Beast.Key.UI.MainView : Beast.Key.UI.View
----@field backdrop? Beast.Key.UI.View
+---@field backdrop Beast.Key.UI.View
+local MainView = setmetatable({}, { __index = View })
+MainView.__index = MainView
+
+---@param buf integer
+---@param win integer
+---@param ns integer
+---@param backdrop Beast.Key.UI.View
+---@return Beast.Key.UI.MainView
+function MainView:new(buf, win, ns, backdrop)
+	local obj = View.new(self, buf, win, ns) -- call parent constructor
+	---@cast obj Beast.Key.UI.MainView
+
+	obj.backdrop = backdrop
+	return obj
+end
 
 ---@class Beast.Key.UI.State
 ---@field main Beast.Key.UI.MainView
 ---@field action Beast.Key.UI.View
 ---@field augroup integer
 ---@field closed boolean
+local State = {}
+State.__index = State
+
+function State:new(main, action, augroup)
+	return setmetatable({
+		main = main,
+		action = action,
+		augroup = augroup,
+		closed = false,
+	}, self)
+end
+
+function State:is_valid()
+	return not self.closed and self.main:is_valid() and self.action:is_valid()
+end
 
 ---@class Beast.Key.UI.Action
 ---@field keys string[]|string
 ---@field label string
 ---@field key_hl string
 ---@field label_hl string
----@field action function
+---@field on_press function
+
+---@class Beast.Key.UI.Hooks
+---@field main? Beast.Key.UI.MainHooks
+---@field action? Beast.Key.UI.ActionHooks
+
+---@class Beast.Key.UI.MainHooks
+---@field render? fun(main: Beast.Key.UI.MainView, state: Beast.Key.UI.State)
+
+---@class Beast.Key.UI.ActionHooks
+---@field render? fun(action: Beast.Key.UI.Action, state: Beast.Key.UI.State)
 
 local M = {}
 
 ---@type Beast.Key.UI.State|nil
-local state = nil
+local state
 
 ---@class Beast.Key.UI.Config
 local defaults = {
@@ -35,11 +103,13 @@ local defaults = {
 			label = "Close",
 			key_hl = "DiagnosticError",
 			label_hl = "Comment",
-			action = function()
+			on_press = function()
 				M.close()
 			end,
 		},
 	},
+	---@type Beast.Key.UI.Hooks
+	hooks = {},
 }
 
 ---@type Beast.Key.UI.Config
@@ -121,35 +191,10 @@ local function calc_action_geometry(main_win)
 	return width, height, row, col
 end
 
----@param view Beast.Key.UI.View|nil
----@return boolean
-local function is_view_valid(view)
-	return view ~= nil
-		and view.win ~= nil
-		and vim.api.nvim_win_is_valid(view.win)
-		and view.buf ~= nil
-		and vim.api.nvim_buf_is_valid(view.buf)
-end
-
----@param s Beast.Key.UI.State
----@return boolean
-local function is_state_valid(s)
-	return not s.closed and is_view_valid(s.main) and s.main.backdrop ~= nil and is_view_valid(s.main.backdrop)
-end
-
----@param view Beast.Key.UI.View|nil
-local function close_view(view)
-  --stylua: ignore
-  if not view then return end
-	if view.win and vim.api.nvim_win_is_valid(view.win) then
-		pcall(vim.api.nvim_win_close, view.win, true)
-	end
-end
-
 -- =============================================================================
 -- MAIN VIEW
 -- =============================================================================
-local Main = { namespace = vim.api.nvim_create_namespace("beast_key_main") }
+local Main = {}
 
 ---@return Beast.Key.UI.MainView
 function Main.create()
@@ -185,23 +230,20 @@ function Main.create()
 	Util.wo(main_win, "number", false)
 	Util.wo(main_win, "relativenumber", false)
 	Util.wo(main_win, "signcolumn", "no")
-
-	return {
-		buf = main_buf,
-		win = main_win,
-		backdrop = {
-			buf = backdrop_buf,
-			win = backdrop_win,
-		},
-	}
+	return MainView:new(
+		main_buf,
+		main_win,
+		vim.api.nvim_create_namespace("beast_key_main"),
+		View:new(backdrop_buf, backdrop_win)
+	)
 end
 
 ---@param main Beast.Key.UI.MainView
 function Main.layout(main)
   -- stylua: ignore
-	if not is_view_valid(main) then return end
+	if not main:is_valid() then return end
 
-	if main.backdrop and is_view_valid(main.backdrop) then
+	if main.backdrop:is_valid() then
 		vim.api.nvim_win_set_config(main.backdrop.win, {
 			relative = "editor",
 			row = 0,
@@ -224,7 +266,7 @@ end
 ---@param main Beast.Key.UI.MainView
 function Main.render(main)
   --stylua: ignore
-  if not is_view_valid(main) then return end
+  if not main:is_valid() then return end
 
 	local lines = {
 		"Beast Key UI",
@@ -241,17 +283,17 @@ end
 function Main.close(main)
   --stylua: ignore
   if not main then return end
-	close_view(main)
-	close_view(main.backdrop)
+	main.backdrop:close()
+	main:close()
 end
 
 -- =============================================================================
 -- ACTION VIEW
 -- =============================================================================
-local Action = { namespace = vim.api.nvim_create_namespace("beast_key_actions") }
+local Action = {}
 
 ---@param main Beast.Key.UI.MainView
----@return Beast.Key.UI.MainView
+---@return Beast.Key.UI.View
 function Action.create(main)
 	local buf = create_scratch_buf("beast-key-actions")
 	local width, height, row, col = calc_action_geometry(main.win)
@@ -271,16 +313,13 @@ function Action.create(main)
 	})
 
 	Util.wo(win, "winblend", 0)
-	return {
-		buf = buf,
-		win = win,
-	}
+	return View:new(buf, win, vim.api.nvim_create_namespace("beast_key_actions"))
 end
 
 ---@param action Beast.Key.UI.View
 ---@param main Beast.Key.UI.MainView
 function Action.layout(action, main)
-	if not is_view_valid(action) or not is_view_valid(main) then
+	if not action:is_valid() or not main:is_valid() then
 		return
 	end
 
@@ -299,9 +338,9 @@ end
 ---@param action Beast.Key.UI.View
 function Action.render(action)
   --stylua: ignore
-  if not is_view_valid(action) then return end
+  if not action:is_valid() then return end
 
-	vim.api.nvim_buf_clear_namespace(action.buf, Action.namespace, 0, -1)
+	vim.api.nvim_buf_clear_namespace(action.buf, action.ns, 0, -1)
 
 	local max_keys_width = get_max_keys_width(cfg.actions)
 
@@ -322,7 +361,7 @@ function Action.render(action)
 
 		local padded_keys = string.format("%-" .. max_keys_width .. "s", keys)
 
-		vim.api.nvim_buf_set_extmark(action.buf, Action.namespace, line0, 0, {
+		vim.api.nvim_buf_set_extmark(action.buf, action.ns, line0, 0, {
 			virt_text = {
 				{ " " .. padded_keys .. " ", a.key_hl or "ErrorMsg" },
 				{ " " .. a.label, a.label_hl or "Comment" },
@@ -332,28 +371,52 @@ function Action.render(action)
 	end
 end
 
+---@param action Beast.Key.UI.View
 function Action.close(action)
-	close_view(action)
+	action:close()
 end
 
 -- =============================================================================
 -- Controller
 -- =============================================================================
+---@param component "main"|"action"
+---@param name "render"
+---@return function
+local function get_hook(component, name)
+	local hook = cfg.hooks and cfg.hooks[component] and cfg.hooks[component][name]
+
+	if hook then
+		return hook
+	end
+
+	if component == "main" then
+		if name == "render" then
+			return Main.render
+		end
+		assert(name == "layout", "Invalid hook name: " .. name)
+	end
+
+	if component == "action" then
+		if name == "render" then
+			return Action.render
+		end
+		assert(name == "layout", "Invalid hook name: " .. name)
+	end
+
+	error("Invalid hook name: " .. name)
+end
+
+---@return Beast.Key.UI.State
 local function create_state()
 	local main = Main.create()
 	local action = Action.create(main)
-	return {
-		main = main,
-		action = action,
-		augroup = -1,
-		closed = false,
-	}
+	return State:new(main, action, -1)
 end
 
 ---@param s Beast.Key.UI.State
 local function render_state(s)
-	Main.render(s.main)
-	Action.render(s.action)
+	get_hook("main", "render")(s.main)
+	get_hook("action", "render")(s.action)
 end
 
 ---@param s Beast.Key.UI.State
@@ -369,7 +432,9 @@ local function mount_keymaps(s)
 		---@diagnostic disable-next-line: assign-type-mismatch
 		local keys = type(a.keys) == "string" and { a.keys } or a.keys
 		for _, key in ipairs(keys) do
-			vim.keymap.set("n", key, a.action, {
+			vim.keymap.set("n", key, function()
+				a.on_press(s.main)
+			end, {
 				buffer = s.main.buf,
 				silent = true,
 				nowait = true,
@@ -394,9 +459,8 @@ local function mount_autocmds(s)
 	vim.api.nvim_create_autocmd("WinEnter", {
 		group = s.augroup,
 		callback = function()
-			if state == nil or not is_state_valid(state) then
-				return
-			end
+      -- stylua: ignore
+			if state == nil or not state:is_valid() then return end
 			local current = vim.api.nvim_get_current_win()
 			if state ~= nil and current ~= state.main.win then
 				M.close()
@@ -407,16 +471,15 @@ local function mount_autocmds(s)
 	vim.api.nvim_create_autocmd("VimResized", {
 		group = s.augroup,
 		callback = function()
-			if state == nil or not is_state_valid(state) then
-				return
-			end
+      -- stylua: ignore
+			if state == nil or not state:is_valid() then return end
 			layout_state(state)
 		end,
 	})
 end
 
 function M.open()
-	if state ~= nil and is_state_valid(state) then
+	if state ~= nil and state:is_valid() then
 		vim.api.nvim_set_current_win(state.main.win)
 		return state
 	end
