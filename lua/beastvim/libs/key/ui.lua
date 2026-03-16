@@ -1,90 +1,160 @@
----@class Beast.KeyUI.Float
+---@class Beast.Key.UI.View
 ---@field buf integer
 ---@field win integer
----@field group integer
----@field overlay? Beast.KeyUI.Overlay
----@field close fun()
 
----@class Beast.KeyUI.Overlay
----@field buf integer
----@field win integer
----@field ns integer
----@field reposition fun()
----@field close fun()
+---@class Beast.Key.UI.MainView : Beast.Key.UI.View
+---@field backdrop? Beast.Key.UI.View
 
----@class Beast.KeyUI.Action
----@field key string
+---@class Beast.Key.UI.State
+---@field main Beast.Key.UI.MainView
+---@field action Beast.Key.UI.View
+---@field augroup integer
+---@field closed boolean
+
+---@class Beast.Key.UI.Action
+---@field keys string[]|string
 ---@field label string
 ---@field key_hl string
 ---@field label_hl string
-
----@class Beast.KeyUI.Segment
----@field text string
----@field hl? string
-
----@alias Beast.KeyUI.Line Beast.KeyUI.Segment[]
-
----@class Beast.KeyUI.Entry
----@field source string
----@field mode string
----@field lhs string
----@field rhs string
----@field desc? string
----@field group? string
----@field src? string
----@field buffer? integer
+---@field action function
 
 local M = {}
 
----@type Beast.KeyUI.Float?
-local current
-local NS = {
-	actions = vim.api.nvim_create_namespace("beast_key_actions"),
-	content = vim.api.nvim_create_namespace("beastkeys"),
-}
--- filters/state
----@type string
-local filter_mode = "all" -- one of: all | n|v|i|x|s|o|c|t
----@type boolean
-local beast_only = true
----@type string[]
-local mode_order = { "n", "v", "i", "x", "s", "o", "c", "t" }
----@type table<string, boolean>
-local expanded = {} -- map id (lhs) -> true when showing source
----@type table<integer, string>?
-local script_map -- lazily populated map: sid -> script path
----@type integer?
-local target_buf -- buffer whose local keymaps we display (the editor buffer active before opening UI)
+---@type Beast.Key.UI.State|nil
+local state = nil
 
----@class Beast.KeyUI.Config
-local cfg = {
-	border = "rounded",
+---@class Beast.Key.UI.Config
+local defaults = {
 	width = 0.7,
 	height = 0.7,
 	backdrop = 30,
-	keymaps = {
-		close = { "q", "<Esc>" },
+	---@type Beast.Key.UI.Action[]
+	actions = {
+		{
+			keys = { "q", "<Esc>" },
+			label = "Close",
+			key_hl = "DiagnosticError",
+			label_hl = "Comment",
+			action = function()
+				M.close()
+			end,
+		},
 	},
 }
 
----@param config Beast.KeyUI.Config
----@return Beast.KeyUI.Float
-local function create_layout(config)
-	local width = math.floor(vim.o.columns * config.width)
-	local height = math.floor(vim.o.lines * config.height)
+---@type Beast.Key.UI.Config
+local cfg = vim.deepcopy(defaults)
+
+-- =============================================================================
+-- UTILS
+-- =============================================================================
+
+---@param filetype string
+---@return integer
+local function create_scratch_buf(filetype)
+	local buf = vim.api.nvim_create_buf(false, true)
+	vim.bo[buf].buftype = "nofile"
+	vim.bo[buf].bufhidden = "wipe"
+	vim.bo[buf].swapfile = false
+	vim.bo[buf].filetype = filetype
+	return buf
+end
+
+---@return integer width
+---@return integer height
+---@return integer row
+---@return integer col
+local function calc_main_geometry()
+	local width = math.floor(vim.o.columns * cfg.width)
+	local height = math.floor(vim.o.lines * cfg.height)
 	local row = math.floor((vim.o.lines - height) / 2)
 	local col = math.floor((vim.o.columns - width) / 2)
+	return width, height, row, col
+end
 
-	local group = vim.api.nvim_create_augroup("BeastKeyUI_" .. tostring(vim.loop.hrtime()), { clear = true })
+---@param keys string|string[]
+---@return string
+local function keys_to_string(keys)
+	if type(keys) == "table" then
+		return table.concat(keys, ", ")
+	end
+	return keys
+end
 
-	-- ==========================================================================
-	-- Backdrop
-	-- ==========================================================================
-	local backdrop_buf = vim.api.nvim_create_buf(false, true)
-	vim.bo[backdrop_buf].buftype = "nofile"
-	vim.bo[backdrop_buf].bufhidden = "wipe"
-	vim.bo[backdrop_buf].filetype = "beast_backdrop"
+---@param actions Beast.Key.UI.Action[]
+---@return integer
+local function get_max_keys_width(actions)
+	local max_width = 0
+	for _, a in ipairs(actions) do
+		local s = keys_to_string(a.keys)
+		max_width = math.max(max_width, #s)
+	end
+	return max_width
+end
 
+---@param actions Beast.Key.UI.Action[]
+---@return integer
+local function calc_action_width(actions)
+	local max_len = 0
+	for _, a in ipairs(actions) do
+		local keys = keys_to_string(a.keys)
+		local text = string.format("%s %s", keys, a.label)
+		max_len = math.max(max_len, vim.fn.strdisplaywidth(text))
+	end
+	return math.max(max_len, 1) + 2
+end
+
+---@param main_win integer
+---@return integer width
+---@return integer height
+---@return integer row
+---@return integer col
+local function calc_action_geometry(main_win)
+	local main_cfg = vim.api.nvim_win_get_config(main_win)
+	local width = calc_action_width(cfg.actions)
+	local height = math.max(#cfg.actions, 1)
+
+	-- Top-right inside the main window with a little padding.
+	local row = 0
+	local col = math.max((main_cfg.width or width) - width - 2, 0)
+
+	return width, height, row, col
+end
+
+---@param view Beast.Key.UI.View|nil
+---@return boolean
+local function is_view_valid(view)
+	return view ~= nil
+		and view.win ~= nil
+		and vim.api.nvim_win_is_valid(view.win)
+		and view.buf ~= nil
+		and vim.api.nvim_buf_is_valid(view.buf)
+end
+
+---@param s Beast.Key.UI.State
+---@return boolean
+local function is_state_valid(s)
+	return not s.closed and is_view_valid(s.main) and s.main.backdrop ~= nil and is_view_valid(s.main.backdrop)
+end
+
+---@param view Beast.Key.UI.View|nil
+local function close_view(view)
+  --stylua: ignore
+  if not view then return end
+	if view.win and vim.api.nvim_win_is_valid(view.win) then
+		pcall(vim.api.nvim_win_close, view.win, true)
+	end
+end
+
+-- =============================================================================
+-- MAIN VIEW
+-- =============================================================================
+local Main = { namespace = vim.api.nvim_create_namespace("beast_key_main") }
+
+---@return Beast.Key.UI.MainView
+function Main.create()
+	local backdrop_buf = create_scratch_buf("beast-backdrop")
+	local main_buf = create_scratch_buf("beast-key")
 	local backdrop_win = vim.api.nvim_open_win(backdrop_buf, false, {
 		relative = "editor",
 		row = 0,
@@ -93,675 +163,289 @@ local function create_layout(config)
 		height = vim.o.lines,
 		style = "minimal",
 		focusable = false,
-		zindex = 1,
+		zindex = 100,
 	})
-	Util.wo(backdrop_win, "winblend", config.backdrop)
 
-	-- ==========================================================================
-	-- Main floating window
-	-- ==========================================================================
-	local buf = vim.api.nvim_create_buf(false, true)
-	vim.bo[buf].buftype = "nofile"
-	vim.bo[buf].bufhidden = "wipe"
-	vim.bo[buf].swapfile = false
-	vim.bo[buf].filetype = "beast_key"
+	Util.wo(backdrop_win, "winblend", cfg.backdrop)
 
-	local win = vim.api.nvim_open_win(buf, true, {
+	local width, height, row, col = calc_main_geometry()
+
+	local main_win = vim.api.nvim_open_win(main_buf, true, {
 		relative = "editor",
 		row = row,
 		col = col,
 		width = width,
 		height = height,
 		style = "minimal",
-		border = config.border or "rounded",
-		zindex = 2,
-	})
-	Util.wo(win, "wrap", false)
-	Util.wo(win, "number", false)
-	Util.wo(win, "relativenumber", false)
-	Util.wo(win, "signcolumn", "no")
-
-	-- ==========================================================================
-	-- Close logic (shared)
-	-- ==========================================================================
-	local closed = false
-	local float
-
-	local function close_all()
-		if closed then
-			return
-		end
-		closed = true
-
-		if float and float.overlay then
-			float.overlay.close()
-			float.overlay = nil
-		end
-
-		pcall(vim.api.nvim_del_augroup_by_id, group)
-
-		if vim.api.nvim_win_is_valid(win) then
-			vim.api.nvim_win_close(win, true)
-		end
-		if vim.api.nvim_win_is_valid(backdrop_win) then
-			vim.api.nvim_win_close(backdrop_win, true)
-		end
-
-    -- stylua: ignore
-		if current == float then current = nil end
-	end
-
-	-- Keymaps
-	for _, key in ipairs(config.keymaps.close) do
-		vim.keymap.set("n", key, close_all, {
-			buffer = buf,
-			silent = true,
-			nowait = true,
-		})
-	end
-
-	-- Auto-close if user switches windows
-	vim.api.nvim_create_autocmd("WinEnter", {
-		group = group,
-		once = true,
-		callback = function()
-			local cur = vim.api.nvim_get_current_win()
-			if cur ~= win then
-				close_all()
-			end
-		end,
+		border = "rounded",
+		zindex = 101,
 	})
 
-	-- Reposition backdrop + main float on resize
-	vim.api.nvim_create_autocmd("VimResized", {
-		group = group,
-		callback = function()
-			if not vim.api.nvim_win_is_valid(win) then
-				return
-			end
-			if vim.api.nvim_win_is_valid(backdrop_win) then
-				vim.api.nvim_win_set_config(backdrop_win, {
-					relative = "editor",
-					row = 0,
-					col = 0,
-					width = vim.o.columns,
-					height = vim.o.lines,
-				})
-			end
-			local new_width = math.floor(vim.o.columns * config.width)
-			local new_height = math.floor(vim.o.lines * config.height)
-			vim.api.nvim_win_set_config(win, {
-				relative = "editor",
-				row = math.floor((vim.o.lines - new_height) / 2),
-				col = math.floor((vim.o.columns - new_width) / 2),
-				width = new_width,
-				height = new_height,
-			})
-		end,
-	})
+	Util.wo(main_win, "wrap", false)
+	Util.wo(main_win, "number", false)
+	Util.wo(main_win, "relativenumber", false)
+	Util.wo(main_win, "signcolumn", "no")
 
-	float = {
-		buf = buf,
-		win = win,
-		group = group,
-		close = close_all,
+	return {
+		buf = main_buf,
+		win = main_win,
+		backdrop = {
+			buf = backdrop_buf,
+			win = backdrop_win,
+		},
 	}
-	return float
 end
 
----@param buf integer
----@param start_line0 integer
----@param actions Beast.KeyUI.Action[]
-local function set_topright_actions_column(buf, start_line0, actions)
-	local ns = NS.actions
-	vim.api.nvim_buf_clear_namespace(buf, ns, 0, -1)
+---@param main Beast.Key.UI.MainView
+function Main.layout(main)
+  -- stylua: ignore
+	if not is_view_valid(main) then return end
 
-	for i, a in ipairs(actions) do
-		local line0 = start_line0 + (i - 1)
-		local line_count = vim.api.nvim_buf_line_count(buf)
-
-		-- Ensure anchor line exists
-		if line0 >= line_count then
-			vim.bo[buf].modifiable = true
-			for _ = line_count, line0 do
-				vim.api.nvim_buf_set_lines(buf, -1, -1, false, { "" })
-			end
-			vim.bo[buf].modifiable = false
-		end
-
-		vim.api.nvim_buf_set_extmark(buf, ns, line0, 0, {
-			virt_text = {
-				{ " " .. a.key .. " ", a.key_hl or "ErrorMsg" }, -- standout key
-				{ " " .. a.label, a.label_hl or "Comment" }, -- softer label
-			},
-			virt_text_pos = "right_align",
+	if main.backdrop and is_view_valid(main.backdrop) then
+		vim.api.nvim_win_set_config(main.backdrop.win, {
+			relative = "editor",
+			row = 0,
+			col = 0,
+			width = vim.o.columns,
+			height = vim.o.lines,
 		})
 	end
+
+	local width, height, row, col = calc_main_geometry()
+	vim.api.nvim_win_set_config(main.win, {
+		relative = "editor",
+		row = row,
+		col = col,
+		width = width,
+		height = height,
+	})
 end
 
----@param float Beast.KeyUI.Float
----@param actions Beast.KeyUI.Action[]
----@param opts? { row?: integer, width?: integer, border?: string, zindex?: integer, margin_right?: integer }
----@return Beast.KeyUI.Overlay
-local function create_actions_layout(float, actions, opts)
-	opts = opts or {}
-	local ns = NS.actions
+---@param main Beast.Key.UI.MainView
+function Main.render(main)
+  --stylua: ignore
+  if not is_view_valid(main) then return end
 
-	-- actions buffer (separate from content buffer -> won't scroll)
-	local buf = vim.api.nvim_create_buf(false, true)
-	vim.bo[buf].buftype = "nofile"
-	vim.bo[buf].bufhidden = "wipe"
-	vim.bo[buf].swapfile = false
+	local lines = {
+		"Beast Key UI",
+		"",
+		"Please implement me!",
+	}
 
-	-- Decide overlay size (simple + robust)
-	local height = #actions
-	local max_len = 0
-	for _, a in ipairs(actions) do
-		max_len = math.max(max_len, #a.label)
-	end
-	local width = opts.width or (max_len + 4) -- Width of the longest label + padding
+	vim.bo[main.buf].modifiable = true
+	vim.api.nvim_buf_set_lines(main.buf, 0, -1, false, lines)
+	vim.bo[main.buf].modifiable = false
+end
+
+---@param main Beast.Key.UI.MainView|nil
+function Main.close(main)
+  --stylua: ignore
+  if not main then return end
+	close_view(main)
+	close_view(main.backdrop)
+end
+
+-- =============================================================================
+-- ACTION VIEW
+-- =============================================================================
+local Action = { namespace = vim.api.nvim_create_namespace("beast_key_actions") }
+
+---@param main Beast.Key.UI.MainView
+---@return Beast.Key.UI.MainView
+function Action.create(main)
+	local buf = create_scratch_buf("beast-key-actions")
+	local width, height, row, col = calc_action_geometry(main.win)
 
 	local win = vim.api.nvim_open_win(buf, false, {
 		relative = "win",
-		win = float.win,
-		row = opts.row or 0,
-		col = 0, -- set after we know main width
+		win = main.win,
+		row = row,
+		col = col,
 		width = width,
 		height = height,
 		style = "minimal",
-		border = opts.border or "none",
+		border = "none",
 		focusable = false,
-		zindex = (opts.zindex or 50) + 1,
+		zindex = 102,
 		noautocmd = true,
 	})
+
 	Util.wo(win, "winblend", 0)
-
-	-- Position it at top-right INSIDE the main float
-	local function reposition()
-		if not (vim.api.nvim_win_is_valid(float.win) and vim.api.nvim_win_is_valid(win)) then
-			return
-		end
-		local main_cfg = vim.api.nvim_win_get_config(float.win)
-		local main_w = main_cfg.width
-		local margin_right = opts.margin_right or 0
-		local col = math.max(0, main_w - width - margin_right)
-		vim.api.nvim_win_set_config(win, {
-			relative = "win",
-			win = float.win,
-			row = opts.row or 0,
-			col = col,
-			width = width,
-			height = height,
-		})
-	end
-
-	reposition()
-
-	-- Render actions into overlay buffer using your existing function
-	set_topright_actions_column(buf, 0, actions)
-
-	local closed = false
-	local function close()
-		if closed then
-			return
-		end
-		closed = true
-		if vim.api.nvim_win_is_valid(win) then
-			vim.api.nvim_win_close(win, true)
-		end
-		if vim.api.nvim_buf_is_valid(buf) then
-			vim.api.nvim_buf_delete(buf, { force = true })
-		end
-	end
-
-	-- Overlay manages its own lifecycle
-	vim.api.nvim_create_autocmd("VimResized", {
-		group = float.group,
-		callback = function()
-			reposition()
-		end,
-	})
-
-	vim.api.nvim_create_autocmd("WinClosed", {
-		group = float.group,
-		pattern = tostring(float.win),
-		callback = function()
-			close()
-		end,
-	})
-
 	return {
 		buf = buf,
 		win = win,
-		ns = ns,
-		reposition = reposition,
-		close = close,
 	}
 end
 
----@param rhs string|function|boolean|nil
----@return string
-local function rhs_to_string(rhs)
-  --stylua: ignore start
-  if type(rhs) == "string" then return rhs end
-  if type(rhs) == "function" then return "<fn>" end
-  if rhs == false then return "<del>" end
-  if rhs == nil then return "" end
-  return tostring(rhs)
+---@param action Beast.Key.UI.View
+---@param main Beast.Key.UI.MainView
+function Action.layout(action, main)
+	if not is_view_valid(action) or not is_view_valid(main) then
+		return
+	end
+
+	local width, height, row, col = calc_action_geometry(main.win)
+
+	vim.api.nvim_win_set_config(action.win, {
+		relative = "win",
+		win = main.win,
+		row = row,
+		col = col,
+		width = width,
+		height = height,
+	})
 end
 
----@return table<integer, string>
-local function get_script_map()
+---@param action Beast.Key.UI.View
+function Action.render(action)
   --stylua: ignore
-  if script_map then return script_map end
-	script_map = {}
-	local ok, out = pcall(vim.api.nvim_exec2, "scriptnames", { output = true })
-	if ok and out and out.output then
-		for line in out.output:gmatch("[^\n]+") do
-			-- lines look like: " 42: /path/to/file.lua"
-			local sid, path = line:match("^%s*(%d+):%s+(.+)$")
-      --stylua: ignore
-      if sid and path then script_map[tonumber(sid)] = path end
-		end
-	end
-	return script_map
-end
+  if not is_view_valid(action) then return end
 
----@param mode string
----@param lhs string
----@param cb? function
----@return string?
-local function get_map_source(mode, lhs, cb)
-	local file, lnum
-	local ok, arg = pcall(vim.fn.maparg, lhs, mode, false, true)
-	if ok and type(arg) == "table" and next(arg) ~= nil then
-		if type(arg.sid) == "number" and arg.sid > 0 then
-			local m = get_script_map()
-			file = m[arg.sid]
-		end
-    --stylua: ignore
-    if type(arg.lnum) == "number" then lnum = arg.lnum end
-	end
-	if (not file) and type(cb) == "function" then
-		local info = debug.getinfo(cb, "S")
-		if info and type(info.source) == "string" then
-			if info.source:sub(1, 1) == "@" then
-				file = info.source:sub(2)
-				lnum = info.linedefined or lnum
-			else
-				file = info.short_src or info.source
+	vim.api.nvim_buf_clear_namespace(action.buf, Action.namespace, 0, -1)
+
+	local max_keys_width = get_max_keys_width(cfg.actions)
+
+	for i, a in ipairs(cfg.actions) do
+		local line0 = i - 1
+		local line_count = vim.api.nvim_buf_line_count(action.buf)
+
+		-- Ensure anchor line exists
+		if line0 >= line_count then
+			vim.bo[action.buf].modifiable = true
+			for _ = line_count, line0 do
+				vim.api.nvim_buf_set_lines(action.buf, -1, -1, false, { "" })
 			end
+			vim.bo[action.buf].modifiable = false
 		end
-	end
-	if file then
-		local disp = vim.fn.fnamemodify(file, ":~")
-    --stylua: ignore
-    if lnum then disp = string.format("%s:%d", disp, lnum) end
-		return disp
-	end
-	return nil
-end
 
----@param lhs string
----@return string
-local function normalize_lhs(lhs)
-	lhs = lhs or ""
-	-- Prefer raw leader tokens if present
-	lhs = lhs:gsub("<Leader>", "<leader>")
-	-- If leader is space and we see <Space>, show <leader>
-	if (vim.g.mapleader == " " or vim.g.mapleader == "<Space>") and lhs:find("^<Space>") then
-		lhs = lhs:gsub("^<Space>", "<leader>")
-	end
-	-- If lhs begins with the concrete leader character(s), re-canonicalize
-	local ml = vim.g.mapleader
-	if type(ml) == "string" and #ml > 0 and not lhs:match("^<") and lhs:sub(1, #ml) == ml then
-		lhs = "<leader>" .. lhs:sub(#ml + 1)
-	end
-	return lhs
-end
+		local keys = keys_to_string(a.keys)
 
----@return Beast.KeyUI.Entry[]
-local function collect_nvim_maps()
-	local modes = mode_order
-	local list = {}
-	for _, m in ipairs(modes) do
-		local global = vim.api.nvim_get_keymap(m)
-		for _, it in ipairs(global) do
-			local lhs = normalize_lhs(it.lhs)
-			local src = get_map_source(m, lhs, it.callback)
-			table.insert(list, {
-				source = "NVIM",
-				mode = m,
-				lhs = lhs,
-				rhs = it.rhs or rhs_to_string(it.callback),
-				desc = it.desc,
-				src = src,
-				buffer = nil,
-			})
-		end
-		local buf = target_buf or 0
-		local buf_local = vim.api.nvim_buf_get_keymap(buf, m)
-		for _, it in ipairs(buf_local) do
-			local lhs = normalize_lhs(it.lhs)
-			local src = get_map_source(m, lhs, it.callback)
-			table.insert(list, {
-				source = "BUF",
-				mode = m,
-				lhs = lhs,
-				rhs = it.rhs or rhs_to_string(it.callback),
-				desc = it.desc,
-				src = src,
-				buffer = buf,
-			})
-		end
-	end
-	return list
-end
+		local padded_keys = string.format("%-" .. max_keys_width .. "s", keys)
 
----@return Beast.KeyUI.Entry[]
-local function collect_beast_managed()
-	local list = {}
-	for _, km in pairs(Key.managed) do
-		table.insert(list, {
-			source = "Beast",
-			mode = km.mode,
-			lhs = km.lhs,
-			rhs = rhs_to_string(km.rhs),
-			desc = km.desc,
-			group = km.group,
-			buffer = nil,
+		vim.api.nvim_buf_set_extmark(action.buf, Action.namespace, line0, 0, {
+			virt_text = {
+				{ " " .. padded_keys .. " ", a.key_hl or "ErrorMsg" },
+				{ " " .. a.label, a.label_hl or "Comment" },
+			},
+			virt_text_pos = "overlay",
 		})
 	end
-	return list
 end
 
----@generic T : table
----@param list T[]
----@param field string
----@return T[]
-local function normalize_length(list, field)
-  -- stylua: ignore start
-  local max_len = 0
-  for _, a in ipairs(list) do max_len = math.max(max_len, #a[field]) end
-  for _, a in ipairs(list) do a[field] = a[field] .. string.rep(" ", max_len - #a[field]) end
-  return list
+function Action.close(action)
+	close_view(action)
 end
 
----@return Beast.KeyUI.Entry[]
-local function filtered_entries()
-	local entries = {}
-	if beast_only then
-		entries = collect_beast_managed()
-	else
-		entries = collect_nvim_maps()
-		-- annotate managed ones for visibility
-		local managed = {}
-		for _, km in pairs(require("beastvim.libs.key").managed) do
-			managed[(km.mode or "n") .. "\t" .. km.lhs] = true
-		end
-		for _, e in ipairs(entries) do
-			if managed[e.mode .. "\t" .. e.lhs] and e.source ~= "BUF" then
-				e.source = "Beast"
-			end
-		end
-	end
-
-	-- filter by mode
-	if filter_mode ~= "all" then
-		local out = {}
-		for _, e in ipairs(entries) do
-			if e.mode == filter_mode then
-				table.insert(out, e)
-			end
-		end
-		entries = out
-	end
-
-	table.sort(entries, function(a, b)
-		if a.mode == b.mode then
-			if a.lhs == b.lhs then
-				return (a.source or "") < (b.source or "")
-			end
-			return a.lhs < b.lhs
-		end
-		local ai, bi = 9, 9
-		for i, m in ipairs(mode_order) do
-			if m == a.mode then
-				ai = i
-			end
-			if m == b.mode then
-				bi = i
-			end
-		end
-		return ai < bi
-	end)
-	return entries
-end
-
----@return Beast.KeyUI.Action[]
-local function get_actions()
-	local actions = {
-    -- stylua: ignore start
-    { key = "M",   label = "Cycle mode",  key_hl = "DiagnosticWarn",  label_hl = "Comment" },
-    { key = "B",   label = "Toggle beast", key_hl = "DiagnosticInfo", label_hl = "Comment" },
-    { key = "q",   label = "Close",       key_hl = "DiagnosticError", label_hl = "Comment" },
+-- =============================================================================
+-- Controller
+-- =============================================================================
+local function create_state()
+	local main = Main.create()
+	local action = Action.create(main)
+	return {
+		main = main,
+		action = action,
+		augroup = -1,
+		closed = false,
 	}
-	return normalize_length(actions, "label")
 end
 
----@param buf integer
----@param lines_segments Beast.KeyUI.Line[]
-local function render_lines(buf, lines_segments)
-	local lines = {}
-	local ns = NS.content
-	for _, segs in ipairs(lines_segments) do
-		local s = ""
-    --stylua: ignore
-    for _, seg in ipairs(segs) do s = s .. seg.text end
-		table.insert(lines, s)
-	end
-	vim.bo[buf].modifiable = true
-	vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
-	vim.bo[buf].modifiable = false
-	vim.api.nvim_buf_clear_namespace(buf, ns, 0, -1)
-	for i, segs in ipairs(lines_segments) do
-		local col = 0
-		for _, seg in ipairs(segs) do
-			if seg.hl then
-				vim.api.nvim_buf_set_extmark(buf, ns, i - 1, col, { end_col = col + #seg.text, hl_group = seg.hl })
-			end
-			col = col + #seg.text
+---@param s Beast.Key.UI.State
+local function render_state(s)
+	Main.render(s.main)
+	Action.render(s.action)
+end
+
+---@param s Beast.Key.UI.State
+local function layout_state(s)
+	Main.layout(s.main)
+	Action.layout(s.action, s.main)
+end
+
+---@param s Beast.Key.UI.State
+local function mount_keymaps(s)
+	for _, a in ipairs(cfg.actions) do
+		---@type string[]
+		---@diagnostic disable-next-line: assign-type-mismatch
+		local keys = type(a.keys) == "string" and { a.keys } or a.keys
+		for _, key in ipairs(keys) do
+			vim.keymap.set("n", key, a.action, {
+				buffer = s.main.buf,
+				silent = true,
+				nowait = true,
+			})
 		end
 	end
 end
 
----@param entries Beast.KeyUI.Entry[]
----@return Beast.KeyUI.Line[]
-local function build_content_lines(entries)
-	local lines = {}
-	local title = "  🦁 Keymaps"
-	table.insert(lines, { { text = title, hl = "BeastH2" } })
-	local mlabel = filter_mode == "all" and "All" or filter_mode
-	local blabel = beast_only and "Beast" or "All"
-	local stats = string.format("  Mode: %s   Source: %s", mlabel, blabel)
+---@param s Beast.Key.UI.State
+local function mount_autocmds(s)
+	s.augroup = vim.api.nvim_create_augroup("BeastKeyUI_" .. tostring(vim.loop.hrtime()), { clear = true })
 
-	table.insert(lines, { { text = stats, hl = "BeastComment" } })
-	table.insert(lines, { { text = "", hl = nil } })
-
-	if #entries == 0 then
-		table.insert(lines, { { text = "  (no keymaps)", hl = "BeastComment" } })
-		return lines
-	end
-
-	-- Group entries by their group name
-	local by_group = {}
-	local group_order = {}
-	for _, e in ipairs(entries) do
-		local gname = (e.group and #e.group > 0) and e.group or "Ungrouped"
-		if not by_group[gname] then
-			by_group[gname] = {}
-			table.insert(group_order, gname)
-		end
-		table.insert(by_group[gname], e)
-	end
-
-    -- stylua: ignore
-    table.sort(group_order, function(a, b)
-      if a == "Ungrouped" then return false end
-      if b == "Ungrouped" then return true end
-      return a:lower() < b:lower()
-    end)
-	for _, gname in ipairs(group_order) do
-		local show_header = gname ~= "Ungrouped"
-      -- stylua: ignore
-      if show_header then table.insert(lines, { { text = "  " .. gname, hl = "BeastGroup" } }) end
-
-		-- Within group, collapse duplicates by lhs and aggregate modes
-		local groups = {}
-		local order = {}
-		for _, e in ipairs(by_group[gname]) do
-			local id = (e.lhs or "")
-			if not groups[id] then
-				groups[id] = { lhs = e.lhs, items = {}, modes = {} }
-				table.insert(order, id)
-			end
-			table.insert(groups[id].items, e)
-			if e.mode then
-				groups[id].modes[e.mode] = true
-			end
-		end
-
-		-- Pre-compute mode labels and primary items
-		local prefix = show_header and "    " or "  "
-		local computed = {}
-		for _, id in ipairs(order) do
-			local g = groups[id]
-			local mode_label = ""
-			for _, m in ipairs(mode_order) do
-				if g.modes[m] then
-					mode_label = mode_label .. m
-				end
-			end
-			if mode_label == "" then
-				mode_label = "?"
-			end
-			local primary = g.items[1]
-			for _, it in ipairs(g.items) do
-				if it.desc and #it.desc > 0 then
-					primary = it
-					break
-				end
-			end
-			table.insert(computed, { id = id, g = g, mode_label = mode_label, lhs = g.lhs or "", primary = primary })
-		end
-
-		-- Pad mode and lhs columns for alignment
-		normalize_length(computed, "mode_label")
-		normalize_length(computed, "lhs")
-
-		-- Build rows
-		for _, c in ipairs(computed) do
-			local row = {}
-			table.insert(row, { text = prefix .. string.format("[%s] ", c.mode_label), hl = "BeastKeys" })
-			table.insert(row, { text = c.lhs, hl = nil })
-			if c.primary.desc and #c.primary.desc > 0 then
-				table.insert(row, { text = "  - ", hl = "BeastComment" })
-				table.insert(row, { text = c.primary.desc, hl = "BeastComment" })
-			end
-			if #c.g.items > 1 then
-				table.insert(row, { text = string.format("  ×%d", #c.g.items), hl = "BeastComment" })
-			end
-			if expanded[c.id] and #c.g.items == 1 and c.primary.src and #c.primary.src > 0 then
-				table.insert(row, { text = "  (", hl = "BeastComment" })
-				table.insert(row, { text = c.primary.src, hl = "BeastComment" })
-				table.insert(row, { text = ")", hl = "BeastComment" })
-			end
-			table.insert(lines, row)
-
-			if expanded[c.id] and #c.g.items > 1 then
-				for _, it in ipairs(c.g.items) do
-					local child = {}
-					table.insert(child, { text = prefix .. "  • ", hl = "BeastComment" })
-					local label = (it.desc and #it.desc > 0) and it.desc or "(no description)"
-					table.insert(child, { text = label, hl = "BeastComment" })
-					if it.src and #it.src > 0 then
-						table.insert(child, { text = "  (", hl = "BeastComment" })
-						table.insert(child, { text = it.src, hl = "BeastComment" })
-						table.insert(child, { text = ")", hl = "BeastComment" })
-					end
-					table.insert(lines, child)
-				end
-			end
-		end
-	end
-	return lines
-end
-
----@param float Beast.KeyUI.Float
-local function render_layout(float)
-	float.overlay = create_actions_layout(float, get_actions(), {
-		width = 26,
-		margin_right = 0,
-		zindex = 60,
+	vim.api.nvim_create_autocmd("BufLeave", {
+		group = s.augroup,
+		buffer = s.main.buf,
+		once = true,
+		callback = function()
+			M.close()
+		end,
 	})
 
-	local function refresh()
-		local lines = build_content_lines(filtered_entries())
-		render_lines(float.buf, lines)
-	end
-
-	-- Cycle mode filter: all -> n -> v -> i -> x -> s -> o -> c -> t -> all
-	vim.keymap.set("n", "M", function()
-		if filter_mode == "all" then
-			filter_mode = mode_order[1]
-		else
-			local idx
-			for i, m in ipairs(mode_order) do
-				if m == filter_mode then
-					idx = i
-					break
-				end
+	vim.api.nvim_create_autocmd("WinEnter", {
+		group = s.augroup,
+		callback = function()
+			if state == nil or not is_state_valid(state) then
+				return
 			end
-			if idx and idx < #mode_order then
-				filter_mode = mode_order[idx + 1]
-			else
-				filter_mode = "all"
+			local current = vim.api.nvim_get_current_win()
+			if state ~= nil and current ~= state.main.win then
+				M.close()
 			end
-		end
-		refresh()
-	end, { buffer = float.buf, silent = true, nowait = true })
+		end,
+	})
 
-	-- Toggle beast-only / all keymaps
-	vim.keymap.set("n", "B", function()
-		beast_only = not beast_only
-		refresh()
-	end, { buffer = float.buf, silent = true, nowait = true })
-
-	refresh()
+	vim.api.nvim_create_autocmd("VimResized", {
+		group = s.augroup,
+		callback = function()
+			if state == nil or not is_state_valid(state) then
+				return
+			end
+			layout_state(state)
+		end,
+	})
 end
 
 function M.open()
-	if current and vim.api.nvim_win_is_valid(current.win) then
-		vim.api.nvim_set_current_win(current.win)
-		return current
+	if state ~= nil and is_state_valid(state) then
+		vim.api.nvim_set_current_win(state.main.win)
+		return state
+	end
+	state = create_state()
+	mount_keymaps(state)
+	mount_autocmds(state)
+	render_state(state)
+
+	return state
+end
+
+function M.close()
+  --stylua: ignore
+  if not state or state.closed then return end
+
+	state.closed = true
+	if state.augroup and state.augroup ~= -1 then
+		pcall(vim.api.nvim_del_augroup_by_id, state.augroup)
 	end
 
-	target_buf = vim.api.nvim_get_current_buf()
+	Action.close(state.action)
+	Main.close(state.main)
 
-	local float = create_layout(cfg)
-	current = float
-	render_layout(float)
-	return float
+	state = nil
 end
 
----@param opts? Beast.KeyUI.Config
+---@param opts? Beast.Key.UI.Config
 function M.setup(opts)
-	cfg = vim.tbl_deep_extend("force", cfg, opts or {})
-end
-
----@return Beast.KeyUI.Config
-function M.get()
-	return cfg
+	cfg = vim.tbl_deep_extend("force", vim.deepcopy(defaults), opts or {})
 end
 
 return M
