@@ -1,4 +1,4 @@
-local map = require("beastvim.libs.key.core")
+local map = require("beast.libs.key.core")
 
 -------------------- General Mappings --------------------------
 map("n", "<leader>w", "<cmd>w!<CR>", { desc = "Save file", group = "General" })

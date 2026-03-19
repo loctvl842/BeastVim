@@ -1,5 +1,5 @@
-local ui = require("beastvim.libs.key.ui")
-local api = require("beastvim.libs.key.api")
+local ui = require("beast.libs.key.ui")
+local api = require("beast.libs.key.api")
 
 ---@class Beast.Key.UI.Segment
 ---@field text string
@@ -9,9 +9,9 @@ local api = require("beastvim.libs.key.api")
 
 local M = {}
 
-M.managed = require("beastvim.libs.key.core").managed
+M.managed = require("beast.libs.key.core").managed
 
----@param view Beast.Key.UI.View
+---@param view Beast.Key.UI.MainView
 ---@param lines_segments Beast.Key.UI.Line[]
 local function render(view, lines_segments)
   -- stylua: ignore
@@ -84,7 +84,7 @@ local cfg = {
 ---@param opts? Beast.Key.Config
 function M.setup(opts)
 	cfg = vim.tbl_deep_extend("force", cfg, opts or {})
-	require("beastvim.libs.key.builtin")
+	require("beast.libs.key.builtin")
 	cfg.ui.hooks = {
 		main = {
 			render = function(main)
@@ -92,7 +92,7 @@ function M.setup(opts)
 			end,
 		},
 	}
-	require("beastvim.libs.key.ui").setup(cfg.ui)
+	require("beast.libs.key.ui").setup(cfg.ui)
 end
 
 return M

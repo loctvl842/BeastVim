@@ -1,4 +1,5 @@
 ---@class Beast.Util
+---@class Beast.Util.View
 local M = {}
 
 function M.wo(win, k, v)

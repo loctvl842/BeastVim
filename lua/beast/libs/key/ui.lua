@@ -1,56 +1,22 @@
----@class Beast.Key.UI.View
----@field buf integer
----@field win integer
+local View = require("beast.libs.view")
+
+---@class Beast.Key.UI.MainView : Beast.View
 ---@field ns integer
-local View = {}
-View.__index = View
-
----@param buf integer
----@param win integer
----@param ns? integer
----@return Beast.Key.UI.View
-function View:new(buf, win, ns)
-	return setmetatable({
-		buf = buf,
-		win = win,
-		ns = ns,
-	}, self)
-end
-
----@return boolean
-function View:is_valid()
-	return self.buf and self.win and vim.api.nvim_buf_is_valid(self.buf) and vim.api.nvim_win_is_valid(self.win)
-end
-
-function View:close()
-	if self.win and vim.api.nvim_win_is_valid(self.win) then
-		vim.api.nvim_win_close(self.win, true)
-	end
-	self.buf = nil
-	self.win = nil
-end
-
----@class Beast.Key.UI.MainView : Beast.Key.UI.View
----@field backdrop Beast.Key.UI.View
-local MainView = setmetatable({}, { __index = View })
-MainView.__index = MainView
-
----@param buf integer
----@param win integer
----@param ns integer
----@param backdrop Beast.Key.UI.View
----@return Beast.Key.UI.MainView
-function MainView:new(buf, win, ns, backdrop)
-	local obj = View.new(self, buf, win, ns) -- call parent constructor
-	---@cast obj Beast.Key.UI.MainView
-
+---@field backdrop Beast.View
+local MainView = View:extend(function(obj, ns, backdrop)
+	obj.ns = ns
 	obj.backdrop = backdrop
-	return obj
-end
+end)
+
+---@class Beast.Key.UI.ActionView : Beast.View
+---@field ns integer
+local ActionView = View:extend(function(obj, ns)
+	obj.ns = ns
+end)
 
 ---@class Beast.Key.UI.State
 ---@field main Beast.Key.UI.MainView
----@field action Beast.Key.UI.View
+---@field action Beast.Key.UI.ActionView
 ---@field augroup integer
 ---@field closed boolean
 local State = {}
@@ -230,11 +196,11 @@ function Main.create()
 	Util.wo(main_win, "number", false)
 	Util.wo(main_win, "relativenumber", false)
 	Util.wo(main_win, "signcolumn", "no")
-	return MainView:new(
+	return MainView(
 		main_buf,
 		main_win,
 		vim.api.nvim_create_namespace("beast_key_main"),
-		View:new(backdrop_buf, backdrop_win)
+		View(backdrop_buf, backdrop_win)
 	)
 end
 
@@ -293,7 +259,7 @@ end
 local Action = {}
 
 ---@param main Beast.Key.UI.MainView
----@return Beast.Key.UI.View
+---@return Beast.Key.UI.ActionView
 function Action.create(main)
 	local buf = create_scratch_buf("beast-key-actions")
 	local width, height, row, col = calc_action_geometry(main.win)
@@ -313,10 +279,10 @@ function Action.create(main)
 	})
 
 	Util.wo(win, "winblend", 0)
-	return View:new(buf, win, vim.api.nvim_create_namespace("beast_key_actions"))
+	return ActionView(buf, win, vim.api.nvim_create_namespace("beast_key_actions"))
 end
 
----@param action Beast.Key.UI.View
+---@param action Beast.Key.UI.ActionView
 ---@param main Beast.Key.UI.MainView
 function Action.layout(action, main)
 	if not action:is_valid() or not main:is_valid() then
@@ -335,7 +301,7 @@ function Action.layout(action, main)
 	})
 end
 
----@param action Beast.Key.UI.View
+---@param action Beast.Key.UI.ActionView
 function Action.render(action)
   --stylua: ignore
   if not action:is_valid() then return end
@@ -371,7 +337,7 @@ function Action.render(action)
 	end
 end
 
----@param action Beast.Key.UI.View
+---@param action Beast.Key.UI.ActionView
 function Action.close(action)
 	action:close()
 end
