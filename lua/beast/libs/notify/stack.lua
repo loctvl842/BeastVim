@@ -64,8 +64,10 @@ end
 local function show(state, record)
 	local slot_row = next_slot_row(state)
 	local view = ui.create(record, slot_row)
+	vim.wo[view.win].winblend = 100
 	table.insert(state.views, view)
 	ui.render(view)
+  ui.fade_in(view)
 
 	if record.timeout ~= false then
 		local index = #state.views

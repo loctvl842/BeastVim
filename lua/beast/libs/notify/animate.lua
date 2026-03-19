@@ -68,7 +68,7 @@ function M.run(win, from, to, duration, on_done, opts)
 	local blend_delay = opts.blend_delay or 0
 	local ease_pos = opts.ease_pos or ease_out
 	local ease_size = opts.ease_size or ease_in
-	local ease_blend = opts.ease_blend or ease_in
+	local ease_blend = opts.ease_blend or ease_out
 
 	local total_frames = math.max(1, math.floor(duration / FRAME_MS))
 	local frame = 0

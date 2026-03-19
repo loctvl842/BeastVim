@@ -165,4 +165,16 @@ function M.slide_out(view, on_done)
 	)
 end
 
+---@param view Beast.Notify.View
+function M.fade_in(view)
+	if not view:is_valid() then
+		return
+	end
+
+	local start_blend = vim.wo[view.win].winblend or 100
+	local from, to = { blend = start_blend }, { blend = 0 }
+
+	animate.run(view.win, from, to, config.anim_ms or 180, nil, { blend_delay = 0.2 })
+end
+
 return M
