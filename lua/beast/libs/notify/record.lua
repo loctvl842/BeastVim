@@ -20,7 +20,6 @@ M.__index = M
 ---@field title? string
 ---@field icon? string
 ---@field timeout? number|false
----@field hide_from_history? boolean
 
 ---@param id integer
 ---@param message string|string[]

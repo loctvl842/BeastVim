@@ -3,6 +3,7 @@ local defaults = {
 	width = 50,
 	timeout = 3000,
 	stagger = 100,
+  anim_ms = 220,
 	max_height = 10,
 	level = vim.log.levels.INFO,
 	icons = {

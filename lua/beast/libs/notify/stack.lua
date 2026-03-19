@@ -17,12 +17,6 @@ local function top_row()
 	return top
 end
 
----Final col for all notification windows.
----@return integer
-local function final_col()
-	return vim.o.columns - config.width - 2
-end
-
 ---Compute top-border row for each view, stacking top-down.
 ---views[1] = topmost (oldest), views[#] = bottommost (newest).
 ---@param views Beast.Notify.View[]
@@ -74,9 +68,12 @@ local function show(state, record)
 	ui.render(view)
 
 	if record.timeout ~= false then
+		local index = #state.views
+		local bonus = math.floor(math.sqrt(index * index * index) * config.stagger)
+		local timeout = record.timeout + bonus
 		vim.defer_fn(function()
 			M.remove(state, record.id)
-		end, record.timeout)
+		end, timeout)
 	end
 end
 
@@ -116,12 +113,14 @@ function M.remove(state, id)
 	-- stylua: ignore
 	if not idx then return end
 
-	-- Remove from array and reflow immediately so other windows
-	-- fill the gap without waiting for the exit animation to finish.
-	table.remove(state.views, idx)
-	M.reflow(state)
-
-	ui.close(view)
+	ui.slide_out(view, function()
+		local cur_idx = state:find(id)
+		if cur_idx then
+			table.remove(state.views, cur_idx)
+		end
+		ui.close(view)
+		M.reflow(state)
+	end)
 end
 
 ---Close all open notifications.

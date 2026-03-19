@@ -1,5 +1,6 @@
 local View = require("beast.libs.view")
 local config = require("beast.libs.notify.config")
+local animate = require("beast.libs.notify.animate")
 
 ---@class Beast.Notify.View : Beast.View
 ---@field ns integer
@@ -120,6 +121,48 @@ function M.move(view, slot_row)
 		row = slot_row,
 		col = final_col(),
 	})
+end
+
+---@param view Beast.Notify.View
+---@param on_done? fun()
+function M.slide_out(view, on_done)
+	if not view:is_valid() then
+		if on_done then
+			on_done()
+		end
+		return
+	end
+
+	local ok, conf = pcall(vim.api.nvim_win_get_config, view.win)
+	if not ok then
+		if on_done then
+			on_done()
+		end
+		return
+	end
+
+	local start_col = math.floor(tonumber(conf.col) or 0)
+	local start_width = conf.width
+	local start_blend = vim.wo[view.win].winblend or 0
+
+	animate.run(
+		view.win,
+		{
+			col = start_col,
+			width = start_width,
+			blend = start_blend,
+		},
+		{
+			col = start_col + start_width - 1,
+			width = 1,
+			blend = 100,
+		},
+		config.anim_ms or 220,
+		on_done,
+		{
+			blend_delay = 0.2,
+		}
+	)
 end
 
 return M
