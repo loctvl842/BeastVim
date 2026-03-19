@@ -18,7 +18,11 @@ local M = setmetatable({}, {
 	end,
 })
 
-M.setup = config.setup
+function M.setup(opts)
+	config.setup(opts)
+	vim.notify = M.notify
+  Key.safe_set("n", "<leader>n", M.dismiss, { desc = "Dismiss all notifications", group = "Notify" })
+end
 
 function M.dismiss()
 	stack.dismiss(state)

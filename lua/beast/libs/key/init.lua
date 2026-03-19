@@ -7,7 +7,13 @@ local api = require("beast.libs.key.api")
 
 ---@alias Beast.Key.UI.Line Beast.Key.UI.Segment[]
 
-local M = {}
+local M = setmetatable({}, {
+	__index = function(_, key)
+		return require("beast.libs.key.core")[key]
+	end,
+})
+
+M.safe_set = require("beast.libs.key.core").safe_set
 
 M.managed = require("beast.libs.key.core").managed
 
