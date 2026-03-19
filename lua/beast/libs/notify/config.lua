@@ -1,7 +1,8 @@
 ---@class Beast.Notify.Config
 local defaults = {
 	width = 50,
-	timeout = 5000,
+	timeout = 3000,
+	stagger = 100,
 	max_height = 10,
 	level = vim.log.levels.INFO,
 	icons = {

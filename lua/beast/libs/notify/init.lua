@@ -3,7 +3,7 @@ local Record = require("beast.libs.notify.record")
 local config = require("beast.libs.notify.config")
 local stack = require("beast.libs.notify.stack")
 
-local state = State:new()
+local state = State()
 
 local M = setmetatable({}, {
 	__call = function(self, m, l, o)
@@ -19,6 +19,10 @@ local M = setmetatable({}, {
 })
 
 M.setup = config.setup
+
+function M.dismiss()
+	stack.dismiss(state)
+end
 
 ---@param message string|string[]
 ---@param level? string|integer

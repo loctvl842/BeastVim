@@ -110,4 +110,16 @@ function M.close(view)
 	view:close()
 end
 
+---@param view Beast.Notify.View
+---@param slot_row integer
+function M.move(view, slot_row)
+	-- stylua: ignore
+	if not view:is_valid() then return end
+	vim.api.nvim_win_set_config(view.win, {
+		relative = "editor",
+		row = slot_row,
+		col = final_col(),
+	})
+end
+
 return M

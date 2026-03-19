@@ -1,6 +1,8 @@
 ---@class Beast.Notify.State
----@field views Beast.Notify.View[]  index 1 = topmost (oldest), #views = bottommost (newest)
+---@field views Beast.Notify.View[]   index 1 = topmost (oldest), #views = bottommost (newest)
+---@field queue Beast.Notify.Record[]
 ---@field next_id integer
+---@field draining boolean
 local State = setmetatable({}, {
 	__call = function(t, ...)
 		return t:new(...)
@@ -13,7 +15,9 @@ State.__index = State
 function State:new()
 	return setmetatable({
 		views = {},
+		queue = {},
 		next_id = 1,
+		draining = false,
 	}, self)
 end
 
