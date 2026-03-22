@@ -76,7 +76,6 @@ local cfg = {
 function M.setup(opts)
 	cfg = vim.tbl_deep_extend("force", cfg, opts or {})
 	require("beast.libs.key.builtin")
-  state.lines = api.default()
 	require("beast.libs.key.ui").setup(cfg.ui)
 end
 

@@ -1,5 +1,6 @@
-local state = require("beast.libs.key.state")
 local View = require("beast.libs.view")
+local state = require("beast.libs.key.state")
+local api = require("beast.libs.key.api")
 
 ---@class Beast.Key.UI.MainView : Beast.View
 ---@field ns integer
@@ -199,6 +200,9 @@ end
 function Main.render(main)
   --stylua: ignore
   if not main:is_valid() then return end
+	if not state.lines then
+		state.lines = api.default()
+	end
 	local lines_segments = state.lines
 
 	local lines = {}
