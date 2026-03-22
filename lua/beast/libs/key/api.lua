@@ -1,3 +1,5 @@
+local core = require("beast.libs.key.core")
+
 ---@class Beast.Key.UI.Entry
 ---@field source string
 ---@field mode string
@@ -6,6 +8,8 @@
 ---@field desc? string
 ---@field group? string
 ---@field buffer? integer
+---@field callback? function
+---@field src? string -- cached resolved source info for display (e.g. file:line)
 
 -- filters/state
 ---@type boolean
@@ -20,7 +24,7 @@ local expanded = {} -- map id (lhs) -> true when showing source
 local script_map -- lazily populated map: sid -> script path
 ---@type integer?
 local target_buf -- buffer whose local keymaps we display (the editor buffer active before opening UI)
----@type Beast.KeyUI.Entry[]?
+---@type Beast.Key.UI.Entry[]?
 local nvim_maps_cache
 
 local M = {}
@@ -88,14 +92,13 @@ local function get_map_source(mode, lhs, cb)
 	end
 	return nil
 end
----@param e Beast.KeyUI.Entry
+---@param e Beast.Key.UI.Entry
 ---@return string?
 local function resolve_entry_source(e)
-	if e._src_resolved then
+	if e.src then
 		return e.src
 	end
 	e.src = get_map_source(e.mode, e.lhs, e.callback)
-	e._src_resolved = true
 	return e.src
 end
 
@@ -112,7 +115,7 @@ end
 
 local function collect_beast_managed()
 	local list = {}
-	for _, km in pairs(Key.managed) do
+	for _, km in pairs(core.managed) do
 		table.insert(list, {
 			source = "Beast",
 			mode = km.mode,
@@ -144,7 +147,7 @@ local function normalize_lhs(lhs)
 	return lhs
 end
 
----@return Beast.KeyUI.Entry[]
+---@return Beast.Key.UI.Entry[]
 local function collect_nvim_maps()
 	if nvim_maps_cache then
 		return nvim_maps_cache
@@ -194,7 +197,7 @@ local function filtered_entries()
 	end
 	-- annotate managed ones for visibility
 	local managed = {}
-	for _, km in pairs(Key.managed) do
+	for _, km in pairs(core.managed) do
 		managed[(km.mode or "n") .. "\t" .. km.lhs] = true
 	end
 	for _, e in ipairs(entries) do
@@ -359,6 +362,13 @@ local function build_content_lines(entries)
 		end
 	end
 	return lines
+end
+
+---@param id string
+---@return Beast.Key.UI.Line[]
+function M.toggle_expand(id)
+	expanded[id] = not expanded[id] or nil
+	return build_content_lines(filtered_entries())
 end
 
 function M.cycle_mode()

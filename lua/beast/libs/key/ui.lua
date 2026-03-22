@@ -131,13 +131,14 @@ end
 ---@param actions Beast.Key.UI.Action[]
 ---@return integer
 local function calc_action_width(actions)
-	local max_len = 0
+	local max_len_key = 0
+  local max_len_label = 0
 	for _, a in ipairs(actions) do
 		local keys = keys_to_string(a.keys)
-		local text = string.format("%s %s", keys, a.label)
-		max_len = math.max(max_len, vim.fn.strdisplaywidth(text))
+    max_len_key = math.max(max_len_key, vim.fn.strdisplaywidth(keys))
+    max_len_label = math.max(max_len_label, vim.fn.strdisplaywidth(a.label))
 	end
-	return math.max(max_len, 1) + 2
+	return math.max(max_len_key + max_len_label + 1, 2) + 2
 end
 
 ---@param main_win integer

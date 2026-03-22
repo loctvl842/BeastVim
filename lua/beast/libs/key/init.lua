@@ -56,12 +56,29 @@ function M.toggle_beast(view)
 	render(view, api.toggle_beast_only())
 end
 
-M.close = ui.close
+---@param view Beast.Key.UI.MainView
+function M.expand_at_cursor(view)
+	local line = vim.api.nvim_get_current_line()
+	local id = line:match("%[.+%] (%S+)")
+	if not id then return end
+	render(view, api.toggle_expand(id))
+end
+
+function M.close()
+	ui.close()
+end
 
 ---@class Beast.Key.Config
 local cfg = {
 	ui = {
 		actions = {
+			{
+				keys = "<CR>",
+				label = "Expand",
+				key_hl = "DiagnosticOk",
+				label_hl = "Comment",
+				on_press = M.expand_at_cursor,
+			},
 			{
 				keys = "M",
 				label = "Cycle mode",
