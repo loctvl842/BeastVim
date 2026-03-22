@@ -1,3 +1,4 @@
+local state = require("beast.libs.key.state")
 local View = require("beast.libs.view")
 
 ---@class Beast.Key.UI.MainView : Beast.View
@@ -14,27 +15,6 @@ local ActionView = View:extend(function(obj, ns)
 	obj.ns = ns
 end)
 
----@class Beast.Key.UI.State
----@field main Beast.Key.UI.MainView
----@field action Beast.Key.UI.ActionView
----@field augroup integer
----@field closed boolean
-local State = {}
-State.__index = State
-
-function State:new(main, action, augroup)
-	return setmetatable({
-		main = main,
-		action = action,
-		augroup = augroup,
-		closed = false,
-	}, self)
-end
-
-function State:is_valid()
-	return not self.closed and self.main:is_valid() and self.action:is_valid()
-end
-
 ---@class Beast.Key.UI.Action
 ---@field keys string[]|string
 ---@field label string
@@ -42,20 +22,7 @@ end
 ---@field label_hl string
 ---@field on_press function
 
----@class Beast.Key.UI.Hooks
----@field main? Beast.Key.UI.MainHooks
----@field action? Beast.Key.UI.ActionHooks
-
----@class Beast.Key.UI.MainHooks
----@field render? fun(main: Beast.Key.UI.MainView, state: Beast.Key.UI.State)
-
----@class Beast.Key.UI.ActionHooks
----@field render? fun(action: Beast.Key.UI.Action, state: Beast.Key.UI.State)
-
 local M = {}
-
----@type Beast.Key.UI.State|nil
-local state
 
 ---@class Beast.Key.UI.Config
 local defaults = {
@@ -74,8 +41,6 @@ local defaults = {
 			end,
 		},
 	},
-	---@type Beast.Key.UI.Hooks
-	hooks = {},
 }
 
 ---@type Beast.Key.UI.Config
@@ -132,11 +97,11 @@ end
 ---@return integer
 local function calc_action_width(actions)
 	local max_len_key = 0
-  local max_len_label = 0
+	local max_len_label = 0
 	for _, a in ipairs(actions) do
 		local keys = keys_to_string(a.keys)
-    max_len_key = math.max(max_len_key, vim.fn.strdisplaywidth(keys))
-    max_len_label = math.max(max_len_label, vim.fn.strdisplaywidth(a.label))
+		max_len_key = math.max(max_len_key, vim.fn.strdisplaywidth(keys))
+		max_len_label = math.max(max_len_label, vim.fn.strdisplaywidth(a.label))
 	end
 	return math.max(max_len_key + max_len_label + 1, 2) + 2
 end
@@ -234,16 +199,30 @@ end
 function Main.render(main)
   --stylua: ignore
   if not main:is_valid() then return end
+	local lines_segments = state.lines
 
-	local lines = {
-		"Beast Key UI",
-		"",
-		"Please implement me!",
-	}
-
-	vim.bo[main.buf].modifiable = true
-	vim.api.nvim_buf_set_lines(main.buf, 0, -1, false, lines)
-	vim.bo[main.buf].modifiable = false
+	local lines = {}
+	local marks = {}
+	local ns = main.ns
+	local buf = main.buf
+	for i, segs in ipairs(lines_segments) do
+		local s, col = "", 0
+		for _, seg in ipairs(segs) do
+			if seg.hl then
+				marks[#marks + 1] = { i - 1, col, col + #seg.text, seg.hl }
+			end
+			s = s .. seg.text
+			col = col + #seg.text
+		end
+		lines[i] = s
+	end
+	vim.bo[buf].modifiable = true
+	vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+	vim.bo[buf].modifiable = false
+	vim.api.nvim_buf_clear_namespace(buf, ns, 0, -1)
+	for _, m in ipairs(marks) do
+		vim.api.nvim_buf_set_extmark(buf, ns, m[1], m[2], { end_col = m[3], hl_group = m[4] })
+	end
 end
 
 ---@param main Beast.Key.UI.MainView|nil
@@ -346,63 +325,24 @@ end
 -- =============================================================================
 -- Controller
 -- =============================================================================
----@param component "main"|"action"
----@param name "render"
----@return function
-local function get_hook(component, name)
-	local hook = cfg.hooks and cfg.hooks[component] and cfg.hooks[component][name]
-
-	if hook then
-		return hook
-	end
-
-	if component == "main" then
-		if name == "render" then
-			return Main.render
-		end
-		assert(name == "layout", "Invalid hook name: " .. name)
-	end
-
-	if component == "action" then
-		if name == "render" then
-			return Action.render
-		end
-		assert(name == "layout", "Invalid hook name: " .. name)
-	end
-
-	error("Invalid hook name: " .. name)
+local function render_state()
+	Main.render(state.main)
+	Action.render(state.action)
 end
 
----@return Beast.Key.UI.State
-local function create_state()
-	local main = Main.create()
-	local action = Action.create(main)
-	return State:new(main, action, -1)
+local function layout_state()
+	Main.layout(state.main)
+	Action.layout(state.action, state.main)
 end
 
----@param s Beast.Key.UI.State
-local function render_state(s)
-	get_hook("main", "render")(s.main)
-	get_hook("action", "render")(s.action)
-end
-
----@param s Beast.Key.UI.State
-local function layout_state(s)
-	Main.layout(s.main)
-	Action.layout(s.action, s.main)
-end
-
----@param s Beast.Key.UI.State
-local function mount_keymaps(s)
+local function mount_keymaps()
 	for _, a in ipairs(cfg.actions) do
 		---@type string[]
 		---@diagnostic disable-next-line: assign-type-mismatch
 		local keys = type(a.keys) == "string" and { a.keys } or a.keys
 		for _, key in ipairs(keys) do
-			vim.keymap.set("n", key, function()
-				a.on_press(s.main)
-			end, {
-				buffer = s.main.buf,
+			vim.keymap.set("n", key, a.on_press, {
+				buffer = state.main.buf,
 				silent = true,
 				nowait = true,
 			})
@@ -410,13 +350,12 @@ local function mount_keymaps(s)
 	end
 end
 
----@param s Beast.Key.UI.State
-local function mount_autocmds(s)
-	s.augroup = vim.api.nvim_create_augroup("BeastKeyUI_" .. tostring(vim.loop.hrtime()), { clear = true })
+local function mount_autocmds()
+	state.augroup = vim.api.nvim_create_augroup("BeastKeyUI_" .. tostring(vim.loop.hrtime()), { clear = true })
 
 	vim.api.nvim_create_autocmd("BufLeave", {
-		group = s.augroup,
-		buffer = s.main.buf,
+		group = state.augroup,
+		buffer = state.main.buf,
 		once = true,
 		callback = function()
 			M.close()
@@ -424,53 +363,60 @@ local function mount_autocmds(s)
 	})
 
 	vim.api.nvim_create_autocmd("WinEnter", {
-		group = s.augroup,
+		group = state.augroup,
 		callback = function()
       -- stylua: ignore
-			if state == nil or not state:is_valid() then return end
+			if state == nil or not state.is_valid() then return end
 			local current = vim.api.nvim_get_current_win()
-			if state ~= nil and current ~= state.main.win then
+			if current ~= state.main.win then
 				M.close()
 			end
 		end,
 	})
 
 	vim.api.nvim_create_autocmd("VimResized", {
-		group = s.augroup,
+		group = state.augroup,
 		callback = function()
       -- stylua: ignore
-			if state == nil or not state:is_valid() then return end
-			layout_state(state)
+			if not state:is_valid() then return end
+			layout_state()
 		end,
 	})
 end
 
 function M.open()
-	if state ~= nil and state:is_valid() then
+	if state.is_valid() then
 		vim.api.nvim_set_current_win(state.main.win)
-		return state
+		return
 	end
-	state = create_state()
-	mount_keymaps(state)
-	mount_autocmds(state)
-	render_state(state)
+	local main = Main.create()
+	local action = Action.create(main)
+	state.main = main
+	state.action = action
+	mount_keymaps()
+	mount_autocmds()
+	render_state()
+end
 
-	return state
+function M.refresh()
+	if not state:is_valid() then
+		return
+	end
+	render_state()
 end
 
 function M.close()
   --stylua: ignore
-  if not state or state.closed then return end
+  if state.closed then return end
 
-	state.closed = true
-	if state.augroup and state.augroup ~= -1 then
+	if state.augroup ~= -1 then
 		pcall(vim.api.nvim_del_augroup_by_id, state.augroup)
 	end
 
 	Action.close(state.action)
 	Main.close(state.main)
 
-	state = nil
+	state.reset()
 end
 
 ---@param opts? Beast.Key.UI.Config

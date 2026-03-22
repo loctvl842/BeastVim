@@ -1,6 +1,12 @@
 local core = require("beast.libs.key.core")
 
----@class Beast.Key.UI.Entry
+---@class Beast.Key.API.Segment
+---@field text string
+---@field hl? string
+
+---@alias Beast.Key.API.Line Beast.Key.API.Segment[]
+
+---@class Beast.Key.API.Entry
 ---@field source string
 ---@field mode string
 ---@field lhs string
@@ -24,7 +30,7 @@ local expanded = {} -- map id (lhs) -> true when showing source
 local script_map -- lazily populated map: sid -> script path
 ---@type integer?
 local target_buf -- buffer whose local keymaps we display (the editor buffer active before opening UI)
----@type Beast.Key.UI.Entry[]?
+---@type Beast.Key.API.Entry[]?
 local nvim_maps_cache
 
 local M = {}
@@ -92,7 +98,7 @@ local function get_map_source(mode, lhs, cb)
 	end
 	return nil
 end
----@param e Beast.Key.UI.Entry
+---@param e Beast.Key.API.Entry
 ---@return string?
 local function resolve_entry_source(e)
 	if e.src then
@@ -147,7 +153,7 @@ local function normalize_lhs(lhs)
 	return lhs
 end
 
----@return Beast.Key.UI.Entry[]
+---@return Beast.Key.API.Entry[]
 local function collect_nvim_maps()
 	if nvim_maps_cache then
 		return nvim_maps_cache
@@ -187,7 +193,7 @@ local function collect_nvim_maps()
 	return list
 end
 
----@return Beast.Key.UI.Entry[]
+---@return Beast.Key.API.Entry[]
 local function filtered_entries()
 	local entries = {}
 	if beast_only then
@@ -238,8 +244,8 @@ local function filtered_entries()
 	return entries
 end
 
----@param entries Beast.Key.UI.Entry[]
----@return Beast.Key.UI.Line[]
+---@param entries Beast.Key.API.Entry[]
+---@return Beast.Key.API.Line[]
 local function build_content_lines(entries)
 	local lines = {}
 	local title = "  🦁 Keymaps"
@@ -365,7 +371,7 @@ local function build_content_lines(entries)
 end
 
 ---@param id string
----@return Beast.Key.UI.Line[]
+---@return Beast.Key.API.Line[]
 function M.toggle_expand(id)
 	expanded[id] = not expanded[id] or nil
 	return build_content_lines(filtered_entries())
