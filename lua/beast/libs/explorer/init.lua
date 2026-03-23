@@ -10,16 +10,30 @@ local M = setmetatable({}, {
 	end,
 })
 
-function M.open(cwd)
+--- Calls `on_done()` after the render (after the async git fetch when enabled).
+---@param cwd? string
+---@param on_done? fun()
+function M.open(cwd, on_done)
 	cwd = cwd and vim.fn.fnamemodify(cwd, ":p"):gsub("/$", "") or vim.fn.getcwd()
 	if state.view and state.view:is_valid() then
 		pcall(vim.api.nvim_set_current_win, state.view.win)
 		return
 	end
-	state.tree = Tree(cwd)
+	if not state.tree then
+		state.tree = Tree(cwd)
+	end
 	state.view = ui.create(cwd)
 	state.view:set_title(cwd)
-	ui.render()
+	ui.render(on_done)
+end
+
+function M.reveal(path)
+	path = vim.fn.fnamemodify(path, ":p"):gsub("/$", "")
+	if not state.view or not state.view:is_valid() then
+		if not state.tree then
+			state.tree = Tree(vim.fn.getcwd())
+		end
+	end
 end
 
 function M.close()
@@ -37,9 +51,12 @@ function M.toggle(cwd)
 	local has_file = file ~= "" and vim.fn.filereadable(file) == 1
 
 	if state.tree then
+		M.open(state.tree.root.path, has_file and function()
+			ui.reveal(file)
+		end or nil)
 	else
 		if has_file then
-		-- ...
+			M.reveal(file)
 		else
 			M.open(cwd)
 		end

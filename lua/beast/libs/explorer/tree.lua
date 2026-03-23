@@ -9,7 +9,7 @@
 ---@field depth      integer  0 = immediate children of the cwd root
 ---@field last       boolean  last sibling in its parent — used for tree-line drawing
 ---@field git_status? string  two-char XY porcelain code, set by Tree.flat()
----@field children  table<string, Beast.Explorer.Node>
+---@field children  table<string, string>  name -> path
 ---@field parent?   string absolute path of parent
 
 ---@class Beast.Explorer.Tree
@@ -42,8 +42,10 @@ end
 ---@param ftype  string
 ---@return Beast.Explorer.Node
 local function ensure_child(tree, parent, name, ftype)
-  -- stylua: ignore
-  if parent.children[name] then return parent.children[name] end
+	if parent.children[name] then
+    local path = parent.children[name]
+		return tree.nodes[path]
+	end
 
 	local path = parent.path == "" and ("/" .. name) or (parent.path .. "/" .. name)
 	local is_dir = ftype == "directory" or (ftype == "link" and vim.fn.isdirectory(path) == 1)
@@ -61,7 +63,7 @@ local function ensure_child(tree, parent, name, ftype)
 		children = {},
 		parent = parent.path,
 	}
-	parent.children[name] = node
+	parent.children[name] = path
 	tree.nodes[path] = node
 	return node
 end
@@ -117,7 +119,7 @@ function M:expand(node)
 	-- Prune children that no longer exist on disk
 	for name, child in pairs(node.children) do
 		if not found[name] then
-			self.nodes[child.path] = nil
+			self.nodes[child] = nil
 			node.children[name] = nil
 		end
 	end
@@ -188,6 +190,8 @@ function M:close(path)
 	node.expanded = false
 end
 
+--- Toggle the open state of `path to a folder`.
+--- If it's a file, toggle its parent directory.
 ---@param path string
 function M:toggle(path)
 	if vim.fn.isdirectory(path) ~= 1 then
@@ -216,13 +220,16 @@ function M:walk(node, fn)
 	local children = vim.tbl_values(node.children)
 
 	table.sort(children, function(a, b)
-		if a.dir ~= b.dir then
-			return a.dir
+    local node_a = self.nodes[a]
+    local node_b = self.nodes[b]
+		if node_a.dir ~= node_b.dir then
+			return node_a.dir
 		end
-		return a.name:lower() < b.name:lower()
+		return node_a.name:lower() < node_b.name:lower()
 	end)
 
-	for i, child in ipairs(children) do
+	for i, child_path in ipairs(children) do
+    local child = self.nodes[child_path]
 		child.last = (i == #children)
 
 		local descend = fn(child)

@@ -1,4 +1,5 @@
 ---@class Beast.Explorer.Config
+---@field style           "classic"|"compact"
 ---@field width           integer        panel width in columns
 ---@field side            "left"|"right" which side to open the split
 ---@field show_hidden     boolean        show dot-files
@@ -10,6 +11,7 @@
 ---@field icon_git  table<string, {[1]:string,[2]:string}> xy-code → {glyph, hl-group}
 
 local defaults = {
+  style = "classic",
 	width = 40,
 	side = "left",
 	show_hidden = false,

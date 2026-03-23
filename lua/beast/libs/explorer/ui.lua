@@ -1,7 +1,6 @@
 ---@type Beast.Explorer.State
 local state = require("beast.libs.explorer.state")
 local View = require("beast.libs.view")
-local Tree = require("beast.libs.explorer.tree")
 local config = require("beast.libs.explorer.config")
 
 ---@class Beast.Explorer.View : Beast.View
@@ -66,13 +65,28 @@ local function build_prefix(node)
 	end
 	-- levels[1] = depth-0 ancestor's flag — skipped below
 	-- levels[#levels] = this node's flag
+	local styles = {
+		compact = {
+			indent = "  ",
+			vertical = "│ ",
+			branch = "├╴",
+			last_branch = "└╴",
+		},
+		classic = {
+			indent = "  ",
+			vertical = "│ ",
+			branch = "│ ",
+			last_branch = "└╴",
+		},
+	}
 
 	local prefix = " " -- leading padding
+	local st = styles[config.style]
 	for i = 2, #levels do -- start at 2 to skip the depth-0 indicator
 		if i == #levels then
-			prefix = prefix .. (levels[i] and "└╴" or "│ ")
+			prefix = prefix .. (levels[i] and st.last_branch or st.branch)
 		else
-			prefix = prefix .. (levels[i] and "  " or "│ ")
+			prefix = prefix .. (levels[i] and st.indent or st.vertical)
 		end
 	end
 	return prefix
@@ -130,7 +144,7 @@ local function mount_keymaps(nodes)
 
 	local function on_toggle(node)
 		state.tree:toggle(node.path)
-		M.refresh()
+		M.render()
 	end
 
 	local function on_select(node)
@@ -159,7 +173,9 @@ end
 --- Write `nodes` into `view`'s buffer and apply highlight decorations.
 --- Line 1 is always the root header; nodes occupy lines 2..N.
 --- Safe to call even when the window has been closed externally.
-function M.render()
+--- Calls `on_done()` after the render (after the async git fetch when enabled).
+---@param on_done? fun()
+function M.render(on_done)
   -- stylua: ignore
   if not state.view or not state.view:is_valid() then return end
   -- stylua: ignore
@@ -241,21 +257,26 @@ function M.render()
 		end
 	end)
 
+	if on_done then
+		on_done()
+	end
+
 	mount_keymaps(nodes)
 end
 
---- Rebuild the flat node list and re-render the panel.
---- Calls `on_done()` after the render (after the async git fetch when enabled).
----@param on_done? fun()
-function M.refresh(on_done)
-  -- stylua: ignore
-  if not state.view then return end
-  -- stylua: ignore
-  if not state.tree then return end
-
-	M.render()
-	if on_done then
-		on_done()
+--- Move the cursor to the row that matches `path` in `nodes`.
+--- Adds 1 to account for the root header occupying line 1.
+---@param path  string
+function M.reveal(path)
+	if not state.view or not state.view:is_valid() then
+		return
+	end
+  local nodes = state.tree:flat({ show_hidden = config.show_hidden, git_status = nil })
+	for i, node in ipairs(nodes) do
+		if node.path == path then
+			pcall(vim.api.nvim_win_set_cursor, state.view.win, { i + 1, 0 }) -- +1 for header
+			return
+		end
 	end
 end
 
@@ -271,9 +292,9 @@ function M.open(cwd)
 end
 
 function M.close()
-  if state.view and state.view:is_valid() then
-    state.view:close()
-  end
+	if state.view and state.view:is_valid() then
+		state.view:close()
+	end
 end
 
 return M
