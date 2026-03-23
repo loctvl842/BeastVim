@@ -121,6 +121,8 @@ function M.create(cwd)
 	vim.wo[win].cursorline = true
 	vim.wo[win].winfixwidth = true
 	vim.wo[win].statusline = "Explorer"
+	vim.api.nvim_set_hl(0, "BeastExplorerCursor", { blend = 100, nocombine = true })
+	vim.opt_local.guicursor = "a:BeastExplorerCursor"
 
 	return ExplorerView(buf, win, ns, cwd)
 end
@@ -271,7 +273,7 @@ function M.reveal(path)
 	if not state.view or not state.view:is_valid() then
 		return
 	end
-  local nodes = state.tree:flat({ show_hidden = config.show_hidden, git_status = nil })
+	local nodes = state.tree:flat({ show_hidden = config.show_hidden, git_status = nil })
 	for i, node in ipairs(nodes) do
 		if node.path == path then
 			pcall(vim.api.nvim_win_set_cursor, state.view.win, { i + 1, 0 }) -- +1 for header

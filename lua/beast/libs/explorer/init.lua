@@ -27,13 +27,23 @@ function M.open(cwd, on_done)
 	ui.render(on_done)
 end
 
+--- Reveal immediately a certain path in the explorer,
+--- opening all parent directories as needed.
+---@param path string
 function M.reveal(path)
 	path = vim.fn.fnamemodify(path, ":p"):gsub("/$", "")
 	if not state.view or not state.view:is_valid() then
 		if not state.tree then
 			state.tree = Tree(vim.fn.getcwd())
 		end
+		state.view = ui.create(state.tree.root.path)
+		state.view:set_title(state.tree.root.path)
 	end
+	state.tree:collapse_all()
+	state.tree:open(path)
+	ui.render(function()
+		ui.reveal(path)
+	end)
 end
 
 function M.close()
