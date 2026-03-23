@@ -33,21 +33,27 @@ end
 
 ---@return table
 function M:extend(init)
+	local parent = self
+
 	local cls = setmetatable({}, {
-		__index = self,
+		__index = parent,
 		__call = function(t, ...)
 			return t:new(...)
 		end,
 	})
 	cls.__index = cls
 
-	if init then
-		function cls:new(buf, win, ...)
-			---@type Beast.View
-			local obj = M:new(buf, win)
+	function cls:new(buf, win, ...)
+		local obj = setmetatable({
+			buf = buf,
+			win = win,
+		}, cls)
+
+		if init then
 			init(obj, ...)
-			return obj
 		end
+
+		return obj
 	end
 
 	return cls
