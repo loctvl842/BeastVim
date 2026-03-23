@@ -21,7 +21,6 @@ local M = setmetatable({}, {
 function M.setup(opts)
 	config.setup(opts)
 	vim.notify = M.notify
-  Key.safe_set("n", "<leader>n", M.dismiss, { desc = "Dismiss all notifications", group = "Notify" })
 end
 
 function M.dismiss()
