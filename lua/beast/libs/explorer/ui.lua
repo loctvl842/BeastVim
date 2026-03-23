@@ -98,6 +98,9 @@ end
 
 local M = {}
 
+---@type table<string,any>?
+local saved_win_opts = nil
+
 --- Open a vertical split and return a new Beast.Explorer.View.
 --- The split is placed on the side specified by config.cfg.side.
 ---@param cwd string  absolute path to root directory
@@ -105,6 +108,19 @@ local M = {}
 function M.create(cwd)
 	local ns = vim.api.nvim_create_namespace("beastvim_explorer")
 	local buf = create_scratch_buf("beast-explorer")
+
+	-- Snapshot the real editing window's options before splitting, so we can
+	-- restore them on any new window created later (vsplit from explorer).
+	local src = vim.api.nvim_get_current_win()
+	saved_win_opts = {
+		number = vim.wo[src].number,
+		relativenumber = vim.wo[src].relativenumber,
+		signcolumn = vim.wo[src].signcolumn,
+		foldcolumn = vim.wo[src].foldcolumn,
+		cursorline = vim.wo[src].cursorline,
+		wrap = vim.wo[src].wrap,
+		statusline = vim.wo[src].statusline,
+	}
 
 	local side = config.side == "right" and "botright" or (config.side == "left" and "topleft" or error("invalid side"))
 	vim.cmd(side .. " " .. config.width .. "vsplit")
@@ -151,7 +167,17 @@ local function mount_keymaps(nodes)
 		if prev ~= 0 and prev ~= state.view.win then
 			pcall(vim.api.nvim_set_current_win, prev)
 		else
+			vim.wo[state.view.win].winfixwidth = false
 			vim.cmd("vsplit")
+			local new_win = vim.api.nvim_get_current_win()
+			if saved_win_opts then
+				for k, v in pairs(saved_win_opts) do
+					vim.wo[new_win][k] = v
+				end
+			end
+			vim.wo[new_win].winfixwidth = false
+			vim.api.nvim_win_set_width(state.view.win, config.width)
+			vim.wo[state.view.win].winfixwidth = true
 		end
 		vim.cmd("edit " .. vim.fn.fnameescape(node.path))
 	end
