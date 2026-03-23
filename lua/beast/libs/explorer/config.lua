@@ -37,7 +37,7 @@ local defaults = {
 	},
 }
 
----@type Beast.Notify.Config
+---@type Beast.Explorer.Config
 local cfg = vim.deepcopy(defaults)
 
 local methods = {}
