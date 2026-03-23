@@ -1,0 +1,41 @@
+local M = {}
+
+---@class Beast.Config
+---@field key? Beast.Key.Config
+---@field notify? Beast.Notify.Config
+local defaults = {
+	key = {},
+	notify = {},
+}
+
+---@param opts? Beast.Config
+function M.setup(opts)
+	local cfg = vim.tbl_deep_extend("force", vim.deepcopy(defaults), opts or {})
+
+	require("beast.option")
+
+	_G.Util = require("beast.util")
+	_G.Key = require("beast.libs.key")
+
+	Key.setup(cfg.key)
+
+	-- Notification
+	local notify = require("beast.libs.notify")
+	notify.setup(cfg.notify)
+	Key.safe_set("n", "<leader>n", function()
+		notify.dismiss()
+	end, { desc = "Dismiss all notifications", group = "Notify" })
+
+	local explorer = require("beast.libs.explorer")
+	explorer.setup({
+		width = 30, -- panel columns
+		side = "left", -- "left" | "right"
+		show_hidden = false, -- toggle with your own keymap later
+		icons = true, -- requires nvim-web-devicons
+		git = true, -- async git status
+		indent = "  ",
+	})
+	Key.safe_set("n", "<leader>e", explorer.toggle, { desc = "Toggle explorer panel", group = "Explorer" })
+end
+
+return M
