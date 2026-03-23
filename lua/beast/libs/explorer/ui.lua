@@ -121,12 +121,9 @@ function M.create(cwd)
 	vim.wo[win].cursorline = true
 	vim.wo[win].winfixwidth = true
 	vim.wo[win].statusline = "Explorer"
-	vim.api.nvim_set_hl(0, "BeastExplorerCursor", { blend = 100, nocombine = true })
-	vim.opt_local.guicursor = "a:BeastExplorerCursor"
 
 	return ExplorerView(buf, win, ns, cwd)
 end
-
 ---@param nodes Beast.Explorer.Node[]
 local function mount_keymaps(nodes)
   -- stylua: ignore
@@ -153,6 +150,8 @@ local function mount_keymaps(nodes)
 		local prev = vim.fn.win_getid(vim.fn.winnr("#"))
 		if prev ~= 0 and prev ~= state.view.win then
 			pcall(vim.api.nvim_set_current_win, prev)
+		else
+			vim.cmd("vsplit")
 		end
 		vim.cmd("edit " .. vim.fn.fnameescape(node.path))
 	end
@@ -170,6 +169,63 @@ local function mount_keymaps(nodes)
 	end
 	vim.keymap.set("n", "<CR>", activate, opts)
 	vim.keymap.set("n", "l", activate, opts)
+end
+
+local function mount_autocmds()
+	-- stylua: ignore
+	if state.augroup then return end
+	if not state.view or not state.view.buf or not state.view.win then
+		return
+	end
+
+	state.augroup = vim.api.nvim_create_augroup("BeastExplorerUI_" .. tostring(vim.loop.hrtime()), { clear = true })
+
+	vim.api.nvim_set_hl(0, "BeastExplorerCursor", {
+		blend = 100,
+		nocombine = true,
+	})
+
+	---@type string?
+	local prev_guicursor = vim.o.guicursor
+	vim.o.guicursor = "a:block-BeastExplorerCursor"
+
+	vim.api.nvim_create_autocmd({ "WinEnter", "BufEnter" }, {
+		group = state.augroup,
+		buffer = state.view.buf,
+		callback = function()
+			if vim.api.nvim_get_current_win() ~= state.view.win then
+				return
+			end
+			if prev_guicursor == nil then
+				prev_guicursor = vim.o.guicursor
+			end
+			vim.o.guicursor = "a:block-BeastExplorerCursor"
+		end,
+	})
+
+	vim.api.nvim_create_autocmd("WinLeave", {
+		group = state.augroup,
+		buffer = state.view.buf,
+		callback = function()
+			if prev_guicursor ~= nil then
+				vim.o.guicursor = prev_guicursor
+				prev_guicursor = nil
+			end
+		end,
+	})
+
+	vim.api.nvim_create_autocmd("WinClosed", {
+		group = state.augroup,
+		pattern = tostring(state.view.win),
+		once = true,
+		callback = function()
+			if prev_guicursor ~= nil then
+				vim.o.guicursor = prev_guicursor
+				prev_guicursor = nil
+			end
+			state.augroup = nil
+		end,
+	})
 end
 
 --- Write `nodes` into `view`'s buffer and apply highlight decorations.
@@ -264,6 +320,7 @@ function M.render(on_done)
 	end
 
 	mount_keymaps(nodes)
+	mount_autocmds()
 end
 
 --- Move the cursor to the row that matches `path` in `nodes`.

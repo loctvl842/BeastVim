@@ -43,7 +43,7 @@ end
 ---@return Beast.Explorer.Node
 local function ensure_child(tree, parent, name, ftype)
 	if parent.children[name] then
-    local path = parent.children[name]
+		local path = parent.children[name]
 		return tree.nodes[path]
 	end
 
@@ -220,8 +220,8 @@ function M:walk(node, fn)
 	local children = vim.tbl_values(node.children)
 
 	table.sort(children, function(a, b)
-    local node_a = self.nodes[a]
-    local node_b = self.nodes[b]
+		local node_a = self.nodes[a]
+		local node_b = self.nodes[b]
 		if node_a.dir ~= node_b.dir then
 			return node_a.dir
 		end
@@ -229,7 +229,7 @@ function M:walk(node, fn)
 	end)
 
 	for i, child_path in ipairs(children) do
-    local child = self.nodes[child_path]
+		local child = self.nodes[child_path]
 		child.last = (i == #children)
 
 		local descend = fn(child)
