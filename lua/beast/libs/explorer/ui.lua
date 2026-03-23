@@ -183,7 +183,7 @@ local function mount_keymaps(nodes)
 	end
 
 	-- <CR> / l : open file or expand directory
-	local function activate()
+	local function open()
 		local node = current_node()
     -- stylua: ignore
     if not node then return end
@@ -193,8 +193,12 @@ local function mount_keymaps(nodes)
 			on_select(node)
 		end
 	end
-	vim.keymap.set("n", "<CR>", activate, opts)
-	vim.keymap.set("n", "l", activate, opts)
+	local action_handlers = {
+		open = open,
+	}
+	for lhs, action in pairs(config.mappings) do
+		vim.keymap.set("n", lhs, action_handlers[action], opts)
+	end
 end
 
 local function mount_autocmds()

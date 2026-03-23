@@ -11,7 +11,7 @@
 ---@field icon_git  table<string, {[1]:string,[2]:string}> xy-code → {glyph, hl-group}
 
 local defaults = {
-  style = "classic",
+	style = "classic",
 	width = 40,
 	side = "left",
 	show_hidden = false,
@@ -31,6 +31,9 @@ local defaults = {
 		["!!"] = { "", "Comment" }, -- ignored
 		[" D"] = { "✗", "DiagnosticError" }, -- deleted (unstaged)
 		["D "] = { "✗", "DiagnosticError" }, -- deleted (staged)
+	},
+	mappings = {
+		["<CR>"] = "open",
 	},
 }
 
