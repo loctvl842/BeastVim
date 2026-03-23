@@ -2,10 +2,12 @@
 ---@field tree Beast.Explorer.Tree|nil
 ---@field view Beast.Explorer.View|nil
 ---@field augroup integer|nil
+---@field saved_win_opts table<string,any>|nil
 local M = {
 	tree = nil,
 	view = nil,
 	augroup = nil,
+	saved_win_opts = nil,
 }
 
 -- ================================

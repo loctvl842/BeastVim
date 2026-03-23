@@ -1,7 +1,10 @@
 ---@type Beast.Explorer.State
 local state = require("beast.libs.explorer.state")
-local View = require("beast.libs.view")
 local config = require("beast.libs.explorer.config")
+local View = require("beast.libs.view")
+local render = require("beast.libs.explorer.ui.render")
+local keymaps = require("beast.libs.explorer.ui.keymaps")
+local autocmds = require("beast.libs.explorer.ui.autocmds")
 
 ---@class Beast.Explorer.View : Beast.View
 ---@field ns integer
@@ -38,68 +41,11 @@ local function create_scratch_buf(filetype)
 	return buf
 end
 
---- Build the tree-line prefix for `node`.
----
---- Depth-0 nodes (direct children of root) get no connector — they sit
---- flush under the uppercase root header with just a leading space.
----
---- Depth-1+ nodes get the standard box-drawing connectors:
----   Ancestor levels → "│ " (has more siblings) or "  " (was last)
----   Own level       → "├╴" (not last) or "└╴" (last)
----
---- The depth-0 ancestor indicator is intentionally skipped so that the
---- top-level items don't show a │ connecting them to the plain-text header.
----
----@param node Beast.Explorer.Node
----@return string
-local function build_prefix(node)
-  -- stylua: ignore
-  if node.depth == 0 then return " " end  -- no connector for top-level items
-
-	-- Collect `last` flags from depth-0 up to this node (inclusive).
-	local levels = {} ---@type boolean[]
-	local n = node
-	while n.depth >= 0 do
-		table.insert(levels, 1, n.last)
-		n = state.tree.nodes[n.parent]
-	end
-	-- levels[1] = depth-0 ancestor's flag — skipped below
-	-- levels[#levels] = this node's flag
-	local styles = {
-		compact = {
-			indent = "  ",
-			vertical = "│ ",
-			branch = "├╴",
-			last_branch = "└╴",
-		},
-		classic = {
-			indent = "  ",
-			vertical = "│ ",
-			branch = "│ ",
-			last_branch = "└╴",
-		},
-	}
-
-	local prefix = " " -- leading padding
-	local st = styles[config.style]
-	for i = 2, #levels do -- start at 2 to skip the depth-0 indicator
-		if i == #levels then
-			prefix = prefix .. (levels[i] and st.last_branch or st.branch)
-		else
-			prefix = prefix .. (levels[i] and st.indent or st.vertical)
-		end
-	end
-	return prefix
-end
-
 -- =============================================================================
 -- VIEW
 -- =============================================================================
 
 local M = {}
-
----@type table<string,any>?
-local saved_win_opts = nil
 
 --- Open a vertical split and return a new Beast.Explorer.View.
 --- The split is placed on the side specified by config.cfg.side.
@@ -112,7 +58,7 @@ function M.create(cwd)
 	-- Snapshot the real editing window's options before splitting, so we can
 	-- restore them on any new window created later (vsplit from explorer).
 	local src = vim.api.nvim_get_current_win()
-	saved_win_opts = {
+	state.saved_win_opts = {
 		number = vim.wo[src].number,
 		relativenumber = vim.wo[src].relativenumber,
 		signcolumn = vim.wo[src].signcolumn,
@@ -140,123 +86,6 @@ function M.create(cwd)
 
 	return ExplorerView(buf, win, ns, cwd)
 end
----@param nodes Beast.Explorer.Node[]
-local function mount_keymaps(nodes)
-  -- stylua: ignore
-  if not state.view:is_valid() then return end
-
-	local opts = { buffer = state.view.buf, silent = true, nowait = true }
-
-	--- Return the node under the cursor.
-	--- Subtracts 1 to skip the root header line (line 1 in the buffer).
-	---@return Beast.Explorer.Node?
-	local function current_node()
-		local ok, pos = pcall(vim.api.nvim_win_get_cursor, state.view.win)
-    -- stylua: ignore
-    if not ok then return end
-		return nodes[pos[1] - 1] -- row 1 = header, row 2 = nodes[1]
-	end
-
-	local function on_toggle(node)
-		state.tree:toggle(node.path)
-		M.render()
-	end
-
-	local function on_select(node)
-		local prev = vim.fn.win_getid(vim.fn.winnr("#"))
-		if prev ~= 0 and prev ~= state.view.win then
-			pcall(vim.api.nvim_set_current_win, prev)
-		else
-			vim.wo[state.view.win].winfixwidth = false
-			vim.cmd("vsplit")
-			local new_win = vim.api.nvim_get_current_win()
-			if saved_win_opts then
-				for k, v in pairs(saved_win_opts) do
-					vim.wo[new_win][k] = v
-				end
-			end
-			vim.wo[new_win].winfixwidth = false
-			vim.api.nvim_win_set_width(state.view.win, config.width)
-			vim.wo[state.view.win].winfixwidth = true
-		end
-		vim.cmd("edit " .. vim.fn.fnameescape(node.path))
-	end
-
-	-- <CR> / l : open file or expand directory
-	local function open()
-		local node = current_node()
-    -- stylua: ignore
-    if not node then return end
-		if node.dir then
-			on_toggle(node)
-		else
-			on_select(node)
-		end
-	end
-	local action_handlers = {
-		open = open,
-	}
-	for lhs, action in pairs(config.mappings) do
-		vim.keymap.set("n", lhs, action_handlers[action], opts)
-	end
-end
-
-local function mount_autocmds()
-	-- stylua: ignore
-	if state.augroup then return end
-	if not state.view or not state.view.buf or not state.view.win then
-		return
-	end
-
-	state.augroup = vim.api.nvim_create_augroup("BeastExplorerUI_" .. tostring(vim.loop.hrtime()), { clear = true })
-
-	vim.api.nvim_set_hl(0, "BeastExplorerCursor", {
-		blend = 100,
-		nocombine = true,
-	})
-
-	---@type string?
-	local prev_guicursor = vim.o.guicursor
-	vim.o.guicursor = "a:block-BeastExplorerCursor"
-
-	vim.api.nvim_create_autocmd({ "WinEnter", "BufEnter" }, {
-		group = state.augroup,
-		buffer = state.view.buf,
-		callback = function()
-			if vim.api.nvim_get_current_win() ~= state.view.win then
-				return
-			end
-			if prev_guicursor == nil then
-				prev_guicursor = vim.o.guicursor
-			end
-			vim.o.guicursor = "a:block-BeastExplorerCursor"
-		end,
-	})
-
-	vim.api.nvim_create_autocmd("WinLeave", {
-		group = state.augroup,
-		buffer = state.view.buf,
-		callback = function()
-			if prev_guicursor ~= nil then
-				vim.o.guicursor = prev_guicursor
-				prev_guicursor = nil
-			end
-		end,
-	})
-
-	vim.api.nvim_create_autocmd("WinClosed", {
-		group = state.augroup,
-		pattern = tostring(state.view.win),
-		once = true,
-		callback = function()
-			if prev_guicursor ~= nil then
-				vim.o.guicursor = prev_guicursor
-				prev_guicursor = nil
-			end
-			state.augroup = nil
-		end,
-	})
-end
 
 --- Write `nodes` into `view`'s buffer and apply highlight decorations.
 --- Line 1 is always the root header; nodes occupy lines 2..N.
@@ -269,88 +98,15 @@ function M.render(on_done)
   -- stylua: ignore
   if not state.tree then return end
 	local nodes = state.tree:flat({ show_hidden = config.show_hidden, git_status = nil })
-
-	local lines = {} ---@type string[]
-	local hls = {} ---@type {line:integer,col_s:integer,col_e:integer,group:string}[]
-
-	-- Root header: " UPPERCASE-BASENAME" — no icon, plain text, visually distinct
-	local root_name = string.upper(vim.fn.fnamemodify(state.view.cwd, ":t"))
-
-	lines[1] = " " .. root_name
-	hls[#hls + 1] = { line = 0, col_s = 0, col_e = -1, group = "Directory" }
-
-	-- Lazy-load devicons once per render (not at require time)
-	local devicons_ok, devicons = pcall(require, "nvim-web-devicons")
-	for _, node in ipairs(nodes) do
-		local line_idx = #lines -- 0-indexed: lines[1] is already the header
-		local prefix = build_prefix(node)
-
-		-- Icon
-		local icon_str = ""
-		local icon_hl = nil ---@type string?
-
-		if config.icons then
-			if node.dir then
-				icon_str = node.open and config.icon.dir_open or config.icon.dir_closed
-				icon_hl = "Directory"
-			else
-				local icon, hl
-				if devicons_ok then
-					icon, hl = devicons.get_icon(node.name, nil, { default = true })
-				end
-				icon_str = icon or config.icon.file
-				icon_hl = hl
-			end
-		end
-
-		-- Assemble line: prefix + icon + " " + name, git right-aligned
-		local main = prefix .. icon_str .. " " .. node.name
-		local line = main
-		lines[#lines + 1] = line
-
-		-- Highlights
-		local prefix_w = vim.fn.strdisplaywidth(prefix)
-		local icon_w = vim.fn.strdisplaywidth(icon_str)
-
-		-- Tree-line characters in a subtle colour
-		hls[#hls + 1] = { line = line_idx, col_s = 0, col_e = #prefix, group = "NonText" }
-
-		-- File / directory icon
-		if icon_hl then
-			hls[#hls + 1] = { line = line_idx, col_s = #prefix, col_e = #prefix + #icon_str, group = icon_hl }
-		end
-
-		-- Dim hidden files/dirs
-		if node.hidden then
-			hls[#hls + 1] = { line = line_idx, col_s = 0, col_e = -1, group = "Comment" }
-		end
-
-		-- Suppress the _ prefix_w / icon_w unused-warning (they're for future use)
-		_ = prefix_w
-		_ = icon_w
-	end
-
-	-- Write lines + highlights atomically; ignore errors from a race-closed window
-	pcall(function()
-		vim.bo[state.view.buf].modifiable = true
-		vim.api.nvim_buf_set_lines(state.view.buf, 0, -1, false, lines)
-		vim.bo[state.view.buf].modifiable = false
-
-		vim.api.nvim_buf_clear_namespace(state.view.buf, state.view.ns, 0, -1)
-		for _, h in ipairs(hls) do
-			pcall(vim.api.nvim_buf_set_extmark, state.view.buf, state.view.ns, h.line, h.col_s, {
-				end_col = h.col_e,
-				hl_group = h.group,
-			})
-		end
-	end)
+	local lines, hls = render.build(nodes)
+	render.write(lines, hls)
 
 	if on_done then
 		on_done()
 	end
 
-	mount_keymaps(nodes)
-	mount_autocmds()
+	keymaps.mount(nodes)
+	autocmds.mount()
 end
 
 --- Move the cursor to the row that matches `path` in `nodes`.
