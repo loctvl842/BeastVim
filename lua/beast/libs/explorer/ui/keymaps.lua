@@ -34,7 +34,10 @@ function M.mount(nodes)
 	---@param node Beast.Explorer.Node
 	local function on_select(node)
 		local prev = vim.fn.win_getid(vim.fn.winnr("#"))
-		if prev ~= 0 and prev ~= state.view.win then
+		if prev == 0 or prev == state.view.win or not vim.api.nvim_win_is_valid(prev) then
+			prev = state.source_win or 0
+		end
+		if prev ~= 0 and prev ~= state.view.win and vim.api.nvim_win_is_valid(prev) then
 			pcall(vim.api.nvim_set_current_win, prev)
 		else
 			vim.wo[state.view.win].winfixwidth = false
@@ -69,6 +72,7 @@ function M.mount(nodes)
 		local node = current_node()
     -- stylua: ignore
     if not node then return end
+		state.source_win = vim.fn.win_getid(vim.fn.winnr("#"))
 
 		local target_dir = node.dir and node or state.tree.nodes[node.parent]
     -- stylua: ignore
