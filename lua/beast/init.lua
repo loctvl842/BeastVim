@@ -28,12 +28,19 @@ function M.setup(opts)
 
 	local explorer = require("beast.libs.explorer")
 	explorer.setup({
-		width = 30, -- panel columns
+		style = "classic",
+		width = 40, -- panel columns
 		side = "left", -- "left" | "right"
 		show_hidden = false, -- toggle with your own keymap later
 		icons = true, -- requires nvim-web-devicons
 		git = true, -- async git status
-		indent = "  ",
+		icon = {
+			dir_open = "󰝰", -- nf-md-folder_open
+			dir_closed = "󰉋", -- nf-md-folder
+		},
+		mappings = {
+			["l"] = "open",
+		},
 	})
 	Key.safe_set("n", "<leader>e", explorer.toggle, { desc = "Toggle explorer panel", group = "Explorer" })
 end
