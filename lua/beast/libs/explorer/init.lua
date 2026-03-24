@@ -10,40 +10,35 @@ local M = setmetatable({}, {
 	end,
 })
 
+---@param dir? string
+local function ensure_explorer(dir)
+	dir = dir and vim.fn.fnamemodify(dir, ":p"):gsub("/$", "") or vim.fn.getcwd()
+	if not state.tree or state.tree.root.path ~= dir then
+		state.tree = Tree(dir)
+	end
+	if not state.view or not state.view:is_valid() then
+		state.view = ui.create(dir)
+		state.view:set_title(dir)
+	end
+end
+
 --- Calls `on_done()` after the render (after the async git fetch when enabled).
----@param cwd? string
----@param on_done? fun()
-function M.open(cwd, on_done)
-	cwd = cwd and vim.fn.fnamemodify(cwd, ":p"):gsub("/$", "") or vim.fn.getcwd()
-	if state.view and state.view:is_valid() then
+---@param dir? string
+function M.open(dir)
+	if state.view and state.view:is_valid() and state.tree.root.path == dir then
 		pcall(vim.api.nvim_set_current_win, state.view.win)
 		return
 	end
-	if not state.tree then
-		state.tree = Tree(cwd)
+	local file = vim.api.nvim_buf_get_name(0)
+	local has_file = file ~= "" and vim.fn.filereadable(file) == 1
+	ensure_explorer(dir)
+	if has_file then
+		state.tree:open(file)
 	end
-	state.view = ui.create(cwd)
-	state.view:set_title(cwd)
-	ui.render(on_done)
-end
 
---- Reveal immediately a certain path in the explorer,
---- opening all parent directories as needed.
----@param path string
-function M.reveal(path)
-	path = vim.fn.fnamemodify(path, ":p"):gsub("/$", "")
-	if not state.view or not state.view:is_valid() then
-		if not state.tree then
-			state.tree = Tree(vim.fn.getcwd())
-		end
-		state.view = ui.create(state.tree.root.path)
-		state.view:set_title(state.tree.root.path)
-	end
-	state.tree:collapse_all()
-	state.tree:open(path)
-	ui.render(function()
-		ui.reveal(path)
-	end)
+  -- stylua: ignore
+  local on_done = has_file and function() ui.focus_path(file) end or nil
+	ui.render(on_done)
 end
 
 function M.close()
@@ -57,20 +52,8 @@ function M.toggle(cwd)
 		return
 	end
 
-	local file = vim.api.nvim_buf_get_name(0)
-	local has_file = file ~= "" and vim.fn.filereadable(file) == 1
-
-	if state.tree then
-		M.open(state.tree.root.path, has_file and function()
-			ui.reveal(file)
-		end or nil)
-	else
-		if has_file then
-			M.reveal(file)
-		else
-			M.open(cwd)
-		end
-	end
+	cwd = cwd and vim.fn.fnamemodify(cwd, ":p"):gsub("/$", "") or vim.fn.getcwd()
+	M.open(cwd)
 end
 
 function M.setup(opts)
