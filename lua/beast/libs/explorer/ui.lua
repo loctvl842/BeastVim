@@ -6,6 +6,10 @@ local render = require("beast.libs.explorer.ui.render")
 local keymaps = require("beast.libs.explorer.ui.keymaps")
 local autocmds = require("beast.libs.explorer.ui.autocmds")
 
+-- =============================================================================
+-- VIEW
+-- =============================================================================
+
 ---@class Beast.Explorer.View : Beast.View
 ---@field ns integer
 ---@field cwd string
@@ -26,6 +30,7 @@ function ExplorerView:set_title(cwd)
 	local short = vim.fn.fnamemodify(cwd, ":~")
 	pcall(vim.api.nvim_buf_set_name, self.buf, "Explorer: " .. short)
 end
+
 -- =============================================================================
 -- UTILS
 -- =============================================================================
@@ -42,7 +47,7 @@ local function create_scratch_buf(filetype)
 end
 
 -- =============================================================================
--- VIEW
+-- MODULE
 -- =============================================================================
 
 local M = {}
@@ -83,6 +88,7 @@ function M.create(cwd)
 	vim.wo[win].cursorline = true
 	vim.wo[win].winfixwidth = true
 	vim.wo[win].statusline = "Explorer"
+	vim.wo[win].listchars = "tab:  ,nbsp:+"
 
 	return ExplorerView(buf, win, ns, cwd)
 end
@@ -97,13 +103,13 @@ function M.render(on_done)
   if not state.view or not state.view:is_valid() then return end
   -- stylua: ignore
   if not state.tree then return end
-	local nodes = state.tree:flat({ show_hidden = config.show_hidden, git_status = nil })
+
+	local nodes = state.tree:flat({ show_hidden = config.show_hidden })
 	local lines, hls = render.build(nodes)
 	render.write(lines, hls)
 
-	if on_done then
-		on_done()
-	end
+  -- stylua: ignore
+	if on_done then on_done() end
 
 	keymaps.mount(nodes)
 	autocmds.mount()
@@ -112,21 +118,22 @@ end
 --- Move the cursor to the row that matches `path` in `nodes`.
 --- Adds 1 to account for the root header occupying line 1.
 ---@param path  string
-function M.reveal(path)
-	if not state.view or not state.view:is_valid() then
-		return
-	end
-	local nodes = state.tree:flat({ show_hidden = config.show_hidden, git_status = nil })
+function M.focus_path(path)
+  -- stylua: ignore
+	if not state.view or not state.view:is_valid() then return end
+
+	local nodes = state.tree:flat({ show_hidden = config.show_hidden })
 	for i, node in ipairs(nodes) do
 		if node.path == path then
 			pcall(vim.api.nvim_win_set_cursor, state.view.win, { i + 1, 0 }) -- +1 for header
 			return
 		end
 	end
+  error("Path not found in explorer: " .. path)
 end
 
 --- Open the explorer panel rooted at `cwd`.
---- Always creates a fresh tree. If the panel is already open, just focus it.
+--- Focus the explorer if already open.
 ---@param cwd? string  defaults to vim.fn.getcwd()
 function M.open(cwd)
 	if state ~= nil and state:is_valid() then

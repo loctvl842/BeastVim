@@ -34,6 +34,7 @@ local defaults = {
 	},
 	mappings = {
 		["<CR>"] = "open",
+		["a"] = "create",
 	},
 }
 
