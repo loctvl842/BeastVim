@@ -10,17 +10,6 @@ local M = setmetatable({}, {
 	end,
 })
 
---- Return the node under the cursor.
---- Subtracts 1 to skip the root header line (line 1 in the buffer).
----@return Beast.Explorer.Node?
-local function current_node()
-	local nodes = state.tree:flat({ show_hidden = config.show_hidden })
-	local ok, pos = pcall(vim.api.nvim_win_get_cursor, state.view.win)
-    -- stylua: ignore
-    if not ok then return end
-	return nodes[pos[1] - 1] -- row 1 = header, row 2 = nodes[1]
-end
-
 --- Build the tree-line prefix for a *new child* of `dir`.
 --- Always uses real corner connectors (├╴/└╴) regardless of style,
 --- because this is an input widget, not a file node.
@@ -229,7 +218,7 @@ local function show_popup(target_dir)
 end
 
 function M.run()
-	local node = current_node()
+	local node = state.current_node({ show_hidden = config.show_hidden })
   -- stylua: ignore
   if not node then return end
 

@@ -16,6 +16,9 @@
 ---@field version integer
 ---@field list Beast.Explorer.Node[]?
 
+---@class Beast.Explorer.FlatOpts
+---@field show_hidden boolean
+
 ---@class Beast.Explorer.Tree
 ---@field root Beast.Explorer.Node
 ---@field nodes table<string, Beast.Explorer.Node>  path -> node
@@ -423,7 +426,7 @@ end
 -- Flat list (cached)
 -- =============================================================================
 
----@param opts { show_hidden: boolean }
+---@param opts Beast.Explorer.FlatOpts
 ---@return Beast.Explorer.Node[]
 function M:flat(opts)
 	local root = self.root
