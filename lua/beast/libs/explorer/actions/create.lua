@@ -49,7 +49,7 @@ end
 ---@param dir_line integer  1-based buffer line of the target directory
 ---@param is_last boolean  true when dir has no visible children
 ---@param on_done fun(path: string, is_dir: boolean)
-local function open(target_dir, dir_line, is_last, on_done)
+local function open_input_popup(target_dir, dir_line, is_last, on_done)
   -- stylua: ignore
   if not state.view or not state.view:is_valid() then return end
 
@@ -208,7 +208,7 @@ local function show_popup(target_dir)
 		end
 	end
 
-	open(target_dir, dir_line, not has_children, function(full_path, _)
+	open_input_popup(target_dir, dir_line, not has_children, function(full_path, _)
 		state.tree:refresh(target_dir.path)
 		state.tree:open(full_path)
 		ui.render(function()
