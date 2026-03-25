@@ -3,6 +3,8 @@ local Tree = require("beast.libs.explorer.tree")
 local state = require("beast.libs.explorer.state")
 local config = require("beast.libs.explorer.config")
 local ui = require("beast.libs.explorer.ui")
+local keymaps = require("beast.libs.explorer.keymaps")
+local autocmds = require("beast.libs.explorer.autocmds")
 
 local M = setmetatable({}, {
 	__call = function(self, cwd)
@@ -19,12 +21,16 @@ local function ensure_explorer(dir)
 	if not state.view or not state.view:is_valid() then
 		state.view = ui.create(dir)
 		state.view:set_title(dir)
+		keymaps.mount()
+		autocmds.mount()
 	end
 end
 
 --- Calls `on_done()` after the render (after the async git fetch when enabled).
 ---@param dir? string
 function M.open(dir)
+	-- This is to go back to the previous window after selecting a file
+	state.source_win = vim.fn.win_getid(vim.fn.winnr())
 	if state.view and state.view:is_valid() and state.tree.root.path == dir then
 		pcall(vim.api.nvim_set_current_win, state.view.win)
 		return
@@ -43,6 +49,8 @@ end
 
 function M.close()
 	ui.close()
+	local prev = vim.fn.win_getid(vim.fn.winnr("#"))
+	pcall(vim.api.nvim_set_current_win, prev)
 end
 
 ---@param cwd? string  used only when there is no current file on first open

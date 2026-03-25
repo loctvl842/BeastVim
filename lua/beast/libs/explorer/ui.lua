@@ -2,9 +2,7 @@
 local state = require("beast.libs.explorer.state")
 local config = require("beast.libs.explorer.config")
 local View = require("beast.libs.view")
-local render = require("beast.libs.explorer.ui.render")
-local keymaps = require("beast.libs.explorer.ui.keymaps")
-local autocmds = require("beast.libs.explorer.ui.autocmds")
+local render = require("beast.libs.explorer.render")
 
 -- =============================================================================
 -- VIEW
@@ -110,9 +108,6 @@ function M.render(on_done)
 
   -- stylua: ignore
 	if on_done then on_done() end
-
-	keymaps.mount(nodes)
-	autocmds.mount()
 end
 
 --- Move the cursor to the row that matches `path` in `nodes`.
@@ -130,17 +125,6 @@ function M.focus_path(path)
 		end
 	end
   error("Path not found in explorer: " .. path)
-end
-
---- Open the explorer panel rooted at `cwd`.
---- Focus the explorer if already open.
----@param cwd? string  defaults to vim.fn.getcwd()
-function M.open(cwd)
-	if state ~= nil and state:is_valid() then
-		vim.api.nvim_set_current_win(state.view.win)
-		return state
-	end
-	cwd = cwd and vim.fn.fnamemodify(cwd, ":p"):gsub("/$", "") or vim.fn.getcwd()
 end
 
 function M.close()

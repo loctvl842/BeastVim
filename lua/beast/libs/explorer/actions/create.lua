@@ -1,9 +1,25 @@
 ---@type Beast.Explorer.State
 local state = require("beast.libs.explorer.state")
 local config = require("beast.libs.explorer.config")
+local ui = require("beast.libs.explorer.ui")
 
 local uv = vim.uv or vim.loop
-local M = {}
+local M = setmetatable({}, {
+	__call = function(t, ...)
+		return t.run(...)
+	end,
+})
+
+--- Return the node under the cursor.
+--- Subtracts 1 to skip the root header line (line 1 in the buffer).
+---@return Beast.Explorer.Node?
+local function current_node()
+	local nodes = state.tree:flat({ show_hidden = config.show_hidden })
+	local ok, pos = pcall(vim.api.nvim_win_get_cursor, state.view.win)
+    -- stylua: ignore
+    if not ok then return end
+	return nodes[pos[1] - 1] -- row 1 = header, row 2 = nodes[1]
+end
 
 --- Build the tree-line prefix for a *new child* of `dir`.
 --- Always uses real corner connectors (├╴/└╴) regardless of style,
@@ -33,9 +49,10 @@ local function build_child_prefix(dir, is_last)
 	for i = 2, #levels do
 		prefix = prefix .. (levels[i] and st.indent or st.vertical)
 	end
-  print('vaicalon', '"', connector, '"')
+	print("vaicalon", '"', connector, '"')
 	return prefix .. connector
 end
+
 --- Open an inline input popup below `target_dir` in the explorer tree.
 --- Inserts a real blank line to push content down, overlays a float on it,
 --- then creates a file or directory based on user input.
@@ -43,7 +60,7 @@ end
 ---@param dir_line integer  1-based buffer line of the target directory
 ---@param is_last boolean  true when dir has no visible children
 ---@param on_done fun(path: string, is_dir: boolean)
-function M.open(target_dir, dir_line, is_last, on_done)
+local function open(target_dir, dir_line, is_last, on_done)
   -- stylua: ignore
   if not state.view or not state.view:is_valid() then return end
 
@@ -178,6 +195,57 @@ function M.open(target_dir, dir_line, is_last, on_done)
 			vim.schedule(close_input)
 		end,
 	})
+end
+
+---@param target_dir Beast.Explorer.Node
+local function show_popup(target_dir)
+	local fresh = state.tree:flat({ show_hidden = config.show_hidden })
+
+	local dir_line = 1 -- below header for root
+	if target_dir.depth ~= -1 then
+		for i, n in ipairs(fresh) do
+			if n.path == target_dir.path then
+				dir_line = i + 1 -- +1 for header line
+				break
+			end
+		end
+	end
+
+	local has_children = false
+	for _, n in ipairs(fresh) do
+		if n.parent == target_dir.path then
+			has_children = true
+			break
+		end
+	end
+
+	open(target_dir, dir_line, not has_children, function(full_path, _)
+		state.tree:refresh(target_dir.path)
+		state.tree:open(full_path)
+		ui.render(function()
+			ui.focus_path(full_path)
+		end)
+	end)
+end
+
+function M.run()
+	local node = current_node()
+  -- stylua: ignore
+  if not node then return end
+
+	local target_dir = node.dir and node or state.tree.nodes[node.parent]
+  -- stylua: ignore
+  if not target_dir then return end
+
+	-- Open closed directory first so children are visible before the popup
+	if target_dir.dir and not target_dir.open then
+		state.tree:open(target_dir.path)
+		ui.render(function()
+			show_popup(target_dir)
+		end)
+	else
+		show_popup(target_dir)
+	end
 end
 
 return M

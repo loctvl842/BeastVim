@@ -378,7 +378,7 @@ function M:toggle(path)
 	if node.open then
 		self:close(path)
 	else
-    self:collapse_all(path)
+		self:collapse_all(path)
 		self:open(path)
 	end
 end
