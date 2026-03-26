@@ -35,8 +35,11 @@ local defaults = {
 	mappings = {
 		["<CR>"] = "open",
 		["a"] = "create",
-    ["d"] = "delete",
-    ["r"] = "rename",
+		["d"] = "delete",
+		["r"] = "rename",
+		["<bs>"] = "navigate_up",
+		["."] = "set_root",
+    ["H"] = "show_hidden",
 	},
 }
 
@@ -44,6 +47,10 @@ local defaults = {
 local cfg = vim.deepcopy(defaults)
 
 local methods = {}
+
+function methods.toggle_hidden()
+	cfg.show_hidden = not cfg.show_hidden
+end
 
 ---@param opts? Beast.Explorer.Config
 function methods.setup(opts)
