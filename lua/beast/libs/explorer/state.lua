@@ -28,8 +28,10 @@ function M.current_node(opts)
   -- stylua: ignore
   if not M.tree or not M.view or not M.view:is_valid() then return end
 
-	local nodes = M.tree:flat(opts)
 	local ok, pos = pcall(vim.api.nvim_win_get_cursor, M.view.win)
+  -- stylua: ignore
+  if pos[1] == 1 then return M.tree.root end
+	local nodes = M.tree:flat(opts)
 
   -- stylua: ignore
   if not ok then return end

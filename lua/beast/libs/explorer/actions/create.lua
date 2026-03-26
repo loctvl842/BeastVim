@@ -38,7 +38,6 @@ local function build_child_prefix(dir, is_last)
 	for i = 2, #levels do
 		prefix = prefix .. (levels[i] and st.indent or st.vertical)
 	end
-	print("vaicalon", '"', connector, '"')
 	return prefix .. connector
 end
 
