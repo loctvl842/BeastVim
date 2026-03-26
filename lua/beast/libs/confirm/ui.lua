@@ -8,7 +8,6 @@ local View = require("beast.libs.view")
 ---@field yes_label? string
 ---@field no_label? string
 ---@field button_width? integer
----@field cb? fun(ok: boolean)
 ---@field width? integer -- calculated state (DO NOT SET)
 ---@field height? integer -- calculated state (DO NOT SET)
 

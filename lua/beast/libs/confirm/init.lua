@@ -7,7 +7,8 @@ local M = setmetatable({}, {
 })
 
 ---@param opts? Beast.Confirm.Opts
-function M.run(opts)
+---@param cb? fun(ok: boolean)
+function M.run(opts, cb)
 	opts = opts or {}
 	local view = ui.create(opts)
 	-- Default to "no"
@@ -17,8 +18,8 @@ function M.run(opts)
 
   local cancelled = ui.run_modal_loop(view, selected)
   ui.close(view)
-  if opts.cb then
-    opts.cb(cancelled)
+  if cb then
+    cb(cancelled)
   end
 end
 
