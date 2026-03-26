@@ -46,6 +46,7 @@ local function find_fallback_buffer(target_buf, exclude)
 end
 
 ---@param target_buf integer
+---@return integer? fallback_buf
 local function fallback_from_deleted_buffer(target_buf)
 	if target_buf <= 0 or not vim.api.nvim_buf_is_valid(target_buf) then
 		return
@@ -67,6 +68,8 @@ local function fallback_from_deleted_buffer(target_buf)
 			end
 		end
 	end
+
+	return fallback
 end
 
 local function on_confirm(ok, node)
@@ -82,9 +85,10 @@ local function on_confirm(ok, node)
 	local parent_path = node.parent
 	local target_buf = vim.fn.bufnr(path)
 
-	-- If the file is currently shown anywhere, move those windows away first.
+	-- Resolve fallback before touching any windows (alternate buffer changes after switch).
+	local fallback_buf = nil
 	if target_buf > 0 and vim.api.nvim_buf_is_valid(target_buf) then
-		fallback_from_deleted_buffer(target_buf)
+		fallback_buf = fallback_from_deleted_buffer(target_buf)
 	end
 
 	-- Delete from filesystem
@@ -94,11 +98,21 @@ local function on_confirm(ok, node)
 		return
 	end
 
+	-- Wipe the buffer so it doesn't linger in memory
+	if target_buf > 0 and vim.api.nvim_buf_is_valid(target_buf) then
+		pcall(vim.api.nvim_buf_delete, target_buf, { force = true })
+	end
+
 	-- Refresh the parent in the tree and re-render
 	if parent_path then
 		state.tree:refresh(parent_path)
 	end
 
+	local fallback_path = fallback_buf and vim.api.nvim_buf_get_name(fallback_buf) or nil
+
+	if fallback_path and fallback_path ~= "" then
+		pcall(ui.focus_path, fallback_path)
+	end
 	ui.render(function()
 		if state.view and state.view:is_valid() then
 			pcall(vim.api.nvim_set_current_win, state.view.win)
