@@ -69,6 +69,43 @@ local function fallback_from_deleted_buffer(target_buf)
 	end
 end
 
+local function on_confirm(ok, node)
+	if ok then
+		-- Return focus to the explorer
+		if state.view and state.view:is_valid() then
+			pcall(vim.api.nvim_set_current_win, state.view.win)
+		end
+		return
+	end
+
+	local path = node.path
+	local parent_path = node.parent
+	local target_buf = vim.fn.bufnr(path)
+
+	-- If the file is currently shown anywhere, move those windows away first.
+	if target_buf > 0 and vim.api.nvim_buf_is_valid(target_buf) then
+		fallback_from_deleted_buffer(target_buf)
+	end
+
+	-- Delete from filesystem
+	local ret = vim.fn.delete(path, "rf")
+	if ret ~= 0 then
+		vim.notify("Failed to delete: " .. node.name, vim.log.levels.ERROR)
+		return
+	end
+
+	-- Refresh the parent in the tree and re-render
+	if parent_path then
+		state.tree:refresh(parent_path)
+	end
+
+	ui.render(function()
+		if state.view and state.view:is_valid() then
+			pcall(vim.api.nvim_set_current_win, state.view.win)
+		end
+	end)
+end
+
 function M.run()
 	local node = state.current_node({ show_hidden = config.show_hidden })
   -- stylua: ignore
@@ -89,40 +126,7 @@ function M.run()
 		button_width = 12,
 	}
 	confirm(opts, function(ok)
-		if ok then
-			-- Return focus to the explorer
-			if state.view and state.view:is_valid() then
-				pcall(vim.api.nvim_set_current_win, state.view.win)
-			end
-			return
-		end
-
-		local path = node.path
-		local parent_path = node.parent
-		local target_buf = vim.fn.bufnr(path)
-
-		-- If the file is currently shown anywhere, move those windows away first.
-		if target_buf > 0 and vim.api.nvim_buf_is_valid(target_buf) then
-			fallback_from_deleted_buffer(target_buf)
-		end
-
-		-- Delete from filesystem
-		local ret = vim.fn.delete(path, "rf")
-		if ret ~= 0 then
-			vim.notify("Failed to delete: " .. node.name, vim.log.levels.ERROR)
-			return
-		end
-
-		-- Refresh the parent in the tree and re-render
-		if parent_path then
-			state.tree:refresh(parent_path)
-		end
-
-		ui.render(function()
-			if state.view and state.view:is_valid() then
-				pcall(vim.api.nvim_set_current_win, state.view.win)
-			end
-		end)
+		on_confirm(ok, node)
 	end)
 end
 
