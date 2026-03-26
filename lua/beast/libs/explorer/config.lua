@@ -36,6 +36,7 @@ local defaults = {
 		["<CR>"] = "open",
 		["a"] = "create",
     ["d"] = "delete",
+    ["r"] = "rename",
 	},
 }
 

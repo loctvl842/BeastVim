@@ -117,6 +117,7 @@ function M.focus_path(path)
   -- stylua: ignore
 	if not state.view or not state.view:is_valid() then return end
 
+  state.tree:open(path)
 	local nodes = state.tree:flat({ show_hidden = config.show_hidden })
 	for i, node in ipairs(nodes) do
 		if node.path == path then
