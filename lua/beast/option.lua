@@ -60,9 +60,8 @@ o.mousemoveevent    = true
 o.syntax            = "off"
 o.spelllang         = { "en", "vi" }
 -- use fold
-o.foldlevelstart    = 99
 o.foldlevel         = 99
-o.foldmethod        = "manual"
+o.foldmethod        = "indent"
 o.foldenable        = true
 o.foldcolumn        = "1"
 o.fillchars = {
