@@ -60,7 +60,7 @@ function M.build(nodes)
 	-- Root header: " UPPERCASE-BASENAME" — no icon, plain text, visually distinct
 	local root_name = string.upper(vim.fn.fnamemodify(state.view.cwd, ":t"))
 	lines[1] = " " .. root_name
-	hls[#hls + 1] = { line = 0, col_s = 0, col_e = -1, group = "Directory" }
+	hls[#hls + 1] = { line = 0, col_s = 0, col_e = #lines[1] , group = "Directory" }
 
 	local devicons_ok, devicons = pcall(require, "nvim-web-devicons")
 	for _, node in ipairs(nodes) do
@@ -96,7 +96,7 @@ function M.build(nodes)
 		end
 		-- Dim hidden files/dirs
 		if node.hidden then
-			hls[#hls + 1] = { line = line_idx, col_s = 0, col_e = -1, group = "Comment" }
+			hls[#hls + 1] = { line = line_idx, col_s = 0, col_e = #lines[line_idx + 1], group = "Comment" }
 		end
 	end
 
