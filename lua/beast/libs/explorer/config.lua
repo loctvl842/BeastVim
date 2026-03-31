@@ -40,6 +40,7 @@ local defaults = {
 		["<bs>"] = "navigate_up",
 		["."] = "set_root",
     ["H"] = "show_hidden",
+    ["x"] = "cut_to_clipboard",
 		["y"] = "copy_to_clipboard",
     ["p"] = "paste_from_clipboard",
 	},
