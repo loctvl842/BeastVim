@@ -60,7 +60,14 @@ function M.build(nodes)
 	-- Root header: " UPPERCASE-BASENAME" — no icon, plain text, visually distinct
 	local root_name = string.upper(vim.fn.fnamemodify(state.view.cwd, ":t"))
 	lines[1] = " " .. root_name
-	hls[#hls + 1] = { line = 0, col_s = 0, col_e = #lines[1] , group = "Directory" }
+	hls[#hls + 1] = { line = 0, col_s = 0, col_e = #lines[1], group = "Directory" }
+
+	local clipboard_paths = {} ---@type table<string, boolean>
+	if state.clipboard then
+		for _, p in ipairs(state.clipboard.paths) do
+			clipboard_paths[p] = true
+		end
+	end
 
 	local devicons_ok, devicons = pcall(require, "nvim-web-devicons")
 	for _, node in ipairs(nodes) do
@@ -85,7 +92,13 @@ function M.build(nodes)
 			end
 		end
 
-		lines[#lines + 1] = prefix .. icon_str .. " " .. node.name
+		-- Clipboard indicator suffix
+		local clip_suffix = ""
+		if clipboard_paths[node.path] then
+      clip_suffix = " " .. "(" .. state.clipboard.mode .. ")"
+		end
+
+		lines[#lines + 1] = prefix .. icon_str .. " " .. node.name .. clip_suffix
 
 		-- Tree-line characters (Indent Markers) in a subtle colour
 		hls[#hls + 1] = { line = line_idx, col_s = 0, col_e = #prefix, group = "NonText" }
@@ -97,6 +110,13 @@ function M.build(nodes)
 		-- Dim hidden files/dirs
 		if node.hidden then
 			hls[#hls + 1] = { line = line_idx, col_s = 0, col_e = #lines[line_idx + 1], group = "Comment" }
+		end
+
+		-- Highlight the clipboard suffix
+		if clip_suffix ~= "" then
+			local line_len = #lines[line_idx + 1]
+			local suffix_hl = "NonText"
+			hls[#hls + 1] = { line = line_idx, col_s = line_len - #clip_suffix, col_e = line_len, group = suffix_hl }
 		end
 	end
 

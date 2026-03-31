@@ -15,6 +15,9 @@ function M.mount()
 			error("Invalid action: " .. action_name)
 		end
 		vim.keymap.set("n", lhs, action.run, opts)
+    if action.run_visual then
+      vim.keymap.set("v", lhs, action.run_visual, opts)
+    end
 	end
 end
 

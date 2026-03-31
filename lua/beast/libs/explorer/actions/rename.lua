@@ -11,16 +11,40 @@ local M = setmetatable({}, {
 })
 
 --- Compute the display column where the node name begins on its explorer line.
---- The line format is: prefix .. icon .. " " .. node.name
+--- Uses the last occurrence of node.name in the rendered line, so it still works
+--- when the line contains extra suffixes like " (copy)" earlier in the text.
 ---@param node Beast.Explorer.Node
----@param node_line integer  1-based buffer line
----@return integer  display-width columns before the name
+---@param node_line integer  -- 1-based buffer line
+---@return integer           -- display-width columns before the name
 local function name_col(node, node_line)
 	local buf_lines = vim.api.nvim_buf_get_lines(state.view.buf, node_line - 1, node_line, false)
 	local line = buf_lines[1] or ""
-	-- The name is always the last part of the line
-	local name_start = #line - #node.name
-	return vim.fn.strdisplaywidth(line:sub(1, name_start))
+	local name = node.name or ""
+
+	if name == "" then
+		return vim.fn.strdisplaywidth(line)
+	end
+
+	-- Find the last plain occurrence of the node name.
+	local last_start = nil
+	local search_from = 1
+
+	while true do
+		local s = line:find(name, search_from, true)
+		if not s then
+			break
+		end
+		last_start = s
+		search_from = s + 1
+	end
+
+	-- Fallback: if not found, return full line width.
+	if not last_start then
+		return vim.fn.strdisplaywidth(line)
+	end
+
+	-- Display width before the first character of the matched name.
+	return vim.fn.strdisplaywidth(line:sub(1, last_start - 1))
 end
 
 --- Open an inline input float on top of the current node line, pre-filled
@@ -157,6 +181,7 @@ function M.run()
 		end
 
 		local parent_path = node.parent or vim.fs.dirname(old_path)
+    state.clipboard = nil -- avoid side-effect from clipboard
 		state.tree:refresh(parent_path)
 		ui.render(function()
 			ui.focus_path(new_path)

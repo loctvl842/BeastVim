@@ -144,4 +144,58 @@ function M.run()
 	end)
 end
 
+function M.run_visual()
+	vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<Esc>", true, false, true), "x", false)
+	local start_line = vim.fn.line("'<")
+	local end_line = vim.fn.line("'>")
+	local flat = state.tree:flat({ show_hidden = config.show_hidden })
+	local selected = {}
+	for line = start_line, end_line do
+		local idx = line - 1 -- row 1 = header; nodes[1] = line 2
+		if idx >= 1 and flat[idx] and flat[idx].depth ~= -1 then
+			table.insert(selected, flat[idx])
+		end
+	end
+
+	-- Filter out nodes whose path falls inside another selected directory.
+	-- Deleting the parent already removes all its descendants, so including
+	-- them would cause double-delete errors.
+	local nodes_to_delete = {}
+	for _, node in ipairs(selected) do
+		local redundant = false
+		for _, other in ipairs(selected) do
+			if other ~= node and other.dir and node.path:sub(1, #other.path + 1) == other.path .. "/" then
+				redundant = true
+				break
+			end
+		end
+		if not redundant then
+			table.insert(nodes_to_delete, node)
+		end
+	end
+
+	local title = string.format('Are you sure you want to delete "%s"?', nodes_to_delete[1].name)
+	if #nodes_to_delete > 1 then
+		title = string.format(" Are you sure you want to delete the following %d files?\n", #nodes_to_delete)
+		for _, node in ipairs(nodes_to_delete) do
+			title = title .. "\n   " .. node.name
+		end
+	end
+	local opts = {
+		align = #nodes_to_delete > 1 and "left" or "center",
+		title = title,
+		min_width = 50,
+		max_width = 60,
+		default = 2,
+		yes_label = "Remove",
+		no_label = "Cancel",
+		button_width = 12,
+	}
+	confirm(opts, function(ok)
+		for _, node in ipairs(nodes_to_delete) do
+		  on_confirm(ok, node)
+		end
+	end)
+end
+
 return M
