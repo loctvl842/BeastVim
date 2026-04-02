@@ -1,5 +1,6 @@
 ---@type Beast.Explorer.State
 local state = require("beast.libs.explorer.state")
+local config = require("beast.libs.explorer.config")
 
 local M = {}
 
@@ -106,6 +107,29 @@ function M.mount()
 		callback = function()
 			restore_cursor()
 			state.augroup = nil
+		end,
+	})
+
+	-- When any window closes, ensure the explorer is not left as the sole window.
+	-- If it is, open an empty companion split so the explorer stays at its set width.
+	vim.api.nvim_create_autocmd("WinClosed", {
+		group = state.augroup,
+		callback = function()
+			vim.schedule(function()
+				-- stylua: ignore
+				if not (state.view and state.view:is_valid()) then return end
+				local wins = vim.api.nvim_tabpage_list_wins(0)
+				local others = vim.tbl_filter(function(w)
+					return w ~= state.view.win
+				end, wins)
+				if #others == 0 then
+					local empty = vim.api.nvim_create_buf(false, true)
+					local split_cmd = config.side == "left" and "botright vsplit" or "topleft vsplit"
+					vim.cmd(split_cmd)
+					vim.api.nvim_win_set_buf(vim.api.nvim_get_current_win(), empty)
+					pcall(vim.api.nvim_set_current_win, state.view.win)
+				end
+			end)
 		end,
 	})
 

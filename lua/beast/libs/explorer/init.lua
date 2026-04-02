@@ -66,6 +66,35 @@ end
 
 function M.setup(opts)
 	config.setup(opts)
+	M.replace_netrw()
+end
+
+--- Disable netrw and open this explorer whenever a directory buffer is entered.
+--- Handles `nvim .`, `nvim /some/dir`, and `:e /some/dir`.
+--- Creates an empty companion window so the explorer keeps its configured width.
+function M.replace_netrw()
+	vim.g.loaded_netrw = 1
+	vim.g.loaded_netrwPlugin = 1
+	pcall(vim.api.nvim_del_augroup_by_name, "FileExplorer")
+
+	local group = vim.api.nvim_create_augroup("BeastExplorerReplace", { clear = true })
+
+	vim.api.nvim_create_autocmd("BufEnter", {
+		group = group,
+		callback = function(ev)
+			-- stylua: ignore
+			if ev.file == "" or vim.fn.isdirectory(ev.file) ~= 1 then return end
+			local dir = vim.fn.fnamemodify(ev.file, ":p"):gsub("/$", "")
+			-- Replace the directory buffer with an empty scratch buffer in this window,
+			-- so the window stays open as the companion editing area.
+			local empty = vim.api.nvim_create_buf(false, true)
+			vim.api.nvim_win_set_buf(0, empty)
+			pcall(vim.api.nvim_buf_delete, ev.buf, { force = true })
+			vim.schedule(function()
+				M.open(dir)
+			end)
+		end,
+	})
 end
 
 return M
