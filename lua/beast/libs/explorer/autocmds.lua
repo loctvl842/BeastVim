@@ -1,6 +1,7 @@
 ---@type Beast.Explorer.State
 local state = require("beast.libs.explorer.state")
 local config = require("beast.libs.explorer.config")
+local ui = require("beast.libs.explorer.ui")
 
 local M = {}
 
@@ -72,6 +73,23 @@ function M.mount()
 		group = state.augroup,
 		callback = function()
 			refresh_cursor()
+		end,
+	})
+
+	-- Sync explorer cursor to the active file whenever a non-explorer buffer is entered.
+	vim.api.nvim_create_autocmd("BufEnter", {
+		group = state.augroup,
+		callback = function()
+			-- stylua: ignore
+			if not (state.view and state.view:is_valid()) then return end
+			local win = vim.api.nvim_get_current_win()
+			-- stylua: ignore
+			if win == state.view.win then return end
+			local path = vim.api.nvim_buf_get_name(0)
+			-- stylua: ignore
+			if path == "" or vim.fn.filereadable(path) ~= 1 then return end
+			ui.focus_path(path)
+			ui.render()
 		end,
 	})
 
