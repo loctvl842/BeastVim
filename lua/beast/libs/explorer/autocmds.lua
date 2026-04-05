@@ -51,6 +51,24 @@ local function refresh_cursor()
 		restore_cursor()
 	end
 end
+
+-- Determine if window is floating
+local function is_floating(win)
+  local ok, cfg = pcall(vim.api.nvim_win_get_config, win)
+  return ok and cfg and (cfg.relative or "") ~= ""
+end
+
+-- Collect modified, listed buffers
+local function get_modified_buffers()
+  local mods = {}
+  for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+    if vim.api.nvim_buf_is_loaded(buf) and vim.bo[buf].buflisted and vim.bo[buf].modified then
+      local name = vim.api.nvim_buf_get_name(buf)
+      mods[name ~= "" and name or ("[No Name]#" .. tostring(buf))] = { buf = buf, modified = true }
+    end
+  end
+  return mods
+end
 --- Mount cursor-hiding autocmds for the explorer window.
 --- Safe to call multiple times.
 function M.mount()
@@ -128,25 +146,58 @@ function M.mount()
 		end,
 	})
 
-	-- When any window closes, ensure the explorer is not left as the sole window.
-	-- If it is, open an empty companion split so the explorer stays at its set width.
+	-- Close Neovim when explorer is the last remaining non-floating window.
+	-- If any buffer is modified, reveal it instead of quitting.
 	vim.api.nvim_create_autocmd("WinClosed", {
 		group = state.augroup,
-		callback = function()
+		callback = function(args)
 			vim.schedule(function()
 				-- stylua: ignore
 				if not (state.view and state.view:is_valid()) then return end
+
+				local closing_win = tonumber(args.match)
 				local wins = vim.api.nvim_tabpage_list_wins(0)
-				local others = vim.tbl_filter(function(w)
-					return w ~= state.view.win
-				end, wins)
-				if #others == 0 then
-					local empty = vim.api.nvim_create_buf(false, true)
-					local split_cmd = config.side == "left" and "botright vsplit" or "topleft vsplit"
-					vim.cmd(split_cmd)
-					vim.api.nvim_win_set_buf(vim.api.nvim_get_current_win(), empty)
-					pcall(vim.api.nvim_set_current_win, state.view.win)
+				local others = {}
+				for _, w in ipairs(wins) do
+					if w ~= closing_win and not is_floating(w) then
+						others[#others + 1] = w
+					end
 				end
+
+				if #others ~= 1 then
+					return
+				end
+
+				local remaining = others[1]
+				if not vim.api.nvim_win_is_valid(remaining) then
+					return
+				end
+				local buf = vim.api.nvim_win_get_buf(remaining)
+				if vim.bo[buf].filetype ~= "beast-explorer" then
+					return
+				end
+
+				-- If any modified buffers exist, open one instead of quitting
+				local mod = get_modified_buffers()
+				for filename, info in pairs(mod) do
+					if info.modified then
+						local buf_name = filename
+						local message = "Cannot close because one of the files is modified. Please save or discard changes."
+						if vim.startswith(filename, "[No Name]#") then
+							buf_name = string.sub(filename, 11)
+							message = "Cannot close because an unnamed buffer is modified. Please save or discard this file."
+						end
+						vim.notify(message, vim.log.levels.WARN)
+						local split_cmd = (config.side == "left") and "rightbelow vertical split" or "topleft vertical split"
+						pcall(function(...) vim.cmd(...) end, split_cmd)
+						pcall(vim.api.nvim_win_set_width, 0, config.width or 40)
+						pcall(function(...) vim.cmd(...) end, "b " .. buf_name)
+						return
+					end
+				end
+
+				-- Allow VimLeavePre to run by scheduling the quit
+				vim.cmd("q!")
 			end)
 		end,
 	})
