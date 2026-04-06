@@ -25,7 +25,6 @@ o.showtabline       = 2                                 -- always show tabs
 o.smartindent       = true                              -- make indenting smarter again
 o.splitbelow        = true                              -- force all horizontal splits to go below current window
 o.splitright        = true                              -- force all vertical splits to go to the right of current window
--- o.statuscolumn = [[%!v:lua.require'snacks.statuscolumn'.get()]]
 o.swapfile          = false                             -- creates a swapfile
 o.termguicolors     = true                              -- set term gui colors (most terminals support this)
 o.timeoutlen        = vim.g.vscode and 1000 or 100      -- Lower than default (1000) to quickly trigger which-key
@@ -55,7 +54,7 @@ o.selection         = "exclusive"
 o.virtualedit       = "onemore"
 o.showcmd           = false
 o.title             = true
-o.titlestring       = "%<%F %= %l/%L - nvim"
+o.titlestring       = "%<%F %= - BeastVim"
 o.mousemoveevent    = true
 o.syntax            = "off"
 o.spelllang         = { "en", "vi" }
