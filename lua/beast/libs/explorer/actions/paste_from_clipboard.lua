@@ -177,7 +177,7 @@ function PasteSession:show_conflict_prompt(plan)
 			return false
 		end
 
-    -- callback to continue to the next path
+		-- callback to continue to the next path
 		return function()
 			self:apply_plan(new_plan)
 		end

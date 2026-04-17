@@ -193,7 +193,7 @@ function M.run_visual()
 	}
 	confirm(opts, function(ok)
 		for _, node in ipairs(nodes_to_delete) do
-		  on_confirm(ok, node)
+			on_confirm(ok, node)
 		end
 	end)
 end

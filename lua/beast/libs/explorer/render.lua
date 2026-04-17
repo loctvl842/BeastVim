@@ -95,7 +95,7 @@ function M.build(nodes)
 		-- Clipboard indicator suffix
 		local clip_suffix = ""
 		if clipboard_paths[node.path] then
-      clip_suffix = " " .. "(" .. state.clipboard.mode .. ")"
+			clip_suffix = " " .. "(" .. state.clipboard.mode .. ")"
 		end
 
 		lines[#lines + 1] = prefix .. icon_str .. " " .. node.name .. clip_suffix

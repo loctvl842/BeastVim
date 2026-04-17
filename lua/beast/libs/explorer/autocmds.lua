@@ -54,20 +54,20 @@ end
 
 -- Determine if window is floating
 local function is_floating(win)
-  local ok, cfg = pcall(vim.api.nvim_win_get_config, win)
-  return ok and cfg and (cfg.relative or "") ~= ""
+	local ok, cfg = pcall(vim.api.nvim_win_get_config, win)
+	return ok and cfg and (cfg.relative or "") ~= ""
 end
 
 -- Collect modified, listed buffers
 local function get_modified_buffers()
-  local mods = {}
-  for _, buf in ipairs(vim.api.nvim_list_bufs()) do
-    if vim.api.nvim_buf_is_loaded(buf) and vim.bo[buf].buflisted and vim.bo[buf].modified then
-      local name = vim.api.nvim_buf_get_name(buf)
-      mods[name ~= "" and name or ("[No Name]#" .. tostring(buf))] = { buf = buf, modified = true }
-    end
-  end
-  return mods
+	local mods = {}
+	for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+		if vim.api.nvim_buf_is_loaded(buf) and vim.bo[buf].buflisted and vim.bo[buf].modified then
+			local name = vim.api.nvim_buf_get_name(buf)
+			mods[name ~= "" and name or ("[No Name]#" .. tostring(buf))] = { buf = buf, modified = true }
+		end
+	end
+	return mods
 end
 --- Mount cursor-hiding autocmds for the explorer window.
 --- Safe to call multiple times.
@@ -99,15 +99,35 @@ function M.mount()
 		group = state.augroup,
 		callback = function()
 			-- stylua: ignore
-			if not (state.view and state.view:is_valid()) then return end
+			if not (state.view and state.view:is_valid() and state.tree) then return end
 			local win = vim.api.nvim_get_current_win()
 			-- stylua: ignore
 			if win == state.view.win then return end
 			local path = vim.api.nvim_buf_get_name(0)
 			-- stylua: ignore
 			if path == "" or vim.fn.filereadable(path) ~= 1 then return end
-			ui.focus_path(path)
-			ui.render()
+
+			-- Gate: only react when the buffer path lives inside the explorer root
+			local root = state.tree.root.path
+			if not (path == root or path:sub(1, #root + 1) == (root .. "/")) then
+				return
+			end
+
+			-- Skip if the explorer already focuses this exact path
+			local cur = state.current_node({ show_hidden = config.show_hidden })
+			if cur and cur.path == path then
+				return
+			end
+
+			-- Move focus; only re-render if the tree actually changed (e.g., expansion)
+			local before = state.tree.version
+			local ok = pcall(ui.focus_path, path)
+			if not ok then
+				return
+			end
+			if state.tree.version ~= before then
+				ui.render()
+			end
 		end,
 	})
 
@@ -182,16 +202,23 @@ function M.mount()
 				for filename, info in pairs(mod) do
 					if info.modified then
 						local buf_name = filename
-						local message = "Cannot close because one of the files is modified. Please save or discard changes."
+						local message =
+							"Cannot close because one of the files is modified. Please save or discard changes."
 						if vim.startswith(filename, "[No Name]#") then
 							buf_name = string.sub(filename, 11)
-							message = "Cannot close because an unnamed buffer is modified. Please save or discard this file."
+							message =
+								"Cannot close because an unnamed buffer is modified. Please save or discard this file."
 						end
 						vim.notify(message, vim.log.levels.WARN)
-						local split_cmd = (config.side == "left") and "rightbelow vertical split" or "topleft vertical split"
-						pcall(function(...) vim.cmd(...) end, split_cmd)
+						local split_cmd = (config.side == "left") and "rightbelow vertical split"
+							or "topleft vertical split"
+						pcall(function(...)
+							vim.cmd(...)
+						end, split_cmd)
 						pcall(vim.api.nvim_win_set_width, 0, config.width or 40)
-						pcall(function(...) vim.cmd(...) end, "b " .. buf_name)
+						pcall(function(...)
+							vim.cmd(...)
+						end, "b " .. buf_name)
 						return
 					end
 				end

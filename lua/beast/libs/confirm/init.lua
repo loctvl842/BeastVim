@@ -16,11 +16,11 @@ function M.run(opts, cb)
 	ui.render(view, selected)
 	vim.cmd("redraw")
 
-  local cancelled = ui.run_modal_loop(view, selected)
-  ui.close(view)
-  if cb then
-    cb(cancelled)
-  end
+	local cancelled = ui.run_modal_loop(view, selected)
+	ui.close(view)
+	if cb then
+		cb(cancelled)
+	end
 end
 
 return M

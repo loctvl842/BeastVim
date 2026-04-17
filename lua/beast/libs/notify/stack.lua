@@ -67,7 +67,7 @@ local function show(state, record)
 	vim.wo[view.win].winblend = 100
 	table.insert(state.views, view)
 	ui.render(view)
-  ui.fade_in(view)
+	ui.fade_in(view)
 
 	if record.timeout ~= false then
 		local index = #state.views

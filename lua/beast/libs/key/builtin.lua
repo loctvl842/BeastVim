@@ -71,16 +71,16 @@ map("n", "<C-a>", "gg<S-v>G", { desc = "Select all", group = "Edit" })
 
 ------------------- Faster scrolling ---------------------------
 map(
-  { "n", "i", "v" },
-  "<C-U>",
-  "<C-Y><C-Y><C-Y><C-Y><C-Y><C-Y><C-Y><C-Y><C-Y><C-Y><C-Y><C-Y><C-Y><C-Y><C-Y><C-Y>",
-  { desc = "Scroll up (fast)", group = "Scroll" }
+	{ "n", "i", "v" },
+	"<C-U>",
+	"<C-Y><C-Y><C-Y><C-Y><C-Y><C-Y><C-Y><C-Y><C-Y><C-Y><C-Y><C-Y><C-Y><C-Y><C-Y><C-Y>",
+	{ desc = "Scroll up (fast)", group = "Scroll" }
 )
 map(
-  { "n", "i", "v" },
-  "<C-D>",
-  "<C-E><C-E><C-E><C-E><C-E><C-E><C-E><C-E><C-E><C-E><C-E><C-E><C-E><C-E><C-E><C-E>",
-  { desc = "Scroll down (fast)", group = "Scroll" }
+	{ "n", "i", "v" },
+	"<C-D>",
+	"<C-E><C-E><C-E><C-E><C-E><C-E><C-E><C-E><C-E><C-E><C-E><C-E><C-E><C-E><C-E><C-E>",
+	{ desc = "Scroll down (fast)", group = "Scroll" }
 )
 ----------------- HACK: Toggle pin scrolloff -------------------
 -- stylua: ignore
@@ -88,6 +88,6 @@ map("n", "<leader>to", function() vim.opt.scrolloff = 999 - vim.o.scrolloff end,
 
 ------------------- Escape behaviors ---------------------------
 map({ "i", "n", "s" }, "<esc>", function()
-  vim.cmd("noh")
-  return "<esc>"
+	vim.cmd("noh")
+	return "<esc>"
 end, { expr = true, desc = "Escape and clear search highlight", group = "General" })

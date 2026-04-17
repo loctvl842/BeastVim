@@ -13,13 +13,13 @@ M.safe_set = require("beast.libs.key.core").safe_set
 M.managed = require("beast.libs.key.core").managed
 
 function M.cycle_mode()
-  state.lines = api.cycle_mode()
-  ui.refresh()
+	state.lines = api.cycle_mode()
+	ui.refresh()
 end
 
 function M.toggle_beast()
-  state.lines = api.toggle_beast_only()
-  ui.refresh()
+	state.lines = api.toggle_beast_only()
+	ui.refresh()
 end
 
 function M.expand_at_cursor()
@@ -28,8 +28,8 @@ function M.expand_at_cursor()
 	if not id then
 		return
 	end
-  state.lines = api.toggle_expand(id)
-  ui.refresh()
+	state.lines = api.toggle_expand(id)
+	ui.refresh()
 end
 
 function M.close()

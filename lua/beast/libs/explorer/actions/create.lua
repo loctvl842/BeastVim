@@ -63,7 +63,7 @@ local function show_popup(target_dir)
 				ui.focus_path(full_path)
 			end)
 		end
-  end)
+	end)
 end
 
 function M.run()

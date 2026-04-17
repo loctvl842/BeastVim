@@ -56,7 +56,7 @@ end
 ---@param on_cancel fun()?               called on escape / leave
 ---@param cleanup fun()?                 extra cleanup before restoring focus
 local function open_float(row, col, width, initial, on_confirm, on_cancel, cleanup)
-  on_cancel = on_cancel or function() end
+	on_cancel = on_cancel or function() end
 	local exp_win = state.view.win
 
 	local input_buf = vim.api.nvim_create_buf(false, true)
@@ -116,7 +116,7 @@ local function open_float(row, col, width, initial, on_confirm, on_cancel, clean
 			close_input()
 			on_cancel()
 			return
-    end
+		end
 		if input:match("[%z\1-\31]") then
 			vim.notify("Invalid name", vim.log.levels.ERROR)
 			return
@@ -130,7 +130,7 @@ local function open_float(row, col, width, initial, on_confirm, on_cancel, clean
 		if type(result) == "function" then
 			result()
 		end
-  end
+	end
 
 	local function cancel()
     -- stylua: ignore
@@ -251,7 +251,7 @@ function M.inline(target_dir, dir_line, is_last, on_confirm, on_cancel, initial)
 	end
 
 	local blank_removed = false
-  local function remove_blank()
+	local function remove_blank()
     -- stylua: ignore
 		if blank_removed then return end
 		if state.view and state.view:is_valid() then
@@ -260,8 +260,8 @@ function M.inline(target_dir, dir_line, is_last, on_confirm, on_cancel, initial)
 				vim.api.nvim_buf_set_lines(exp_buf, dir_line, dir_line + 1, false, {})
 				vim.bo[exp_buf].modifiable = false
 			end)
-    end
-  end
+		end
+	end
 
 	open_float(dir_line, indent, input_width, initial, on_confirm, on_cancel, remove_blank)
 end

@@ -62,8 +62,8 @@ function M.run()
 			ui.render(function()
 				ui.focus_path(new_path)
 			end)
-    end
-  end)
+		end
+	end)
 end
 
 return M
