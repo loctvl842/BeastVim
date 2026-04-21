@@ -37,14 +37,14 @@ end
 -- TYPES
 -- =============================================================================
 
----@class Animate.State
+---@class Beast.Animate.State
 ---@field row? integer
 ---@field col? integer
 ---@field width? integer
 ---@field height? integer
 ---@field blend? integer
 
----@class Animate.Opts
+---@class Beast.Animate.Opts
 ---@field blend_delay? number
 ---@field ease_pos? fun(t:number):number
 ---@field ease_size? fun(t:number):number
@@ -57,11 +57,11 @@ end
 ---Animate float window config fields over time.
 ---Only keys present in `from`/`to` are animated.
 ---@param win integer
----@param from Animate.State
----@param to Animate.State
+---@param from Beast.Animate.State
+---@param to Beast.Animate.State
 ---@param duration integer
 ---@param on_done? fun()
----@param opts? Animate.Opts
+---@param opts? Beast.Animate.Opts
 function M.run(win, from, to, duration, on_done, opts)
 	opts = opts or {}
 
@@ -94,6 +94,7 @@ function M.run(win, from, to, duration, on_done, opts)
 
 		local next_conf = {
 			relative = conf.relative,
+			anchor = conf.anchor,
 			row = conf.row,
 			col = conf.col,
 			width = conf.width,

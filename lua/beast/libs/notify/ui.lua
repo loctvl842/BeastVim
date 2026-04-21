@@ -1,6 +1,6 @@
 local View = require("beast.libs.view")
 local config = require("beast.libs.notify.config")
-local animate = require("beast.libs.notify.animate")
+local animate = require("beast.libs.animate")
 
 ---@class Beast.Notify.View : Beast.View
 ---@field ns integer
