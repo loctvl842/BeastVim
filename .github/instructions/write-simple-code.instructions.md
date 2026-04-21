@@ -1,0 +1,1 @@
+/Users/loctvl842/Documents/Work/BeyondSoft/Repo/TEC-main/.github/instructions/write-simple-code.instructions.md

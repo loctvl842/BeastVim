@@ -1,0 +1,1 @@
+/Users/loctvl842/Documents/Work/BeyondSoft/Repo/TEC-main/.github/agents/tec-review.agent.md
