@@ -1,4 +1,4 @@
-<!-- Generated: 2026-04-21 | Files scanned: 32 | Token estimate: ~900 -->
+<!-- Generated: 2026-04-22 | Files scanned: 38 | Token estimate: ~950 -->
 
 # BeastVim Architecture
 
@@ -77,6 +77,20 @@ Notification stack with animated floating windows.
 - `test.lua` — test utilities
 
 **Flow**: `notify(msg, level, opts)` → creates Record → Stack.push → ui.render → window displayed
+
+### 2b. **Toast** (`libs/toast/`)
+Single-line notification toasts with staggered queuing.
+
+**Files**:
+- `init.lua` — public API (setup, toast, dismiss)
+- `state.lua` — State class (views, queue, next_id, draining)
+- `stack.lua` — Stack operations (push, drain, remove, reflow, dismiss)
+- `record.lua` — Toast record factory
+- `config.lua` — config proxy with live cfg
+- `ui.lua` — window creation, rendering, animations
+- `test.lua` — stress test utilities
+
+**Flow**: `toast(msg, level, opts)` → Record → Stack.push → drain with stagger → ui.create/render → window displayed
 
 ### 3. **Explorer** (`libs/explorer/`)
 File tree browser with async git status, keyboard navigation.
@@ -165,5 +179,5 @@ Module-level mutable state lives only in `init.lua`. Other files are stateless.
 
 - **Total lines of Lua**: ~222
 - **Total files**: 32 (includes libraries, utils, test files)
-- **Libraries**: 5 (key, notify, explorer, confirm, lazy_loader)
+- **Libraries**: 6 (key, notify, toast, explorer, confirm, lazy_loader)
 - **Dependencies**: None external (pure Neovim plugin)

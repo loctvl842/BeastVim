@@ -1,4 +1,4 @@
-<!-- Generated: 2026-04-21 | Files scanned: 32 | Token estimate: ~400 -->
+<!-- Generated: 2026-04-22 | Files scanned: 38 | Token estimate: ~400 -->
 
 # BeastVim Codemaps
 
@@ -13,6 +13,7 @@ BeastVim is a Lua-based Neovim plugin providing **composable UI components** bui
 - **[architecture.md](architecture.md)** — System overview, library inventory, dependency structure
 - **[libraries.md](libraries.md)** — Detailed component APIs, data flows, and configuration for each library (Key, Notify, Explorer, Confirm, Animate)
 - **[patterns.md](patterns.md)** — Code conventions, type naming, module structure, shared patterns, DRY opportunities
+- **[health-config.md](../tec-config/health-config.md)** — Library health status, checkhealth support, stress tests, metrics & thresholds
 
 ## Project Stats
 
@@ -20,7 +21,7 @@ BeastVim is a Lua-based Neovim plugin providing **composable UI components** bui
 - **Framework**: Neovim plugin (no external dependencies)
 - **Total files**: 32 (libraries, utils, configs, tests)
 - **Total lines**: ~222
-- **Libraries**: 5 active (Key, Notify, Explorer, Confirm, Lazy Loader)
+- **Libraries**: 6 active (Key, Notify, Toast, Explorer, Confirm, Lazy Loader)
 - **Shared utilities**: 2 (View base class, Util helpers)
 
 ## How to Navigate

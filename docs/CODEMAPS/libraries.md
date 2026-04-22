@@ -1,4 +1,4 @@
-<!-- Generated: 2026-04-21 | Files scanned: 25 | Token estimate: ~1100 -->
+<!-- Generated: 2026-04-22 | Files scanned: 32 | Token estimate: ~1400 -->
 
 # Libraries & Components
 
@@ -32,6 +32,87 @@ init.lua           ← entry point, exports M
 4. Keypress triggers handler function
 
 **Defaults**: Key.setup({}) (no opts required)
+
+---
+
+## Toast (Notification Toasts)
+
+**Purpose**: Display brief single-line notifications with fade-out, automatic staggered queuing, and stack management. Similar to notify but for quick status messages.
+
+**Public API**:
+```
+toast.setup(opts)              — initialize config
+toast(msg, level, opts)        — queue toast
+toast.dismiss()                — dismiss all toasts
+```
+
+**Architecture**:
+```
+init.lua        ← entry point, __call metamethod for vim_starting/fast_event handling
+├── state.lua   ← State class (views, queue, next_id, draining flag)
+├── stack.lua   ← Stack operations (push, drain, remove, reflow, dismiss)
+├── record.lua  ← Toast record factory (immutable data)
+├── config.lua  ← defaults, live cfg, normalizers (level, message, title)
+├── ui.lua      ← window creation, rendering, fade animations
+├── animate.lua ← (shared) pure animation engine
+└── test.lua    ← stress test utilities
+```
+
+**Record Fields**:
+```lua
+{
+    id       = unique integer,
+    message  = normalized string (single line),
+    level    = "INFO" | "WARN" | "ERROR" | "DEBUG" | "TRACE",
+    title    = optional string (shown at right edge),
+    icon     = diagnostic icon (configurable per level),
+    dim      = boolean (for quiet messages),
+    time     = timestamp,
+    timeout  = milliseconds|false,
+}
+```
+
+**Toast Flow**:
+1. User calls `toast("message", "INFO", {...})`
+2. State.schedule() handles vim_starting/fast_event edge cases
+3. Record.new() creates immutable toast record
+4. Stack.push(record) adds to queue
+5. Stack.drain(state) shows next queued toast with stagger delay
+6. ui.create() opens floating window at bottom-right (SE anchor)
+7. ui.render() writes single line with title + icon + message
+8. ui.fade_in() animates opacity 100→0 (ease_out)
+9. Timer auto-dismisses after timeout
+10. Stack.reflow() repositions remaining toasts upward
+
+**Stacking**: Toasts stack bottom-up from bottom-right corner. Each new toast pushes older ones up.
+
+**Animation**:
+- Fade-in: `ease_out` (fast start, slow end) over 180ms
+- Fade-out: `ease_in` (slow start, fast end) over 180ms
+- Stagger: 70ms delay between consecutive toasts
+
+**Config Defaults**:
+```lua
+{
+    timeout = 2200,           -- milliseconds per toast
+    stagger = 70,             -- delay between toasts
+    anim_ms = 180,            -- animation duration
+    gap = 0,                  -- space between stacked toasts
+    margin_bottom = 0,        -- gap from statusline
+    level = vim.log.levels.INFO,  -- minimum level to show
+    title = "",               -- default title (can be overridden per toast)
+    max_width = 0.4 * columns,    -- dynamic width
+    icons = {ERROR="", WARN="", ...},
+    hl = {ERROR={title="DiagnosticError", body="Normal"}, ...},
+}
+```
+
+**Differences from Notify**:
+- Single-line only (no multi-line messages)
+- Stacked at bottom-right corner (vs top-right)
+- Much shorter timeout (2.2s vs 3s)
+- Staggered queue (one at a time)
+- Lighter weight (no padding, minimal styling)
 
 ---
 
