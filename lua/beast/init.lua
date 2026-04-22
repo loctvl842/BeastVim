@@ -6,6 +6,7 @@ local M = {}
 local defaults = {
 	key = {},
 	notify = {},
+	toast = {},
 }
 
 ---@param opts? Beast.Config
@@ -22,8 +23,13 @@ function M.setup(opts)
 	-- Notification
 	local notify = require("beast.libs.notify")
 	notify.setup(cfg.notify)
+	local toast = require("beast.libs.toast")
+	toast.setup(cfg.toast)
+	_G.Toast = toast
+
 	Key.safe_set("n", "<leader>n", function()
 		notify.dismiss()
+    toast.dismiss()
 	end, { desc = "Dismiss all notifications", group = "Notify" })
 
 	local explorer = require("beast.libs.explorer")
