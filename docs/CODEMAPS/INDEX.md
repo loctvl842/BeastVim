@@ -58,6 +58,35 @@ lua/beast/
     └── lazy_loader/  ← Lazy module initialization
 ```
 
+## Design Decisions & Patterns
+
+### Global Util Injection
+**Pattern**: `_G.Util = require("beast.util")` injected in `lua/beast/init.lua:18`
+
+**Rationale**: Neovim convention for global utility modules. Makes helpers like `Util.wo()` available everywhere without import boilerplate. While some modules (e.g., `lazy_loader/ui.lua`) explicitly require it, most rely on global injection for brevity.
+
+**Applies to**: `key/ui.lua`, `notify/ui.lua`, `toast/ui.lua`, `explorer/ui.lua` (unguarded use of `Util.wo()`)
+
+---
+
+### Unguarded Window API Calls
+**Pattern**: Direct `vim.api.nvim_win_set_config()` calls without `pcall` after validity checks
+
+**Rationale**: BeastVim style accepts the rare edge case where a window becomes invalid between `is_valid()` check and API call. Guards are only used on **first creation** (`nvim_open_win`), not on subsequent mutations. Simplifies code without sacrificing robustness for typical use cases.
+
+**Applies to**: `key/ui.lua:Main.layout()`, other libraries' window layout functions
+
+---
+
+### Void Functions Without Return Annotations
+**Pattern**: Functions like `config.setup(opts)` omit `---@return nil` annotation
+
+**Rationale**: BeastVim convention is to annotate only meaningful returns. Void functions are self-evident from implementation (no `return` statement = void). Reduces annotation clutter.
+
+**Applies to**: All `setup()` functions across config modules
+
+---
+
 ## When to Update This
 
 Update codemaps when:
