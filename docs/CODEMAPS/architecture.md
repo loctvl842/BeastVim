@@ -1,4 +1,4 @@
-<!-- Generated: 2026-04-22 | Files scanned: 38 | Token estimate: ~950 -->
+<!-- Generated: 2026-04-23 | Files scanned: 50 | Token estimate: ~950 -->
 
 # BeastVim Architecture
 
@@ -51,18 +51,20 @@ init.lua        ← public API, owns module-level state
 ## Core Libraries
 
 ### 1. **Key** (`libs/key/`)
-Global keymapping system with action-driven architecture.
+Global keymapping system with action-driven architecture and centralized config.
 
 **Files**:
 - `init.lua` — public API (setup, safe_set, bind)
+- `config.lua` — centralized config with defaults, live cfg, readonly metatable
 - `state.lua` — keymap state (groups, handlers)
 - `core.lua` — binding logic
 - `builtin.lua` — built-in actions
 - `api.lua` — exported API
-- `ui.lua` — UI state management
-- `CLAUDE.md` — library conventions
+- `ui.lua` — UI state management, action dispatcher
 
 **Entry**: `Key.safe_set(mode, key, fn, opts)` → registers keymaps with group tracking
+
+**Config Pattern**: `config.lua` uses readonly metatable with methods table dispatch. Actions in `ui.lua` are keyed by string names (e.g. "close", "cycle_mode") looked up via actions metatable.
 
 ### 2. **Notify** (`libs/notify/`)
 Notification stack with animated floating windows.

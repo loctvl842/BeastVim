@@ -29,7 +29,7 @@ function M.setup(opts)
 
 	Key.safe_set("n", "<leader>n", function()
 		notify.dismiss()
-    toast.dismiss()
+		toast.dismiss()
 	end, { desc = "Dismiss all notifications", group = "Notify" })
 
 	local explorer = require("beast.libs.explorer")

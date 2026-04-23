@@ -1,6 +1,7 @@
 local View = require("beast.libs.view")
 local state = require("beast.libs.key.state")
 local api = require("beast.libs.key.api")
+local config = require("beast.libs.key.config")
 
 ---@class Beast.Key.UI.MainView : Beast.View
 ---@field ns integer
@@ -16,36 +17,7 @@ local ActionView = View:extend(function(obj, ns)
 	obj.ns = ns
 end)
 
----@class Beast.Key.UI.Action
----@field keys string[]|string
----@field label string
----@field key_hl string
----@field label_hl string
----@field on_press function
-
 local M = {}
-
----@class Beast.Key.UI.Config
-local defaults = {
-	width = 0.7,
-	height = 0.7,
-	backdrop = 30,
-	---@type Beast.Key.UI.Action[]
-	actions = {
-		{
-			keys = { "q", "<Esc>" },
-			label = "Close",
-			key_hl = "DiagnosticError",
-			label_hl = "Comment",
-			on_press = function()
-				M.close()
-			end,
-		},
-	},
-}
-
----@type Beast.Key.UI.Config
-local cfg = vim.deepcopy(defaults)
 
 -- =============================================================================
 -- UTILS
@@ -67,8 +39,8 @@ end
 ---@return integer row
 ---@return integer col
 local function calc_main_geometry()
-	local width = math.floor(vim.o.columns * cfg.width)
-	local height = math.floor(vim.o.lines * cfg.height)
+	local width = math.floor(vim.o.columns * config.ui.width)
+	local height = math.floor(vim.o.lines * config.ui.height)
 	local row = math.floor((vim.o.lines - height) / 2)
 	local col = math.floor((vim.o.columns - width) / 2)
 	return width, height, row, col
@@ -114,8 +86,8 @@ end
 ---@return integer col
 local function calc_action_geometry(main_win)
 	local main_cfg = vim.api.nvim_win_get_config(main_win)
-	local width = calc_action_width(cfg.actions)
-	local height = math.max(#cfg.actions, 1)
+	local width = calc_action_width(config.ui.actions)
+	local height = math.max(#config.ui.actions, 1)
 
 	-- Top-right inside the main window with a little padding.
 	local row = 0
@@ -144,7 +116,7 @@ function Main.create()
 		zindex = 100,
 	})
 
-	Util.wo(backdrop_win, "winblend", cfg.backdrop)
+	Util.wo(backdrop_win, "winblend", config.ui.backdrop)
 
 	local width, height, row, col = calc_main_geometry()
 
@@ -292,9 +264,9 @@ function Action.render(action)
 
 	vim.api.nvim_buf_clear_namespace(action.buf, action.ns, 0, -1)
 
-	local max_keys_width = get_max_keys_width(cfg.actions)
+	local max_keys_width = get_max_keys_width(config.ui.actions)
 
-	for i, a in ipairs(cfg.actions) do
+	for i, a in ipairs(config.ui.actions) do
 		local line0 = i - 1
 		local line_count = vim.api.nvim_buf_line_count(action.buf)
 
@@ -327,6 +299,55 @@ function Action.close(action)
 end
 
 -- =============================================================================
+-- ACTIONS
+-- =============================================================================
+
+local _actions_handler = {}
+
+local actions = setmetatable({}, {
+	__index = function(_, key)
+		if _actions_handler[key] ~= nil then
+			return _actions_handler[key]
+		end
+		error("Invalid action: " .. key)
+	end,
+})
+
+function _actions_handler.close()
+  --stylua: ignore
+  if state.closed then return end
+
+	if state.augroup ~= -1 then
+		pcall(vim.api.nvim_del_augroup_by_id, state.augroup)
+	end
+
+	Action.close(state.action)
+	Main.close(state.main)
+
+	state.reset()
+end
+
+function _actions_handler.cycle_mode()
+	state.lines = api.cycle_mode()
+	M.refresh()
+end
+
+function _actions_handler.toggle_beast()
+	state.lines = api.toggle_beast_only()
+	M.refresh()
+end
+
+function _actions_handler.expand_at_cursor()
+	local line = vim.api.nvim_get_current_line()
+	local id = line:match("%[.+%] (%S+)")
+	if not id then
+		return
+	end
+	state.lines = api.toggle_expand(id)
+	M.refresh()
+end
+
+-- =============================================================================
 -- Controller
 -- =============================================================================
 local function render_state()
@@ -340,12 +361,12 @@ local function layout_state()
 end
 
 local function mount_keymaps()
-	for _, a in ipairs(cfg.actions) do
+	for _, a in ipairs(config.ui.actions) do
 		---@type string[]
 		---@diagnostic disable-next-line: assign-type-mismatch
 		local keys = type(a.keys) == "string" and { a.keys } or a.keys
 		for _, key in ipairs(keys) do
-			vim.keymap.set("n", key, a.on_press, {
+			vim.keymap.set("n", key, actions[a.on_press], {
 				buffer = state.main.buf,
 				silent = true,
 				nowait = true,
@@ -362,7 +383,7 @@ local function mount_autocmds()
 		buffer = state.main.buf,
 		once = true,
 		callback = function()
-			M.close()
+			actions.close()
 		end,
 	})
 
@@ -373,7 +394,7 @@ local function mount_autocmds()
 			if state == nil or not state.is_valid() then return end
 			local current = vim.api.nvim_get_current_win()
 			if current ~= state.main.win then
-				M.close()
+				actions.close()
 			end
 		end,
 	})
@@ -407,25 +428,6 @@ function M.refresh()
 		return
 	end
 	render_state()
-end
-
-function M.close()
-  --stylua: ignore
-  if state.closed then return end
-
-	if state.augroup ~= -1 then
-		pcall(vim.api.nvim_del_augroup_by_id, state.augroup)
-	end
-
-	Action.close(state.action)
-	Main.close(state.main)
-
-	state.reset()
-end
-
----@param opts? Beast.Key.UI.Config
-function M.setup(opts)
-	cfg = vim.tbl_deep_extend("force", vim.deepcopy(defaults), opts or {})
 end
 
 return M

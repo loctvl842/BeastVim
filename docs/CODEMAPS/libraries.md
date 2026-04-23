@@ -1,4 +1,4 @@
-<!-- Generated: 2026-04-22 | Files scanned: 32 | Token estimate: ~1400 -->
+<!-- Generated: 2026-04-23 | Files scanned: 50 | Token estimate: ~1400 -->
 
 # Libraries & Components
 
@@ -18,12 +18,15 @@ Key.bind(mode, key, fn, opts)       — internal bind (used by safe_set)
 **Architecture**:
 ```
 init.lua           ← entry point, exports M
+├── config.lua     ← Centralized config (readonly metatable, methods table dispatch)
 ├── state.lua      ← State class (groups, handlers registry)
 ├── core.lua       ← bind(mode, key, fn, opts) → vim.keymap.set
 ├── builtin.lua    ← built-in actions (move_cursor, etc)
 ├── api.lua        ← API methods (bind, setup)
-└── ui.lua         ← UI mode state (insert, normal, visual, etc)
+└── ui.lua         ← UI windows, rendering, action dispatcher (strings → functions)
 ```
+
+**Key Refactoring (Apr 23)**: Config extracted to separate file with readonly metatable. Actions in ui.lua are now keyed by string names ("close", "cycle_mode", etc.) and dispatched via actions metatable instead of function references. This separates config from action handlers.
 
 **Key Flow**:
 1. User calls `Key.safe_set("n", "<leader>e", explorer.toggle, {...})`

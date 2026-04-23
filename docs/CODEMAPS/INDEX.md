@@ -1,4 +1,4 @@
-<!-- Generated: 2026-04-22 | Files scanned: 38 | Token estimate: ~400 -->
+<!-- Generated: 2026-04-23 | Files scanned: 50 | Token estimate: ~400 -->
 
 # BeastVim Codemaps
 
@@ -19,8 +19,8 @@ BeastVim is a Lua-based Neovim plugin providing **composable UI components** bui
 
 - **Language**: Lua
 - **Framework**: Neovim plugin (no external dependencies)
-- **Total files**: 32 (libraries, utils, configs, tests)
-- **Total lines**: ~222
+- **Total files**: 50 (libraries, utils, configs, tests)
+- **Total lines**: ~2,800
 - **Libraries**: 6 active (Key, Notify, Toast, Explorer, Confirm, Lazy Loader)
 - **Shared utilities**: 2 (View base class, Util helpers)
 
