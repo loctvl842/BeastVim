@@ -14,17 +14,6 @@ end)
 -- UTILS
 -- =============================================================================
 
----@param filetype string
----@return integer
-local function create_scratch_buf(filetype)
-	local buf = vim.api.nvim_create_buf(false, true)
-	vim.bo[buf].buftype = "nofile"
-	vim.bo[buf].bufhidden = "wipe"
-	vim.bo[buf].swapfile = false
-	vim.bo[buf].filetype = filetype
-	return buf
-end
-
 ---Trim to a display-width budget, append ellipsis if truncated.
 ---@param s string
 ---@param maxw integer
@@ -47,7 +36,7 @@ local M = {}
 ---@param bottom_row integer  row of the bottom edge (SE anchor)
 ---@return Beast.Toast.View
 function M.create(record, bottom_row)
-	local buf = create_scratch_buf("beast-toast")
+	local buf = Util.create_scratch_buf("beast-toast")
 
 	local width, height = record:dimensions()
 

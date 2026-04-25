@@ -31,17 +31,6 @@ local saved_cursor = nil
 -- UTILS
 -- =============================================================================
 
----@param filetype string
----@return integer
-local function create_scratch_buf(filetype)
-	local buf = vim.api.nvim_create_buf(false, true)
-	vim.bo[buf].buftype = "nofile"
-	vim.bo[buf].bufhidden = "wipe"
-	vim.bo[buf].swapfile = false
-	vim.bo[buf].filetype = filetype
-	return buf
-end
-
 ---@param text string
 ---@return integer
 local function display_width(text)
@@ -169,8 +158,8 @@ function M.create(opts)
 	opts = opts or {}
 	opts.align = opts.align or "center"
 
-	local backdrop_buf = create_scratch_buf("beast-backdrop")
-	local main_buf = create_scratch_buf("beast-confirm")
+	local backdrop_buf = Util.create_scratch_buf("beast-backdrop")
+	local main_buf = Util.create_scratch_buf("beast-confirm")
 
 	local backdrop_win = vim.api.nvim_open_win(backdrop_buf, false, {
 		relative = "editor",

@@ -30,21 +30,6 @@ function ExplorerView:set_title(cwd)
 end
 
 -- =============================================================================
--- UTILS
--- =============================================================================
-
----@param filetype string
----@return integer
-local function create_scratch_buf(filetype)
-	local buf = vim.api.nvim_create_buf(false, true)
-	vim.bo[buf].buftype = "nofile"
-	vim.bo[buf].bufhidden = "wipe"
-	vim.bo[buf].swapfile = false
-	vim.bo[buf].filetype = filetype
-	return buf
-end
-
--- =============================================================================
 -- MODULE
 -- =============================================================================
 
@@ -56,7 +41,7 @@ local M = {}
 ---@return Beast.Explorer.View
 function M.create(cwd)
 	local ns = vim.api.nvim_create_namespace("beastvim_explorer")
-	local buf = create_scratch_buf("beast-explorer")
+	local buf = Util.create_scratch_buf("beast-explorer")
 
 	-- Snapshot the real editing window's options before splitting, so we can
 	-- restore them on any new window created later (vsplit from explorer).

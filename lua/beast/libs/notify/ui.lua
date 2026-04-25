@@ -14,17 +14,6 @@ end)
 -- UTILS
 -- =============================================================================
 
----@param filetype string
----@return integer
-local function create_scratch_buf(filetype)
-	local buf = vim.api.nvim_create_buf(false, true)
-	vim.bo[buf].buftype = "nofile"
-	vim.bo[buf].bufhidden = "wipe"
-	vim.bo[buf].swapfile = false
-	vim.bo[buf].filetype = filetype
-	return buf
-end
-
 ---Final col for all notification windows.
 ---@return integer
 local function final_col()
@@ -41,7 +30,7 @@ local M = {}
 ---@param slot_row integer
 ---@return Beast.Notify.View
 function M.create(record, slot_row)
-	local buf = create_scratch_buf("beast-notify")
+	local buf = Util.create_scratch_buf("beast-notify")
 	local width, height = record:dimensions()
 	local hl = config.hl[record.level] or config.hl.INFO
 

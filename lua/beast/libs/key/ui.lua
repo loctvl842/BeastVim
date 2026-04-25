@@ -23,17 +23,6 @@ local M = {}
 -- UTILS
 -- =============================================================================
 
----@param filetype string
----@return integer
-local function create_scratch_buf(filetype)
-	local buf = vim.api.nvim_create_buf(false, true)
-	vim.bo[buf].buftype = "nofile"
-	vim.bo[buf].bufhidden = "wipe"
-	vim.bo[buf].swapfile = false
-	vim.bo[buf].filetype = filetype
-	return buf
-end
-
 ---@return integer width
 ---@return integer height
 ---@return integer row
@@ -103,8 +92,8 @@ local Main = {}
 
 ---@return Beast.Key.UI.MainView
 function Main.create()
-	local backdrop_buf = create_scratch_buf("beast-backdrop")
-	local main_buf = create_scratch_buf("beast-key")
+	local backdrop_buf = Util.create_scratch_buf("beast-backdrop")
+	local main_buf = Util.create_scratch_buf("beast-key")
 	local backdrop_win = vim.api.nvim_open_win(backdrop_buf, false, {
 		relative = "editor",
 		row = 0,
@@ -217,7 +206,7 @@ local Action = {}
 ---@param main Beast.Key.UI.MainView
 ---@return Beast.Key.UI.ActionView
 function Action.create(main)
-	local buf = create_scratch_buf("beast-key-actions")
+	local buf = Util.create_scratch_buf("beast-key-actions")
 	local width, height, row, col = calc_action_geometry(main.win)
 
 	local win = vim.api.nvim_open_win(buf, false, {
