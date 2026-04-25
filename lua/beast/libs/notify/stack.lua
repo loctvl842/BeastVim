@@ -74,6 +74,19 @@ local function show(state, record)
 		local bonus = math.floor(math.sqrt(index * index * index) * config.stagger)
 		local timeout = record.timeout + bonus
 		vim.defer_fn(function()
+			local _, view = state:find(record.id)
+			-- If window is focus
+			if view and view:is_valid() and vim.api.nvim_get_current_win() == view.win then
+				vim.api.nvim_create_autocmd("WinLeave", {
+					once = true,
+					callback = function()
+						vim.defer_fn(function()
+							M.remove(state, record.id)
+						end, 2000)
+					end,
+				})
+				return
+			end
 			M.remove(state, record.id)
 		end, timeout)
 	end
