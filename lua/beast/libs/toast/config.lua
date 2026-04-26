@@ -8,7 +8,7 @@ local defaults = {
 	level = vim.log.levels.INFO,
 	title = "",
 	max_width = function()
-		return math.floor(vim.o.columns * 0.4)
+		return math.floor(vim.o.columns * 0.6)
 	end,
 	icons = {
 		ERROR = "",
