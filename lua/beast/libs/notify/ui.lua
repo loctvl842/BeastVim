@@ -52,7 +52,15 @@ function M.create(record, slot_row)
 	Util.wo(win, "winblend", 100) -- start transparent
 
 	local ns = vim.api.nvim_create_namespace("beastvim_notify_" .. record.id)
-	return NotifView(buf, win, ns, record)
+	local view = NotifView(buf, win, ns, record)
+	vim.keymap.set("n", "q", function()
+		M.close(view)
+	end, {
+		buffer = buf,
+		silent = true,
+		nowait = true,
+	})
+	return view
 end
 
 ---@param view Beast.Notify.View

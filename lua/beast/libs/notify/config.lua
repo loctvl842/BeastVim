@@ -1,6 +1,6 @@
 ---@class Beast.Notify.Config
 local defaults = {
-	width = 50,
+	width = 80,
 	timeout = 3000,
 	stagger = 100,
 	anim_ms = 220,
