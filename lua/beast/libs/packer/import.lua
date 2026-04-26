@@ -29,11 +29,11 @@ end
 
 ---Load plugin specs from a module path
 ---@param module_path string Module path (e.g., "beastvim.plugins")
----@return Beast.LazyLoader.PluginSpec[]
+---@return Beast.Packer.PluginSpec[]
 local function load_specs_from_module(module_path)
 	local ok, result = pcall(require, module_path)
 	if not ok then
-		Toast.show(
+		vim.notify(
 			"Failed to load specs from " .. module_path .. ": " .. result,
 			vim.log.levels.WARN,
 			{ title = "BeastVim" }
@@ -43,7 +43,7 @@ local function load_specs_from_module(module_path)
 
 	-- Result should be a table of specs
 	if type(result) ~= "table" then
-		Toast.show("Module " .. module_path .. " did not return a table", vim.log.levels.ERROR, { title = "BeastVim" })
+		vim.notify("Module " .. module_path .. " did not return a table", vim.log.levels.ERROR, { title = "BeastVim" })
 		return {}
 	end
 
@@ -68,12 +68,12 @@ local function load_specs_from_module(module_path)
 end
 
 ---Recursively expand import specs
----@param specs Beast.LazyLoader.PluginSpec[]
+---@param specs Beast.Packer.PluginSpec[]
 ---@param processed? table<string, boolean> Track processed imports to avoid cycles
----@return Beast.LazyLoader.PluginSpec[]
+---@return Beast.Packer.PluginSpec[]
 function M.expand_imports(specs, processed)
 	processed = processed or {}
-	---@type Beast.LazyLoader.PluginSpec[]
+	---@type Beast.Packer.PluginSpec[]
 	local expanded = {}
 
 	for _, spec in ipairs(specs) do
@@ -81,7 +81,7 @@ function M.expand_imports(specs, processed)
 		if import_path then
 			-- Avoid circular imports
 			if processed[import_path] then
-				Toast.show("Circular import detected: " .. import_path, vim.log.levels.WARN, { title = "BeastVim" })
+				Toast("Circular import detected: " .. import_path, vim.log.levels.WARN, { title = "BeastVim" })
 				goto continue
 			end
 
@@ -101,11 +101,6 @@ function M.expand_imports(specs, processed)
 
 			-- Recursively expand nested imports
 			local nested_expanded = M.expand_imports(imported_specs, processed)
-
-			-- Add to result
-			for _, nested_spec in ipairs(nested_expanded) do
-				table.insert(expanded, nested_spec)
-			end
 
 			-- Add to result
 			for _, nested_spec in ipairs(nested_expanded) do

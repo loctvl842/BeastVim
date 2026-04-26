@@ -1,4 +1,4 @@
----@class Beast.LazyLoader.Config
+---@class Beast.Packer.Config
 ---@field event? string|string[] Event(s) to trigger lazy loading (e.g., "BufRead", "VimEnter")
 ---@field cmd? string|string[] Command(s) to trigger lazy loading (e.g., "Telescope")
 ---@field keys? Beast.KeymapSpec|Beast.KeymapSpec[]|string|string[] Keymap(s) to trigger lazy loading
@@ -6,7 +6,7 @@
 ---@field filetype? string|string[] Filetype(s) to trigger lazy loading (e.g., "rust", {"go", "gomod"})
 ---@field path? string|string[] Path pattern(s) to trigger lazy loading (e.g., ".github/**", "*_test.go")
 
----@class Beast.LazyLoader.PluginSpec
+---@class Beast.Packer.PluginSpec
 ---@field name? string Plugin name (must match plugin directory name) - required for plugin specs, nil for import specs
 ---@field src? string Git repository URL (e.g., "https://github.com/user/repo") - required for plugin specs, nil for import specs
 ---@field import? string Module path to import specs from (e.g., "beastvim.plugins")
@@ -14,24 +14,24 @@
 ---@field enabled? boolean Whether to process this import (default: true)
 ---@field cond? fun(): boolean Condition function for conditional imports
 ---@field dependencies? string[] List of dependency plugin names that must be loaded before this plugin
----@field lazy? Beast.LazyLoader.Config|false Lazy loading configuration (if false, loads eagerly; if nil, loads manually)
+---@field packer? Beast.Packer.Config|false Packer loading configuration (if false, loads eagerly; if nil, loads manually)
 ---@field init? fun() Initialization function (runs during setup, before loading)
 ---@field config? fun() Configuration function (runs after plugin loads)
----@field build? string|string[]|fun(spec: Beast.LazyLoader.PluginSpec, dir: string) Build step to run after install/update (like lazy.nvim)
+---@field build? string|string[]|fun(spec: Beast.Packer.PluginSpec, dir: string) Build step to run after install/update (like lazy.nvim)
 
--- Track lazy vs startup plugins
----@class Beast.LazyLoader.LoadReason
+-- Track packer vs startup plugins
+---@class Beast.Packer.LoadReason
 ---@field type "event"|"cmd"|"keys"|"module"|"filetype"|"path"|"dependency"|"manual"|"eager"
 ---@field detail string|nil -- Event name, command name, key sequence, module name, or parent plugin
 
----@class Beast.LazyLoader.LoadProfile
+---@class Beast.Packer.LoadProfile
 ---@field packadd_ms number                           -- time spent in packadd (ms)
 ---@field config_ms  number                           -- time spent in config() (ms)
 ---@field total_ms   number                           -- packadd_ms + config_ms (ms)
 ---@field loaded_at  integer|nil                      -- os.time() when first loaded
----@field reason     Beast.LazyLoader.LoadReason|nil  -- Why the plugin was loaded
+---@field reason     Beast.Packer.LoadReason|nil  -- Why the plugin was loaded
 
----@class Beast.LazyLoader.OperationStatus
+---@class Beast.Packer.OperationStatus
 ---@field status "pending"|"in_progress"|"success"|"error"
 ---@field kind "install"|"update"|"load"
 ---@field message string|nil
@@ -39,18 +39,19 @@
 ---@field start_time_hr integer   -- hrtime() for precise elapsed
 ---@field elapsed_ms number|nil   -- Calculated elapsed time in ms
 
----@class Beast.LazyLoader.State
----@field lazy_plugins Beast.LazyLoader.PluginSpec[] Plugins to load later
+---@class Beast.Packer.State
+---@field lazy_plugins Beast.Packer.PluginSpec[] Plugins to load later
 ---@field loaded_plugins table<string, boolean> Plugins that have been loaded
 ---@field module_to_plugin table<string, string> Map module names to plugin names
----@field load_profiles table<string, Beast.LazyLoader.LoadProfile> Map plugin name -> profile timings
----@field operation_status table<string, Beast.LazyLoader.OperationStatus> Track ongoing operations
+---@field load_profiles table<string, Beast.Packer.LoadProfile> Map plugin name -> profile timings
+---@field operation_status table<string, Beast.Packer.OperationStatus> Track ongoing operations
 ---@field has_active_operations boolean Quick check for active operations
 ---@field configured_plugins table<string, boolean> Plugins that have had config() run
 local M = {
 	lazy_plugins = {},
 	loaded_plugins = {},
 	module_to_plugin = {},
+	load_profiles = {},
 	operation_status = {},
 	has_active_operations = false,
 	configured_plugins = {},
@@ -61,7 +62,7 @@ local loading_stack = {}
 
 --- Helper to find a plugin spec by name
 ---@param plugin_name string
----@return Beast.LazyLoader.PluginSpec|nil
+---@return Beast.Packer.PluginSpec|nil
 local function find_spec(plugin_name)
 	for _, spec in ipairs(M.lazy_plugins) do
 		if spec.name == plugin_name then
@@ -111,7 +112,7 @@ end
 
 --- Load a plugin manually
 ---@param plugin_name string Name of the plugin to load
----@param reason Beast.LazyLoader.LoadReason|nil Why the plugin is being loaded
+---@param reason Beast.Packer.LoadReason|nil Why the plugin is being loaded
 function M.load(plugin_name, reason) -- Already loaded
   -- stylua: ignore
   if M.loaded_plugins[plugin_name] then return end
@@ -143,7 +144,7 @@ function M.load(plugin_name, reason) -- Already loaded
 	-- Start operation tracking
 	M.start_operation(plugin_name, "load")
 
-	Toast.show("Loading " .. plugin_name, vim.log.levels.INFO, { title = "BeastVim", silent = true })
+	Toast("Loading " .. plugin_name, vim.log.levels.INFO, { title = "BeastVim", silent = true })
 	-- Measure packadd time using wrapper
 	local ok, err = M.profile(plugin_name, "packadd_ms", function()
 		vim.cmd.packadd(plugin_name)
@@ -202,6 +203,12 @@ local function hrtime()
 	end
 	-- Fallback using reltime (seconds as float)
 	return math.floor(vim.fn.reltimefloat(vim.fn.reltime()) * 1e9)
+end
+
+--- Install the module loader into package.loaders
+---@param module_trigger table The module trigger module
+function M.install_module_loader(module_trigger)
+	module_trigger.install(M.load)
 end
 
 --- Start tracking an operation
