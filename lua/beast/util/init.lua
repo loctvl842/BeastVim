@@ -22,4 +22,17 @@ function M.create_scratch_buf(filetype)
 	return buf
 end
 
+---@param prefix string Prefix for highlight groups e.g. "BeastNotify" -> will create "BeastNotifyInfo", "BeastNotifyWarn", etc.
+---@param groups table<string, vim.api.keyset.highlight> Map of highlight group names to their definition.
+function M.set_hl(prefix, groups)
+	for name, def in pairs(groups) do
+		local group = prefix .. name
+		if def.link then
+			vim.api.nvim_command("hi! link " .. group .. " " .. def.link)
+		else
+			vim.api.nvim_set_hl(0, group, def)
+		end
+	end
+end
+
 return M

@@ -7,6 +7,9 @@ local defaults = {
 	key = {},
 	notify = {},
 	toast = {},
+	packer = {
+		{ import = "beast.plugins" },
+	},
 }
 
 ---@param opts? Beast.Config
@@ -49,6 +52,12 @@ function M.setup(opts)
 		},
 	})
 	Key.safe_set("n", "<leader>e", explorer.toggle, { desc = "Toggle explorer panel", group = "Explorer" })
+
+	local packer = require("beast.libs.packer")
+  -- stylua: ignore
+  _G.gh = function(x) return "https://github.com/" .. x end
+	---@type Beast.Packer.PluginSpec[]
+	packer.setup(cfg.packer)
 end
 
 return M
