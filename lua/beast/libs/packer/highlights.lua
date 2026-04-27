@@ -16,6 +16,9 @@ Util.set_hl("BeastPacker", {
 	Button = { link = "CursorLine" },
 	ButtonActive = { link = "Visual" },
 	Warning = { link = "WarningMsg" },
+	Spinner = { link = "DiagnosticWarn" },
+	Success = { link = "DiagnosticOk" },
+	Error   = { link = "DiagnosticError" },
 })
 
 return M

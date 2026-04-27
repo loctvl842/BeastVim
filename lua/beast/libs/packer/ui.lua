@@ -1,10 +1,16 @@
 local View = require("beast.libs.view")
 local config = require("beast.libs.packer.config")
+local operation = require("beast.libs.packer.operation")
+local profile = require("beast.libs.packer.profile")
 local state = require("beast.libs.packer.state")
 
 -- Spinner animation frames
 local spinner_frames = { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" }
 local spinner_index = 1
+
+-- Refresh timer – drives spinner animation and live elapsed time during active operations
+-- Declared here so stop_refresh_timer/start_refresh_timer (defined later) share the same upvalue
+local refresh_timer = nil
 
 ---@class Beast.Packer.UI.MainView : Beast.View
 ---@field ns integer Namespace for extmarks
@@ -122,16 +128,29 @@ local function apply_segments(main, segments)
 	local ns = main.ns
 	local buf = main.buf
 
-	for i, segs in ipairs(segments) do
-		local s, col = "", 0
+	for _, segs in ipairs(segments) do
+		local line_idx = #lines + 1
+		lines[line_idx] = ""
+		local col = 0
 		for _, seg in ipairs(segs) do
-			if seg.hl then
-				marks[#marks + 1] = { i - 1, col, col + #seg.text, seg.hl }
+			local parts = vim.split(seg.text, "\n", { plain = true })
+			-- col at the start of this segment = indent for its continuation lines
+			local seg_start_col = col
+			for pi, part in ipairs(parts) do
+				if pi > 1 then
+					-- New buffer line; pad to align with where this segment started
+					line_idx = #lines + 1
+					local pad = string.rep(" ", seg_start_col)
+					lines[line_idx] = pad
+					col = seg_start_col
+				end
+				if seg.hl and #part > 0 then
+					marks[#marks + 1] = { line_idx - 1, col, col + #part, seg.hl }
+				end
+				lines[line_idx] = lines[line_idx] .. part
+				col = col + #part
 			end
-			s = s .. seg.text
-			col = col + #seg.text
 		end
-		lines[i] = s
 	end
 	vim.bo[buf].modifiable = true
 	vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
@@ -184,12 +203,7 @@ function Main.create()
 	Util.wo(main_win, "concealcursor", "nvic")
 	Util.wo(main_win, "cursorline", false)
 
-	return MainView(
-		main_buf,
-		main_win,
-		vim.api.nvim_create_namespace("beast_packer_main"),
-		View(backdrop_buf, backdrop_win)
-	)
+	return MainView(main_buf, main_win, vim.api.nvim_create_namespace("beast_packer_main"), View(backdrop_buf, backdrop_win))
 end
 
 ---@param main Beast.Packer.UI.MainView
@@ -222,7 +236,6 @@ function Main.render(main)
   -- stylua: ignore
   if not main:is_valid() then return end
 
-  -- TODO: implement spinner
 	spinner_index = (spinner_index % #spinner_frames) + 1
 
 	if main.view_mode == "main" then
@@ -236,6 +249,34 @@ function Main.render(main)
 	end
 end
 
+---@param reason Beast.Packer.LoadReason|nil
+---@return Beast.Packer.UI.Segment|nil
+local function format_reason(reason)
+	-- stylua: ignore
+	if not reason then return nil end
+	local t, d = reason.type, reason.detail
+	if t == "eager" then
+		return { text = config.ui.icons.eager .. "eager", hl = "BeastPackerSpecial" }
+	elseif t == "dependency" then
+		return { text = config.ui.icons.dependencies .. "dep of " .. (d or "?"), hl = "BeastPackerComment" }
+	elseif t == "event" then
+		return { text = config.ui.icons.event .. (d or "event"), hl = "BeastPackerEvent" }
+	elseif t == "cmd" then
+		return { text = config.ui.icons.cmd .. ":" .. (d or "cmd"), hl = "BeastPackerCmd" }
+	elseif t == "keys" then
+		return { text = config.ui.icons.keys .. (d or "keys"), hl = "BeastPackerKeys" }
+	elseif t == "module" then
+		return { text = config.ui.icons.module .. "require('" .. (d or "?") .. "')", hl = "BeastPackerModule" }
+	elseif t == "filetype" then
+		return { text = config.ui.icons.filetype .. (d or "filetype"), hl = "BeastPackerFiletype" }
+	elseif t == "path" then
+		return { text = config.ui.icons.path .. (d or "path"), hl = "BeastPackerPath" }
+	elseif t == "manual" then
+		return { text = "manual", hl = "BeastPackerComment" }
+	end
+	return nil
+end
+
 ---@param main Beast.Packer.UI.MainView
 function Main._render_main(main)
   -- stylua: ignore
@@ -247,33 +288,71 @@ function Main._render_main(main)
 	local new_line = { text = "", hl = nil }
 	table.insert(lines_segments, { { text = title, hl = "BeastPackerH2" } })
 
-	local total = #state.lazy_plugins
-	local loaded_count = 0
-	for _, spec in ipairs(state.lazy_plugins) do
-		if state.load_profiles[spec.name] then
-			loaded_count = loaded_count + 1
+	local total = state.total()
+	local sort_text = main.sort_mode == "time" and "Time" or "Name"
+
+	-- Collect install/update operations sorted by start_time (load ops shown in Loaded section)
+	local ops_list = {}
+	for name, op in pairs(operation.status) do
+		if op.kind == "install" or op.kind == "update" then
+			table.insert(ops_list, { name = name, op = op })
 		end
 	end
-	local sort_text = main.sort_mode == "time" and "Time" or "Name"
-	table.insert(
-		lines_segments,
-		{ { text = string.format("  Total: %d plugins   Sort: %s", total, sort_text) }, hl = "BeastPackerComment" }
-	)
-	table.insert(lines_segments, { new_line })
+	table.sort(ops_list, function(a, b)
+		return a.op.start_time < b.op.start_time
+	end)
+
+	if #ops_list > 0 then
+		-- Batch progress subtitle
+		local done_count = 0
+		for _, item in ipairs(ops_list) do
+			if item.op.status == "success" or item.op.status == "error" then
+				done_count = done_count + 1
+			end
+		end
+		table.insert(lines_segments, { { text = string.format("  Installing (%d/%d)   Sort: %s", done_count, #ops_list, sort_text), hl = "BeastPackerComment" } })
+		table.insert(lines_segments, { new_line })
+
+		-- Operations section
+		table.insert(lines_segments, { { text = "  Operations (" .. #ops_list .. ")", hl = "BeastPackerH2" } })
+		for _, item in ipairs(ops_list) do
+			local segments = {}
+			local op = item.op
+			if op.status == "in_progress" then
+				local elapsed_ms = (Util.hrtime() - op.start_time_hr) / 1e6
+				table.insert(segments, { text = "  " .. spinner_frames[spinner_index] .. " ", hl = "BeastPackerSpinner" })
+				table.insert(segments, { text = item.name, hl = "BeastPackerPlugin" })
+				table.insert(segments, { text = string.format("  %s  %.0fms", op.kind, elapsed_ms), hl = "BeastPackerComment" })
+			elseif op.status == "success" then
+				table.insert(segments, { text = "  " .. config.ui.icons.loaded .. " ", hl = "BeastPackerSuccess" })
+				table.insert(segments, { text = item.name, hl = "BeastPackerPlugin" })
+				table.insert(segments, { text = string.format("  %s  %.0fms", op.message or op.kind, op.elapsed_ms or 0), hl = "BeastPackerComment" })
+			elseif op.status == "error" then
+				table.insert(segments, { text = "  ✗ ", hl = "BeastPackerError" })
+				table.insert(segments, { text = item.name, hl = "BeastPackerPlugin" })
+				table.insert(segments, { text = "  " .. (op.message or "error"), hl = "BeastPackerError" })
+			end
+			table.insert(lines_segments, segments)
+		end
+		table.insert(lines_segments, { new_line })
+	else
+		table.insert(lines_segments, { { text = string.format("  Total: %d plugins   Sort: %s", total, sort_text), hl = "BeastPackerComment" } })
+		table.insert(lines_segments, { new_line })
+	end
 	local loaded = {}
 	local pending = {}
-	for _, spec in ipairs(state.lazy_plugins) do
+	for _, spec in pairs(state.plugins) do
 		if state.loaded_plugins[spec.name] then
 			table.insert(loaded, spec)
-		else
+		elseif state.installed_plugins[spec.name] then
 			table.insert(pending, spec)
 		end
 	end
 
 	if main.sort_mode == "time" then
 		table.sort(loaded, function(a, b)
-			local pa = state.load_profiles[a.name] or {}
-			local pb = state.load_profiles[b.name] or {}
+			local pa = profile[a.name] or {} ---@type Beast.Packer.LoadProfile
+			local pb = profile[b.name] or {} ---@type Beast.Packer.LoadProfile
 			local ta = pa.total_ms or 0
 			local tb = pb.total_ms or 0
 			if ta == tb then
@@ -295,9 +374,15 @@ function Main._render_main(main)
 			table.insert(segments, { text = "  " .. config.ui.icons.loaded .. " ", hl = "BeastPackerSpecial" })
 			table.insert(segments, { text = spec.name, hl = "BeastPackerPlugin" })
 
-			local prof = state.load_profiles[spec.name]
+			local prof = profile[spec.name]
 			if prof and prof.total_ms and prof.total_ms > 0 then
 				table.insert(segments, { text = string.format("  (%.1fms)", prof.total_ms), hl = "BeastPackerComment" })
+			end
+
+			local reason_seg = prof and format_reason(prof.reason)
+			if reason_seg then
+				table.insert(segments, { text = "  ", hl = nil })
+				table.insert(segments, reason_seg)
 			end
 
 			table.insert(lines_segments, segments)
@@ -306,6 +391,14 @@ function Main._render_main(main)
 	end
 
 	if #pending > 0 then
+		-- Helper: normalize a trigger value to a list of strings
+		local function to_list(v)
+			if type(v) == "string" then
+				return { v }
+			end
+			return v or {}
+		end
+
 		table.insert(lines_segments, { { text = "  Not Loaded (" .. #pending .. ")", hl = "BeastPackerH2" } })
 		for _, spec in ipairs(pending) do
 			---@type Beast.Packer.UI.Segment[]
@@ -314,19 +407,31 @@ function Main._render_main(main)
 			table.insert(segments, { text = spec.name, hl = "BeastPackerPlugin" })
 
 			if type(spec.lazy) == "table" then
-				if spec.lazy.event then
-					local events = type(spec.lazy.event) == "string" and { spec.lazy.event } or spec.lazy.event
-					table.insert(
-						segments,
-						{ text = "  " .. config.ui.icons.event .. " " .. events[1], hl = "BeastPackerEvent" }
-					)
-				elseif spec.lazy.cmd then
-					local cmds = type(spec.lazy.cmd) == "string" and { spec.lazy.cmd } or spec.lazy.cmd
-					table.insert(
-						segments,
-						{ text = "  " .. config.ui.icons.cmd .. " :" .. cmds[1], hl = "BeastPackerCmd" }
-					)
+				local lazy = spec.lazy
+				for _, ev in ipairs(to_list(lazy.event)) do
+					table.insert(segments, { text = "  " .. config.ui.icons.event .. ev, hl = "BeastPackerEvent" })
 				end
+				for _, cmd in ipairs(to_list(lazy.cmd)) do
+					table.insert(segments, { text = "  " .. config.ui.icons.cmd .. cmd, hl = "BeastPackerCmd" })
+				end
+				for _, key in ipairs(to_list(lazy.keys)) do
+					local lhs = type(key) == "string" and key or (type(key) == "table" and (key[1] or key.lhs) or "?")
+					table.insert(segments, { text = "  " .. config.ui.icons.keys .. lhs, hl = "BeastPackerKeys" })
+				end
+				for _, mod in ipairs(to_list(lazy.module)) do
+					table.insert(segments, { text = "  " .. config.ui.icons.module .. mod, hl = "BeastPackerModule" })
+				end
+				for _, ft in ipairs(to_list(lazy.filetype)) do
+					table.insert(segments, { text = "  " .. config.ui.icons.filetype .. ft, hl = "BeastPackerFiletype" })
+				end
+				for _, p in ipairs(to_list(lazy.path)) do
+					table.insert(segments, { text = "  " .. config.ui.icons.path .. p, hl = "BeastPackerPath" })
+				end
+			elseif spec.lazy == false then
+				table.insert(segments, { text = "  " .. config.ui.icons.eager .. "eager", hl = "BeastPackerSpecial" })
+			else
+				-- lazy == nil → manual
+				table.insert(segments, { text = "  " .. config.ui.icons.lazy .. "manual", hl = "BeastPackerComment" })
 			end
 			table.insert(lines_segments, segments)
 		end
@@ -347,7 +452,7 @@ function Main._render_profile(main)
 	table.insert(lines_segments, { { text = "  Load Profile (sorted by time)", hl = "BeastPackerH2" } })
 
 	local profiles = {}
-	for name, prof in pairs(state.load_profiles) do
+	for name, prof in profile.iter() do
 		if prof.total_ms and prof.total_ms > 0 then
 			table.insert(profiles, { name = name, prof = prof })
 		end
@@ -485,11 +590,43 @@ end
 -- =============================================================================
 -- Controller
 -- =============================================================================
-local function render_state()
+local render_state = function()
 	if state_data:is_valid() then
 		Main.render(state_data.main)
 		Action.render(state_data.action)
 	end
+end
+
+local function stop_refresh_timer()
+	-- stylua: ignore
+	if not refresh_timer then return end
+	refresh_timer:stop()
+	refresh_timer:close()
+	refresh_timer = nil
+end
+
+local function start_refresh_timer()
+	-- stylua: ignore
+	if refresh_timer then return end -- already running
+	refresh_timer = (vim.uv or vim.loop).new_timer()
+	---@diagnostic disable-next-line: need-check-nil
+	refresh_timer:start(
+		60,
+		60,
+		vim.schedule_wrap(function()
+			if not state_data:is_valid() then
+				stop_refresh_timer()
+				return
+			end
+			render_state()
+			vim.cmd("redraw")
+			if not operation.any_in_progress() then
+				stop_refresh_timer()
+				render_state()
+				vim.cmd("redraw")
+			end
+		end)
+	)
 end
 
 local function layout_state()
@@ -594,6 +731,9 @@ function M.open()
 	if state_data:is_valid() then
 		render_state()
 		vim.api.nvim_set_current_win(state_data.main.win)
+		if operation.any_in_progress() then
+			start_refresh_timer()
+		end
 		return
 	end
 	local main = Main.create()
@@ -603,15 +743,23 @@ function M.open()
 	mount_keymaps()
 	mount_autocmds()
 	render_state()
+	if operation.any_in_progress() then
+		start_refresh_timer()
+	end
 	-- Neovim startup resets curwin to firstwin (create_windows + edit_buffers in main.c)
 	-- after init.lua but before VimEnter. Re-assert focus at VimEnter.
+	-- vim.schedule defers until after ALL VimEnter handlers finish (including lazy plugins
+	-- triggered by VimEnter whose BufEnter/WinEnter can steal focus after our callback).
 	if vim.v.vim_did_enter == 0 then
 		vim.api.nvim_create_autocmd("VimEnter", {
 			once = true,
 			callback = function()
-				-- stylua: ignore
-				if not state_data:is_valid() then return end
-				vim.api.nvim_set_current_win(state_data.main.win)
+				vim.schedule(function()
+					-- stylua: ignore
+					if not state_data:is_valid() then return end
+					vim.api.nvim_set_current_win(state_data.main.win)
+          M.refresh()
+				end)
 			end,
 		})
 	end
@@ -621,12 +769,17 @@ function M.refresh()
 	if not state_data:is_valid() then
 		return
 	end
+	if operation.any_in_progress() then
+		start_refresh_timer()
+	end
 	render_state()
 end
 
 function M.close()
   -- stylua: ignore
   if state_data.main == nil then return end
+	stop_refresh_timer()
+	operation.clear_completed()
 	if state_data.augroup ~= -1 then
 		pcall(vim.api.nvim_del_augroup_by_id, state_data.augroup)
 	end
@@ -635,6 +788,10 @@ function M.close()
 	Main.close(state_data.main)
 
 	state_data:reset()
+end
+
+function M.is_open()
+  return state_data:is_valid()
 end
 
 return M
