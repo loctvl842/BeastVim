@@ -106,6 +106,7 @@ function Main.create()
 	})
 
 	Util.wo(backdrop_win, "winblend", config.ui.backdrop)
+	Util.wo(backdrop_win, "winhighlight", "Normal:BeastKeyBackdrop")
 
 	local width, height, row, col = calc_main_geometry()
 
@@ -120,6 +121,7 @@ function Main.create()
 		zindex = 101,
 	})
 
+	Util.wo(main_win, "winhighlight", "Normal:BeastKeyNormal")
 	Util.wo(main_win, "wrap", false)
 	Util.wo(main_win, "number", false)
 	Util.wo(main_win, "relativenumber", false)
@@ -403,6 +405,7 @@ function M.open()
 		vim.api.nvim_set_current_win(state.main.win)
 		return
 	end
+	require("beast.libs.key.highlights")
 	local main = Main.create()
 	local action = Action.create(main)
 	state.main = main

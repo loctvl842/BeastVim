@@ -181,6 +181,7 @@ function Main.create()
 	})
 
 	Util.wo(backdrop_win, "winblend", config.ui.backdrop)
+	Util.wo(backdrop_win, "winhighlight", "Normal:BeastPackerBackdrop")
 
 	local width, height, row, col = calc_main_geometry()
 
@@ -202,6 +203,8 @@ function Main.create()
 	Util.wo(main_win, "conceallevel", 3)
 	Util.wo(main_win, "concealcursor", "nvic")
 	Util.wo(main_win, "cursorline", false)
+	Util.wo(main_win, "colorcolumn", "")
+  Util.wo(main_win, "winhighlight", "Normal:BeastPackerNormal,FloatBorder:BeastPackerFloatBorder")
 
 	return MainView(main_buf, main_win, vim.api.nvim_create_namespace("beast_packer_main"), View(backdrop_buf, backdrop_win))
 end
@@ -286,7 +289,7 @@ function Main._render_main(main)
 	local lines_segments = {}
 	local title = "  🦁 Packer"
 	local new_line = { text = "", hl = nil }
-	table.insert(lines_segments, { { text = title, hl = "BeastPackerH2" } })
+	table.insert(lines_segments, { { text = title, hl = "BeastPackerTitle" } })
 
 	local total = state.total()
 	local sort_text = main.sort_mode == "time" and "Time" or "Name"
@@ -314,21 +317,21 @@ function Main._render_main(main)
 		table.insert(lines_segments, { new_line })
 
 		-- Operations section
-		table.insert(lines_segments, { { text = "  Operations (" .. #ops_list .. ")", hl = "BeastPackerH2" } })
+		table.insert(lines_segments, { { text = "  Operations ", hl = "BeastPackerH2" }, { text = "(" .. #ops_list .. ")", hl = "BeastPackerComment" } })
 		for _, item in ipairs(ops_list) do
 			local segments = {}
 			local op = item.op
 			if op.status == "in_progress" then
 				local elapsed_ms = (Util.hrtime() - op.start_time_hr) / 1e6
-				table.insert(segments, { text = "  " .. spinner_frames[spinner_index] .. " ", hl = "BeastPackerSpinner" })
+				table.insert(segments, { text = "    " .. spinner_frames[spinner_index] .. " ", hl = "BeastPackerSpinner" })
 				table.insert(segments, { text = item.name, hl = "BeastPackerPlugin" })
 				table.insert(segments, { text = string.format("  %s  %.0fms", op.kind, elapsed_ms), hl = "BeastPackerComment" })
 			elseif op.status == "success" then
-				table.insert(segments, { text = "  " .. config.ui.icons.loaded .. " ", hl = "BeastPackerSuccess" })
+				table.insert(segments, { text = "    " .. config.ui.icons.loaded .. " ", hl = "BeastPackerSuccess" })
 				table.insert(segments, { text = item.name, hl = "BeastPackerPlugin" })
 				table.insert(segments, { text = string.format("  %s  %.0fms", op.message or op.kind, op.elapsed_ms or 0), hl = "BeastPackerComment" })
 			elseif op.status == "error" then
-				table.insert(segments, { text = "  ✗ ", hl = "BeastPackerError" })
+				table.insert(segments, { text = "    ✗ ", hl = "BeastPackerError" })
 				table.insert(segments, { text = item.name, hl = "BeastPackerPlugin" })
 				table.insert(segments, { text = "  " .. (op.message or "error"), hl = "BeastPackerError" })
 			end
@@ -367,11 +370,11 @@ function Main._render_main(main)
 	end
 
 	if #loaded > 0 then
-		table.insert(lines_segments, { { text = "  Loaded (" .. #loaded .. ")", hl = "BeastPackerH2" } })
+		table.insert(lines_segments, { { text = "  Loaded ", hl = "BeastPackerH2" }, { text = "(" .. #loaded .. ")", hl = "BeastPackerComment" } })
 		for _, spec in ipairs(loaded) do
 			---@type Beast.Packer.UI.Segment[]
 			local segments = {}
-			table.insert(segments, { text = "  " .. config.ui.icons.loaded .. " ", hl = "BeastPackerSpecial" })
+			table.insert(segments, { text = "    " .. config.ui.icons.loaded .. " ", hl = "BeastPackerSpecial" })
 			table.insert(segments, { text = spec.name, hl = "BeastPackerPlugin" })
 
 			local prof = profile[spec.name]
@@ -399,11 +402,11 @@ function Main._render_main(main)
 			return v or {}
 		end
 
-		table.insert(lines_segments, { { text = "  Not Loaded (" .. #pending .. ")", hl = "BeastPackerH2" } })
+		table.insert(lines_segments, { { text = "  Not Loaded ", hl = "BeastPackerH2" }, { text = "(" .. #pending .. ")", hl = "BeastPackerComment" } })
 		for _, spec in ipairs(pending) do
 			---@type Beast.Packer.UI.Segment[]
 			local segments = {}
-			table.insert(segments, { text = "  " .. config.ui.icons.pending .. " ", hl = "BeastPackerComment" })
+			table.insert(segments, { text = "    " .. config.ui.icons.pending .. " ", hl = "BeastPackerComment" })
 			table.insert(segments, { text = spec.name, hl = "BeastPackerPlugin" })
 
 			if type(spec.lazy) == "table" then
@@ -527,6 +530,7 @@ function Action.create(main)
 	})
 
 	Util.wo(win, "winblend", 0)
+  Util.wo(win, "winhighlight", "Normal:BeastPackerNormal")
 
 	return ActionView(buf, win, vim.api.nvim_create_namespace("beast_packer_actions"))
 end
@@ -758,7 +762,7 @@ function M.open()
 					-- stylua: ignore
 					if not state_data:is_valid() then return end
 					vim.api.nvim_set_current_win(state_data.main.win)
-          M.refresh()
+					M.refresh()
 				end)
 			end,
 		})
@@ -791,7 +795,7 @@ function M.close()
 end
 
 function M.is_open()
-  return state_data:is_valid()
+	return state_data:is_valid()
 end
 
 return M

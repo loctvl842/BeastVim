@@ -56,6 +56,7 @@ end
 ---@param on_cancel fun()?               called on escape / leave
 ---@param cleanup fun()?                 extra cleanup before restoring focus
 local function open_float(row, col, width, initial, on_confirm, on_cancel, cleanup)
+  Util.wo(state.view.win, "cursorline", false)
 	on_cancel = on_cancel or function() end
 	local exp_win = state.view.win
 
@@ -97,6 +98,7 @@ local function open_float(row, col, width, initial, on_confirm, on_cancel, clean
 		if closed then return end
 		closed = true
 		vim.cmd("stopinsert")
+    Util.wo(state.view.win, "cursorline", true)
 
 		if vim.api.nvim_win_is_valid(input_win) then
 			vim.api.nvim_win_close(input_win, true)
@@ -240,7 +242,7 @@ function M.inline(target_dir, dir_line, is_last, on_confirm, on_cancel, initial)
 	-- Highlight the prefix with NonText so it matches the rest of the tree
 	pcall(vim.api.nvim_buf_set_extmark, exp_buf, state.view.ns, dir_line, 0, {
 		end_col = #child_prefix,
-		hl_group = "NonText",
+		hl_group = "BeastExplorerIndent",
 	})
 
 	local indent = prefix_cols

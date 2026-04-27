@@ -35,6 +35,7 @@ function M.setup(opts)
 		toast.dismiss()
 	end, { desc = "Dismiss all notifications", group = "Notify" })
 
+	require("beast.libs.confirm").setup()
 	local explorer = require("beast.libs.explorer")
 	explorer.setup({
 		style = "classic",

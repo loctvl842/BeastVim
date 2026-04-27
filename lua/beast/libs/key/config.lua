@@ -10,7 +10,7 @@ local defaults = {
 	ui = {
 		width = 0.7,
 		height = 0.7,
-		backdrop = 30,
+		backdrop = 60,
 		---@type Beast.Key.UI.Action[]
 		actions = {
 			{

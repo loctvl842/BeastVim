@@ -8,6 +8,10 @@ local M = setmetatable({}, {
 
 ---@param opts? Beast.Confirm.Opts
 ---@param cb? fun(ok: boolean)
+function M.setup()
+	require("beast.libs.confirm.highlights")
+end
+
 function M.run(opts, cb)
 	opts = opts or {}
 	local view = ui.create(opts)

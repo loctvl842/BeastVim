@@ -70,8 +70,8 @@ function M.create(cwd)
 	vim.wo[win].wrap = false
 	vim.wo[win].cursorline = true
 	vim.wo[win].winfixwidth = true
-	vim.wo[win].statusline = "Explorer"
 	vim.wo[win].listchars = "tab:  ,nbsp:+"
+	Util.wo(win, "winhighlight", "Normal:BeastExplorerNormal")
 
 	return ExplorerView(buf, win, ns, cwd)
 end

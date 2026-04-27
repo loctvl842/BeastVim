@@ -65,6 +65,7 @@ function M.toggle(cwd)
 end
 
 function M.setup(opts)
+	require("beast.libs.explorer.highlights")
 	config.setup(opts)
 	M.replace_netrw()
 end

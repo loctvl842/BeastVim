@@ -249,16 +249,16 @@ end
 local function build_content_lines(entries)
 	local lines = {}
 	local title = "  🦁 Keymaps"
-	table.insert(lines, { { text = title, hl = "BeastH2" } })
+	table.insert(lines, { { text = title, hl = "BeastKeyTitle" } })
 	local mlabel = filter_mode == "all" and "All" or filter_mode
 	local blabel = beast_only and "Beast" or "All"
 	local stats = string.format("  Mode: %s   Source: %s", mlabel, blabel)
 
-	table.insert(lines, { { text = stats, hl = "BeastComment" } })
+	table.insert(lines, { { text = stats, hl = "BeastKeyComment" } })
 	table.insert(lines, { { text = "", hl = nil } })
 
 	if #entries == 0 then
-		table.insert(lines, { { text = "  (no keymaps)", hl = "BeastComment" } })
+		table.insert(lines, { { text = "  (no keymaps)", hl = "BeastKeyComment" } })
 		return lines
 	end
 
@@ -283,7 +283,7 @@ local function build_content_lines(entries)
 	for _, gname in ipairs(group_order) do
 		local show_header = gname ~= "Ungrouped"
       -- stylua: ignore
-      if show_header then table.insert(lines, { { text = "  " .. gname, hl = "BeastGroup" } }) end
+      if show_header then table.insert(lines, { { text = "  " .. gname, hl = "BeastKeyGroup" } }) end
 
 		-- Within group, collapse duplicates by lhs and aggregate modes
 		local groups = {}
@@ -331,21 +331,21 @@ local function build_content_lines(entries)
 		-- Build rows
 		for _, c in ipairs(computed) do
 			local row = {}
-			table.insert(row, { text = prefix .. string.format("[%s] ", c.mode_label), hl = "BeastKeys" })
+			table.insert(row, { text = prefix .. string.format("[%s] ", c.mode_label), hl = "BeastKeyKeys" })
 			table.insert(row, { text = c.lhs, hl = nil })
 			if c.primary.desc and #c.primary.desc > 0 then
-				table.insert(row, { text = "  - ", hl = "BeastComment" })
-				table.insert(row, { text = c.primary.desc, hl = "BeastComment" })
+				table.insert(row, { text = "  - ", hl = "BeastKeyComment" })
+				table.insert(row, { text = c.primary.desc, hl = "BeastKeyComment" })
 			end
 			if #c.g.items > 1 then
-				table.insert(row, { text = string.format("  ×%d", #c.g.items), hl = "BeastComment" })
+				table.insert(row, { text = string.format("  ×%d", #c.g.items), hl = "BeastKeyComment" })
 			end
 			if expanded[c.id] and #c.g.items == 1 then
 				local src = resolve_entry_source(c.primary)
 				if src and #src > 0 then
-					table.insert(row, { text = "  (", hl = "BeastComment" })
-					table.insert(row, { text = src, hl = "BeastComment" })
-					table.insert(row, { text = ")", hl = "BeastComment" })
+					table.insert(row, { text = "  (", hl = "BeastKeyComment" })
+					table.insert(row, { text = src, hl = "BeastKeyComment" })
+					table.insert(row, { text = ")", hl = "BeastKeyComment" })
 				end
 			end
 			table.insert(lines, row)
@@ -353,14 +353,14 @@ local function build_content_lines(entries)
 			if expanded[c.id] and #c.g.items > 1 then
 				for _, it in ipairs(c.g.items) do
 					local child = {}
-					table.insert(child, { text = prefix .. "  • ", hl = "BeastComment" })
+					table.insert(child, { text = prefix .. "  • ", hl = "BeastKeyComment" })
 					local label = (it.desc and #it.desc > 0) and it.desc or "(no description)"
-					table.insert(child, { text = label, hl = "BeastComment" })
+					table.insert(child, { text = label, hl = "BeastKeyComment" })
 					local src = resolve_entry_source(it)
 					if src and #src > 0 then
-						table.insert(child, { text = "  (", hl = "BeastComment" })
-						table.insert(child, { text = src, hl = "BeastComment" })
-						table.insert(child, { text = ")", hl = "BeastComment" })
+						table.insert(child, { text = "  (", hl = "BeastKeyComment" })
+						table.insert(child, { text = src, hl = "BeastKeyComment" })
+						table.insert(child, { text = ")", hl = "BeastKeyComment" })
 					end
 					table.insert(lines, child)
 				end

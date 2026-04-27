@@ -126,7 +126,9 @@ end
 --- Setup packer with plugin specs
 ---@param specs Beast.Packer.PluginSpec[] List of plugin specs
 function M.setup(specs)
-	require("beast.libs.packer.highlights")
+	for _, plugin in ipairs(vim.pack.get()) do
+		state.installed_plugins[plugin.spec.name] = true
+	end
 	-- Step 0: Expand imports (plugin discovery)
 	specs = import.expand_imports(specs)
 	-- Filter those with cond == false
@@ -317,6 +319,7 @@ function M.setup(specs)
 
 		::continue::
 	end
+	require("beast.libs.packer.highlights")
 
 	-- Install module auto-loader
 	M.install_module_loader()

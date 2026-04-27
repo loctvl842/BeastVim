@@ -1,7 +1,10 @@
 local M = {}
 
 Util.set_hl("BeastPacker", {
-	Normal = { link = "NormalFloat" },
+	Backdrop = { bg = "#000000", fg = "#000000" },
+	Normal = { link = "@markup.raw.block.markdown" },
+	Title = { link = "Title" },
+  FloatBorder = { link = "@markup.raw.delimiter.markdown" },
 	H1 = { link = "IncSearch" },
 	H2 = { link = "Bold" },
 	Comment = { link = "Comment" },
@@ -18,7 +21,7 @@ Util.set_hl("BeastPacker", {
 	Warning = { link = "WarningMsg" },
 	Spinner = { link = "DiagnosticWarn" },
 	Success = { link = "DiagnosticOk" },
-	Error   = { link = "DiagnosticError" },
+	Error = { link = "DiagnosticError" },
 })
 
 return M

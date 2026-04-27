@@ -8,9 +8,9 @@
 ---@class Beast.Packer.Config
 local defaults = {
 	ui = {
-		width = 0.8,
-		height = 0.6,
-		backdrop = 30,
+		width = 0.7,
+		height = 0.7,
+		backdrop = 60,
 		icons = {
 			loaded = " ", -- check / success
 			pending = " ", -- hollow circle
@@ -34,21 +34,21 @@ local defaults = {
 			{
 				keys = { "S" },
 				label = "Sort",
-				key_hl = "DiagnosticError",
+				key_hl = "DiagnosticInfo",
 				label_hl = "Comment",
 				on_press = "sort",
 			},
 			{
 				keys = { "P" },
 				label = "Profile",
-				key_hl = "DiagnosticError",
+				key_hl = "DiagnosticWarn",
 				label_hl = "Comment",
 				on_press = "view_profile",
 			},
 			{
-				keys = { "?", "h" },
+				keys = { "?", "H" },
 				label = "Help",
-				key_hl = "DiagnosticError",
+				key_hl = "DiagnosticOk",
 				label_hl = "Comment",
 				on_press = "view_help",
 			},

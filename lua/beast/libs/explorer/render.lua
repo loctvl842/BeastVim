@@ -60,7 +60,7 @@ function M.build(nodes)
 	-- Root header: " UPPERCASE-BASENAME" — no icon, plain text, visually distinct
 	local root_name = string.upper(vim.fn.fnamemodify(state.view.cwd, ":t"))
 	lines[1] = " " .. root_name
-	hls[#hls + 1] = { line = 0, col_s = 0, col_e = #lines[1], group = "Directory" }
+	hls[#hls + 1] = { line = 0, col_s = 0, col_e = #lines[1], group = "BeastExplorerTitle" }
 
 	local clipboard_paths = {} ---@type table<string, boolean>
 	if state.clipboard then
@@ -81,7 +81,7 @@ function M.build(nodes)
 		if config.icons then
 			if node.dir then
 				icon_str = node.open and config.icon.dir_open or config.icon.dir_closed
-				icon_hl = "Directory"
+				icon_hl = "BeastExplorerDir"
 			else
 				local icon, hl
 				if devicons_ok then
@@ -101,21 +101,27 @@ function M.build(nodes)
 		lines[#lines + 1] = prefix .. icon_str .. " " .. node.name .. clip_suffix
 
 		-- Tree-line characters (Indent Markers) in a subtle colour
-		hls[#hls + 1] = { line = line_idx, col_s = 0, col_e = #prefix, group = "NonText" }
+		hls[#hls + 1] = { line = line_idx, col_s = 0, col_e = #prefix, group = "BeastExplorerIndent" }
 
 		-- File / directory icon
 		if icon_hl then
 			hls[#hls + 1] = { line = line_idx, col_s = #prefix, col_e = #prefix + #icon_str, group = icon_hl }
 		end
+
+		-- File name
+		if not node.dir then
+			local name_s = #prefix + #icon_str + 1 -- +1 for the space after icon
+			hls[#hls + 1] = { line = line_idx, col_s = name_s, col_e = name_s + #node.name, group = "BeastExplorerFile" }
+		end
 		-- Dim hidden files/dirs
 		if node.hidden then
-			hls[#hls + 1] = { line = line_idx, col_s = 0, col_e = #lines[line_idx + 1], group = "Comment" }
+			hls[#hls + 1] = { line = line_idx, col_s = 0, col_e = #lines[line_idx + 1], group = "BeastExplorerComment" }
 		end
 
 		-- Highlight the clipboard suffix
 		if clip_suffix ~= "" then
 			local line_len = #lines[line_idx + 1]
-			local suffix_hl = "NonText"
+			local suffix_hl = "BeastExplorerClip"
 			hls[#hls + 1] = { line = line_idx, col_s = line_len - #clip_suffix, col_e = line_len, group = suffix_hl }
 		end
 	end

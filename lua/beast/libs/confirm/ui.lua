@@ -172,8 +172,8 @@ function M.create(opts)
 		zindex = 100,
 	})
 
-	vim.wo[backdrop_win].winhighlight = "Normal:NormalFloat,EndOfBuffer:NormalFloat"
-	Util.wo(backdrop_win, "winblend", 10)
+	Util.wo(backdrop_win, "winhighlight", "Normal:BeastConfirmBackdrop,EndOfBuffer:BeastConfirmBackdrop")
+	Util.wo(backdrop_win, "winblend", 60)
 
 	local width, height, row, col = calc_main_geometry(opts)
 
@@ -188,7 +188,7 @@ function M.create(opts)
 		zindex = 101,
 	})
 
-	vim.wo[main_win].winhighlight = "Normal:NormalFloat,FloatBorder:FloatBorder"
+	Util.wo(main_win, "winhighlight", "Normal:BeastConfirmNormal,FloatBorder:BeastConfirmBorder")
 	vim.wo[main_win].cursorline = false
 	vim.wo[main_win].number = false
 	vim.wo[main_win].relativenumber = false
@@ -271,12 +271,12 @@ function M.render(main, selected)
 
 	vim.api.nvim_buf_set_extmark(main.buf, main.ns, btn_row, yes_start, {
 		end_col = yes_end,
-		hl_group = selected == 1 and "PmenuSel" or "Normal",
+		hl_group = selected == 1 and "BeastConfirmButtonActive" or "BeastConfirmButton",
 	})
 
 	vim.api.nvim_buf_set_extmark(main.buf, main.ns, btn_row, no_start, {
 		end_col = no_end,
-		hl_group = selected == 2 and "PmenuSel" or "Normal",
+		hl_group = selected == 2 and "BeastConfirmButtonActive" or "BeastConfirmButton",
 	})
 end
 
