@@ -30,7 +30,7 @@ local M = {}
 ---@param slot_row integer
 ---@return Beast.Notify.View
 function M.create(record, slot_row)
-	local buf = Util.create_scratch_buf("beast-notify")
+	local buf = Buffer.new("beast-notify")
 	local width, height = record:dimensions()
 	local hl = config.hl[record.level] or config.hl.INFO
 

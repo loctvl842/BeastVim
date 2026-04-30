@@ -36,7 +36,7 @@ local M = {}
 ---@param bottom_row integer  row of the bottom edge (SE anchor)
 ---@return Beast.Toast.View
 function M.create(record, bottom_row)
-	local buf = Util.create_scratch_buf("beast-toast")
+	local buf = Buffer.new("beast-toast")
 
 	local width, height = record:dimensions()
 

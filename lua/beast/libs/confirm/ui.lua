@@ -165,8 +165,8 @@ function M.create(parsed)
 	local opts = parsed.opts
 	opts.align = opts.align or "center"
 
-	local backdrop_buf = Util.create_scratch_buf("beast-backdrop")
-	local main_buf = Util.create_scratch_buf("beast-confirm")
+	local backdrop_buf = Buffer.new("beast-backdrop")
+	local main_buf = Buffer.new("beast-confirm")
 
 	local backdrop_win = vim.api.nvim_open_win(backdrop_buf, false, {
 		relative = "editor",

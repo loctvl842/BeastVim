@@ -9,8 +9,6 @@ local config = require("beast.libs.toast.config")
 ---@field dim boolean
 ---@field time integer        vim.fn.localtime()
 ---@field timeout number|false
-
----@overload fun(id: integer, message: string|string[], level?: string|integer, opts?: Beast.Toast.Options): Beast.Toast.Record
 local M = setmetatable({}, {
 	__call = function(t, ...)
 		return t:new(...)

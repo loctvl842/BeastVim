@@ -41,7 +41,7 @@ local M = {}
 ---@return Beast.Explorer.View
 function M.create(cwd)
 	local ns = vim.api.nvim_create_namespace("beastvim_explorer")
-	local buf = Util.create_scratch_buf("beast-explorer")
+	local buf = Buffer.new("beast-explorer")
 
 	-- Snapshot the real editing window's options before splitting, so we can
 	-- restore them on any new window created later (vsplit from explorer).
