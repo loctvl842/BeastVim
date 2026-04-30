@@ -283,7 +283,7 @@ local function build_content_lines(entries)
 	for _, gname in ipairs(group_order) do
 		local show_header = gname ~= "Ungrouped"
       -- stylua: ignore
-      if show_header then table.insert(lines, { { text = "  " .. gname, hl = "BeastKeyGroup" } }) end
+      if show_header then table.insert(lines, { { text = "  " .. gname, hl = "BeastKeyH2" } }) end
 
 		-- Within group, collapse duplicates by lhs and aggregate modes
 		local groups = {}

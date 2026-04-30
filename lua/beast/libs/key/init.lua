@@ -13,6 +13,7 @@ M.managed = require("beast.libs.key.core").managed
 ---@param opts? Beast.Key.Config
 function M.setup(opts)
 	require("beast.libs.key.builtin")
+	require("beast.libs.key.highlights")
 	config.setup(opts)
 end
 

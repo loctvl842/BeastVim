@@ -166,7 +166,7 @@ function Main.render(main)
 	if not state.lines then
 		state.lines = api.default()
 	end
-	local lines_segments = state.lines
+	local lines_segments = state.lines or {}
 
 	local lines = {}
 	local marks = {}
@@ -405,7 +405,6 @@ function M.open()
 		vim.api.nvim_set_current_win(state.main.win)
 		return
 	end
-	require("beast.libs.key.highlights")
 	local main = Main.create()
 	local action = Action.create(main)
 	state.main = main
