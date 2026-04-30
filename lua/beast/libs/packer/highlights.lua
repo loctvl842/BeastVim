@@ -1,6 +1,6 @@
 local M = {}
 
-Util.set_hl("BeastPacker", {
+Util.colors.set_hl("BeastPacker", {
 	Backdrop = { bg = "#000000", fg = "#000000" },
 	Normal = { link = "@markup.raw.block.markdown" },
 	Title = { link = "Title" },

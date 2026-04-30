@@ -5,7 +5,16 @@ local profile = require("beast.libs.packer.profile")
 local state = require("beast.libs.packer.state")
 
 -- Spinner animation frames
-local spinner_frames = { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" }
+local spinner_sets = {
+	{ "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" },
+	{ "·", "◦", "○", "◎", "⦿", "◎", "○", "◦" },
+	{ "○", "◌", "◎", "◍", "●", "◍", "◎", "◌" },
+	{ "🌑", "🌒", "🌓", "🌔", "🌕", "🌖", "🌗", "🌘" },
+}
+
+-- seed once (important if you want different results each run)
+math.randomseed(Util.hrtime())
+local spinner_frames = spinner_sets[math.random(#spinner_sets)]
 local spinner_index = 1
 
 -- Refresh timer – drives spinner animation and live elapsed time during active operations
@@ -204,7 +213,7 @@ function Main.create()
 	Util.wo(main_win, "concealcursor", "nvic")
 	Util.wo(main_win, "cursorline", false)
 	Util.wo(main_win, "colorcolumn", "")
-  Util.wo(main_win, "winhighlight", "Normal:BeastPackerNormal,FloatBorder:BeastPackerFloatBorder")
+	Util.wo(main_win, "winhighlight", "Normal:BeastPackerNormal,FloatBorder:BeastPackerFloatBorder")
 
 	return MainView(main_buf, main_win, vim.api.nvim_create_namespace("beast_packer_main"), View(backdrop_buf, backdrop_win))
 end
@@ -530,7 +539,7 @@ function Action.create(main)
 	})
 
 	Util.wo(win, "winblend", 0)
-  Util.wo(win, "winhighlight", "Normal:BeastPackerNormal")
+	Util.wo(win, "winhighlight", "Normal:BeastPackerNormal")
 
 	return ActionView(buf, win, vim.api.nvim_create_namespace("beast_packer_actions"))
 end
@@ -615,8 +624,8 @@ local function start_refresh_timer()
 	refresh_timer = (vim.uv or vim.loop).new_timer()
 	---@diagnostic disable-next-line: need-check-nil
 	refresh_timer:start(
-		60,
-		60,
+		120,
+		120,
 		vim.schedule_wrap(function()
 			if not state_data:is_valid() then
 				stop_refresh_timer()
