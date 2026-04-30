@@ -6,7 +6,7 @@ local M = {}
 local defaults = {
 	key = {},
 	notify = {},
-	toast = {},
+	toast = { disabled = false },
 	packer = {
 		{ import = "beast.plugins" },
 	},
@@ -20,8 +20,12 @@ function M.setup(opts)
 
 	_G.Util = require("beast.util")
 	_G.Key = require("beast.libs.key")
+	_G.Buffer = require("beast.libs.buf")
+	_G.Icon = require("beast.icon")
 
 	Key.setup(cfg.key)
+
+	Key.safe_set("n", "<leader>d", Buffer.delete, { desc = "Close current buffer", group = "Buffer" })
 
 	-- Notification
 	local notify = require("beast.libs.notify")
@@ -36,6 +40,7 @@ function M.setup(opts)
 	end, { desc = "Dismiss all notifications", group = "Notify" })
 
 	require("beast.libs.confirm").setup()
+
 	local explorer = require("beast.libs.explorer")
 	explorer.setup({
 		style = "classic",
@@ -55,6 +60,7 @@ function M.setup(opts)
 	Key.safe_set("n", "<leader>e", explorer.toggle, { desc = "Toggle explorer panel", group = "Explorer" })
 
 	local packer = require("beast.libs.packer")
+
   -- stylua: ignore
   _G.gh = function(x) return "https://github.com/" .. x end
 	---@type Beast.Packer.PluginSpec[]
