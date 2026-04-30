@@ -1,6 +1,6 @@
 local M = {}
 
-Util.set_hl("BeastExplorer", {
+Util.colors.set_hl("BeastExplorer", {
 	Normal = { link = "Directory" },
 	Title = { link = "@punctuation.special" },
 	Dir = { link = "Directory" },

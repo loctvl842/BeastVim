@@ -72,8 +72,10 @@ local function fallback_from_deleted_buffer(target_buf)
 	return fallback
 end
 
-local function on_confirm(ok, node)
-	if ok then
+---@param choice integer -- 1=confirmed, anything else=cancelled
+---@param node table
+local function on_confirm(choice, node)
+	if choice ~= 1 then
 		-- Return focus to the explorer
 		if state.view and state.view:is_valid() then
 			pcall(vim.api.nvim_set_current_win, state.view.win)
@@ -130,18 +132,9 @@ function M.run()
   if node.depth == -1 then return end
 
 	local title = string.format('Are you sure you want to delete "%s"?', node.name)
-	local opts = {
-		title = title,
-		min_width = 50,
-		max_width = 60,
-		default = 2,
-		yes_label = "Remove",
-		no_label = "Cancel",
-		button_width = 12,
-	}
-	confirm(opts, function(ok)
-		on_confirm(ok, node)
-	end)
+	confirm.set_opts({ min_width = 50, max_width = 60, button_width = 12 })
+	local choice = confirm(title, "&Remove\n&Cancel", 2)
+	on_confirm(choice, node)
 end
 
 function M.run_visual()
@@ -181,21 +174,11 @@ function M.run_visual()
 			title = title .. "\n   " .. node.name
 		end
 	end
-	local opts = {
-		align = #nodes_to_delete > 1 and "left" or "center",
-		title = title,
-		min_width = 50,
-		max_width = 60,
-		default = 2,
-		yes_label = "Remove",
-		no_label = "Cancel",
-		button_width = 12,
-	}
-	confirm(opts, function(ok)
-		for _, node in ipairs(nodes_to_delete) do
-			on_confirm(ok, node)
-		end
-	end)
+	confirm.set_opts({ align = #nodes_to_delete > 1 and "left" or "center", min_width = 50, max_width = 60, button_width = 12 })
+	local choice = confirm(title, "&Remove\n&Cancel", 2)
+	for _, node in ipairs(nodes_to_delete) do
+		on_confirm(choice, node)
+	end
 end
 
 return M

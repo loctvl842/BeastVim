@@ -1,31 +1,23 @@
 local View = require("beast.libs.view")
+local config = require("beast.libs.confirm.config")
 
 ---@alias BeastConfirmAlign "left"|"center"|"right"
 
----@class Beast.Confirm.Opts
----@field title string
----@field min_width? integer
----@field max_width? integer
----@field default? integer -- 1=yes, 2=no
----@field yes_label? string
----@field no_label? string
----@field button_width? integer
----@field align? BeastConfirmAlign
----@field width? integer -- calculated state (DO NOT SET)
----@field height? integer -- calculated state (DO NOT SET)
-
 ---@class Beast.Confirm.UI.MainView : Beast.View
----@field opts Beast.Confirm.Opts
+---@field parsed Beast.Confirm.Parsed
 ---@field ns integer
 ---@field backdrop Beast.View
-local MainView = View:extend(function(obj, opts, ns, backdrop)
-	obj.opts = opts
+local MainView = View:extend(function(obj, parsed, ns, backdrop)
+	obj.parsed = parsed
 	obj.ns = ns
 	obj.backdrop = backdrop
 end)
 
 local HIDDEN_CURSOR = "a:block-BeastExplorerCursor"
 local saved_cursor = nil
+
+local KEY_LEFT = vim.api.nvim_replace_termcodes("<Left>", true, true, true)
+local KEY_RIGHT = vim.api.nvim_replace_termcodes("<Right>", true, true, true)
 
 -- =============================================================================
 -- UTILS
@@ -40,7 +32,7 @@ end
 ---@param label string
 ---@param width integer
 ---@return string
-local function button(label, width)
+local function button_text(label, width)
 	local pad = math.max(0, width - display_width(label))
 	local left = math.floor(pad / 2)
 	local right = pad - left
@@ -53,19 +45,17 @@ end
 local function wrap_text(text, max_w)
 	local lines = {}
 
-	-- Split by newline FIRST (preserve empty lines)
 	for raw_line in (text .. "\n"):gmatch("(.-)\n") do
-		-- If line is empty, keep it
 		if raw_line == "" then
 			table.insert(lines, "")
-		elseif #raw_line <= max_w then
+		elseif display_width(raw_line) <= max_w then
 			table.insert(lines, raw_line)
 		else
 			local cur = ""
 			for word in raw_line:gmatch("%S+") do
 				if #cur == 0 then
 					cur = word
-				elseif #cur + 1 + #word <= max_w then
+				elseif display_width(cur) + 1 + display_width(word) <= max_w then
 					cur = cur .. " " .. word
 				else
 					table.insert(lines, cur)
@@ -111,39 +101,56 @@ local function align_line(text, width, align)
 	return string.rep(" ", left) .. text .. string.rep(" ", right)
 end
 
----@param opts Beast.Confirm.Opts
+---@param labels string[]
+---@param btn_width integer
+---@return string
+local function build_button_bar(labels, btn_width)
+	local gap = "  "
+	local parts = {}
+	for _, label in ipairs(labels) do
+		parts[#parts + 1] = button_text(label, btn_width)
+	end
+	return table.concat(parts, gap)
+end
+
+---@param parsed Beast.Confirm.Parsed
 ---@return integer width
 ---@return integer height
 ---@return integer row
 ---@return integer col
-local function calc_main_geometry(opts)
-	local yes_label = opts.yes_label or "Yes"
-	local no_label = opts.no_label or "No"
-	local button_width = opts.button_width or (math.max(display_width(yes_label), display_width(no_label)) + 2)
-	local yes_btn = button(yes_label, button_width)
-	local no_btn = button(no_label, button_width)
-	local gap = "  "
-	local buttons = yes_btn .. gap .. no_btn
+---@return integer btn_width
+local function calc_main_geometry(parsed)
+	local labels = parsed.labels
+	local opts = parsed.opts
+
+	local max_label_w = 0
+	for _, label in ipairs(labels) do
+		max_label_w = math.max(max_label_w, display_width(label))
+	end
+	local btn_width = opts.button_width or (max_label_w + 2)
+
+	local buttons_str = build_button_bar(labels, btn_width)
 
 	local min_width = opts.min_width or 40
-	local max_width = opts.max_width or 60
+	local max_width = opts.max_width or math.min(80, vim.o.columns - 4)
 
-	local title_width = display_width(opts.title)
-	local content_width = math.max(display_width(buttons), title_width)
+	local title_width = display_width(parsed.msg)
+	local content_width = math.max(display_width(buttons_str), title_width)
 	local width = math.min(math.max(content_width + 4, min_width), max_width)
 	local inner_width = width - 2
 
-	local msg_lines = wrap_text(opts.title, inner_width)
+	-- If button bar overflows inner_width, expand width up to editor limit
+	if display_width(buttons_str) > inner_width then
+		width = math.min(display_width(buttons_str) + 4, vim.o.columns - 4)
+	end
+
+	local msg_lines = wrap_text(parsed.msg, width - 2)
 	local height = #msg_lines + 2 -- message lines + blank + buttons
 
 	local row = math.floor((vim.o.lines - height) / 2)
 	local col = math.floor((vim.o.columns - width) / 2)
 
-	opts.width = width
-	opts.height = height
-	opts.button_width = button_width
-
-	return width, height, row, col
+	return width, height, row, col, btn_width
 end
 
 -- =============================================================================
@@ -152,10 +159,10 @@ end
 
 local M = {}
 
----@param opts? Beast.Confirm.Opts
+---@param parsed Beast.Confirm.Parsed
 ---@return Beast.Confirm.UI.MainView
-function M.create(opts)
-	opts = opts or {}
+function M.create(parsed)
+	local opts = parsed.opts
 	opts.align = opts.align or "center"
 
 	local backdrop_buf = Util.create_scratch_buf("beast-backdrop")
@@ -173,9 +180,11 @@ function M.create(opts)
 	})
 
 	Util.wo(backdrop_win, "winhighlight", "Normal:BeastConfirmBackdrop,EndOfBuffer:BeastConfirmBackdrop")
-	Util.wo(backdrop_win, "winblend", 60)
+	Util.wo(backdrop_win, "winblend", config.ui.backdrop)
 
-	local width, height, row, col = calc_main_geometry(opts)
+	local width, height, row, col, btn_width = calc_main_geometry(parsed)
+	-- Store computed btn_width back for render
+	parsed.opts.button_width = btn_width
 
 	local main_win = vim.api.nvim_open_win(main_buf, true, {
 		relative = "editor",
@@ -204,7 +213,7 @@ function M.create(opts)
 	return MainView(
 		main_buf,
 		main_win,
-		opts,
+		parsed,
 		vim.api.nvim_create_namespace("beast_confirm"),
 		View(backdrop_buf, backdrop_win)
 	)
@@ -213,44 +222,36 @@ end
 ---@param main Beast.Confirm.UI.MainView
 ---@param selected integer
 function M.render(main, selected)
-	if not main:is_valid() then
-		return
-	end
+	-- stylua: ignore
+	if not main:is_valid() then return end
 
-	if main.opts.width == nil then
-		error("MainView must have width")
-	end
-
-	if main.opts.button_width == nil then
-		error("MainView must have button width")
-	end
-
-	local inner_width = main.opts.width - 2
-	local btn_width = main.opts.button_width
-
-	local yes_label = main.opts.yes_label or "Remove"
-	local no_label = main.opts.no_label or "Cancel"
-
-	local yes_btn = button(yes_label, btn_width)
-	local no_btn = button(no_label, btn_width)
+	local parsed = main.parsed
+	local labels = parsed.labels
+	local opts = parsed.opts
+	local btn_width = opts.button_width or 12
+	local align = opts.align or "center"
 	local gap = "  "
-	local buttons = yes_btn .. gap .. no_btn
 
-	local button_col = math.floor((inner_width - display_width(buttons)) / 2)
-	if button_col < 0 then
-		button_col = 0
-	end
+	local ok, conf = pcall(vim.api.nvim_win_get_config, main.win)
+	-- stylua: ignore
+	if not ok then return end
+
+	-- conf.width is the content width (border is drawn outside)
+	local inner_width = conf.width
+
+	local buttons_str = build_button_bar(labels, btn_width)
+	local button_col = math.max(0, math.floor((inner_width - display_width(buttons_str)) / 2))
 
 	local lines = {}
-	local msg_lines = wrap_text(main.opts.title, inner_width)
+	local msg_lines = wrap_text(parsed.msg, inner_width)
 
 	for _, text in ipairs(msg_lines) do
-		lines[#lines + 1] = align_line(text, inner_width, main.opts.align)
+		lines[#lines + 1] = align_line(text, inner_width, align)
 	end
 
 	lines[#lines + 1] = string.rep(" ", inner_width)
 
-	local btn_line = string.rep(" ", button_col) .. buttons
+	local btn_line = string.rep(" ", button_col) .. buttons_str
 	local btn_line_width = display_width(btn_line)
 	if btn_line_width < inner_width then
 		btn_line = btn_line .. string.rep(" ", inner_width - btn_line_width)
@@ -263,56 +264,86 @@ function M.render(main, selected)
 
 	vim.api.nvim_buf_clear_namespace(main.buf, main.ns, 0, -1)
 
+	-- Highlight each button
 	local btn_row = #msg_lines + 1
-	local yes_start = button_col
-	local yes_end = yes_start + display_width(yes_btn)
-	local no_start = yes_end + display_width(gap)
-	local no_end = no_start + display_width(no_btn)
+	local col_offset = button_col
 
-	vim.api.nvim_buf_set_extmark(main.buf, main.ns, btn_row, yes_start, {
-		end_col = yes_end,
-		hl_group = selected == 1 and "BeastConfirmButtonActive" or "BeastConfirmButton",
-	})
+	for i, label in ipairs(labels) do
+		local btn_str = button_text(label, btn_width)
+		local btn_start = col_offset
+		local btn_end = col_offset + display_width(btn_str)
 
-	vim.api.nvim_buf_set_extmark(main.buf, main.ns, btn_row, no_start, {
-		end_col = no_end,
-		hl_group = selected == 2 and "BeastConfirmButtonActive" or "BeastConfirmButton",
-	})
+		vim.api.nvim_buf_set_extmark(main.buf, main.ns, btn_row, btn_start, {
+			end_col = btn_end,
+			hl_group = selected == i and "BeastConfirmButtonActive" or "BeastConfirmButton",
+		})
+
+		col_offset = btn_end + display_width(gap)
+	end
 end
 
 ---@param main Beast.Confirm.UI.MainView
 ---@param selected integer
-function M.run_modal_loop(main, selected)
+---@param hotkeys string[]
+---@return integer -- 0=dismissed, 1..N = chosen index
+function M.run_modal_loop(main, selected, hotkeys)
+	local n = #main.parsed.labels
+
 	while true do
 		local ok, key = pcall(vim.fn.getcharstr)
 		if not ok then
-			return true
+			return 0
 		end
 
-		if key:sub(1, 1) == "\x80" then
-			local pos = vim.fn.getmousepos()
-			if pos.winid ~= 0 and pos.winid ~= main.win then
-				return true
-			end
-		elseif key == "h" then
-			selected = 1
-			M.render(main, selected)
-			vim.cmd("redraw")
-		elseif key == "l" then
-			selected = 2
-			M.render(main, selected)
-			vim.cmd("redraw")
-		elseif key == "\t" then
-			selected = selected == 1 and 2 or 1
-			M.render(main, selected)
-			vim.cmd("redraw")
-		elseif key == "\r" then
-			return selected ~= 1
-		elseif key == "\027" or key == "q" then
-			return true
+		if key == "\r" then
+			return selected
+		elseif key == "\027" or key == "\003" then -- Esc or Ctrl-C
+			return 0
 		elseif key == ":" then
 			vim.api.nvim_feedkeys(":", "n", false)
-			return true
+			return 0
+		elseif key:sub(1, 1) == "\x80" then
+			-- Special keys (mouse, arrows)
+			local pos = vim.fn.getmousepos()
+			if pos.winid ~= 0 and pos.winid ~= main.win then
+				return 0
+			end
+			if key == KEY_LEFT then
+				selected = selected > 1 and selected - 1 or n
+				M.render(main, selected)
+				vim.cmd("redraw")
+			elseif key == KEY_RIGHT then
+				selected = selected < n and selected + 1 or 1
+				M.render(main, selected)
+				vim.cmd("redraw")
+			end
+		elseif key == "\t" then
+			selected = selected < n and selected + 1 or 1
+			M.render(main, selected)
+			vim.cmd("redraw")
+		else
+			-- Check hotkey match first (case-insensitive, same as Neovim C source)
+			local lower = key:lower()
+			local hotkey_idx = nil
+			for i, hk in ipairs(hotkeys) do
+				if hk == lower then
+					hotkey_idx = i
+					break
+				end
+			end
+			if hotkey_idx then
+				return hotkey_idx
+			end
+			-- Fallback: h/l for navigation (only if not a hotkey)
+			if key == "h" then
+				selected = selected > 1 and selected - 1 or n
+				M.render(main, selected)
+				vim.cmd("redraw")
+			elseif key == "l" then
+				selected = selected < n and selected + 1 or 1
+				M.render(main, selected)
+				vim.cmd("redraw")
+			end
 		end
 	end
 end
