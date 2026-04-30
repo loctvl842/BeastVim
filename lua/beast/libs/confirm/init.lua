@@ -6,8 +6,6 @@ local M = setmetatable({}, {
 	end,
 })
 
----@param opts? Beast.Confirm.Opts
----@param cb? fun(ok: boolean)
 function M.setup()
 	require("beast.libs.confirm.highlights")
 end

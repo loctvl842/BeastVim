@@ -1,6 +1,6 @@
 local M = {}
 
-Util.set_hl("BeastConfirm", {
+Util.colors.set_hl("BeastConfirm", {
 	Backdrop = { bg = "#000000", fg = "#000000" },
 	Normal = { link = "NormalFloat" },
 	Border = { link = "FloatBorder" },
