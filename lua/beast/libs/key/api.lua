@@ -248,8 +248,6 @@ end
 ---@return Beast.Key.API.Line[]
 local function build_content_lines(entries)
 	local lines = {}
-	local title = "  🦁 Keymaps"
-	table.insert(lines, { { text = title, hl = "BeastKeyTitle" } })
 	local mlabel = filter_mode == "all" and "All" or filter_mode
 	local blabel = beast_only and "Beast" or "All"
 	local stats = string.format("  Mode: %s   Source: %s", mlabel, blabel)

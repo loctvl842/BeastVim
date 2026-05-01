@@ -1,7 +1,7 @@
 local View = require("beast.libs.view")
-local state = require("beast.libs.key.state")
 local api = require("beast.libs.key.api")
 local config = require("beast.libs.key.config")
+local state = require("beast.libs.key.state")
 
 ---@class Beast.Key.UI.MainView : Beast.View
 ---@field ns integer
@@ -79,7 +79,7 @@ local function calc_action_geometry(main_win)
 	local height = math.max(#config.ui.actions, 1)
 
 	-- Top-right inside the main window with a little padding.
-	local row = 0
+	local row = -1 -- offset into the winbar row
 	local col = math.max((main_cfg.width or width) - width - 2, 0)
 
 	return width, height, row, col
@@ -121,17 +121,14 @@ function Main.create()
 		zindex = 101,
 	})
 
-	Util.wo(main_win, "winhighlight", "Normal:BeastKeyNormal")
+	Util.wo(main_win, "winhighlight", "Normal:BeastKeyNormal,FloatBorder:BeastKeyBorder,WinBar:BeastKeyWinBar,WinBarNC:BeastKeyWinBar")
+	local title = "🦁 Keymaps"
+	Util.wo(main_win, "winbar", "%#BeastKeyTitle# " .. title .. "%*")
 	Util.wo(main_win, "wrap", false)
 	Util.wo(main_win, "number", false)
 	Util.wo(main_win, "relativenumber", false)
 	Util.wo(main_win, "signcolumn", "no")
-	return MainView(
-		main_buf,
-		main_win,
-		vim.api.nvim_create_namespace("beast_key_main"),
-		View(backdrop_buf, backdrop_win)
-	)
+	return MainView(main_buf, main_win, vim.api.nvim_create_namespace("beast_key_main"), View(backdrop_buf, backdrop_win))
 end
 
 ---@param main Beast.Key.UI.MainView
@@ -226,6 +223,7 @@ function Action.create(main)
 	})
 
 	Util.wo(win, "winblend", 0)
+	Util.wo(win, "winhighlight", "Normal:BeastPackerNormal")
 	return ActionView(buf, win, vim.api.nvim_create_namespace("beast_key_actions"))
 end
 

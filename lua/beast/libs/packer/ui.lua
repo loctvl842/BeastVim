@@ -119,7 +119,7 @@ local function calc_action_geometry(main_win)
 	local width = calc_action_width(config.ui.actions)
 	local height = math.max(#config.ui.actions, 1)
 
-	local row = 0
+	local row = -1 -- offset into the winbar row
 	local col = math.max((main_cfg.width or width) - width - 2, 0)
 
 	return width, height, row, col
@@ -213,7 +213,7 @@ function Main.create()
 	Util.wo(main_win, "concealcursor", "nvic")
 	Util.wo(main_win, "cursorline", false)
 	Util.wo(main_win, "colorcolumn", "")
-	Util.wo(main_win, "winhighlight", "Normal:BeastPackerNormal,FloatBorder:BeastPackerFloatBorder")
+	Util.wo(main_win, "winhighlight", "Normal:BeastPackerNormal,FloatBorder:BeastPackerBorder,WinBar:BeastPackerWinBar,WinBarNC:BeastPackerWinBar")
 
 	return MainView(main_buf, main_win, vim.api.nvim_create_namespace("beast_packer_main"), View(backdrop_buf, backdrop_win))
 end
@@ -250,6 +250,14 @@ function Main.render(main)
 
 	spinner_index = (spinner_index % #spinner_frames) + 1
 
+	local winbar = "%#BeastPackerTitle# 🦁 Packer"
+	if main.view_mode == "profile" then
+		winbar = winbar .. "%#BeastPackerSubtitle# 󰿟 Profile"
+	elseif main.view_mode == "help" then
+		winbar = winbar .. "%#BeastPackerSubtitle# 󰿟 Help"
+	end
+	Util.wo(main.win, "winbar", winbar .. "%*")
+
 	if main.view_mode == "main" then
 		Main._render_main(main)
 	elseif main.view_mode == "profile" then
@@ -267,24 +275,25 @@ local function format_reason(reason)
 	-- stylua: ignore
 	if not reason then return nil end
 	local t, d = reason.type, reason.detail
+  local prefix = "  "
 	if t == "eager" then
-		return { text = config.ui.icons.eager .. "eager", hl = "BeastPackerSpecial" }
+		return { text = prefix .. config.ui.icons.eager .. "eager", hl = "BeastPackerTriggerEager" }
 	elseif t == "dependency" then
-		return { text = config.ui.icons.dependencies .. "dep of " .. (d or "?"), hl = "BeastPackerComment" }
+		return { text = prefix .. config.ui.icons.dependencies .. "dep of " .. (d or "?"), hl = "BeastPackerComment" }
 	elseif t == "event" then
-		return { text = config.ui.icons.event .. (d or "event"), hl = "BeastPackerEvent" }
+		return { text = prefix .. config.ui.icons.event .. (d or "event"), hl = "BeastPackerTriggerEvent" }
 	elseif t == "cmd" then
-		return { text = config.ui.icons.cmd .. ":" .. (d or "cmd"), hl = "BeastPackerCmd" }
+		return { text = prefix .. config.ui.icons.cmd .. ":" .. (d or "cmd"), hl = "BeastPackerTriggerCmd" }
 	elseif t == "keys" then
-		return { text = config.ui.icons.keys .. (d or "keys"), hl = "BeastPackerKeys" }
+		return { text = prefix .. config.ui.icons.keys .. (d or "keys"), hl = "BeastPackerTriggerKeys" }
 	elseif t == "module" then
-		return { text = config.ui.icons.module .. "require('" .. (d or "?") .. "')", hl = "BeastPackerModule" }
+		return { text = prefix .. config.ui.icons.module .. "require('" .. (d or "?") .. "')", hl = "BeastPackerTriggerModule" }
 	elseif t == "filetype" then
-		return { text = config.ui.icons.filetype .. (d or "filetype"), hl = "BeastPackerFiletype" }
+		return { text = prefix .. config.ui.icons.filetype .. (d or "filetype"), hl = "BeastPackerTriggerFiletype" }
 	elseif t == "path" then
-		return { text = config.ui.icons.path .. (d or "path"), hl = "BeastPackerPath" }
+		return { text = prefix .. config.ui.icons.path .. (d or "path"), hl = "BeastPackerTriggerPath" }
 	elseif t == "manual" then
-		return { text = "manual", hl = "BeastPackerComment" }
+		return { text = prefix .. "manual", hl = "BeastPackerComment" }
 	end
 	return nil
 end
@@ -296,9 +305,7 @@ function Main._render_main(main)
 
 	---@type Beast.Packer.UI.Segment[][]
 	local lines_segments = {}
-	local title = "  🦁 Packer"
 	local new_line = { text = "", hl = nil }
-	table.insert(lines_segments, { { text = title, hl = "BeastPackerTitle" } })
 
 	local total = state.total()
 	local sort_text = main.sort_mode == "time" and "Time" or "Name"
@@ -383,7 +390,7 @@ function Main._render_main(main)
 		for _, spec in ipairs(loaded) do
 			---@type Beast.Packer.UI.Segment[]
 			local segments = {}
-			table.insert(segments, { text = "    " .. config.ui.icons.loaded .. " ", hl = "BeastPackerSpecial" })
+			table.insert(segments, { text = "    " .. config.ui.icons.loaded .. " ", hl = "BeastPackerTriggerEager" })
 			table.insert(segments, { text = spec.name, hl = "BeastPackerPlugin" })
 
 			local prof = profile[spec.name]
@@ -393,7 +400,7 @@ function Main._render_main(main)
 
 			local reason_seg = prof and format_reason(prof.reason)
 			if reason_seg then
-				table.insert(segments, { text = "  ", hl = nil })
+				table.insert(segments, new_line)
 				table.insert(segments, reason_seg)
 			end
 
@@ -421,26 +428,26 @@ function Main._render_main(main)
 			if type(spec.lazy) == "table" then
 				local lazy = spec.lazy
 				for _, ev in ipairs(to_list(lazy.event)) do
-					table.insert(segments, { text = "  " .. config.ui.icons.event .. ev, hl = "BeastPackerEvent" })
+					table.insert(segments, { text = "  " .. config.ui.icons.event .. ev, hl = "BeastPackerTriggerEvent" })
 				end
 				for _, cmd in ipairs(to_list(lazy.cmd)) do
-					table.insert(segments, { text = "  " .. config.ui.icons.cmd .. cmd, hl = "BeastPackerCmd" })
+					table.insert(segments, { text = "  " .. config.ui.icons.cmd .. cmd, hl = "BeastPackerTriggerCmd" })
 				end
 				for _, key in ipairs(to_list(lazy.keys)) do
 					local lhs = type(key) == "string" and key or (type(key) == "table" and (key[1] or key.lhs) or "?")
-					table.insert(segments, { text = "  " .. config.ui.icons.keys .. lhs, hl = "BeastPackerKeys" })
+					table.insert(segments, { text = "  " .. config.ui.icons.keys .. lhs, hl = "BeastPackerTriggerKeys" })
 				end
 				for _, mod in ipairs(to_list(lazy.module)) do
-					table.insert(segments, { text = "  " .. config.ui.icons.module .. mod, hl = "BeastPackerModule" })
+					table.insert(segments, { text = "  " .. config.ui.icons.module .. mod, hl = "BeastPackerTriggerModule" })
 				end
 				for _, ft in ipairs(to_list(lazy.filetype)) do
-					table.insert(segments, { text = "  " .. config.ui.icons.filetype .. ft, hl = "BeastPackerFiletype" })
+					table.insert(segments, { text = "  " .. config.ui.icons.filetype .. ft, hl = "BeastPackerTriggerFiletype" })
 				end
 				for _, p in ipairs(to_list(lazy.path)) do
-					table.insert(segments, { text = "  " .. config.ui.icons.path .. p, hl = "BeastPackerPath" })
+					table.insert(segments, { text = "  " .. config.ui.icons.path .. p, hl = "BeastPackerTriggerPath" })
 				end
 			elseif spec.lazy == false then
-				table.insert(segments, { text = "  " .. config.ui.icons.eager .. "eager", hl = "BeastPackerSpecial" })
+				table.insert(segments, { text = "  " .. config.ui.icons.eager .. "eager", hl = "BeastPackerTriggerEager" })
 			else
 				-- lazy == nil → manual
 				table.insert(segments, { text = "  " .. config.ui.icons.lazy .. "manual", hl = "BeastPackerComment" })
@@ -449,6 +456,7 @@ function Main._render_main(main)
 		end
 		table.insert(lines_segments, { new_line })
 	end
+
 	apply_segments(main, lines_segments)
 end
 
@@ -461,7 +469,7 @@ function Main._render_profile(main)
 	---@type Beast.Packer.UI.Segment
 	local new_line = { text = "", hl = nil }
 
-	table.insert(lines_segments, { { text = "  Load Profile (sorted by time)", hl = "BeastPackerH2" } })
+	table.insert(lines_segments, { new_line })
 
 	local profiles = {}
 	for name, prof in profile.iter() do
@@ -482,7 +490,6 @@ function Main._render_profile(main)
 		table.insert(lines_segments, segments)
 	end
 
-	table.insert(lines_segments, { new_line })
 	apply_segments(main, lines_segments)
 end
 
@@ -492,9 +499,9 @@ function Main._render_help(main)
 
 	---@type Beast.Packer.UI.Segment[][]
 	local lines_segments = {}
+	local new_line = { text = "", hl = nil }
 
-	table.insert(lines_segments, { { text = "  Packer Help", hl = "BeastPackerH2" } })
-	table.insert(lines_segments, { { text = "", hl = nil } })
+	table.insert(lines_segments, { new_line })
 	table.insert(lines_segments, { { text = "  S - Toggle sort (name/time)", hl = "BeastPackerComment" } })
 	table.insert(lines_segments, { { text = "  P - Show profile", hl = "BeastPackerComment" } })
 	table.insert(lines_segments, { { text = "  ? - Show help", hl = "BeastPackerComment" } })
