@@ -1,6 +1,5 @@
----@type Beast.Explorer.State
-local state = require("beast.libs.explorer.state")
 local config = require("beast.libs.explorer.config")
+local state = require("beast.libs.explorer.state")
 local ui = require("beast.libs.explorer.ui")
 
 local M = {}
@@ -202,16 +201,13 @@ function M.mount()
 				for filename, info in pairs(mod) do
 					if info.modified then
 						local buf_name = filename
-						local message =
-							"Cannot close because one of the files is modified. Please save or discard changes."
+						local message = "Cannot close because one of the files is modified. Please save or discard changes."
 						if vim.startswith(filename, "[No Name]#") then
 							buf_name = string.sub(filename, 11)
-							message =
-								"Cannot close because an unnamed buffer is modified. Please save or discard this file."
+							message = "Cannot close because an unnamed buffer is modified. Please save or discard this file."
 						end
 						vim.notify(message, vim.log.levels.WARN)
-						local split_cmd = (config.side == "left") and "rightbelow vertical split"
-							or "topleft vertical split"
+						local split_cmd = (config.side == "left") and "rightbelow vertical split" or "topleft vertical split"
 						pcall(function(...)
 							vim.cmd(...)
 						end, split_cmd)
@@ -226,6 +222,24 @@ function M.mount()
 				-- Allow VimLeavePre to run by scheduling the quit
 				vim.cmd("q!")
 			end)
+		end,
+	})
+
+	vim.api.nvim_create_autocmd("WinScrolled", {
+		group = state.augroup,
+		callback = function()
+			-- stylua: ignore
+			if not (state.view and state.view:is_valid()) then return end
+			local exp_win = tostring(state.view.win)
+			-- stylua: ignore
+			if not (vim.v.event and vim.v.event[exp_win]) then return end
+
+			local wininfo = vim.fn.getwininfo(state.view.win)
+			local topline = (wininfo[1] or {}).topline or 1
+			local skip_rerender = (topline == 1 and not state.anchored) or (topline > 1 and state.anchored)
+      -- stylua: ignore
+      if skip_rerender then return end
+			ui.render()
 		end,
 	})
 

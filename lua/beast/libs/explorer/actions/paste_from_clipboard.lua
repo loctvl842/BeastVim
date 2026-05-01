@@ -1,8 +1,7 @@
----@type Beast.Explorer.State
-local state = require("beast.libs.explorer.state")
 local config = require("beast.libs.explorer.config")
-local ui = require("beast.libs.explorer.ui")
 local prompt = require("beast.libs.explorer.prompt")
+local state = require("beast.libs.explorer.state")
+local ui = require("beast.libs.explorer.ui")
 
 local uv = vim.uv or vim.loop
 
@@ -138,34 +137,8 @@ function PasteSession:step()
 	self:apply_plan(plan)
 end
 
----@param fresh Beast.Explorer.Node[]
----@param path string
----@return integer? line
-local function find_node_line(fresh, path)
-	for i, node in ipairs(fresh) do
-		if node.path == path then
-			return i + 1 -- +1 for header line
-		end
-	end
-	return nil
-end
-
----@param fresh Beast.Explorer.Node[]
----@param parent_path string
----@return boolean
-local function has_children(fresh, parent_path)
-	for _, node in ipairs(fresh) do
-		if node.parent == parent_path then
-			return true
-		end
-	end
-	return false
-end
-
 function PasteSession:show_conflict_prompt(plan)
 	local src_path = plan.src_path
-	local mode = plan.mode
-	local dest_path = plan.dest_path
 	local name = plan.name
 	local dest_dir_node = self.dest_dir_node
 
@@ -188,30 +161,8 @@ function PasteSession:show_conflict_prompt(plan)
 		self:_advance()
 	end
 
-	local fresh = state.tree:flat({ show_hidden = config.show_hidden })
-	if mode == "cut" then
-		-- Cut to same location behaves like rename on the existing node.
-		local conflict_node = state.tree.nodes[dest_path]
-		local node_line = find_node_line(fresh, dest_path)
 
-		if not conflict_node or not node_line then
-			self:_add_error("Already exists: " .. name)
-			self:_advance()
-			return
-		end
-
-		prompt.overlay(conflict_node, node_line, on_confirm, on_cancel)
-		return
-	end
-
-	-- Copy to same location behaves like duplicate with new name under the dir.
-	local dir_line = 1
-	if dest_dir_node.depth ~= -1 then
-		dir_line = find_node_line(fresh, dest_dir_node.path) or 1
-	end
-
-	local dir_has_children = has_children(fresh, dest_dir_node.path)
-	prompt.inline(dest_dir_node, dir_line, not dir_has_children, on_confirm, on_cancel, name)
+	prompt.inline(dest_dir_node, dest_dir_node, on_confirm, on_cancel, name)
 end
 
 ---@param src_path string

@@ -1,6 +1,5 @@
----@type Beast.Explorer.State
-local state = require("beast.libs.explorer.state")
 local config = require("beast.libs.explorer.config")
+local state = require("beast.libs.explorer.state")
 
 local M = {}
 
@@ -57,10 +56,12 @@ function M.build(nodes)
 	local lines = {} ---@type string[]
 	local hls = {} ---@type {line:integer,col_s:integer,col_e:integer,group:string}[]
 
-	-- Root header: " UPPERCASE-BASENAME" — no icon, plain text, visually distinct
-	local root_name = string.upper(vim.fn.fnamemodify(state.view.cwd, ":t"))
-	lines[1] = " " .. root_name
-	hls[#hls + 1] = { line = 0, col_s = 0, col_e = #lines[1], group = "BeastExplorerTitle" }
+	if not state.anchored then
+		-- Root header: " UPPERCASE-BASENAME" — no icon, plain text, visually distinct
+		local root_name = string.upper(vim.fn.fnamemodify(state.view.cwd, ":t"))
+		lines[1] = " " .. root_name
+		hls[#hls + 1] = { line = 0, col_s = 0, col_e = #lines[1], group = "BeastExplorerTitle" }
+	end
 
 	local clipboard_paths = {} ---@type table<string, boolean>
 	if state.clipboard then
@@ -71,7 +72,7 @@ function M.build(nodes)
 
 	local devicons_ok, devicons = pcall(require, "nvim-web-devicons")
 	for _, node in ipairs(nodes) do
-		local line_idx = #lines -- 0-indexed: lines[1] is already the header
+		local line_idx = #lines -- 0-indexed for extmarks
 		local prefix = build_prefix(node)
 
 		-- Icon

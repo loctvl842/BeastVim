@@ -8,11 +8,15 @@
 ---   - `false`      → keep prompt open (validation failed)
 ---   - `function`   → close prompt, then execute the function
 ---   - `nil`        → close prompt, no further action
----@type Beast.Explorer.State
-local state = require("beast.libs.explorer.state")
 local config = require("beast.libs.explorer.config")
+local state = require("beast.libs.explorer.state")
 
 local M = {}
+
+local styles = {
+	compact = { indent = "  ", vertical = "│ ", branch = "├╴", last_branch = "└╴" },
+	classic = { indent = "  ", vertical = "│ ", branch = "│ ", last_branch = "└╴" },
+}
 
 -- ================================
 -- Shared helpers
@@ -26,12 +30,8 @@ local function build_child_prefix(dir, is_last)
   -- stylua: ignore
   if dir.depth == -1 then return " " end
 
-	local styles = {
-		compact = { indent = "  ", vertical = "│ ", connector = "├╴" },
-		classic = { indent = "  ", vertical = "│ ", connector = "│ " },
-	}
 	local st = styles[config.style]
-	local connector = is_last and "└╴" or st.connector
+	local branch = is_last and st.last_branch or st.branch
 
 	local levels = {} ---@type boolean[]
 	local n = dir
@@ -44,7 +44,7 @@ local function build_child_prefix(dir, is_last)
 	for i = 2, #levels do
 		prefix = prefix .. (levels[i] and st.indent or st.vertical)
 	end
-	return prefix .. connector
+	return prefix .. branch
 end
 
 --- Open a float over the explorer, wire up keymaps and cleanup.
@@ -53,11 +53,10 @@ end
 ---@param width integer   float width
 ---@param initial string? pre-fill text (empty if nil)
 ---@param on_confirm fun(input: string): false|fun()?  return false to keep open, or a function to run after close
----@param on_cancel fun()?               called on escape / leave
+---@param on_cancel fun()                called on escape / leave
 ---@param cleanup fun()?                 extra cleanup before restoring focus
 local function open_float(row, col, width, initial, on_confirm, on_cancel, cleanup)
-  Util.wo(state.view.win, "cursorline", false)
-	on_cancel = on_cancel or function() end
+	Util.wo(state.view.win, "cursorline", false)
 	local exp_win = state.view.win
 
 	local input_buf = vim.api.nvim_create_buf(false, true)
@@ -98,7 +97,7 @@ local function open_float(row, col, width, initial, on_confirm, on_cancel, clean
 		if closed then return end
 		closed = true
 		vim.cmd("stopinsert")
-    Util.wo(state.view.win, "cursorline", true)
+		Util.wo(state.view.win, "cursorline", true)
 
 		if vim.api.nvim_win_is_valid(input_win) then
 			vim.api.nvim_win_close(input_win, true)
@@ -193,6 +192,44 @@ local function name_col(node, node_line)
 	return vim.fn.strdisplaywidth(line:sub(1, last_start - 1))
 end
 
+--- Replace one connector string with another on a buffer line and add a highlight extmark.
+--- Reads the line from the buffer to avoid stale captures.
+---@param buf integer
+---@param ns integer
+---@param row integer   0-indexed buffer row
+---@param from_str string  connector to find
+---@param to_str string    connector to replace with
+local function swap_connector(buf, ns, row, from_str, to_str)
+	local line = vim.api.nvim_buf_get_lines(buf, row, row + 1, false)[1] or ""
+
+	-- Find the last occurrence: branch connectors sit rightmost in the prefix,
+	-- and in classic style branch == vertical so we must skip earlier matches.
+	local start_col = nil
+	local search_from = 1
+	while true do
+		local s = line:find(from_str, search_from, true)
+		if not s then break end
+		start_col = s
+		search_from = s + 1
+	end
+  -- stylua: ignore
+	if not start_col then return end
+
+	start_col = start_col - 1 -- Lua 1-based → 0-based byte col
+	local end_col = start_col + #from_str
+
+	vim.bo[buf].modifiable = true
+	vim.api.nvim_buf_set_text(buf, row, start_col, row, end_col, { to_str })
+	vim.bo[buf].modifiable = false
+
+	vim.api.nvim_buf_set_extmark(buf, ns, row, start_col, {
+		end_col = start_col + #to_str,
+		hl_group = "BeastExplorerIndent",
+		hl_mode = "combine",
+		priority = 200,
+	})
+end
+
 -- ================================
 -- Methods
 -- ================================
@@ -214,33 +251,46 @@ function M.overlay(node, node_line, on_confirm, on_cancel)
 		indent = 1
 	end
 
+  on_cancel = on_cancel or function() end
 	open_float(node_line - 1, indent, input_width, node.name, on_confirm, on_cancel)
 end
 
 --- Open a float on a newly inserted blank line below a directory (create-style).
 ---@param target_dir Beast.Explorer.Node
----@param dir_line integer  1-based buffer line of the directory
----@param is_last boolean
+---@param current_node Beast.Explorer.Node
 ---@param on_confirm fun(input: string): false|fun()?  return false to keep open, or a function to run after close
 ---@param on_cancel fun()?
 ---@param initial string?  pre-fill text
-function M.inline(target_dir, dir_line, is_last, on_confirm, on_cancel, initial)
+function M.inline(target_dir, current_node, on_confirm, on_cancel, initial)
   -- stylua: ignore
   if not state.view or not state.view:is_valid() then return end
 
 	local exp_buf = state.view.buf
 	local exp_width = vim.api.nvim_win_get_width(state.view.win)
+	local current_pos = vim.api.nvim_win_get_cursor(state.view.win)[1]
+	local st = styles[config.style]
 
+	if not current_node.dir and not current_node.expanded then
+		state.tree:expand(current_node)
+	end
+
+	local is_last = (current_node.dir == false and current_node.last) or (current_node.dir and next(current_node.children) == nil)
 	local child_prefix = build_child_prefix(target_dir, is_last)
 	local prefix_cols = vim.fn.strdisplaywidth(child_prefix)
 
-	-- Insert a line with the prefix to push content down visually
+	-- Insert a blank line with tree prefix to push content down
 	vim.bo[exp_buf].modifiable = true
-	vim.api.nvim_buf_set_lines(exp_buf, dir_line, dir_line, false, { child_prefix })
+	vim.api.nvim_buf_set_lines(exp_buf, current_pos, current_pos, false, { child_prefix })
 	vim.bo[exp_buf].modifiable = false
 
-	-- Highlight the prefix with NonText so it matches the rest of the tree
-	pcall(vim.api.nvim_buf_set_extmark, exp_buf, state.view.ns, dir_line, 0, {
+	-- The current node was "last" → swap └╴ to ├╴ since a new sibling is being added
+	local needs_connector_restore = current_node.dir == false and current_node.last
+	if needs_connector_restore then
+		swap_connector(exp_buf, state.view.ns, current_pos - 1, st.last_branch, st.branch)
+	end
+
+	-- Highlight the inserted prefix line
+	pcall(vim.api.nvim_buf_set_extmark, exp_buf, state.view.ns, current_pos, 0, {
 		end_col = #child_prefix,
 		hl_group = "BeastExplorerIndent",
 	})
@@ -256,16 +306,26 @@ function M.inline(target_dir, dir_line, is_last, on_confirm, on_cancel, initial)
 	local function remove_blank()
     -- stylua: ignore
 		if blank_removed then return end
+		blank_removed = true
 		if state.view and state.view:is_valid() then
 			pcall(function()
 				vim.bo[exp_buf].modifiable = true
-				vim.api.nvim_buf_set_lines(exp_buf, dir_line, dir_line + 1, false, {})
+				vim.api.nvim_buf_set_lines(exp_buf, current_pos, current_pos + 1, false, {})
 				vim.bo[exp_buf].modifiable = false
 			end)
 		end
 	end
 
-	open_float(dir_line, indent, input_width, initial, on_confirm, on_cancel, remove_blank)
+	local function override_on_cancel()
+    -- stylua: ignore
+    if on_cancel then on_cancel() end
+		if needs_connector_restore then
+			swap_connector(exp_buf, state.view.ns, current_pos - 1, st.branch, st.last_branch)
+		end
+	end
+
+	local float_row = math.max(0, current_pos - vim.fn.line("w0") + 1)
+	open_float(float_row, indent, input_width, initial, on_confirm, override_on_cancel, remove_blank)
 end
 
 return M

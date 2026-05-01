@@ -1,5 +1,4 @@
 local Tree = require("beast.libs.explorer.tree")
----@type Beast.Explorer.State
 local state = require("beast.libs.explorer.state")
 local config = require("beast.libs.explorer.config")
 local ui = require("beast.libs.explorer.ui")

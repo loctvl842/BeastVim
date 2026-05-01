@@ -1,8 +1,7 @@
----@type Beast.Explorer.State
-local state = require("beast.libs.explorer.state")
-local config = require("beast.libs.explorer.config")
 local View = require("beast.libs.view")
+local config = require("beast.libs.explorer.config")
 local render = require("beast.libs.explorer.render")
+local state = require("beast.libs.explorer.state")
 
 -- =============================================================================
 -- VIEW
@@ -71,9 +70,28 @@ function M.create(cwd)
 	vim.wo[win].cursorline = true
 	vim.wo[win].winfixwidth = true
 	vim.wo[win].listchars = "tab:  ,nbsp:+"
+	vim.wo[win].winbar = "Explorer"
+  vim.wo[win].scrolloff = 0
 	Util.wo(win, "winhighlight", "Normal:BeastExplorerNormal")
 
 	return ExplorerView(buf, win, ns, cwd)
+end
+
+--- Pin the root line to the top of the window.
+function M.pin_root()
+  -- stylua: ignore
+  if not state.view or not state.view:is_valid() then return end
+	local root_name = string.upper(vim.fn.fnamemodify(state.tree.root.path, ":t"))
+	vim.wo[state.view.win].winbar = "%#BeastExplorerTitle# " .. root_name .. "%*"
+	state.anchored = true
+end
+
+--- Unpin the root line from the top of the window.
+function M.unpin_root()
+  -- stylua: ignore
+  if not state.view or not state.view:is_valid() then return end
+	vim.wo[state.view.win].winbar = nil
+	state.anchored = false
 end
 
 --- Write `nodes` into `view`'s buffer and apply highlight decorations.
@@ -88,6 +106,13 @@ function M.render(on_done)
   if not state.tree then return end
 
 	local nodes = state.tree:flat({ show_hidden = config.show_hidden })
+	local wininfo = vim.fn.getwininfo(state.view.win)
+	local topline = (wininfo[1] or {}).topline or 1
+  if topline > 1 then
+    M.pin_root()
+  else
+    M.unpin_root()
+  end
 	local lines, hls = render.build(nodes)
 	render.write(lines, hls)
 
@@ -106,7 +131,12 @@ function M.focus_path(path)
 	local nodes = state.tree:flat({ show_hidden = config.show_hidden })
 	for i, node in ipairs(nodes) do
 		if node.path == path then
-			pcall(vim.api.nvim_win_set_cursor, state.view.win, { i + 1, 0 }) -- +1 for header
+			local line = i + 1 -- +1 for header
+			pcall(vim.api.nvim_win_set_cursor, state.view.win, { line, 0 })
+			-- Scroll window so the focused line is visible
+			vim.api.nvim_win_call(state.view.win, function()
+				vim.cmd("normal! zz")
+			end)
 			return
 		end
 	end

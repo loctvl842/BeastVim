@@ -1,8 +1,7 @@
----@type Beast.Explorer.State
-local state = require("beast.libs.explorer.state")
 local config = require("beast.libs.explorer.config")
-local ui = require("beast.libs.explorer.ui")
 local prompt = require("beast.libs.explorer.prompt")
+local state = require("beast.libs.explorer.state")
+local ui = require("beast.libs.explorer.ui")
 
 local uv = vim.uv or vim.loop
 local M = setmetatable({}, {
@@ -12,28 +11,24 @@ local M = setmetatable({}, {
 })
 
 ---@param target_dir Beast.Explorer.Node
-local function show_popup(target_dir)
+---@param current_node Beast.Explorer.Node
+local function show_popup(target_dir, current_node)
 	local fresh = state.tree:flat({ show_hidden = config.show_hidden })
 
 	local dir_line = 1 -- below header for root
 	if target_dir.depth ~= -1 then
 		for i, n in ipairs(fresh) do
 			if n.path == target_dir.path then
-				dir_line = i + 1 -- +1 for header line
 				break
 			end
+			dir_line = i + 1 -- +1 for header line
+		end
+		if not state.anchored then
+			dir_line = dir_line + 1
 		end
 	end
 
-	local has_children = false
-	for _, n in ipairs(fresh) do
-		if n.parent == target_dir.path then
-			has_children = true
-			break
-		end
-	end
-
-	prompt.inline(target_dir, dir_line, not has_children, function(input)
+	prompt.inline(target_dir, current_node, function(input)
 		local is_dir = input:sub(-1) == "/"
 		local rel_path = is_dir and input:sub(1, -2) or input
 		local full_path = target_dir.path .. "/" .. rel_path
@@ -79,10 +74,10 @@ function M.run()
 	if target_dir.dir and not target_dir.open then
 		state.tree:open(target_dir.path)
 		ui.render(function()
-			show_popup(target_dir)
+			show_popup(target_dir, node)
 		end)
 	else
-		show_popup(target_dir)
+		show_popup(target_dir, node)
 	end
 end
 
