@@ -1,4 +1,3 @@
-local M = {}
 local p = Palette.get()
 
 Util.colors.set_hl("BeastPacker", {
@@ -6,25 +5,31 @@ Util.colors.set_hl("BeastPacker", {
 	Normal = { bg = p.dark1, fg = p.dimmed1 },
 	Border = { fg = p.dark1, bg = p.dark1 },
 	WinBar = { bg = p.dark1 },
-	Title = { link = "Title" },
+	Title = { fg = p.accent3, bold = true },
 	Subtitle = { fg = p.dimmed2, bg = p.dark1 },
-	H1 = { link = "IncSearch" },
-	H2 = { link = "Bold" },
-	Comment = { link = "Comment" },
-	TriggerEager = { link = "@character.special" },
-	TriggerEvent = { link = "Constant" },
-	TriggerKeys = { link = "Statement" },
-	TriggerCmd = { link = "Operator" },
-	TriggerModule = { link = "Identifier" },
-	TriggerFiletype = { link = "Type" },
-	TriggerPath = { link = "Directory" },
-	Plugin = { link = "Function" },
-	Button = { link = "CursorLine" },
-	ButtonActive = { link = "Visual" },
-	Warning = { link = "WarningMsg" },
-	Spinner = { link = "DiagnosticWarn" },
-	Success = { link = "DiagnosticOk" },
-	Error = { link = "DiagnosticError" },
-})
+	H1 = { bg = p.accent2, fg = p.dark1, bold = true },
+	H2 = { fg = p.dimmed1, bold = true },
+	Comment = { fg = p.dimmed3 },
 
-return M
+	-- Trigger types
+	TriggerEager = { fg = p.accent1 },
+	TriggerEvent = { fg = p.accent3 },
+	TriggerKeys = { fg = p.accent5 },
+	TriggerCmd = { fg = p.accent2 },
+	TriggerModule = { fg = p.accent6 },
+	TriggerFiletype = { fg = p.accent4 },
+	TriggerPath = { fg = p.dimmed1 },
+
+	-- UI elements
+	Plugin = { fg = p.accent4 },
+	Button = { bg = Util.colors.lighten(p.dark1, 20), fg = p.dimmed2 },
+	ButtonActive = { bg = p.accent5, fg = p.dark1, bold = true },
+
+	-- Status
+	Warning = { fg = p.accent2 },
+	Spinner = { fg = p.accent2 },
+	Success = { fg = p.accent4 },
+	Error = { fg = p.accent1 },
+
+  Progress = { fg = p.accent3 }
+})

@@ -250,7 +250,7 @@ function Main.render(main)
 
 	spinner_index = (spinner_index % #spinner_frames) + 1
 
-	local winbar = "%#BeastPackerTitle# 🦁 Packer"
+	local winbar = "%#BeastPackerTitle#  🦁 Packer"
 	if main.view_mode == "profile" then
 		winbar = winbar .. "%#BeastPackerSubtitle# 󰿟 Profile"
 	elseif main.view_mode == "help" then
@@ -277,7 +277,7 @@ local function format_reason(reason)
 	local t, d = reason.type, reason.detail
   local prefix = "  "
 	if t == "eager" then
-		return { text = prefix .. config.ui.icons.eager .. "eager", hl = "BeastPackerTriggerEager" }
+		return { text = prefix .. config.ui.icons.eager .. "Eager", hl = "BeastPackerTriggerEager" }
 	elseif t == "dependency" then
 		return { text = prefix .. config.ui.icons.dependencies .. "dep of " .. (d or "?"), hl = "BeastPackerComment" }
 	elseif t == "event" then
@@ -293,7 +293,7 @@ local function format_reason(reason)
 	elseif t == "path" then
 		return { text = prefix .. config.ui.icons.path .. (d or "path"), hl = "BeastPackerTriggerPath" }
 	elseif t == "manual" then
-		return { text = prefix .. "manual", hl = "BeastPackerComment" }
+		return { text = prefix .. "Manual", hl = "BeastPackerComment" }
 	end
 	return nil
 end
@@ -390,7 +390,7 @@ function Main._render_main(main)
 		for _, spec in ipairs(loaded) do
 			---@type Beast.Packer.UI.Segment[]
 			local segments = {}
-			table.insert(segments, { text = "    " .. config.ui.icons.loaded .. " ", hl = "BeastPackerTriggerEager" })
+			table.insert(segments, { text = "    " .. config.ui.icons.loaded .. " ", hl = "BeastPackerProgress" })
 			table.insert(segments, { text = spec.name, hl = "BeastPackerPlugin" })
 
 			local prof = profile[spec.name]
@@ -422,7 +422,7 @@ function Main._render_main(main)
 		for _, spec in ipairs(pending) do
 			---@type Beast.Packer.UI.Segment[]
 			local segments = {}
-			table.insert(segments, { text = "    " .. config.ui.icons.pending .. " ", hl = "BeastPackerComment" })
+			table.insert(segments, { text = "    " .. config.ui.icons.pending .. " ", hl = "BeastPackerProgress" })
 			table.insert(segments, { text = spec.name, hl = "BeastPackerPlugin" })
 
 			if type(spec.lazy) == "table" then
@@ -447,10 +447,10 @@ function Main._render_main(main)
 					table.insert(segments, { text = "  " .. config.ui.icons.path .. p, hl = "BeastPackerTriggerPath" })
 				end
 			elseif spec.lazy == false then
-				table.insert(segments, { text = "  " .. config.ui.icons.eager .. "eager", hl = "BeastPackerTriggerEager" })
+				table.insert(segments, { text = "  " .. config.ui.icons.eager .. "Eager", hl = "BeastPackerTriggerEager" })
 			else
 				-- lazy == nil → manual
-				table.insert(segments, { text = "  " .. config.ui.icons.lazy .. "manual", hl = "BeastPackerComment" })
+				table.insert(segments, { text = "  " .. config.ui.icons.lazy .. "Manual", hl = "BeastPackerComment" })
 			end
 			table.insert(lines_segments, segments)
 		end

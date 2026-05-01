@@ -122,7 +122,7 @@ function Main.create()
 	})
 
 	Util.wo(main_win, "winhighlight", "Normal:BeastKeyNormal,FloatBorder:BeastKeyBorder,WinBar:BeastKeyWinBar,WinBarNC:BeastKeyWinBar")
-	local title = "🦁 Keymaps"
+	local title = " 🦁 Keymaps"
 	Util.wo(main_win, "winbar", "%#BeastKeyTitle# " .. title .. "%*")
 	Util.wo(main_win, "wrap", false)
 	Util.wo(main_win, "number", false)

@@ -1,6 +1,7 @@
 ---@class Beast.Notify.Config
 local defaults = {
 	width = 80,
+	gap = 0,
 	timeout = 3000,
 	stagger = 100,
 	anim_ms = 220,
@@ -13,13 +14,6 @@ local defaults = {
 		INFO = "",
 		DEBUG = "",
 		TRACE = "",
-	},
-	hl = {
-		ERROR = { title = "DiagnosticError", body = "Normal" },
-		WARN = { title = "DiagnosticWarn", body = "Normal" },
-		INFO = { title = "DiagnosticInfo", body = "Normal" },
-		DEBUG = { title = "DiagnosticHint", body = "Normal" },
-		TRACE = { title = "Comment", body = "Normal" },
 	},
 }
 
@@ -64,13 +58,7 @@ local M = setmetatable({}, {
 	end,
 
 	__newindex = function(_, key, _)
-		error(
-			string.format(
-				"beast.notify.config is read-only; cannot assign '%s' directly. Use setup() instead.",
-				tostring(key)
-			),
-			2
-		)
+		error(string.format("beast.notify.config is read-only; cannot assign '%s' directly. Use setup() instead.", tostring(key)), 2)
 	end,
 })
 

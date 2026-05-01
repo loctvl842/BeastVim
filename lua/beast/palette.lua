@@ -58,7 +58,7 @@ function M.refresh()
 		accent1 = extract("DiagnosticError", "fg", defaults.accent1),
 		accent2 = extract("DiagnosticWarn", "fg", defaults.accent2),
 		accent3 = extract("String", "fg", defaults.accent3),
-		accent4 = extract("DiagnosticOk", "fg", defaults.accent4),
+		accent4 = extract("@function", "fg", defaults.accent4),
 		accent5 = extract("Structure", "fg", defaults.accent5),
 		accent6 = extract("Boolean", "fg", defaults.accent6),
 		dimmed1 = extract("NormalFloat", "fg", defaults.dimmed1),

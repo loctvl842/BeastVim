@@ -27,7 +27,7 @@ local function calc_slots(views)
 	for i = 1, #views do
 		slots[i] = cursor
 		local _, h = views[i].record:dimensions()
-		cursor = cursor + (h + 2)
+		cursor = cursor + h + config.gap + 2
 	end
 	return slots
 end
@@ -43,7 +43,7 @@ local function next_slot_row(state)
 	local slots = calc_slots(state.views)
 	local last_view = state.views[#state.views]
 	local _, last_h = last_view.record:dimensions()
-	return slots[#slots] + (last_h + 2)
+	return slots[#slots] + last_h + config.gap + 2
 end
 
 -- =============================================================================

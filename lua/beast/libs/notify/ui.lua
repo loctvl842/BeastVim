@@ -1,6 +1,6 @@
 local View = require("beast.libs.view")
-local config = require("beast.libs.notify.config")
 local animate = require("beast.libs.animate")
+local config = require("beast.libs.notify.config")
 
 ---@class Beast.Notify.View : Beast.View
 ---@field ns integer
@@ -32,7 +32,6 @@ local M = {}
 function M.create(record, slot_row)
 	local buf = Buffer.new("beast-notify")
 	local width, height = record:dimensions()
-	local hl = config.hl[record.level] or config.hl.INFO
 
 	local win = vim.api.nvim_open_win(buf, false, {
 		relative = "editor",
@@ -42,12 +41,12 @@ function M.create(record, slot_row)
 		width = width,
 		height = height,
 		style = "minimal",
-		border = "rounded",
+		border = { "🭽", "▔", "🭾", "▕", "🭿", "▁", "🭼", "▏" },
 		focusable = true,
 		zindex = 200,
 		noautocmd = true,
 	})
-	Util.wo(win, "winhl", "Normal:" .. hl.body .. ",FloatBorder:" .. hl.title)
+	Util.wo(win, "winhighlight", "Normal:BeastNotifyNormal,FloatBorder:BeastNotifyBorder")
 	Util.wo(win, "wrap", false)
 	Util.wo(win, "winblend", 100) -- start transparent
 
@@ -69,7 +68,6 @@ function M.render(view)
 	if not view:is_valid() then return end
 
 	local r = view.record
-	local hl = config.hl[r.level] or config.hl.INFO
 	local icon = config.icons[r.level] or "!"
 	local title_left = icon .. "  " .. (r.title ~= "" and r.title or r.level)
 
@@ -88,14 +86,14 @@ function M.render(view)
 	vim.api.nvim_buf_clear_namespace(view.buf, view.ns, 0, -1)
 	-- extmark 1: virtual title shown on line 0
 	vim.api.nvim_buf_set_extmark(view.buf, view.ns, 0, 0, {
-		virt_text = { { " " .. title_left, hl.title } },
+		virt_text = { { " " .. title_left, "BeastNotify" .. r.level } },
 		virt_text_win_col = 0,
 		priority = 10,
 	})
 	-- extmark 2: highlight a RANGE starting from line 2
 	if #msg > 0 then
 		vim.api.nvim_buf_set_extmark(view.buf, view.ns, 1, 0, {
-			hl_group = hl.body,
+			hl_group = "BeastNotifyNormal",
 			end_line = #msg,
 			end_col = #msg[#msg],
 			priority = 5,

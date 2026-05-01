@@ -83,6 +83,7 @@ local function open_float(row, col, width, initial, on_confirm, on_cancel, clean
 	vim.wo[input_win].number = false
 	vim.wo[input_win].relativenumber = false
 	vim.wo[input_win].signcolumn = "no"
+  vim.wo[input_win].winhighlight = "Normal:BeastExplorerPrompt"
 
 	if initial and initial ~= "" then
 		vim.cmd("startinsert!")

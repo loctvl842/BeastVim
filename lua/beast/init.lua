@@ -90,6 +90,7 @@ M.highlight_modules = {
 	"beast.libs.explorer.highlights",
 	"beast.libs.key.highlights",
 	"beast.libs.packer.highlights",
+	"beast.libs.notify.highlights",
 }
 
 --- Reload all Beast lib highlights.
