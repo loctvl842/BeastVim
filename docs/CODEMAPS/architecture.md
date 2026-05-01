@@ -1,185 +1,81 @@
-<!-- Generated: 2026-04-23 | Files scanned: 50 | Token estimate: ~950 -->
+<!-- Generated: 2026-05-01 | Files scanned: 82 | Token estimate: ~900 -->
 
-# BeastVim Architecture
+# Architecture
 
-A Neovim plugin written in Lua providing UI components built on floating windows, prompt buffers, and event-driven rendering.
-
-## Project Overview
-
-- **Language**: Lua
-- **Framework**: Neovim plugin
-- **Pattern**: Component-based UI with composable modules
-- **Entry Point**: `init.lua` → `lua/beast/init.lua` (entry point for global setup)
-
-## System Architecture
+## Entry Point
 
 ```
-init.lua (bootstrap)
-  ↓
+init.lua → require("beast").setup()
+```
+
+## Module Tree
+
+```
 lua/beast/
-  ├── init.lua            (global setup, config merge)
-  ├── option.lua          (Neovim options configuration)
-  ├── util/
-  │   └── init.lua        (shared utilities: wo setter, helpers)
-  └── libs/               (plugin libraries)
-      ├── view.lua        (base View class for buf+win pairs)
-      ├── animate.lua     (pure animation math engine)
-      ├── key/            (keymapping system)
-      ├── notify/         (notification stack UI)
-      ├── explorer/       (file tree explorer)
-      ├── confirm/        (confirmation dialogs)
-      └── lazy_loader/    (lazy loading system)
+├── init.lua              ← top-level setup, wires all libs + globals
+├── option.lua            ← vim options
+├── icon.lua              ← icon definitions
+├── util/
+│   ├── init.lua          ← Util.wo, Util.create_scratch_buf, Util.hrtime
+│   ├── colors.lua        ← Util.colors.set_hl
+│   └── root.lua          ← project root detection
+├── libs/
+│   ├── view.lua          ← Beast.View base class (buf+win pair)
+│   ├── animate.lua       ← shared animation engine (pure math)
+│   ├── buf.lua           ← Beast.Buf (buffer delete, scratch buf)
+│   ├── explorer/         ← file explorer (split panel)
+│   ├── notify/           ← floating notification stack
+│   ├── toast/            ← toast notification stack
+│   ├── key/              ← keybinding viewer/manager
+│   ├── confirm/          ← vim.fn.confirm drop-in UI
+│   └── packer/           ← plugin loader with lazy triggers
+└── plugins/
+    ├── init.lua           ← plugin spec imports
+    ├── colorscheme.lua    ← colorscheme plugin spec
+    └── bars/              ← statusline, tabline, winbar
 ```
 
-## Library Structure Pattern
+## Globals Registered at Setup
 
-Each library follows the same dependency order:
+| Global | Module | Purpose |
+|--------|--------|---------|
+| `Util` | beast.util | Window opts, scratch buf, colors |
+| `Key` | beast.libs.key | Keymap registration + viewer |
+| `Buffer` | beast.libs.buf | Buffer delete helper |
+| `Icon` | beast.icon | Icon lookup |
+| `Toast` | beast.libs.toast | Toast notifications |
+
+## Data Flow
 
 ```
-init.lua        ← public API, owns module-level state
-├── stack.lua   ← orchestrates collection of views
-│   └── win.lua ← operations on a single window
-│       ├── view.lua    ← type definition
-│       ├── config.lua  ← defaults, live config
-│       └── animate.lua ← pure math
-└── record.lua  ← pure data factory
-    └── config.lua
+User action
+  → Key.safe_set (keymap)
+    → Library public API (toggle/open/notify)
+      → State mutation (init.lua only)
+        → UI render (ui.lua)
+          → Neovim API (buf/win/extmark)
 ```
 
-**Rule**: Dependencies flow downward only. No circular dependencies.
+## Shared Modules
 
-## Core Libraries
+```
+Beast.View (view.lua)
+  └── extended by: notify, toast, explorer, key
 
-### 1. **Key** (`libs/key/`)
-Global keymapping system with action-driven architecture and centralized config.
+animate.lua
+  └── used by: notify/ui.lua, toast/ui.lua
 
-**Files**:
-- `init.lua` — public API (setup, safe_set, bind)
-- `config.lua` — centralized config with defaults, live cfg, readonly metatable
-- `state.lua` — keymap state (groups, handlers)
-- `core.lua` — binding logic
-- `builtin.lua` — built-in actions
-- `api.lua` — exported API
-- `ui.lua` — UI state management, action dispatcher
+Util.create_scratch_buf
+  └── used by: confirm, explorer, key, notify, toast
 
-**Entry**: `Key.safe_set(mode, key, fn, opts)` → registers keymaps with group tracking
-
-**Config Pattern**: `config.lua` uses readonly metatable with methods table dispatch. Actions in `ui.lua` are keyed by string names (e.g. "close", "cycle_mode") looked up via actions metatable.
-
-### 2. **Notify** (`libs/notify/`)
-Notification stack with animated floating windows.
-
-**Files**:
-- `init.lua` — public API (setup, notify, dismiss)
-- `state.lua` — State class (manages notification stack)
-- `stack.lua` — Stack operations (push, dismiss, render)
-- `record.lua` — Notification record factory
-- `config.lua` — config proxy with live cfg
-- `ui.lua` — window creation and rendering
-- `test.lua` — test utilities
-
-**Flow**: `notify(msg, level, opts)` → creates Record → Stack.push → ui.render → window displayed
-
-### 2b. **Toast** (`libs/toast/`)
-Single-line notification toasts with staggered queuing.
-
-**Files**:
-- `init.lua` — public API (setup, toast, dismiss)
-- `state.lua` — State class (views, queue, next_id, draining)
-- `stack.lua` — Stack operations (push, drain, remove, reflow, dismiss)
-- `record.lua` — Toast record factory
-- `config.lua` — config proxy with live cfg
-- `ui.lua` — window creation, rendering, animations
-- `test.lua` — stress test utilities
-
-**Flow**: `toast(msg, level, opts)` → Record → Stack.push → drain with stagger → ui.create/render → window displayed
-
-### 3. **Explorer** (`libs/explorer/`)
-File tree browser with async git status, keyboard navigation.
-
-**Files**:
-- `init.lua` — public API (setup, toggle)
-- `state.lua` — Explorer state (tree, view, clipboard)
-- `config.lua` — config proxy with normalizers
-- `tree.lua` — file tree data structure (recursive)
-- `ui.lua` — window creation, buffer setup
-- `render.lua` — tree rendering (path expansion, filtering)
-- `autocmds.lua` — auto-refresh on file events
-- `keymaps.lua` — navigation keymaps
-- `actions/` — individual actions (open, rename, delete, cut/paste, etc.)
-- `prompt.lua` — rename/create prompts
-
-**Flow**: `toggle(cwd)` → creates/restores Tree → ui.create → render.apply → keymaps/autocmds
-
-### 4. **Confirm** (`libs/confirm/`)
-Confirmation dialog for yes/no prompts.
-
-**Files**:
-- `init.lua` — public API (confirm)
-- `ui.lua` — window and buffer creation
-
-**Flow**: `confirm(question, callback)` → ui.create → waits for y/n input → callback
-
-### 5. **Lazy Loader** (`libs/lazy_loader/`)
-Deferred module loading with lazy initialization.
-
-**Files**:
-- `init.lua` — public API
-- `state.lua` — loader state
-
-**Purpose**: Avoid side effects at require time, only initialize on first use
-
-## Shared Patterns
-
-### View Base Class
-All UI components extend `Beast.View` (from `libs/view.lua`):
-
-```lua
-local View = require("beast.libs.view")
----@class Beast.Foo.View : Beast.View
-local FooView = View:extend(...)
+Util.colors.set_hl
+  └── used by: all libs with highlights.lua
 ```
 
-Methods: `is_valid()`, `close()`, constructor call: `FooView(buf, win, ...)`
+## Patterns
 
-### Type Naming Convention
-All types use `Beast.Namespace.TypeName` prefix:
-```
-Beast.Key.State
-Beast.Notify.Record
-Beast.Explorer.Config
-```
-
-### Config Pattern
-Every library has config with defaults, live cfg, and setup():
-```lua
-local defaults = { ... }
-local cfg = vim.deepcopy(defaults)
-local M = {}
-M.cfg = cfg
-function M.setup(opts)
-    cfg = vim.tbl_deep_extend("force", vim.deepcopy(defaults), opts or {})
-    M.cfg = cfg
-end
-```
-
-### State Ownership
-Module-level mutable state lives only in `init.lua`. Other files are stateless.
-
-## Neovim APIs Used
-
-- `vim.api.nvim_create_buf()` — create scratch buffers
-- `vim.api.nvim_open_win()` — create floating/split windows
-- `vim.api.nvim_buf_set_lines()` — set buffer content
-- `vim.api.nvim_buf_set_extmark()` — apply highlights via namespace
-- `vim.api.nvim_create_namespace()` — create extmark namespace
-- `vim.api.nvim_create_augroup()` — autocmd groups
-- `vim.api.nvim_create_autocmd()` — register autocmds
-- `vim.keymap.set()` — keybindings (wrapped via Key library)
-
-## Code Statistics
-
-- **Total lines of Lua**: ~222
-- **Total files**: 32 (includes libraries, utils, test files)
-- **Libraries**: 6 (key, notify, toast, explorer, confirm, lazy_loader)
-- **Dependencies**: None external (pure Neovim plugin)
+- **State ownership**: only `init.lua` per library holds mutable state
+- **Config**: readonly metatable with `setup(opts)` merge
+- **Highlights**: `Beast<Lib>*` namespaced groups in `highlights.lua`
+- **Netrw replacement**: explorer auto-opens on directory BufEnter
+- **vim.notify override**: notify.setup() replaces `vim.notify`
