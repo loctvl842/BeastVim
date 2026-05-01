@@ -19,9 +19,21 @@ function M.setup(opts)
 	require("beast.option")
 
 	_G.Util = require("beast.util")
+	_G.Palette = require("beast.palette")
 	_G.Key = require("beast.libs.key")
 	_G.Buffer = require("beast.libs.buf")
 	_G.Icon = require("beast.icon")
+
+	-- Refresh palette + reload all Beast highlights on colorscheme change
+	vim.api.nvim_create_autocmd("ColorScheme", {
+		group = vim.api.nvim_create_augroup("BeastPalette", { clear = true }),
+		callback = function()
+			vim.schedule(function()
+				Palette.refresh()
+				M.reload_highlights()
+			end)
+		end,
+	})
 
 	Key.setup(cfg.key)
 
@@ -65,6 +77,27 @@ function M.setup(opts)
   _G.gh = function(x) return "https://github.com/" .. x end
 	---@type Beast.Packer.PluginSpec[]
 	packer.setup(cfg.packer)
+
+	-- Initial palette extraction (colorscheme should be loaded by packer)
+	Palette.refresh()
+	M.reload_highlights()
+end
+
+--- Registry of highlight modules to reload on ColorScheme change.
+---@type string[]
+M.highlight_modules = {
+	"beast.libs.confirm.highlights",
+	"beast.libs.explorer.highlights",
+	"beast.libs.key.highlights",
+	"beast.libs.packer.highlights",
+}
+
+--- Reload all Beast lib highlights.
+function M.reload_highlights()
+	for _, mod_name in ipairs(M.highlight_modules) do
+		package.loaded[mod_name] = nil
+		pcall(require, mod_name)
+	end
 end
 
 return M
