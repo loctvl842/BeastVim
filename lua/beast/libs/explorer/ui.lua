@@ -70,9 +70,12 @@ function M.create(cwd)
 	vim.wo[win].cursorline = true
 	vim.wo[win].winfixwidth = true
 	vim.wo[win].listchars = "tab:  ,nbsp:+"
-	vim.wo[win].winbar = "Explorer"
-  vim.wo[win].scrolloff = 0
-	Util.wo(win, "winhighlight", "Normal:BeastExplorerNormal")
+	vim.wo[win].scrolloff = 0
+	Util.wo(
+		win,
+		"winhighlight",
+		"Normal:BeastExplorerNormal,EndOfBuffer:BeastExplorerEndOfBuffer,CursorLine:BeastExplorerCursorLine,WinSeparator:BeastExplorerWinSeparator,WinBar:BeastExplorerWinBar,WinBarNC:BeastExplorerWinBar"
+	)
 
 	return ExplorerView(buf, win, ns, cwd)
 end
@@ -108,11 +111,11 @@ function M.render(on_done)
 	local nodes = state.tree:flat({ show_hidden = config.show_hidden })
 	local wininfo = vim.fn.getwininfo(state.view.win)
 	local topline = (wininfo[1] or {}).topline or 1
-  if topline > 1 then
-    M.pin_root()
-  else
-    M.unpin_root()
-  end
+	if topline > 1 then
+		M.pin_root()
+	else
+		M.unpin_root()
+	end
 	local lines, hls = render.build(nodes)
 	render.write(lines, hls)
 

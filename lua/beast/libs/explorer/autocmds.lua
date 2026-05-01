@@ -79,11 +79,6 @@ function M.mount()
 		return
 	end
 
-	vim.api.nvim_set_hl(0, "BeastExplorerCursor", {
-		blend = 100,
-		nocombine = true,
-	})
-
 	state.augroup = vim.api.nvim_create_augroup("BeastExplorerUI_" .. tostring(vim.loop.hrtime()), { clear = true })
 
 	vim.api.nvim_create_autocmd({ "WinEnter", "BufEnter" }, {
