@@ -10,3 +10,7 @@
 | [006](006-rename-lazy-loader-to-packer.md) | Rename lazy_loader to packer | Accepted | 2026-04-26 |
 | [007](007-confirm-as-vim-fn-confirm-drop-in.md) | Confirm UI as vim.fn.confirm Drop-In | Accepted | 2026-04-30 |
 | [008](008-namespaced-highlight-groups.md) | Namespaced Highlight Groups Across Libs | Accepted | 2026-04-28 |
+| [009](009-native-statusline-replaces-heirline.md) | Native `%!` Statusline Replaces Heirline | Accepted | 2026-05-02 |
+| [010](010-no-engine-level-statusline-cache.md) | No Engine-Level Statusline Cache | Accepted | 2026-05-02 |
+| [011](011-file-bound-provider-wrapper.md) | file_bound Provider Wrapper for Transient UI Buffers | Accepted | 2026-05-02 |
+| [012](012-compound-fragment-component-model.md) | Compound-Fragment Component Model | Accepted | 2026-05-02 |

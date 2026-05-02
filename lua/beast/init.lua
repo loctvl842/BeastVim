@@ -78,6 +78,16 @@ function M.setup(opts)
 	---@type Beast.Packer.PluginSpec[]
 	packer.setup(cfg.packer)
 
+	-- Statusline (declarative components, native %! evaluation)
+	local stl = require("beast.libs.statusline")
+	local cpn = require("beast.libs.statusline.components")
+	stl.setup({
+		-- left = { cpn.git_branch, cpn.diagnostics },
+		-- right = { cpn.git_commit, cpn.position, cpn.filetype, cpn.shiftwidth, cpn.encoding, cpn.mode },
+		left = { cpn.git_branch, cpn.diagnostics },
+		right = { cpn.git_commit, cpn.position, cpn.filetype, cpn.shiftwidth, cpn.encoding, cpn.mode },
+	})
+
 	-- Initial palette extraction (colorscheme should be loaded by packer)
 	Palette.refresh()
 	M.reload_highlights()
@@ -91,6 +101,7 @@ M.highlight_modules = {
 	"beast.libs.key.highlights",
 	"beast.libs.packer.highlights",
 	"beast.libs.notify.highlights",
+	"beast.libs.statusline.highlights",
 }
 
 --- Reload all Beast lib highlights.
