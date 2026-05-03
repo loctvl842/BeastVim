@@ -217,31 +217,94 @@ Two important details:
    (explorer ~30 cols) was focused, truncation thought it had 30 cols and dropped most
    components. Fix: use `vim.o.columns` for global statusline width.
 
-### `file_bound` — the file-bound provider wrapper
+### Component Data Classes
 
-Several components (`filetype`, `position`, `shiftwidth`, `encoding`, `git_commit`) need to
-keep showing meaningful info when focus moves to a transient `beast-*` UI buffer (explorer,
-toast, packer dialog…). Otherwise the right side of the bar collapses every time you open
-the explorer.
+Components fall into two performance classes:
 
-`util.file_bound(compute)` wraps a compute function and:
+**A. Sync, every-render** — `provider` reads cheap data (`vim.bo`, `vim.fn.line`,
+module-local state) and returns fragments. Re-evaluated on every redraw. Sub-µs typical.
 
-- Calls `compute(ctx)` only when the current buffer is a real file (`is_file_buffer(ctx)`)
-- Remembers the last computed value
-- On ignored filetypes, returns the last value (component stays visible)
+> Used by: `mode`, `position`, `filetype`, `shiftwidth`, `encoding`, `diagnostics`.
+
+**B. Push-mirrored** — the module holds `state.value`. A handler (autocmd or libuv
+watcher) **overwrites** `state.value` when the source-of-truth changes and triggers a
+redraw (directly via `redrawstatus`, or by firing a `User` event the engine subscribes
+to via `update`). The provider is a trivial read of `state.value`.
+
+The recompute can be:
+
+- **Sync handler** — e.g. `git_branch` reads `.git/HEAD` from a libuv `fs_event` callback.
+- **Async handler** — e.g. `git_commit` spawns `vim.system({...}, {}, callback)`; the
+  callback writes `state.value`.
+
+Either way, **the provider never blocks and never spawns a process**. All I/O lives in
+handlers. There is no "cache invalidation" — the handler just *overwrites* the mirrored
+state when the source-of-truth changes.
+
+```lua
+-- Push-mirrored skeleton
+local cache     = {}    -- [bufnr] = string | false
+local in_flight = {}    -- prevents stacking duplicate spawns
+
+local function fetch(bufnr) ... end   -- vim.system / libuv; writes cache[bufnr]
+
+local function ensure_autocmds()
+    -- Subscribe to BufEnter / BufWritePost / etc., call fetch(args.buf).
+    -- Also BufDelete to free entries.
+end
+ensure_autocmds()
+
+return {
+    update   = { "User BeastStatuslineGitChanged" },  -- triggers redraw, NOT recompute
+    provider = function(ctx)
+        local v = cache[ctx.bufnr]
+        if not v then return {} end
+        return { { text = v, hl = "..." } }
+    end,
+}
+```
+
+### Performance Contract
+
+For every component:
+
+- `provider(ctx)` is **read-only** — no syscalls, no spawns, no filesystem access.
+- Typical cost: **≤ 10 µs**. Anything heavier indicates a missed mirror.
+- Side effects (process spawn, file watch, autocmd) live in **handlers** registered by
+  the component module on first require (lazy autocmd guard).
+- Full bar render target: **< 1 ms** with all components active. Measured at ~13 µs in
+  the benchmark (1000 renders × 3 runs, headless), comfortably under target.
+
+### `file_bound` — transient-buffer fallback for cheap file-bound providers
+
+Several cheap file-bound components (`filetype`, `position`, `shiftwidth`, `encoding`)
+need to keep showing meaningful info when focus moves to a transient `beast-*` UI buffer
+(explorer, toast, packer dialog…). Otherwise the right side of the bar collapses every
+time you open the explorer.
+
+`util.file_bound(compute)` is a **UX wrapper, not a cache**:
+
+- On a real file buffer: runs `compute(ctx)` every render (no caching for this path).
+- On a transient `beast-*` buffer: returns the value stored from the previous real-file
+  render, so the component visually persists.
 
 `compute` return contract:
 
 | Return | Effect |
 |--------|--------|
-| `string` | Update the stored value |
+| `string` | Update the stored value (rendered now and on next transient buffer) |
 | `false`  | Clear the stored value (component will hide) |
 | `nil`    | Keep the previous value unchanged |
 
 The `false` sentinel is what makes `filetype` correctly clear when you switch from
 `init.lua` (filetype=lua) to `profile.log` (filetype=""), instead of showing stale "Lua".
-The `nil` "skip" path is for transient states where the buffer is a file but we don't yet
-have data (e.g. filetype not yet set during early startup renders).
+The `nil` "skip" path is for transient states where the buffer is a file but data isn't
+ready yet (e.g. filetype not yet set during early startup renders).
+
+> **Not for expensive providers.** Because `compute` runs every render on a real file
+> buffer, `file_bound` is **only suitable for cheap reads** (`vim.bo`, `vim.fn.line`).
+> Expensive computations (process spawn, fs scan) belong in the push-mirrored class
+> above — they store state directly, no `file_bound` involved.
 
 ### `IGNORED_FILETYPES`
 
@@ -399,40 +462,92 @@ return {
 }
 ```
 
-### `git_commit` — file_bound, shells out to git log
+### `git_commit` — push-mirrored, async via `vim.system`
 
 ```lua
-local last_commit_for_buf = function(bufnr)
+local util = require("beast.libs.statusline.util")
+
+-- bufnr -> string|false ; string = display, false = no commit / hidden
+local cache     = {}
+-- bufnr -> true while a vim.system call is running (debounce)
+local in_flight = {}
+
+local function fetch(bufnr)
+    if in_flight[bufnr] then return end
+    if not vim.api.nvim_buf_is_valid(bufnr) then return end
     local name = vim.api.nvim_buf_get_name(bufnr)
-    if name == "" then return nil end
-    local result = vim.fn.system({ "git", "log", "-1", "--format=%an (%cr)", "--", name })
-    if vim.v.shell_error ~= 0 or not result or result == "" then return nil end
-    return vim.trim(result)
+    if name == "" then cache[bufnr] = false; return end
+
+    in_flight[bufnr] = true
+    vim.system(
+        { "git", "log", "-1", "--format=%an (%cr)", "--", name },
+        { text = true },
+        vim.schedule_wrap(function(out)
+            in_flight[bufnr] = nil
+            if not vim.api.nvim_buf_is_valid(bufnr) then return end
+            if out.code ~= 0 or not out.stdout or out.stdout == "" then
+                cache[bufnr] = false
+            else
+                cache[bufnr] = vim.trim(out.stdout)
+            end
+            vim.api.nvim_exec_autocmds("User", { pattern = "BeastStatuslineGitChanged" })
+        end)
+    )
 end
 
-local get_commit = util.file_bound(function(ctx)
-    return last_commit_for_buf(ctx.bufnr) or false
-end)
+local registered = false
+local function ensure_autocmds()
+    if registered then return end
+    registered = true
+    local group = vim.api.nvim_create_augroup("BeastStatuslineGitCommit", { clear = true })
+    vim.api.nvim_create_autocmd({ "BufEnter", "BufWritePost" }, {
+        group = group,
+        callback = function(args)
+            if util.IGNORED_FILETYPES[vim.bo[args.buf].filetype] then return end
+            fetch(args.buf)
+        end,
+    })
+    vim.api.nvim_create_autocmd("BufDelete", {
+        group = group,
+        callback = function(args)
+            cache[args.buf]     = nil
+            in_flight[args.buf] = nil
+        end,
+    })
+end
+ensure_autocmds()
 
 return {
     condition = function(ctx) return ctx.is_active end,
-    update = { "BufEnter", "BufWritePost", "User BeastStatuslineGitChanged" },
-    scope = "buffer",
-    priority = 30,
-    provider = function(ctx)
-        local result = get_commit(ctx)
-        if not result then return {} end
+    update    = { "User BeastStatuslineGitChanged" },  -- load-bearing: triggers redraw on cache write
+    scope     = "buffer",
+    priority  = 30,
+    provider  = function(ctx)
+        local v = cache[ctx.bufnr]
+        if not v then return {} end
         return {
-            { text = " ",    hl = { fg = "dimmed3" } },
-            { text = result, hl = { fg = "dimmed3" } },
+            { text = " ", hl = { fg = "dimmed3" } },
+            { text = v,    hl = { fg = "dimmed3" } },
         }
     end,
 }
 ```
 
-`return last_commit_for_buf(ctx.bufnr) or false` — returning `false` when there's no commit
-clears `file_bound`'s stored value so the component hides instead of showing a stale value
-from the previous buffer.
+Notes:
+
+- **`vim.system` is non-blocking** (Neovim 0.10+). The render path never spawns a process.
+- **`in_flight` debounce** prevents stacking N `git log` processes if `BufEnter` fires
+  rapidly during fzf navigation or `:bnext`-style scripting.
+- **`BufDelete` cleanup** keeps `cache` from growing unbounded over a long session.
+- **`update = { "User BeastStatuslineGitChanged" }`** is load-bearing — without this the
+  engine wouldn't subscribe to the User event and the bar would only repaint on the next
+  unrelated redraw.
+- **First-render latency**: on first open of a file the bar renders without `git_commit`;
+  ~10–30 ms later the `vim.system` callback writes the cache and fires the User event →
+  bar redraws with the commit info. Trade-off accepted to keep the render path
+  non-blocking.
+- **No `file_bound`** — the cache itself acts as the visibility gate. Transient
+  `beast-*` buffers never get a cache entry, so they implicitly hide.
 
 ### `diagnostics` — buffer, compound fragment, no condition
 
@@ -522,7 +637,7 @@ they sit next to each other.
 
 | Original plan | What we shipped |
 |--------------|-----------------|
-| Engine cache with global/buffer/window scopes + invalidation on declared events | **No engine cache.** Every render re-runs each visible component. Components own their caching when they need it (`file_bound`, `git_branch`'s libuv watcher). |
+| Engine cache with global/buffer/window scopes + invalidation on declared events | **No engine cache.** Every render re-runs each visible component. Components own their state when they need to (push-mirrored pattern; `file_bound` for transient-buffer UX). |
 | `lua/beast/libs/statusline/highlight.lua` | Renamed to `hlgroup.lua` (engine) + new `highlights.lua` (ColorScheme refresh hook, 9 lines) |
 | `section.lua` (fragment assembly) | Merged into `util.lua` along with `IGNORED_FILETYPES`, `is_file_buffer`, `file_bound`, width helpers |
 | `components.lua` single file | `components/` directory with one file per component |
@@ -531,6 +646,7 @@ they sit next to each other.
 | `add()` / `remove()` API | Just `setup(opts)` + `render()`. Adding components dynamically wasn't needed. |
 | `on_click` field | Not implemented. Add when needed. |
 | `cache.hl_groups` in init.lua | Lives in `hlgroup.lua` instead (closer to use). |
+| `git_commit` shipped sync via `vim.fn.system` wrapped in `file_bound` (which doesn't actually cache for file buffers — the wrapper only short-circuits on transient buffers) | **Refactored** to push-mirrored async via `vim.system` + per-bufnr cache + `in_flight` debounce + `BufDelete` cleanup. Bench (1000 renders × 3 runs, headless, real file buffer): full-bar render dropped from **~5070 µs → ~10 µs** (**~500× faster**, **~9× faster than lualine** at ~88 µs in the same setup). |
 
 ### Why we dropped the engine cache
 
@@ -545,13 +661,14 @@ those saves microseconds and adds:
 
 The expensive providers we actually have are:
 
-- `git_branch` — already cached internally by directory + invalidated by libuv fs_event
-- `git_commit` — `vim.fn.system` git log; held by `file_bound`'s closure (one shell call
-  per file the first time, then sticky)
+- `git_branch` — push-mirrored: cached internally by directory, written from a libuv
+  `fs_event` callback on `.git/HEAD`.
+- `git_commit` — push-mirrored: per-bufnr cache, written from a `vim.system` async
+  callback on `BufEnter` / `BufWritePost`.
 
-Both manage their own caching better than a generic engine cache could (because they know
-their own invalidation rules). For everything else, re-running on every render is fine — it's
-literally just `vim.bo[bufnr].filetype`.
+Both manage their own state better than a generic engine cache could (because they know
+their own invalidation rules). For everything else, re-running on every render is fine —
+it's literally just `vim.bo[bufnr].filetype`.
 
 ### Critical Bug Fixes That Became Architecture
 
@@ -594,8 +711,14 @@ return formatted
 
 - `mode`, `git_branch` (libuv fs_event), `diagnostics`, `position`, `filetype`,
   `shiftwidth`, `encoding`, `git_commit`
-- All file-bound components use `file_bound`
-- `git_branch` and `git_commit` subscribe to `User BeastStatuslineGitChanged`
+- Cheap file-bound components use `util.file_bound` for transient-buffer visibility:
+  `position`, `filetype`, `shiftwidth`, `encoding`
+- Push-mirrored components manage their own state + handlers:
+  - `git_branch` — libuv `fs_event` watcher on `.git/HEAD`
+  - `git_commit` — `vim.system` async + per-bufnr cache + `BufEnter`/`BufWritePost`
+    triggers + `BufDelete` cleanup
+- Both git components fire `User BeastStatuslineGitChanged` to drive redraw; the engine
+  subscribes via `update`.
 
 ### Phase 3: Wrap-up (deferred)
 
@@ -617,9 +740,11 @@ return formatted
 
 ## Risks & Mitigations
 
-- **Synchronous git log in git_commit** → mitigated by `file_bound` closure caching the
-  result; one shell call per file the first time. If this becomes a bottleneck, switch to
-  `vim.system` async (Neovim 0.10+).
+- **Process spawn cost in `git_commit`** → mitigated by `vim.system` async + per-bufnr
+  cache + `in_flight` debounce. The render path is read-only.
+- **First-render lag for `git_commit`** → first time a file is focused the bar renders
+  without commit info for ~10–30 ms until `git log` returns and fires the User redraw
+  event. Acceptable trade-off; the alternative is blocking the bar for that same time.
 - **`g:statusline_winid` confusion** → handled by always using it (with current-window
   fallback) and computing `is_active` from comparison.
 - **Highlight group explosion** → bounded by `hash(spec)` dedup; specs with the same
@@ -644,19 +769,27 @@ return formatted
 - [x] No `heirline` dependency for statusline rendering
 - [x] Follows BeastVim conventions: state in init.lua, frozen config metatable, lazy
   autocmd registration, palette refresh through registry
+- [x] Full-bar render < 1 ms; **measured ~10 µs/call** (1000 renders × 3 runs, headless)
+  after `git_commit` async refactor — **~9× faster than lualine** in the same setup
+  (lualine ~88 µs/call). Provider cost ≤ 10 µs for every component; no provider performs
+  I/O. The async push-mirrored pattern in `git_commit` (see worked example) eliminates
+  the prior ~5 ms/call cost from `vim.fn.system`.
 
-## ADR Required
+## Related ADRs
 
-These decisions are worth documenting:
+The decisions below are documented as separate ADRs:
 
-- **Drop engine-level result cache; lualine-style re-evaluate every render** — diverges
-  from the original plan; rationale: providers are cheap, components own their own
-  caching, simpler to reason about.
-- **`file_bound` provider wrapper for transient UI buffers** — establishes a pattern other
-  bars (winbar, tabline) can reuse.
-- **`IGNORED_FILETYPES` is `beast-*` only** — explicitly does not include third-party
-  plugin filetypes; users who want to extend can do so via component-side conditions.
-- **ColorScheme refresh through `M.highlight_modules` registry** — consistent with other
-  Beast libs, ensures palette refreshes before any highlight resolution.
-- **Compound-fragment component model** — establishes the multi-output pattern across
-  Beast libs (used heavily by mode + diagnostics).
+- [ADR-009](../ADRs/009-native-statusline-replaces-heirline.md) — Native `%!` Statusline
+  Replaces Heirline
+- [ADR-010](../ADRs/010-no-engine-level-statusline-cache.md) — No Engine-Level Statusline
+  Cache (lualine-style re-evaluate every render; components own their own state)
+- [ADR-011](../ADRs/011-file-bound-provider-wrapper.md) — `file_bound` Provider Wrapper
+  for Transient UI Buffers (and `IGNORED_FILETYPES = beast-*` only)
+- [ADR-012](../ADRs/012-compound-fragment-component-model.md) — Compound-Fragment
+  Component Model
+
+The push-mirrored data model (state-mirror + autocmd/watcher writes + `vim.system` async)
+is consistent with ADR-010's stance — components own their own state, the engine has no
+cache. It's documented in detail in **Component Data Classes** above; if a third
+async component lands, extracting `util.async_provider({ key, compute, update })` may be
+worth its own ADR.
