@@ -9,7 +9,7 @@ return {
 	condition = function(ctx)
 		return ctx.is_active
 	end,
-	update = { "BufEnter" },
+	update = { "BufEnter", "OptionSet shiftwidth" },
 	scope = "buffer",
 	priority = 20,
 	provider = function(ctx)

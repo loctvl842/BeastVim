@@ -1,6 +1,6 @@
 # ADR-010: No Engine-Level Statusline Cache
 
-**Status:** Accepted
+**Status:** Superseded by [ADR-013](013-opt-in-statusline-result-caching.md) (the "no engine cache" decision is reversed; the "components own their own state" half still holds for push-mirrored providers like `git_commit` / `git_branch`)
 
 **Date:** 2026-05-02
 

@@ -11,7 +11,7 @@ end)
 
 ---@type Beast.Statusline.ComponentSpec
 return {
-	update = { "BufEnter", "FileType" },
+	update = { "BufEnter" }, -- FileType
 	scope = "buffer",
 	priority = 40,
 	provider = function(ctx)

@@ -221,10 +221,22 @@ Two important details:
 
 Components fall into two performance classes:
 
-**A. Sync, every-render** — `provider` reads cheap data (`vim.bo`, `vim.fn.line`,
-module-local state) and returns fragments. Re-evaluated on every redraw. Sub-µs typical.
+**A. Sync** — `provider` reads cheap data (`vim.bo`, `vim.fn.line`, module-local
+state) and returns fragments. Two sub-modes depending on whether the component
+declares `update`:
 
-> Used by: `mode`, `position`, `filetype`, `shiftwidth`, `encoding`, `diagnostics`.
+- *Uncached* — no `update` field. Provider re-runs on **every render**. Use when
+  the value depends on something with no clean event hook, or for ad-hoc
+  components where opt-in caching adds no value (the cost is sub-µs anyway).
+- *Cached / event-gated* — `update` declared. Provider runs only on cache-miss
+  or when one of the declared autocmd events fires (which clears the cache and
+  triggers `redrawstatus`). Cache key is `scope` (`global` / `buffer` / `window`).
+  This is the **default** for built-in components — declare the events that
+  actually change your value, and the engine handles the rest.
+
+> Used by: `mode` (cached, ModeChanged), `position` (cached, CursorMoved+CursorMovedI+BufEnter),
+> `filetype` (cached, BufEnter+FileType), `shiftwidth` (cached, BufEnter+OptionSet),
+> `encoding` (cached, BufEnter+OptionSet), `diagnostics` (cached, DiagnosticChanged+BufEnter).
 
 **B. Push-mirrored** — the module holds `state.value`. A handler (autocmd or libuv
 watcher) **overwrites** `state.value` when the source-of-truth changes and triggers a
@@ -272,8 +284,11 @@ For every component:
 - Typical cost: **≤ 10 µs**. Anything heavier indicates a missed mirror.
 - Side effects (process spawn, file watch, autocmd) live in **handlers** registered by
   the component module on first require (lazy autocmd guard).
-- Full bar render target: **< 1 ms** with all components active. Measured at ~13 µs in
-  the benchmark (1000 renders × 3 runs, headless), comfortably under target.
+- Full bar render target: **< 1 ms** with all components active.
+- **Caching is opt-in via `update`.** Declaring `update = { ... }` enables the engine
+  result cache: the provider runs only on cache-miss or when a declared event fires
+  (engine clears entries for that component, then `redrawstatus`). Omitting `update`
+  keeps the simple "run every render" semantics.
 
 ### `file_bound` — transient-buffer fallback for cheap file-bound providers
 
@@ -386,8 +401,9 @@ Cross-region — a low-priority right item gets dropped before a high-priority l
 ---@class Beast.Statusline.ComponentSpec
 ---@field provider  fun(ctx): Beast.Statusline.Fragment[]?
 ---@field condition? fun(ctx): boolean    -- skip provider entirely if false
----@field update?   string[]               -- autocmds that should trigger redrawstatus
----@field scope?    "global"|"buffer"|"window"   -- declarative metadata
+---@field update?   string[]               -- autocmds that invalidate this component's cache and trigger redrawstatus.
+                                           -- When omitted, the provider runs on every render (uncached).
+---@field scope?    "global"|"buffer"|"window"   -- cache key when `update` is declared (default "global")
 ---@field priority? integer                -- truncation priority (default config.default_priority)
 ---@field separator? string                 -- separator after this component (overrides default)
 ```
@@ -400,12 +416,28 @@ Cross-region — a low-priority right item gets dropped before a high-priority l
 ```
 
 `update` entries are autocmd event names, optionally `"Event Pattern"` (e.g.
-`"User BeastStatuslineGitChanged"` or `"FileType lua"`). The engine `split_event()`s on
-the first space and passes `pattern` to `nvim_create_autocmd`.
+`"User BeastStatuslineGitChanged"`, `"FileType lua"`, `"OptionSet shiftwidth"`).
+The engine `split_event()`s on the first space and passes `pattern` to
+`nvim_create_autocmd`.
 
-> **Note on `scope`**: this is currently declarative metadata only — the engine no longer
-> uses it (since we dropped the result cache). Components keep declaring it for clarity and
-> for forward compatibility if we re-introduce caching.
+When `update` is declared, the engine caches the provider's return value keyed by
+`scope`:
+
+| `scope` | Cache key | Use when… |
+|---------|-----------|-----------|
+| `"global"` (default) | comp_id | Value doesn't depend on buffer or window (e.g. `mode`) |
+| `"buffer"` | (comp_id, bufnr) | Value depends on the buffer (e.g. `filetype`, `diagnostics`) |
+| `"window"` | (comp_id, winid) | Value depends on the window (e.g. `position`) |
+
+When any event in the component's `update` list fires, the engine clears **all**
+entries for that component (across all bufnrs / winids) and calls `redrawstatus`.
+Per-buffer / per-window cleanup also runs on `BufWipeout` and `WinClosed` to bound
+memory across long sessions.
+
+> **Cache hit semantics.** The engine caches successful provider returns —
+> including `{}` ("hide"). It does **not** cache `pcall` failures (provider
+> threw); those return uncached so a transient error doesn't stick the
+> component to "hidden" until the next event.
 
 ## Component Examples
 
@@ -573,10 +605,12 @@ return {
 }
 ```
 
-### `position` — file_bound, only for named files, no `update` field
+### `position` — window-scoped, gated on cursor + buffer events
 
-Cursor moves auto-redraw the statusline natively, so we don't need to declare `CursorMoved`
-as an `update` event.
+`position` depends on cursor position **and** the active buffer in the window.
+The window-scoped cache means each (window, current-buffer) pair gets its own
+entry; we declare `BufEnter` so a buffer switch in the same window invalidates
+the previous buffer's cached position.
 
 ```lua
 local get_position = util.file_bound(function(ctx)
@@ -587,7 +621,8 @@ local get_position = util.file_bound(function(ctx)
 end)
 
 return {
-    scope = "window",
+    update   = { "CursorMoved", "CursorMovedI", "BufEnter" },
+    scope    = "window",
     priority = 70,
     provider = function(ctx)
         local result = get_position(ctx)
@@ -600,9 +635,16 @@ return {
 The `nvim_buf_get_name(...) == ""` guard prevents the empty startup buffer from showing
 "Ln 1, Col 1" before the user has opened a real file.
 
-### `filetype` / `shiftwidth` / `encoding` — file_bound, simple
+> **Why gated when CursorMoved already triggers a full redraw?** Without `update`,
+> `position` would re-run on every render — including renders triggered by
+> unrelated events (`ModeChanged`, `DiagnosticChanged`, `BufWritePost`, …). With
+> the gate, those renders hit the cache. Position only re-runs on the events
+> that can actually change its value.
 
-All three follow the same pattern:
+### `filetype` / `shiftwidth` / `encoding` — file_bound, gated on the events that change them
+
+All three follow the same pattern. Each declares the precise events that
+change its value — none re-runs on unrelated renders.
 
 ```lua
 -- filetype.lua
@@ -616,8 +658,8 @@ local get_filetype = util.file_bound(function(ctx)
 end)
 
 return {
-    update = { "BufEnter", "FileType" },
-    scope = "buffer",
+    update   = { "BufEnter", "FileType" },
+    scope    = "buffer",
     priority = 40,
     provider = function(ctx)
         local result = get_filetype(ctx)
@@ -627,9 +669,20 @@ return {
 }
 ```
 
-`shiftwidth` (`Spaces: 2`, priority 20, hl `accent3`) and `encoding` (`UTF-8`, priority 15,
-hl `accent4`) are structurally identical. We deliberately gave them different colours since
-they sit next to each other.
+`shiftwidth` and `encoding` use the `OptionSet` event with the option name as
+pattern (so we don't invalidate on every option change in the editor):
+
+```lua
+-- shiftwidth.lua
+update = { "BufEnter", "OptionSet shiftwidth" }
+
+-- encoding.lua  (depends on both fileencoding and the global encoding fallback)
+update = { "BufEnter", "OptionSet fileencoding", "OptionSet encoding" }
+```
+
+`shiftwidth` shows `Spaces: 2` (priority 20, hl `accent3`). `encoding` shows
+`UTF-8` (priority 15, hl `accent4`). We deliberately gave them different
+colours since they sit next to each other.
 
 ## Implementation Notes
 
@@ -637,7 +690,7 @@ they sit next to each other.
 
 | Original plan | What we shipped |
 |--------------|-----------------|
-| Engine cache with global/buffer/window scopes + invalidation on declared events | **No engine cache.** Every render re-runs each visible component. Components own their state when they need to (push-mirrored pattern; `file_bound` for transient-buffer UX). |
+| Engine cache with global/buffer/window scopes + invalidation on declared events | **Re-introduced as opt-in.** Components that declare `update` get cached (keyed by `scope`); components that omit `update` keep "run every render" semantics. Drove this back in because `update` was a half-truth otherwise — the bar redraws on every cursor move regardless, so declaring `update = { "FileType" }` did not actually gate when the provider re-ran. See § "Why we (re)introduced opt-in result caching". |
 | `lua/beast/libs/statusline/highlight.lua` | Renamed to `hlgroup.lua` (engine) + new `highlights.lua` (ColorScheme refresh hook, 9 lines) |
 | `section.lua` (fragment assembly) | Merged into `util.lua` along with `IGNORED_FILETYPES`, `is_file_buffer`, `file_bound`, width helpers |
 | `components.lua` single file | `components/` directory with one file per component |
@@ -648,27 +701,55 @@ they sit next to each other.
 | `cache.hl_groups` in init.lua | Lives in `hlgroup.lua` instead (closer to use). |
 | `git_commit` shipped sync via `vim.fn.system` wrapped in `file_bound` (which doesn't actually cache for file buffers — the wrapper only short-circuits on transient buffers) | **Refactored** to push-mirrored async via `vim.system` + per-bufnr cache + `in_flight` debounce + `BufDelete` cleanup. Bench (1000 renders × 3 runs, headless, real file buffer): full-bar render dropped from **~5070 µs → ~10 µs** (**~500× faster**, **~9× faster than lualine** at ~88 µs in the same setup). |
 
-### Why we dropped the engine cache
+### Why we (re)introduced opt-in result caching
 
-Most of our providers are extremely cheap (read a `vim.bo` field, format a string). Caching
-those saves microseconds and adds:
+The library originally shipped with **no engine cache**: every render re-ran every
+visible component. The decision was driven by the observation that most providers
+are sub-µs (`vim.bo` reads), so caching saved microseconds in exchange for three
+keyed cache tables, cleanup hooks, and invalidation logic — perceived not worth
+the complexity.
 
-- Three keyed cache tables (`global` / `buffer` / `window`)
-- `BufWipeout`/`WinClosed` cleanup hooks for each
-- An `invalidate_component(comp_id)` helper that has to walk all three tables
-- Subtle bugs around when `_filetype = nil` vs `keep` (this is what kept the filetype
-  component stuck on "Lua" after switching to a no-ft buffer).
+What changed: we hit the limits of that model when reasoning about `update`.
+Before this change, `update` only triggered `redrawstatus`; the provider re-ran
+on *every* render anyway. So `update = { "FileType" }` was a half-truth — yes
+the bar redraws when FileType fires, but the bar also redraws on every cursor
+move, mode change, BufWritePost, etc. The component's value was effectively
+recomputed continuously, and `update` was a documentation hint at best. The two
+type definitions in the codebase even drifted apart: one called `update`
+"autocmds that should trigger redrawstatus", the other called it "autocmds that
+invalidate this component's cache" — the second was a lie until now.
 
-The expensive providers we actually have are:
+The new contract makes `update` an actual gate:
 
-- `git_branch` — push-mirrored: cached internally by directory, written from a libuv
-  `fs_event` callback on `.git/HEAD`.
-- `git_commit` — push-mirrored: per-bufnr cache, written from a `vim.system` async
-  callback on `BufEnter` / `BufWritePost`.
+- **Component declares no `update`** → provider runs every render (today's
+  behaviour, no caching, no surprises). Compatible with third-party components
+  that pre-date this change.
+- **Component declares `update = { ... }`** → engine caches the provider's
+  result keyed by `scope`. When any event in the list fires, the engine clears
+  all entries for that component and calls `redrawstatus`. The next render is
+  the only one that re-runs the provider.
 
-Both manage their own state better than a generic engine cache could (because they know
-their own invalidation rules). For everything else, re-running on every render is fine —
-it's literally just `vim.bo[bufnr].filetype`.
+Three things change as a result:
+
+1. **`update` is now load-bearing.** A component that wants to keep showing
+   stale data after a relevant event has to either keep `update` empty (re-run
+   every time, no cache) or list the right events. There's no third option.
+2. **`scope` is no longer just metadata.** It's the cache key, so picking
+   `buffer` vs `window` actually matters now.
+3. **The expensive providers don't change behaviour.** `git_branch` and
+   `git_commit` already own their own state via the push-mirrored pattern; the
+   engine cache stores their cheap reads as a freebie but the heavy work still
+   happens in their own handlers (libuv watcher / `vim.system` async).
+
+The `_filetype = nil` vs `keep` bug that originally argued *against* caching is
+not reintroduced — that bug lived inside `util.file_bound`, where the
+3-state return contract (`string` / `false` / `nil`) is now in place. The
+engine cache stores whatever `file_bound` returned; it doesn't reinterpret it.
+
+Performance impact is small but real: the bench fell from ~10 µs/render to
+~6–8 µs/render after the migration, because cheap providers now hit the cache
+on renders triggered by unrelated events. The bigger win is correctness and
+mental clarity — the `update` field finally means what its docstring says.
 
 ### Critical Bug Fixes That Became Architecture
 
@@ -725,6 +806,28 @@ return formatted
 - ADRs (see [ADR Required](#adr-required))
 - Codemap regeneration
 
+### Phase 4: Opt-in result caching (this change) ✅
+
+- `init.lua` — add cache table (global / buffer / window buckets), gated lookup
+  in `eval_component`, per-event invalidation autocmd, BufWipeout/WinClosed
+  cleanup that clears entries (not just `redrawstatus`).
+- `eval_component` semantics:
+  - `condition` returns false → return nil, do not cache.
+  - `pcall(provider)` errors → return nil, **do not cache** (so a transient
+    error doesn't stick the component to "hidden").
+  - `provider` returns `{}` (hide) → cache the empty result.
+  - `provider` returns fragments → cache them.
+- Component migrations:
+  - `mode` → `update = { "ModeChanged" }`, scope `global` (already correct)
+  - `position` → `update = { "CursorMoved", "CursorMovedI", "BufEnter" }`, scope `window`
+  - `filetype` → `update = { "BufEnter", "FileType" }`, scope `buffer`
+  - `shiftwidth` → `update = { "BufEnter", "OptionSet shiftwidth" }`, scope `buffer`
+  - `encoding` → `update = { "BufEnter", "OptionSet fileencoding", "OptionSet encoding" }`, scope `buffer`
+  - `diagnostics` — already correct
+  - `git_branch`, `git_commit` — unchanged (push-mirrored)
+- Bench: `scripts/bench-statusline.lua` should show a drop from ~10 µs to ~6–8 µs
+  per render. Hard threshold (1 ms) unchanged; soft target (50 µs) unchanged.
+
 ## Testing
 
 - **Manual verification** (no test framework in repo):
@@ -769,11 +872,16 @@ return formatted
 - [x] No `heirline` dependency for statusline rendering
 - [x] Follows BeastVim conventions: state in init.lua, frozen config metatable, lazy
   autocmd registration, palette refresh through registry
-- [x] Full-bar render < 1 ms; **measured ~10 µs/call** (1000 renders × 3 runs, headless)
-  after `git_commit` async refactor — **~9× faster than lualine** in the same setup
-  (lualine ~88 µs/call). Provider cost ≤ 10 µs for every component; no provider performs
-  I/O. The async push-mirrored pattern in `git_commit` (see worked example) eliminates
-  the prior ~5 ms/call cost from `vim.fn.system`.
+- [x] Full-bar render < 1 ms; **measured 6.41 µs/call** (1000 renders × 3 runs, headless)
+  after Phase 4 opt-in caching — **~14.8× faster than lualine** in the same setup
+  (lualine 94.77 µs/call). Pre-Phase-4 was ~10 µs/call (~9× lualine); the cache
+  shaved ~40% off the render path. Provider cost ≤ 10 µs for every component; no
+  provider performs I/O. The async push-mirrored pattern in `git_commit` (see worked
+  example) eliminates the prior ~5 ms/call cost from `vim.fn.system`.
+- [x] Opt-in result cache: components that declare `update` re-run only on cache-miss
+  or when a declared event fires. Components that omit `update` keep "run every
+  render" semantics. Bench dropped to **6.41 µs/call** after migration; soft target ≤ 50 µs
+  in `scripts/bench-statusline.lua`. `pcall` failures are not cached.
 
 ## Related ADRs
 
@@ -783,10 +891,16 @@ The decisions below are documented as separate ADRs:
   Replaces Heirline
 - [ADR-010](../ADRs/010-no-engine-level-statusline-cache.md) — No Engine-Level Statusline
   Cache (lualine-style re-evaluate every render; components own their own state)
+  — ***superseded by [ADR-013](../ADRs/013-opt-in-statusline-result-caching.md)***:
+  opt-in caching is now available when components declare `update`. The
+  "components own their own state" half still holds for push-mirrored providers
+  (`git_branch`, `git_commit`).
 - [ADR-011](../ADRs/011-file-bound-provider-wrapper.md) — `file_bound` Provider Wrapper
   for Transient UI Buffers (and `IGNORED_FILETYPES = beast-*` only)
 - [ADR-012](../ADRs/012-compound-fragment-component-model.md) — Compound-Fragment
   Component Model
+- [ADR-013](../ADRs/013-opt-in-statusline-result-caching.md) — Opt-In Result Caching
+  with Event-Gated Invalidation (this Phase 4)
 
 The push-mirrored data model (state-mirror + autocmd/watcher writes + `vim.system` async)
 is consistent with ADR-010's stance — components own their own state, the engine has no

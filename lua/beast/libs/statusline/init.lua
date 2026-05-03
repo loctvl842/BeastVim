@@ -16,6 +16,20 @@ local state = {
 	components = {},
 	---@type table<Beast.Statusline.Region, integer[]>
 	region_ids = { left = {}, center = {}, right = {} },
+	-- Result cache (only used when a component declares `update`). Keyed by `scope`:
+	--   global[comp_id] = fragments
+	--   buffer[comp_id][bufnr] = fragments
+	--   window[comp_id][winid] = fragments
+	-- A present key always means "we have a cached result" — empty fragments table
+	-- ({}) is a valid hidden state. pcall failures are never cached.
+	cache = {
+		---@type table<integer, Beast.Statusline.Fragment[]>
+		global = {},
+		---@type table<integer, table<integer, Beast.Statusline.Fragment[]>>
+		buffer = {},
+		---@type table<integer, table<integer, Beast.Statusline.Fragment[]>>
+		window = {},
+	},
 }
 
 -- =========================================================================
@@ -35,28 +49,94 @@ local function register_region(specs)
 end
 
 -- =========================================================================
--- Component evaluation (with cache + error isolation)
+-- Component evaluation (with opt-in cache + error isolation)
 -- =========================================================================
----@param comp_id integer
+
+---Run the provider once. Returns fragments on success (possibly empty), nil on failure.
+---Width pre-computation is done here so cached values are render-ready.
+---@param spec Beast.Statusline.ComponentSpec
 ---@param ctx Beast.Statusline.Context
 ---@return Beast.Statusline.Fragment[]?
-local function eval_component(comp_id, ctx)
-	local spec = state.components[comp_id]
-  -- stylua: ignore
-	if spec.condition and not spec.condition(ctx) then return nil end
-
+local function run_provider(spec, ctx)
 	local ok, fragments = pcall(spec.provider, ctx)
-  -- stylua: ignore
+	-- stylua: ignore
 	if not ok or fragments == nil then return nil end
 
-	-- Pre-compute widths once so truncation/assembly never call strdisplaywidth twice.
 	for _, f in ipairs(fragments) do
 		if not f.width then
 			f.width = vim.fn.strdisplaywidth(f.text or "")
 		end
 	end
-
 	return fragments
+end
+
+---@param comp_id integer
+---@param ctx Beast.Statusline.Context
+---@return Beast.Statusline.Fragment[]?
+local function eval_component(comp_id, ctx)
+	local spec = state.components[comp_id]
+	-- stylua: ignore
+	if spec.condition and not spec.condition(ctx) then return nil end
+
+	-- Uncached path: no `update` declared → run on every render.
+	if not spec.update or #spec.update == 0 then
+		return run_provider(spec, ctx)
+	end
+
+	-- Gated path: cache keyed by `scope`. A present entry is a hit (even if empty).
+	local scope = spec.scope or "global"
+	if scope == "global" then
+		local hit = state.cache.global[comp_id]
+		if hit ~= nil then
+			return hit
+		end
+		local fragments = run_provider(spec, ctx)
+		if fragments ~= nil then
+			state.cache.global[comp_id] = fragments
+		end
+		return fragments
+	elseif scope == "buffer" then
+		local per_comp = state.cache.buffer[comp_id]
+		if per_comp then
+			local hit = per_comp[ctx.bufnr]
+			if hit ~= nil then
+				return hit
+			end
+		else
+			per_comp = {}
+			state.cache.buffer[comp_id] = per_comp
+		end
+		local fragments = run_provider(spec, ctx)
+		if fragments ~= nil then
+			per_comp[ctx.bufnr] = fragments
+		end
+		return fragments
+	else -- "window"
+		local per_comp = state.cache.window[comp_id]
+		if per_comp then
+			local hit = per_comp[ctx.winid]
+			if hit ~= nil then
+				return hit
+			end
+		else
+			per_comp = {}
+			state.cache.window[comp_id] = per_comp
+		end
+		local fragments = run_provider(spec, ctx)
+		if fragments ~= nil then
+			per_comp[ctx.winid] = fragments
+		end
+		return fragments
+	end
+end
+
+---Clear all cache entries for a single component. Used by autocmd handlers
+---when a declared `update` event fires.
+---@param comp_id integer
+local function invalidate_component(comp_id)
+	state.cache.global[comp_id] = nil
+	state.cache.buffer[comp_id] = nil
+	state.cache.window[comp_id] = nil
 end
 
 ---@param ids integer[]
@@ -109,12 +189,15 @@ local function register_event_autocmds()
     end
   end
 
-	for ev, _ in pairs(event_to_comps) do
+	for ev, comp_ids in pairs(event_to_comps) do
 		local event_name, pattern = split_event(ev)
 		vim.api.nvim_create_autocmd(event_name, {
 			group = state.augroup,
 			pattern = pattern,
 			callback = function()
+				for _, comp_id in ipairs(comp_ids) do
+					invalidate_component(comp_id)
+				end
 				vim.cmd("redrawstatus")
 			end,
 		})
@@ -139,13 +222,22 @@ local function ensure_autocmds()
 	-- on screen until the next event-driven invalidation.
 	vim.api.nvim_create_autocmd("BufWipeout", {
 		group = state.augroup,
-		callback = function()
+		callback = function(args)
+			for _, per_comp in pairs(state.cache.buffer) do
+				per_comp[args.buf] = nil
+			end
 			vim.cmd("redrawstatus")
 		end,
 	})
 	vim.api.nvim_create_autocmd("WinClosed", {
 		group = state.augroup,
-		callback = function()
+		callback = function(args)
+			local winid = tonumber(args.match)
+			if winid then
+				for _, per_comp in pairs(state.cache.window) do
+					per_comp[winid] = nil
+				end
+			end
 			vim.cmd("redrawstatus")
 		end,
 	})
@@ -160,6 +252,17 @@ local M = {}
 ---@param opts? Beast.Statusline.Config
 function M.setup(opts)
 	config.setup(opts)
+	-- Reset all state so setup() can be called again (e.g. on a live config swap).
+	-- The augroup is recreated below with `clear = true`, which nukes any previously
+	-- registered autocmds; resetting components + cache here keeps both halves in sync.
+	state.next_id = 0
+	state.components = {}
+	state.region_ids = { left = {}, center = {}, right = {} }
+	state.cache.global = {}
+	state.cache.buffer = {}
+	state.cache.window = {}
+	state.augroup = nil
+
 	state.region_ids.left = register_region(config.left)
 	state.region_ids.center = register_region(config.center)
 	state.region_ids.right = register_region(config.right)

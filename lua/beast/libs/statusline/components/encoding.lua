@@ -15,7 +15,7 @@ return {
 	condition = function(ctx)
 		return ctx.is_active
 	end,
-	update = { "BufEnter" },
+	update = { "BufEnter", "OptionSet fileencoding", "OptionSet encoding" },
 	scope = "buffer",
 	priority = 15,
 	provider = function(ctx)

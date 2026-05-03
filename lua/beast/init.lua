@@ -82,8 +82,6 @@ function M.setup(opts)
 	local stl = require("beast.libs.statusline")
 	local cpn = require("beast.libs.statusline.components")
 	stl.setup({
-		-- left = { cpn.git_branch, cpn.diagnostics },
-		-- right = { cpn.git_commit, cpn.position, cpn.filetype, cpn.shiftwidth, cpn.encoding, cpn.mode },
 		left = { cpn.git_branch, cpn.diagnostics },
 		right = { cpn.git_commit, cpn.position, cpn.filetype, cpn.shiftwidth, cpn.encoding, cpn.mode },
 	})
