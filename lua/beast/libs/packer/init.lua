@@ -126,9 +126,16 @@ end
 --- Setup packer with plugin specs
 ---@param specs Beast.Packer.PluginSpec[] List of plugin specs
 function M.setup(specs)
-	for _, plugin in ipairs(vim.pack.get()) do
-		state.installed_plugins[plugin.spec.name] = true
-	end
+	-- Defer install-status priming off the startup critical path.
+	-- vim.pack.get() walks each plugin's git metadata (~50 ms for a few plugins)
+	-- and the only consumer of state.installed_plugins is the :Pack UI.
+	-- PackChanged (init.lua below) keeps the table fresh after install/update.
+	vim.schedule(function()
+		for _, plugin in ipairs(vim.pack.get()) do
+			state.installed_plugins[plugin.spec.name] = true
+		end
+	end)
+
 	-- Step 0: Expand imports (plugin discovery)
 	specs = import.expand_imports(specs)
 	-- Filter those with cond == false
