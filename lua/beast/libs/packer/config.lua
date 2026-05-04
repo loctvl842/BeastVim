@@ -5,8 +5,17 @@
 ---@field label_hl string
 ---@field on_press string
 
+---@class Beast.Packer.Colorscheme
+---@field name string Colorscheme name passed to `:colorscheme <name>`
+---@field plugin string Plugin directory name (matches spec.name)
+
 ---@class Beast.Packer.Config
+---@field spec? Beast.Packer.PluginSpec[] List of plugin specs
+---@field colorscheme? Beast.Packer.Colorscheme Eagerly load this colorscheme at start of setup() if its plugin is already installed
+---@field ui table
 local defaults = {
+  spec = {},
+  colorscheme = nil,
 	ui = {
 		width = 0.7,
 		height = 0.7,

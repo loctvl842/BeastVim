@@ -1,5 +1,6 @@
 -- stylua: ignore start
 local cmd_trigger       = require("beast.libs.packer.triggers.cmd")
+local config            = require("beast.libs.packer.config")
 local event_trigger     = require("beast.libs.packer.triggers.event")
 local filetype_trigger  = require("beast.libs.packer.triggers.filetype")
 local import            = require("beast.libs.packer.import")
@@ -123,9 +124,67 @@ local function run_cmd(spec)
 		error("Invalid build cmd: " .. tostring(cmd))
 	end
 end
+--- Eagerly load the colorscheme plugin (if installed) so its colors apply
+--- before the rest of packer.setup runs, avoiding a flash of the default
+--- colorscheme during startup. Returns the plugin name on success, nil on
+--- skip (not configured / not installed / bad shape / error).
+---
+--- Must be called AFTER specs are normalized, init() has run for every
+--- spec, and state.plugins is fully populated, so spec dependency lookup
+--- works and the existing init-before-config invariant is preserved.
+---@return string|nil plugin_name
+local function apply_early_colorscheme()
+	local cs = config.colorscheme
+  -- stylua: ignore
+  if cs == nil then return nil end
+
+	if type(cs) ~= "table" or type(cs.name) ~= "string" or cs.name == "" or type(cs.plugin) ~= "string" or cs.plugin == "" then
+		vim.notify("packer: invalid `colorscheme` config; expected { name = string, plugin = string }", vim.log.levels.WARN, { title = "BeastVim" })
+		return nil
+	end
+
+	local opt_dir = vim.fn.stdpath("data") .. "/site/pack/core/opt/"
+	local function is_installed(plugin_name)
+		return vim.uv.fs_stat(opt_dir .. plugin_name) ~= nil
+	end
+
+  -- stylua: ignore
+  if not is_installed(cs.plugin) then return nil end
+
+	local spec = state.plugins[cs.plugin]
+  -- stylua: ignore
+  if spec == nil then return nil end
+
+	-- Bail if any declared dependency is not yet installed; fall back to
+	-- the normal install/load path rather than half-loading a broken graph.
+	if spec.dependencies then
+		for _, dep in ipairs(spec.dependencies) do
+			if not is_installed(dep) then
+				return nil
+			end
+		end
+	end
+
+	local ok, err = pcall(state.load, cs.plugin, { type = "eager", detail = "colorscheme" })
+	if not ok then
+		-- state.load sets loaded_plugins[name] = true BEFORE packadd, so a
+		-- failure leaves the flag stuck. Roll it back so the normal trigger
+		-- path can retry once vim.pack.add finishes.
+		state.loaded_plugins[cs.plugin] = nil
+		vim.notify("packer: early colorscheme load failed for " .. cs.plugin .. ": " .. tostring(err), vim.log.levels.ERROR, { title = "BeastVim" })
+		return nil
+	end
+
+	-- Safety net: most colorscheme `config()`s already call vim.cmd.colorscheme
+	-- themselves, but some (e.g. tokyonight) only define the scheme.
+	pcall(vim.cmd.colorscheme, cs.name)
+	return cs.plugin
+end
+
 --- Setup packer with plugin specs
----@param specs Beast.Packer.PluginSpec[] List of plugin specs
-function M.setup(specs)
+---@param opts? Beast.Packer.Config
+function M.setup(opts)
+	config.setup(opts)
 	-- Defer install-status priming off the startup critical path.
 	-- vim.pack.get() walks each plugin's git metadata (~50 ms for a few plugins)
 	-- and the only consumer of state.installed_plugins is the :Pack UI.
@@ -135,6 +194,7 @@ function M.setup(specs)
 			state.installed_plugins[plugin.spec.name] = true
 		end
 	end)
+	local specs = config.spec
 
 	-- Step 0: Expand imports (plugin discovery)
 	specs = import.expand_imports(specs)
@@ -187,6 +247,13 @@ function M.setup(specs)
 			error("Invalid lazy value: " .. tostring(spec.lazy))
 		end
 	end
+
+	-- Apply the configured colorscheme as early as possible (before vim.pack.add
+	-- and before lazy triggers register). Skips silently if not configured, not
+	-- installed, or any dep is missing. Lazy triggers and the vim.pack.add load
+	-- callback are unaffected: both funnel through state.load, which short-circuits
+	-- on state.loaded_plugins[name].
+	apply_early_colorscheme()
 
 	-- Setup autocmd to track vim.pack operations and show UI
 	vim.api.nvim_create_autocmd("PackChangedPre", {
@@ -276,7 +343,7 @@ function M.setup(specs)
 
 	-- Step 5: Load eager plugins and run their config
 	for _, spec in pairs(eager_specs) do
-		if spec.config then
+		if spec.config and not state.loaded_plugins[spec.name] then
 			local ok, err = profile.measure(spec.name, "config_ms", spec.config)
 			if not ok then
 				vim.notify("Error in config for " .. spec.name .. ": " .. tostring(err), vim.log.levels.ERROR, { title = "BeastVim" })

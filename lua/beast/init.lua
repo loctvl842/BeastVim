@@ -3,12 +3,17 @@ local M = {}
 ---@class Beast.Config
 ---@field key? Beast.Key.Config
 ---@field notify? Beast.Notify.Config
+---@field toast? table
+---@field packer? Beast.Packer.Config
 local defaults = {
 	key = {},
 	notify = {},
 	toast = { disabled = false },
 	packer = {
-		{ import = "beast.plugins" },
+		colorscheme = { name = "monokai-pro", plugin = "monokai-pro.nvim" },
+		spec = {
+			{ import = "beast.plugins" },
+		},
 	},
 }
 
@@ -75,7 +80,7 @@ function M.setup(opts)
 
   -- stylua: ignore
   _G.gh = function(x) return "https://github.com/" .. x end
-	---@type Beast.Packer.PluginSpec[]
+	---@type Beast.Packer.Config
 	packer.setup(cfg.packer)
 
 	-- Statusline (declarative components, native %! evaluation)
