@@ -128,8 +128,10 @@ end
 
 --- Build the lines and highlight specs for the sticky float.
 ---@param entries Beast.Explorer.StickyEntry[]
+---@param width integer  Float width — last line is padded to this so the
+---  underline border spans the full explorer width regardless of label length.
 ---@return string[], { line:integer, col_s:integer, col_e:integer, group:string }[]
-local function build(entries)
+local function build(entries, width)
 	local lines = {} ---@type string[]
 	local hls = {} ---@type { line:integer, col_s:integer, col_e:integer, group:string }[]
 	local pad = string.rep(" ", config.padding)
@@ -159,11 +161,20 @@ local function build(entries)
 	end
 
 	-- Underline the bottom row to mark the sticky/content boundary.
+	-- The underline only paints under actual glyphs, so pad the last line
+	-- with spaces to the float width — that way the border spans the full
+	-- explorer width even when the entry label is short.
 	if #lines > 0 then
+		local last = lines[#lines]
+		local short = width - vim.fn.strdisplaywidth(last)
+		if short > 0 then
+			last = last .. string.rep(" ", short)
+			lines[#lines] = last
+		end
 		hls[#hls + 1] = {
 			line = #lines - 1,
 			col_s = 0,
-			col_e = #lines[#lines],
+			col_e = #last,
 			group = "BeastExplorerStickyBorder",
 		}
 	end
@@ -172,13 +183,14 @@ local function build(entries)
 end
 
 ---@param entries Beast.Explorer.StickyEntry[]
-local function write(entries)
+---@param width integer
+local function write(entries, width)
 	local sticky = state.sticky
 	if not sticky or not sticky:is_valid() then
 		return
 	end
 
-	local lines, hls = build(entries)
+	local lines, hls = build(entries, width)
 
 	pcall(function()
 		vim.bo[sticky.buf].modifiable = true
@@ -282,7 +294,7 @@ function M.refresh()
 		})
 	end
 
-	write(entries)
+	write(entries, width)
 	set_scrolloff(n)
 end
 
