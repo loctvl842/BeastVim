@@ -11,6 +11,7 @@
 --- below the sticky stack on every motion (`gg`, `H`, `j`, `<C-u>`, etc.).
 local View = require("beast.libs.view")
 local config = require("beast.libs.explorer.config")
+local render = require("beast.libs.explorer.render")
 local state = require("beast.libs.explorer.state")
 
 -- =============================================================================
@@ -31,6 +32,7 @@ end)
 ---@field kind "root"|"dir"
 ---@field label string
 ---@field depth integer
+---@field node? Beast.Explorer.Node  -- only set for kind = "dir"
 
 local DEFAULT_SCROLLOFF = 0
 local ZINDEX = 30
@@ -120,6 +122,7 @@ local function compute_pinned()
 			kind = "dir",
 			label = node.name,
 			depth = node.depth,
+			node = node,
 		}
 	end
 
@@ -134,7 +137,6 @@ end
 local function build(entries, width)
 	local lines = {} ---@type string[]
 	local hls = {} ---@type { line:integer, col_s:integer, col_e:integer, group:string }[]
-	local pad = string.rep(" ", config.padding)
 
 	for i, entry in ipairs(entries) do
 		local line_idx = i - 1
@@ -144,19 +146,18 @@ local function build(entries, width)
 			lines[#lines + 1] = line
 			hls[#hls + 1] = { line = line_idx, col_s = 0, col_e = #line, group = "BeastExplorerTitle" }
 		else
-			-- Match the explorer's depth-based indent: depth 0 sits flush under
-			-- the root, each deeper level adds 2 spaces.
-			local indent_units = math.max(0, entry.depth)
-			local indent = pad .. string.rep("  ", indent_units)
+			-- Reuse the live tree's prefix builder so connector glyphs
+			-- (├╴ │ └╴) and indentation align exactly with the rows below.
+			local prefix = render.build_prefix(entry.node)
 			local icon = config.icon.dir_open
-			local line = indent .. icon .. " " .. entry.label
+			local line = prefix .. icon .. " " .. entry.label
 			lines[#lines + 1] = line
 
-			if #indent > 0 then
-				hls[#hls + 1] = { line = line_idx, col_s = 0, col_e = #indent, group = "BeastExplorerIndent" }
+			if #prefix > 0 then
+				hls[#hls + 1] = { line = line_idx, col_s = 0, col_e = #prefix, group = "BeastExplorerIndent" }
 			end
 			hls[#hls + 1] =
-				{ line = line_idx, col_s = #indent, col_e = #indent + #icon, group = "BeastExplorerDir" }
+				{ line = line_idx, col_s = #prefix, col_e = #prefix + #icon, group = "BeastExplorerDir" }
 		end
 	end
 

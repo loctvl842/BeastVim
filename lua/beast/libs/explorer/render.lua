@@ -22,7 +22,7 @@ local styles = {
 ---
 ---@param node Beast.Explorer.Node
 ---@return string
-local function build_prefix(node)
+function M.build_prefix(node)
   -- stylua: ignore
   if node.depth == 0 then return string.rep(" ", config.padding)  end  -- no connector for top-level items
 
@@ -69,7 +69,7 @@ function M.build(nodes)
 
 	for _, node in ipairs(nodes) do
 		local line_idx = #lines -- 0-indexed for extmarks
-		local prefix = build_prefix(node)
+		local prefix = M.build_prefix(node)
 
 		-- Icon
 		local icon_str = ""

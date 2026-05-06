@@ -26,6 +26,8 @@ Util.colors.set_hl("BeastExplorer", {
 	GitUntracked = { fg = p.accent6 },
 
 	-- Sticky ancestor headers (float overlay)
-	StickyBg = { fg = p.dimmed1, bg = Util.colors.darken(p.dark1, 1) },
-	StickyBorder = { fg = p.dimmed1, sp = Util.colors.darken(p.dimmed5, 10), underline = true },
+	StickyBg = { fg = p.dimmed1, bg = Util.colors.darken(p.dark1, 3) },
+	-- No `fg` so indent / icon / label colors on the last line still show
+	-- through; only the underline (sp) is contributed by this group.
+	StickyBorder = { sp = Util.colors.darken(p.dimmed5, 10), underline = true },
 })
