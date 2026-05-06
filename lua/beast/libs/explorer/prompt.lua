@@ -28,7 +28,7 @@ local styles = {
 ---@return string
 local function build_child_prefix(dir, is_last)
   -- stylua: ignore
-  if dir.depth == -1 then return " " end
+  if dir.depth == -1 then return string.rep(" ", config.padding) end
 
 	local st = styles[config.style]
 	local branch = is_last and st.last_branch or st.branch
@@ -40,7 +40,7 @@ local function build_child_prefix(dir, is_last)
 		n = state.tree.nodes[n.parent]
 	end
 
-	local prefix = " "
+	local prefix = string.rep(" ", config.padding)
 	for i = 2, #levels do
 		prefix = prefix .. (levels[i] and st.indent or st.vertical)
 	end

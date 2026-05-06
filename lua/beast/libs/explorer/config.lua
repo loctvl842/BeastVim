@@ -17,6 +17,7 @@ local defaults = {
 	show_hidden = false,
 	icons = true,
 	git = true,
+  padding = 1, -- Left padding for whole explorer (in spaces).
 	icon = {
 		dir_open = "", --  "󰝰", -- nf-md-folder_open
 		dir_closed = "", -- "󰉋", -- nf-md-folder

@@ -24,7 +24,7 @@ local styles = {
 ---@return string
 local function build_prefix(node)
   -- stylua: ignore
-  if node.depth == 0 then return " " end  -- no connector for top-level items
+  if node.depth == 0 then return string.rep(" ", config.padding)  end  -- no connector for top-level items
 
 	-- Collect `last` flags from depth-0 up to this node (inclusive).
 	local levels = {} ---@type boolean[]
@@ -36,7 +36,7 @@ local function build_prefix(node)
 
 	-- levels[1] = depth-0 ancestor's flag — skipped below
 	-- levels[#levels] = this node's flag
-	local prefix = " " -- leading padding
+	local prefix = string.rep(" ", config.padding) -- leading padding
 	local st = styles[config.style]
 	for i = 2, #levels do -- start at 2 to skip the depth-0 indicator
 		if i == #levels then
