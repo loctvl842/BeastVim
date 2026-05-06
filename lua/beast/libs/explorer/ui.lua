@@ -2,6 +2,7 @@ local View = require("beast.libs.view")
 local config = require("beast.libs.explorer.config")
 local render = require("beast.libs.explorer.render")
 local state = require("beast.libs.explorer.state")
+local sticky = require("beast.libs.explorer.sticky")
 
 -- =============================================================================
 -- VIEW
@@ -70,7 +71,8 @@ function M.create(cwd)
 	vim.wo[win].cursorline = true
 	vim.wo[win].winfixwidth = true
 	vim.wo[win].listchars = "tab:  ,nbsp:+"
-	vim.wo[win].scrolloff = 0
+	-- scrolloff is owned by sticky.refresh() — it tracks the float height so
+	-- the cursor never lands in rows hidden under the sticky overlay.
 	Util.wo(
 		win,
 		"winhighlight",
@@ -94,6 +96,8 @@ function M.render(on_done)
 	local nodes = state.tree:flat({ show_hidden = config.show_hidden })
 	local lines, hls = render.build(nodes)
 	render.write(lines, hls)
+
+	sticky.refresh()
 
   -- stylua: ignore
 	if on_done then on_done() end

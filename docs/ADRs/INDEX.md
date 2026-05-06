@@ -15,3 +15,4 @@
 | [011](011-file-bound-provider-wrapper.md) | file_bound Provider Wrapper for Transient UI Buffers | Accepted | 2026-05-02 |
 | [012](012-compound-fragment-component-model.md) | Compound-Fragment Component Model | Accepted | 2026-05-02 |
 | [013](013-opt-in-statusline-result-caching.md) | Opt-In Result Caching with Event-Gated Invalidation | Accepted | 2026-05-03 |
+| [014](014-child-float-over-split-parent-owned-lifecycle.md) | Child Float Overlaying a Split, Lifecycle Owned by Parent | Accepted | 2026-05-06 |

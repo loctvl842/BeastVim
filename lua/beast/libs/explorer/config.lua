@@ -7,6 +7,10 @@ local defaults = {
 	icons = true,
 	git = true,
 	padding = 1, -- Left padding for whole explorer (in spaces).
+	-- Sticky ancestor headers: float at the top of the explorer that pins
+	-- the parent directories of the topmost visible node when they scroll
+	-- out of view. Set false to disable entirely.
+	sticky = true,
 	icon = {
 		dir_open = "", --  "󰝰", -- nf-md-folder_open
 		dir_closed = "", -- "󰉋", -- nf-md-folder

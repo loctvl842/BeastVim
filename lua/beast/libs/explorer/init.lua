@@ -4,6 +4,7 @@ local config = require("beast.libs.explorer.config")
 local ui = require("beast.libs.explorer.ui")
 local keymaps = require("beast.libs.explorer.keymaps")
 local autocmds = require("beast.libs.explorer.autocmds")
+local sticky = require("beast.libs.explorer.sticky")
 
 local M = setmetatable({}, {
 	__call = function(self, cwd)
@@ -22,6 +23,7 @@ local function ensure_explorer(dir)
 		state.view:set_title(dir)
 		keymaps.mount()
 		autocmds.mount()
+		sticky.mount()
 	end
 end
 
@@ -47,6 +49,7 @@ function M.open(dir)
 end
 
 function M.close()
+	sticky.close()
 	ui.close()
 	local prev = vim.fn.win_getid(vim.fn.winnr("#"))
 	pcall(vim.api.nvim_set_current_win, prev)

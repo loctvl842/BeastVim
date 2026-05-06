@@ -1,4 +1,4 @@
-<!-- Generated: 2026-05-02 | Files scanned: 100 | Token estimate: ~1100 -->
+<!-- Generated: 2026-05-06 | Files scanned: 100 | Token estimate: ~1180 -->
 
 # Libraries
 
@@ -7,14 +7,15 @@
 ```
 explorer/
 ├── init.lua       ← open/close/toggle, setup, replace_netrw
-├── config.lua     ← style, width, side, icons, mappings
-├── state.lua      ← tree, view, source_win, augroup
+├── config.lua     ← style, width, side, icons, sticky, mappings
+├── state.lua      ← tree, view, sticky, source_win, augroup
 ├── tree.lua       ← filesystem tree with flat cache
-├── ui.lua         ← create split window, focus_path
+├── ui.lua         ← create split window, focus_path, render
 ├── render.lua     ← draw tree nodes to buffer
+├── sticky.lua     ← floating ancestor headers (cursor-anchored)
 ├── prompt.lua     ← inline input prompt (create/rename)
 ├── keymaps.lua    ← mount action keymaps
-├── autocmds.lua   ← BufEnter/WinClosed handlers
+├── autocmds.lua   ← BufEnter/WinClosed/WinScrolled/CursorMoved handlers
 ├── highlights.lua ← BeastExplorer* groups
 └── actions/       ← one file per action
     ├── open.lua, create.lua, delete.lua, rename.lua
@@ -24,6 +25,33 @@ explorer/
 ```
 
 API: `explorer.open(dir)`, `explorer.close()`, `explorer.toggle(cwd)`
+
+### Sticky ancestor headers (`sticky.lua`)
+
+Floating overlay (`relative = "win"`, `zindex = 30`, `focusable = false`,
+`noautocmd = true`) sitting at the top of the explorer split. Pins the
+ancestor directories of the **cursor's** node when those ancestors have
+scrolled (or been covered by the float) above the visible region.
+
+- View subclass: `Beast.Explorer.StickyView : Beast.View` (adds `ns`).
+- Public API: `sticky.mount()`, `sticky.refresh()`, `sticky.close()`.
+- Pin rule: `ancestor_row < top_row + N` where `N = #pinned`. The
+  inequality has a feedback loop (more pins → bigger float → more pins),
+  so `compute_pinned()` iterates to a fixed point (≤ depth iterations,
+  monotonic).
+- Cursor-under-sticky guard: every refresh sets
+  `Util.wo(explorer_win, "scrolloff", N)`. Built-in `scrolloff` keeps
+  the cursor below the float on `gg`, `H`, `<C-u>`, `focus_path`, etc.
+  When N=0 the float is closed and `scrolloff` is reset to 0.
+- Refresh triggers (registered under `state.augroup` in `autocmds.lua`):
+  `WinScrolled` (explorer winid), `CursorMoved` (explorer buffer),
+  `WinResized`, `VimResized`, and the tail of `ui.render()`.
+- Lifecycle: `init.ensure_explorer()` → `sticky.mount()`;
+  `init.M.close()` and the existing once-`WinClosed` handler →
+  `sticky.close()`.
+- Highlights: `BeastExplorerStickyBg` (Normal of the float),
+  `BeastExplorerStickyBorder` (underline on the bottom row).
+- Toggle: `config.sticky = true|false` (default `true`).
 
 ---
 

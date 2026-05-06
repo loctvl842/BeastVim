@@ -1,6 +1,7 @@
 local config = require("beast.libs.explorer.config")
 local state = require("beast.libs.explorer.state")
 local ui = require("beast.libs.explorer.ui")
+local sticky = require("beast.libs.explorer.sticky")
 
 local M = {}
 
@@ -156,7 +157,32 @@ function M.mount()
 		once = true,
 		callback = function()
 			restore_cursor()
+			sticky.close()
 			state.augroup = nil
+		end,
+	})
+
+	-- Sticky ancestor headers: refresh on scroll / resize / cursor move.
+	vim.api.nvim_create_autocmd("WinScrolled", {
+		group = state.augroup,
+		pattern = tostring(state.view.win),
+		callback = function()
+			sticky.refresh()
+		end,
+	})
+
+	vim.api.nvim_create_autocmd("CursorMoved", {
+		group = state.augroup,
+		buffer = state.view.buf,
+		callback = function()
+			sticky.refresh()
+		end,
+	})
+
+	vim.api.nvim_create_autocmd({ "WinResized", "VimResized" }, {
+		group = state.augroup,
+		callback = function()
+			sticky.refresh()
 		end,
 	})
 
