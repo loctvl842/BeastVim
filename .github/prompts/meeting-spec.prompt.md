@@ -1,1 +1,0 @@
-/Users/loctvl842/Documents/Work/BeyondSoft/Repo/TEC-main/.github/prompts/meeting-spec.prompt.md

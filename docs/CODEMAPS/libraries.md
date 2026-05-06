@@ -102,13 +102,13 @@ packer/
 ├── operation.lua    ← git clone, pull, install operations
 ├── ui.lua           ← floating dashboard (loaded/not loaded/ops)
 ├── highlights.lua   ← BeastPacker* groups
-├── profile.lua      ← load timing/reason tracking
+├── profile.lua      ← per-plugin (packadd_ms/config_ms) + per-phase (pack_add/early_cs) timing
 └── triggers/        ← lazy-load trigger handlers
     ├── event.lua, cmd.lua, keys.lua
     ├── module.lua, filetype.lua, path.lua
 ```
 
-API: `packer.setup(specs)` — auto-installs + lazy-loads plugins
+API: `packer.setup(opts)` — auto-installs + lazy-loads plugins. `opts.colorscheme = { name, plugin }` eagerly applies a colorscheme before `vim.pack.add`. Read `require("beast.libs.packer.profile").phases.{pack_add,early_cs}` for phase timings (`ms`, `calls`, `min`, `max`).
 
 ---
 

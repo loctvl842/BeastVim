@@ -274,6 +274,8 @@ dev specs), check these:
 | `beast.profile` lib require self time | > 3 ms | > 5 ms |
 | `beast.profile` `*.setup` function self time | > 10 ms | > 20 ms |
 | `beast.profile` `setup` call count | > 1 | n/a — duplicated wiring is always a bug |
+| `beast.packer.profile.phases.pack_add.ms` | > 30 ms | > 60 ms |
+| `beast.packer.profile.phases.early_cs.ms` | > 10 ms | > 20 ms |
 | `scripts/bench-*.lua` exit code | n/a | Any non-zero exit (1 = threshold; 2 = setup error). Each script owns its own thresholds. |
 | `luacheck` warnings | > 0 (warn) | non-zero exit (action) |
 | Codemap age | > 7 days | > 14 days |

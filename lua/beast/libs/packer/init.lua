@@ -253,7 +253,7 @@ function M.setup(opts)
 	-- installed, or any dep is missing. Lazy triggers and the vim.pack.add load
 	-- callback are unaffected: both funnel through state.load, which short-circuits
 	-- on state.loaded_plugins[name].
-	apply_early_colorscheme()
+	profile.measure("early_cs", "phase_ms", apply_early_colorscheme)
 
 	-- Setup autocmd to track vim.pack operations and show UI
 	vim.api.nvim_create_autocmd("PackChangedPre", {
@@ -312,6 +312,10 @@ function M.setup(opts)
 	})
 
 	-- Step 4: Install all plugins with vim.pack.add
+	-- Time outside the xpcall so a failure still surfaces to the existing
+	-- error path. profile.measure can't be used here because its inner pcall
+	-- would swallow the error and break xpcall's traceback.
+	local t_pack_add = Util.hrtime()
 	local packadd_ok, packadd_err = xpcall(function()
 		vim.pack.add(vim_pack_specs, {
 			confirm = false,
@@ -324,6 +328,9 @@ function M.setup(opts)
 			end,
 		})
 	end, debug.traceback)
+	if packadd_ok then
+		profile.add_phase_time("pack_add", (Util.hrtime() - t_pack_add) / 1e6)
+	end
 	if not packadd_ok then
 		local installed = {}
 		for _, p in ipairs(vim.pack.get()) do
