@@ -1,16 +1,64 @@
+-- =============================================================================
+-- Node
+-- =============================================================================
+
 ---@class Beast.Explorer.Node
----@field path       string   absolute path
----@field name       string   basename
----@field type       "file"|"directory"|"link"|"unknown"
----@field dir        boolean  true when this entry is (or resolves to) a directory
----@field hidden     boolean  name starts with "."
----@field open       boolean  directory: user wants it expanded
----@field expanded   boolean  directory: children have been scanned from disk
----@field depth      integer  0 = immediate children of the cwd root
----@field last       boolean  last sibling in its parent — used for tree-line drawing
+---@field path       string
+---@field name       string
+---@field type       "file"|"directory"|"link"|"unknown"|string
+---@field dir        boolean
+---@field hidden     boolean
+---@field open       boolean
+---@field expanded   boolean
+---@field depth      integer
+---@field last       boolean
 ---@field git_status? string
----@field children   table<string, string>  name -> path
----@field parent?    string  absolute path of parent
+---@field children   table<string, string>
+---@field parent?    string
+local Node = setmetatable({}, {
+	__call = function(t, ...)
+		return t:new(...)
+	end,
+})
+Node.__index = Node
+
+---@class Beast.Explorer.NodeOpts
+---@field open? boolean
+---@field expanded? boolean
+---@field depth? integer
+---@field last? boolean
+---@field git_status? string
+
+---@param path string
+---@param name string
+---@param ftype "file"|"directory"|"link"|"unknown"|string
+---@param parent? Beast.Explorer.Node
+---@param opts? Beast.Explorer.NodeOpts
+---@return Beast.Explorer.Node
+function Node:new(path, name, ftype, parent, opts)
+	opts = opts or {}
+
+	local is_dir = ftype == "directory" or (ftype == "link" and vim.fn.isdirectory(path) == 1)
+
+	return setmetatable({
+		path = path,
+		name = name,
+		type = ftype,
+		dir = is_dir,
+		hidden = name:sub(1, 1) == ".",
+		open = opts.open or false,
+		expanded = opts.expanded or false,
+		depth = opts.depth or (parent and parent.depth + 1 or 0),
+		last = opts.last or false,
+		git_status = opts.git_status,
+		children = {},
+		parent = parent and parent.path or nil,
+	}, Node)
+end
+
+-- =============================================================================
+-- Tree
+-- =============================================================================
 
 ---@class Beast.Explorer.FlatCacheEntry
 ---@field version integer
@@ -21,7 +69,7 @@
 
 ---@class Beast.Explorer.Tree
 ---@field root Beast.Explorer.Node
----@field nodes table<string, Beast.Explorer.Node>  path -> node
+---@field nodes table<string, Beast.Explorer.Node>
 ---@field version integer
 ---@field _flat_cache table<boolean, Beast.Explorer.FlatCacheEntry>
 local M = setmetatable({}, {
@@ -37,14 +85,12 @@ local uv = vim.uv or vim.loop
 -- Utils
 -- =============================================================================
 
---- Normalize a path: absolute, no trailing slash.
 ---@param path string
 ---@return string
 local function norm(path)
 	return (vim.fn.fnamemodify(path, ":p"):gsub("/$", ""))
 end
 
---- Remove `path` and all descendants from the node index.
 ---@param tree Beast.Explorer.Tree
 ---@param path string
 local function remove_subtree(tree, path)
@@ -60,43 +106,25 @@ local function remove_subtree(tree, path)
 	tree.nodes[path] = nil
 end
 
---- Return-or-create the child of `parent` identified by `name` / `ftype`.
----@param tree   Beast.Explorer.Tree
 ---@param parent Beast.Explorer.Node
----@param name   string
----@param ftype  "file"|"directory"|"link"|"unknown"|string
+---@param name string
+---@param ftype "file"|"directory"|"link"|"unknown"|string
 ---@return Beast.Explorer.Node
-local function ensure_child(tree, parent, name, ftype)
+function M:ensure_child(parent, name, ftype)
 	local existing_path = parent.children[name]
 	if existing_path then
-		---@type Beast.Explorer.Node
-		local existing = tree.nodes[existing_path]
+		local existing = self.nodes[existing_path]
 		if existing then
 			return existing
 		end
 	end
 
 	local path = parent.path .. "/" .. name
-	local is_dir = ftype == "directory" or (ftype == "link" and vim.fn.isdirectory(path) == 1)
-
-	---@type Beast.Explorer.Node
-	local node = {
-		path = path,
-		name = name,
-		type = ftype,
-		dir = is_dir,
-		hidden = name:sub(1, 1) == ".",
-		open = false,
-		expanded = false,
-		depth = parent.depth + 1,
-		last = false,
-		git_status = nil,
-		children = {},
-		parent = parent.path,
-	}
+	local node = Node(path, name, ftype, parent)
 
 	parent.children[name] = path
-	tree.nodes[path] = node
+	self.nodes[path] = node
+
 	return node
 end
 
@@ -109,25 +137,17 @@ end
 function M:new(cwd)
 	cwd = norm(cwd)
 
-	---@type Beast.Explorer.Node
-	local root = {
-		path = cwd,
-		name = vim.fn.fnamemodify(cwd, ":t"),
-		type = "directory",
-		dir = true,
-		hidden = false,
+	local root = Node(cwd, vim.fn.fnamemodify(cwd, ":t"), "directory", nil, {
 		open = true,
-		expanded = false,
 		depth = -1,
 		last = true,
-		git_status = nil,
-		children = {},
-		parent = nil,
-	}
+	})
 
 	return setmetatable({
 		root = root,
-		nodes = { [root.path] = root },
+		nodes = {
+			[root.path] = root,
+		},
 		version = 0,
 		_flat_cache = {
 			[false] = { version = -1, list = nil },
@@ -136,7 +156,6 @@ function M:new(cwd)
 	}, self)
 end
 
---- Mark tree state as changed.
 function M:_touch()
 	self.version = self.version + 1
 end
@@ -145,12 +164,11 @@ end
 -- Tree expansion / refresh
 -- =============================================================================
 
---- Scan `node`'s directory and (re)populate its children from disk.
---- Stale entries (deleted files) are pruned from the node index.
 ---@param node Beast.Explorer.Node
 function M:expand(node)
-  -- stylua: ignore
-	if not node.dir or node.expanded then return end
+	if not node.dir or node.expanded then
+		return
+	end
 
 	local fs = uv.fs_scandir(node.path)
 	if not fs then
@@ -163,20 +181,23 @@ function M:expand(node)
 
 	while true do
 		local name, ftype = uv.fs_scandir_next(fs)
-    -- stylua: ignore
-		if not name then break end
+		if not name then
+			break
+		end
 
 		ftype = ftype or "unknown"
 		found[name] = true
 
 		if not node.children[name] then
-			ensure_child(self, node, name, ftype)
+			self:ensure_child(node, name, ftype)
 			changed = true
 		else
 			local child_path = node.children[name]
 			local child = self.nodes[child_path]
+
 			if child then
 				local is_dir = ftype == "directory" or (ftype == "link" and vim.fn.isdirectory(child_path) == 1)
+
 				if child.type ~= ftype or child.dir ~= is_dir then
 					child.type = ftype
 					child.dir = is_dir
@@ -195,6 +216,7 @@ function M:expand(node)
 	end
 
 	node.expanded = true
+
 	if changed then
 		self:_touch()
 	end
@@ -216,9 +238,11 @@ function M:refresh(path)
 			n.expanded = false
 			changed = true
 		end
+
 		if n.git_status ~= nil then
 			n.git_status = nil
 		end
+
 		for _, child_path in pairs(n.children) do
 			local child = self.nodes[child_path]
 			if child then
@@ -254,6 +278,7 @@ function M:collapse_all(path)
 		if changed then
 			self:_touch()
 		end
+
 		return
 	end
 
@@ -282,7 +307,6 @@ end
 -- Navigation
 -- =============================================================================
 
---- Return the node for `path`, creating ancestor nodes if absent.
 ---@param path string
 ---@return Beast.Explorer.Node
 function M:find(path)
@@ -294,7 +318,8 @@ function M:find(path)
 	end
 
 	local root_path = self.root.path
-	if path ~= root_path and path:sub(1, #root_path + 1) ~= (root_path .. "/") then
+
+	if path ~= root_path and path:sub(1, #root_path + 1) ~= root_path .. "/" then
 		error("Path must live inside the tree root: " .. path)
 	end
 
@@ -306,10 +331,12 @@ function M:find(path)
 	local parts = vim.split(rel, "/", { plain = true })
 
 	local node = self.root
+
 	for i, part in ipairs(parts) do
 		local cur = root_path .. "/" .. table.concat(parts, "/", 1, i)
 		local ftype = vim.fn.isdirectory(cur) == 1 and "directory" or "file"
-		node = ensure_child(self, node, part, ftype)
+
+		node = self:ensure_child(node, part, ftype)
 	end
 
 	return node
@@ -329,6 +356,7 @@ function M:open(path)
 			node.open = true
 			changed = true
 		end
+
 		node = self.nodes[node.parent]
 	end
 
@@ -365,8 +393,6 @@ function M:close(path)
 	end
 end
 
---- Toggle the open state of `path` to a folder.
---- If it's a file, toggle its parent directory.
 ---@param path string
 function M:toggle(path)
 	if vim.fn.isdirectory(path) ~= 1 then
@@ -408,14 +434,17 @@ function M:walk(node, fn)
 
 	for i, child_path in ipairs(children) do
 		local child = self.nodes[child_path]
+
 		if child then
-			child.last = (i == #children)
+			child.last = i == #children
 
 			local descend = fn(child)
+
 			if descend ~= false and child.dir and child.open then
 				if not child.expanded then
 					self:expand(child)
 				end
+
 				self:walk(child, fn)
 			end
 		end
@@ -423,7 +452,7 @@ function M:walk(node, fn)
 end
 
 -- =============================================================================
--- Flat list (cached)
+-- Flat list
 -- =============================================================================
 
 ---@param opts Beast.Explorer.FlatOpts
@@ -447,6 +476,7 @@ function M:flat(opts)
 		if node.hidden and not opts.show_hidden then
 			return false
 		end
+
 		list[#list + 1] = node
 	end)
 

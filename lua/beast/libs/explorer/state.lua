@@ -16,7 +16,6 @@ local M = {
 	saved_win_opts = nil,
 	source_win = nil,
 	clipboard = nil,
-	anchored = false, -- Keep the root line fixed (by using winbar), not affected by scrolling
 }
 
 -- ================================
@@ -37,16 +36,13 @@ function M.current_node(opts)
 
 	local ok, pos = pcall(vim.api.nvim_win_get_cursor, M.view.win)
   -- stylua: ignore
-  if not M.anchored and pos[1] == 1 then return M.tree.root end
+  if pos[1] == 1 then return M.tree.root end
 	local nodes = M.tree:flat(opts)
 
   -- stylua: ignore
   if not ok then return end
 
-  -- if root is pinned, then pos[1] is the exact index of current node
-  -- else post[1] is shift by 1 line (due to root header)
-  local shift = M.anchored and 0 or 1
-
+  local shift = 1 -- post[1] is shift by 1 line (due to root header)
 	return nodes[pos[1] - shift] -- row 1 = header, row 2 = nodes[1]
 end
 

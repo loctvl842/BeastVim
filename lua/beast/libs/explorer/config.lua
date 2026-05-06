@@ -1,15 +1,4 @@
 ---@class Beast.Explorer.Config
----@field style           "classic"|"compact"
----@field width           integer        panel width in columns
----@field side            "left"|"right" which side to open the split
----@field show_hidden     boolean        show dot-files
----@field icons           boolean        nerd-font glyphs (requires nvim-web-devicons)
----@field git             boolean        git-status indicators
----@field icon_dir_open   string         glyph for an open directory
----@field icon_dir_closed string         glyph for a closed directory
----@field icon_file       string         fallback glyph for files without a devicon
----@field icon_git  table<string, {[1]:string,[2]:string}> xy-code → {glyph, hl-group}
-
 local defaults = {
 	style = "classic",
 	width = 40,
@@ -17,7 +6,7 @@ local defaults = {
 	show_hidden = false,
 	icons = true,
 	git = true,
-  padding = 1, -- Left padding for whole explorer (in spaces).
+	padding = 1, -- Left padding for whole explorer (in spaces).
 	icon = {
 		dir_open = "", --  "󰝰", -- nf-md-folder_open
 		dir_closed = "", -- "󰉋", -- nf-md-folder
@@ -56,6 +45,23 @@ function methods.toggle_hidden()
 	cfg.show_hidden = not cfg.show_hidden
 end
 
+--- Resolve a file-name to its devicons glyph and highlight group, falling
+--- back to `cfg.icon.file` when nvim-web-devicons isn't available or has no
+--- match for the name.
+---@param name string
+---@return string icon, string? hl
+function methods.file_icon(name)
+	local devicons_ok, devicons = pcall(require, "nvim-web-devicons")
+
+	if devicons_ok then
+		local icon, hl = devicons.get_icon(name, nil, { default = true })
+		if icon then
+			return icon, hl
+		end
+	end
+	return cfg.icon.file, nil
+end
+
 ---@param opts? Beast.Explorer.Config
 function methods.setup(opts)
 	cfg = vim.tbl_deep_extend("force", vim.deepcopy(defaults), opts or {})
@@ -69,13 +75,7 @@ local M = setmetatable({}, {
 		return cfg[key]
 	end,
 	__newindex = function(_, key, _)
-		error(
-			string.format(
-				"beast.explorer.config is read-only; cannot assign '%s' directly. Use setup() instead.",
-				tostring(key)
-			),
-			2
-		)
+		error(string.format("beast.explorer.config is read-only; cannot assign '%s' directly. Use setup() instead.", tostring(key)), 2)
 	end,
 })
 

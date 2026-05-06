@@ -220,24 +220,6 @@ function M.mount()
 		end,
 	})
 
-	vim.api.nvim_create_autocmd("WinScrolled", {
-		group = state.augroup,
-		callback = function()
-			-- stylua: ignore
-			if not (state.view and state.view:is_valid()) then return end
-			local exp_win = tostring(state.view.win)
-			-- stylua: ignore
-			if not (vim.v.event and vim.v.event[exp_win]) then return end
-
-			local wininfo = vim.fn.getwininfo(state.view.win)
-			local topline = (wininfo[1] or {}).topline or 1
-			local skip_rerender = (topline == 1 and not state.anchored) or (topline > 1 and state.anchored)
-      -- stylua: ignore
-      if skip_rerender then return end
-			ui.render()
-		end,
-	})
-
 	refresh_cursor()
 end
 

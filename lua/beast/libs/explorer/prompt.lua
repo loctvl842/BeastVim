@@ -83,7 +83,7 @@ local function open_float(row, col, width, initial, on_confirm, on_cancel, clean
 	vim.wo[input_win].number = false
 	vim.wo[input_win].relativenumber = false
 	vim.wo[input_win].signcolumn = "no"
-  vim.wo[input_win].winhighlight = "Normal:BeastExplorerPrompt"
+	vim.wo[input_win].winhighlight = "Normal:BeastExplorerPrompt"
 
 	if initial and initial ~= "" then
 		vim.cmd("startinsert!")
@@ -160,37 +160,17 @@ end
 --- Uses the last occurrence of node.name in the rendered line, so it still works
 --- when the line contains extra suffixes like " (copy)" earlier in the text.
 ---@param node Beast.Explorer.Node
----@param node_line integer  -- 1-based buffer line
 ---@return integer           -- display-width columns before the name
-local function name_col(node, node_line)
-	local buf_lines = vim.api.nvim_buf_get_lines(state.view.buf, node_line - 1, node_line, false)
-	local line = buf_lines[1] or ""
-	local name = node.name or ""
-
-	if name == "" then
-		return vim.fn.strdisplaywidth(line)
+local function name_col(node)
+	local depth_padding = node.depth * 2 -- 2 spaces "├╴", "└╴"
+	local prefix_icon
+	if node.dir then
+		prefix_icon = vim.fn.strdisplaywidth(config.icon.dir_open)
+	else
+		local icon = config.file_icon(node.name)
+		prefix_icon = vim.fn.strdisplaywidth(icon)
 	end
-
-	-- Find the last plain occurrence of the node name.
-	local last_start = nil
-	local search_from = 1
-
-	while true do
-		local s = line:find(name, search_from, true)
-		if not s then
-			break
-		end
-		last_start = s
-		search_from = s + 1
-	end
-
-	-- Fallback: if not found, return full line width.
-	if not last_start then
-		return vim.fn.strdisplaywidth(line)
-	end
-
-	-- Display width before the first character of the matched name.
-	return vim.fn.strdisplaywidth(line:sub(1, last_start - 1))
+	return config.padding + depth_padding + prefix_icon + 1
 end
 
 --- Replace one connector string with another on a buffer line and add a highlight extmark.
@@ -209,7 +189,9 @@ local function swap_connector(buf, ns, row, from_str, to_str)
 	local search_from = 1
 	while true do
 		local s = line:find(from_str, search_from, true)
-		if not s then break end
+		if not s then
+			break
+		end
 		start_col = s
 		search_from = s + 1
 	end
@@ -236,24 +218,25 @@ end
 -- ================================
 
 --- Open a float overlaid on an existing node's name (rename-style).
----@param node Beast.Explorer.Node
----@param node_line integer  1-based buffer line
+---@param current_node Beast.Explorer.Node
 ---@param on_confirm fun(input: string): false|fun()?  return false to keep open, or a function to run after close
 ---@param on_cancel fun()?
-function M.overlay(node, node_line, on_confirm, on_cancel)
+function M.overlay(current_node, on_confirm, on_cancel)
   -- stylua: ignore
   if not state.view or not state.view:is_valid() then return end
 
 	local exp_width = vim.api.nvim_win_get_width(state.view.win)
-	local indent = name_col(node, node_line)
+	local indent = name_col(current_node)
 	local input_width = exp_width - indent - 1
 	if input_width < 10 then
 		input_width = exp_width - 2
 		indent = 1
 	end
 
-  on_cancel = on_cancel or function() end
-	open_float(node_line - 1, indent, input_width, node.name, on_confirm, on_cancel)
+	on_cancel = on_cancel or function() end
+	local current_pos = vim.api.nvim_win_get_cursor(state.view.win)[1]
+	local float_row = math.max(0, current_pos - vim.fn.line("w0"))
+	open_float(float_row, indent, input_width, current_node.name, on_confirm, on_cancel)
 end
 
 --- Open a float on a newly inserted blank line below a directory (create-style).

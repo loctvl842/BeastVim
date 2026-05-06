@@ -28,10 +28,9 @@ local function build_prefix(node)
 
 	-- Collect `last` flags from depth-0 up to this node (inclusive).
 	local levels = {} ---@type boolean[]
-	local n = node
-	while n.depth >= 0 do
-		table.insert(levels, 1, n.last)
-		n = state.tree.nodes[n.parent]
+	while node.depth >= 0 do
+		table.insert(levels, 1, node.last)
+		node = state.tree.nodes[node.parent]
 	end
 
 	-- levels[1] = depth-0 ancestor's flag — skipped below
@@ -56,12 +55,10 @@ function M.build(nodes)
 	local lines = {} ---@type string[]
 	local hls = {} ---@type {line:integer,col_s:integer,col_e:integer,group:string}[]
 
-	if not state.anchored then
-		-- Root header: " UPPERCASE-BASENAME" — no icon, plain text, visually distinct
-		local root_name = string.upper(vim.fn.fnamemodify(state.view.cwd, ":t"))
-		lines[1] = " " .. root_name
-		hls[#hls + 1] = { line = 0, col_s = 0, col_e = #lines[1], group = "BeastExplorerTitle" }
-	end
+	-- Root header: " UPPERCASE-BASENAME" — no icon, plain text, visually distinct
+	local root_name = string.upper(vim.fn.fnamemodify(state.view.cwd, ":t"))
+	lines[1] = " " .. root_name
+	hls[#hls + 1] = { line = 0, col_s = 0, col_e = #lines[1], group = "BeastExplorerTitle" }
 
 	local clipboard_paths = {} ---@type table<string, boolean>
 	if state.clipboard then
@@ -70,7 +67,6 @@ function M.build(nodes)
 		end
 	end
 
-	local devicons_ok, devicons = pcall(require, "nvim-web-devicons")
 	for _, node in ipairs(nodes) do
 		local line_idx = #lines -- 0-indexed for extmarks
 		local prefix = build_prefix(node)
@@ -84,12 +80,7 @@ function M.build(nodes)
 				icon_str = node.open and config.icon.dir_open or config.icon.dir_closed
 				icon_hl = "BeastExplorerDir"
 			else
-				local icon, hl
-				if devicons_ok then
-					icon, hl = devicons.get_icon(node.name, nil, { default = true })
-				end
-				icon_str = icon or config.icon.file
-				icon_hl = hl
+				icon_str, icon_hl = config.file_icon(node.name)
 			end
 		end
 

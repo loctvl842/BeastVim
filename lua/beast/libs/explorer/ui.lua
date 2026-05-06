@@ -80,23 +80,6 @@ function M.create(cwd)
 	return ExplorerView(buf, win, ns, cwd)
 end
 
---- Pin the root line to the top of the window.
-function M.pin_root()
-  -- stylua: ignore
-  if not state.view or not state.view:is_valid() then return end
-	local root_name = string.upper(vim.fn.fnamemodify(state.tree.root.path, ":t"))
-	vim.wo[state.view.win].winbar = "%#BeastExplorerTitle# " .. root_name .. "%*"
-	state.anchored = true
-end
-
---- Unpin the root line from the top of the window.
-function M.unpin_root()
-  -- stylua: ignore
-  if not state.view or not state.view:is_valid() then return end
-	vim.wo[state.view.win].winbar = nil
-	state.anchored = false
-end
-
 --- Write `nodes` into `view`'s buffer and apply highlight decorations.
 --- Line 1 is always the root header; nodes occupy lines 2..N.
 --- Safe to call even when the window has been closed externally.
@@ -109,13 +92,6 @@ function M.render(on_done)
   if not state.tree then return end
 
 	local nodes = state.tree:flat({ show_hidden = config.show_hidden })
-	local wininfo = vim.fn.getwininfo(state.view.win)
-	local topline = (wininfo[1] or {}).topline or 1
-	if topline > 1 then
-		M.pin_root()
-	else
-		M.unpin_root()
-	end
 	local lines, hls = render.build(nodes)
 	render.write(lines, hls)
 

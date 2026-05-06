@@ -17,15 +17,7 @@ function M.run()
   -- stylua: ignore
   if node.depth == -1 then return end -- cannot rename root
 
-	local flat = state.tree:flat({ show_hidden = config.show_hidden })
-	local node_line = 1
-	for i, n in ipairs(flat) do
-		if n.path == node.path then
-			node_line = i + 1 -- +1 for header
-			break
-		end
-	end
-	prompt.overlay(node, node_line, function(input)
+	prompt.overlay(node, function(input)
 		if input == node.name then
 			return
 		end

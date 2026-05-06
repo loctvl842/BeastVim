@@ -13,21 +13,6 @@ local M = setmetatable({}, {
 ---@param target_dir Beast.Explorer.Node
 ---@param current_node Beast.Explorer.Node
 local function show_popup(target_dir, current_node)
-	local fresh = state.tree:flat({ show_hidden = config.show_hidden })
-
-	local dir_line = 1 -- below header for root
-	if target_dir.depth ~= -1 then
-		for i, n in ipairs(fresh) do
-			if n.path == target_dir.path then
-				break
-			end
-			dir_line = i + 1 -- +1 for header line
-		end
-		if not state.anchored then
-			dir_line = dir_line + 1
-		end
-	end
-
 	prompt.inline(target_dir, current_node, function(input)
 		local is_dir = input:sub(-1) == "/"
 		local rel_path = is_dir and input:sub(1, -2) or input
