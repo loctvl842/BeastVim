@@ -19,8 +19,6 @@ function M.run()
   if new_root == state.tree.root.path then return end
 
 	state.tree = Tree(new_root)
-	state.view:set_title(new_root)
-	state.view.cwd = new_root
 	ui.render()
 end
 

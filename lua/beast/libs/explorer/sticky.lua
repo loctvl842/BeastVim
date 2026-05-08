@@ -113,7 +113,7 @@ local function compute_pinned()
 	if has_root then
 		entries[#entries + 1] = {
 			kind = "root",
-			label = string.upper(vim.fn.fnamemodify(state.view.cwd, ":t")),
+			label = string.upper(vim.fn.fnamemodify(state.tree.root.path, ":t")),
 			depth = -1,
 		}
 	end

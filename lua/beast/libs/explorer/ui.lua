@@ -10,24 +10,9 @@ local sticky = require("beast.libs.explorer.sticky")
 
 ---@class Beast.Explorer.View : Beast.View
 ---@field ns integer
----@field cwd string
-local ExplorerView = View:extend(function(obj, ns, cwd)
+local ExplorerView = View:extend(function(obj, ns)
 	obj.ns = ns
-	obj.cwd = cwd
 end)
-
---- Set the buffer name to a short version of cwd
----@param cwd? string
-function ExplorerView:set_title(cwd)
-	if not self:is_valid() then
-		return
-	end
-
-	cwd = cwd or self.cwd
-
-	local short = vim.fn.fnamemodify(cwd, ":~")
-	pcall(vim.api.nvim_buf_set_name, self.buf, "Explorer: " .. short)
-end
 
 -- =============================================================================
 -- MODULE
@@ -37,9 +22,8 @@ local M = {}
 
 --- Open a vertical split and return a new Beast.Explorer.View.
 --- The split is placed on the side specified by config.cfg.side.
----@param cwd string  absolute path to root directory
 ---@return Beast.Explorer.View
-function M.create(cwd)
+function M.create()
 	local ns = vim.api.nvim_create_namespace("beastvim_explorer")
 	local buf = Buffer.new("beast-explorer")
 
@@ -79,7 +63,7 @@ function M.create(cwd)
 		"Normal:BeastExplorerNormal,EndOfBuffer:BeastExplorerEndOfBuffer,CursorLine:BeastExplorerCursorLine,WinSeparator:BeastExplorerWinSeparator,WinBar:BeastExplorerWinBar,WinBarNC:BeastExplorerWinBar"
 	)
 
-	return ExplorerView(buf, win, ns, cwd)
+	return ExplorerView(buf, win, ns)
 end
 
 --- Write `nodes` into `view`'s buffer and apply highlight decorations.
@@ -92,6 +76,9 @@ function M.render(on_done)
   if not state.view or not state.view:is_valid() then return end
   -- stylua: ignore
   if not state.tree then return end
+
+	local root_short = vim.fn.fnamemodify(state.tree.root.path, ":~")
+	pcall(vim.api.nvim_buf_set_name, state.view.buf, "Explorer: " .. root_short)
 
 	local nodes = state.tree:flat({ show_hidden = config.show_hidden })
 	local lines, hls = render.build(nodes)

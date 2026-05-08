@@ -55,10 +55,13 @@ end
 ---@param name string
 ---@return string icon, string? hl
 function methods.file_icon(name)
-	local devicons_ok, devicons = pcall(require, "nvim-web-devicons")
+	if methods._devicons == nil then
+		local ok, mod = pcall(require, "nvim-web-devicons")
+		methods._devicons = ok and mod or false
+	end
 
-	if devicons_ok then
-		local icon, hl = devicons.get_icon(name, nil, { default = true })
+	if methods._devicons then
+		local icon, hl = methods._devicons.get_icon(name, nil, { default = true })
 		if icon then
 			return icon, hl
 		end

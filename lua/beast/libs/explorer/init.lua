@@ -19,8 +19,7 @@ local function ensure_explorer(dir)
 		state.tree = Tree(dir)
 	end
 	if not state.view or not state.view:is_valid() then
-		state.view = ui.create(dir)
-		state.view:set_title(dir)
+		state.view = ui.create()
 		keymaps.mount()
 		autocmds.mount()
 		sticky.mount()
@@ -40,6 +39,17 @@ function M.open(dir)
 	local has_file = file ~= "" and vim.fn.filereadable(file) == 1
 	ensure_explorer(dir)
 	if has_file then
+		local root_path = state.tree.root.path
+		local file_norm = vim.fn.fnamemodify(file, ":p"):gsub("/$", "")
+		local file_dir = vim.fn.fnamemodify(file_norm, ":h")
+		-- Re-root the tree when the current file lives outside the tree root
+		if file_norm ~= root_path and file_norm:sub(1, #root_path + 1) ~= root_path .. "/" then
+			if vim.fn.isdirectory(file_dir) == 1 then
+				ensure_explorer(file_dir)
+			else
+				has_file = false
+			end
+		end
 		state.tree:open(file)
 	end
 

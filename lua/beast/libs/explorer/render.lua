@@ -47,6 +47,41 @@ function M.build_prefix(node)
 	return prefix
 end
 
+--- Build prefixes for all nodes incrementally using a parent-prefix cache.
+--- Avoids the O(depth) ancestor walk per node by building child prefixes
+--- from their parent's cached "continuation" prefix.
+---@param nodes Beast.Explorer.Node[]
+---@return table<string, string>  path → prefix
+function M.build_prefixes(nodes)
+	local st = styles[config.style]
+	local pad = string.rep(" ", config.padding)
+	local cache = {} ---@type table<string, string>  path → continuation prefix
+
+	-- The continuation prefix is everything a child inherits from its parent:
+	-- parent's continuation + the connector segment for the parent's own level.
+	-- The child then appends its own connector (branch or last_branch).
+
+	local result = {} ---@type table<string, string>
+
+	for _, node in ipairs(nodes) do
+		if node.depth == 0 then
+			result[node.path] = pad
+			-- Continuation for depth-0 nodes: just padding (no connector at depth-0)
+			cache[node.path] = pad
+		else
+			local parent_cont = cache[node.parent] or pad
+			-- Own connector
+			local own = node.last and st.last_branch or st.branch
+			result[node.path] = parent_cont .. own
+			-- Continuation for children: what comes before child's own connector
+			local segment = node.last and st.indent or st.vertical
+			cache[node.path] = parent_cont .. segment
+		end
+	end
+
+	return result
+end
+
 --- Build the lines and highlight specs for the current tree state.
 --- Line 1 is always the root header; nodes occupy lines 2..N.
 ---@param nodes Beast.Explorer.Node[]
@@ -56,7 +91,7 @@ function M.build(nodes)
 	local hls = {} ---@type {line:integer,col_s:integer,col_e:integer,group:string}[]
 
 	-- Root header: " UPPERCASE-BASENAME" — no icon, plain text, visually distinct
-	local root_name = string.upper(vim.fn.fnamemodify(state.view.cwd, ":t"))
+	local root_name = string.upper(vim.fn.fnamemodify(state.tree.root.path, ":t"))
 	lines[1] = " " .. root_name
 	hls[#hls + 1] = { line = 0, col_s = 0, col_e = #lines[1], group = "BeastExplorerTitle" }
 
@@ -67,9 +102,12 @@ function M.build(nodes)
 		end
 	end
 
+	-- Build all prefixes in one pass (O(n) instead of O(n*depth))
+	local prefixes = M.build_prefixes(nodes)
+
 	for _, node in ipairs(nodes) do
 		local line_idx = #lines -- 0-indexed for extmarks
-		local prefix = M.build_prefix(node)
+		local prefix = prefixes[node.path]
 
 		-- Icon
 		local icon_str = ""

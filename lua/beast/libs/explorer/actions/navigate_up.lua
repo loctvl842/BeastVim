@@ -20,8 +20,6 @@ function M.run()
 
 	state.tree = Tree(parent)
 	state.tree:open(current_root)
-	state.view:set_title(parent)
-	state.view.cwd = parent
 	ui.render(function()
 		ui.focus_path(current_root)
 	end)
