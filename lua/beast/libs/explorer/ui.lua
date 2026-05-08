@@ -66,6 +66,15 @@ function M.create()
 	return ExplorerView(buf, win, ns)
 end
 
+--- Flatten the tree, build lines+highlights, write to the buffer.
+---@return Beast.Explorer.Node[]
+function M.flush()
+	local nodes = state.tree:flat({ show_hidden = config.show_hidden })
+	local lines, hls = render.build(nodes)
+	render.write(lines, hls)
+	return nodes
+end
+
 --- Write `nodes` into `view`'s buffer and apply highlight decorations.
 --- Line 1 is always the root header; nodes occupy lines 2..N.
 --- Safe to call even when the window has been closed externally.
@@ -80,9 +89,7 @@ function M.render(on_done)
 	local root_short = vim.fn.fnamemodify(state.tree.root.path, ":~")
 	pcall(vim.api.nvim_buf_set_name, state.view.buf, "Explorer: " .. root_short)
 
-	local nodes = state.tree:flat({ show_hidden = config.show_hidden })
-	local lines, hls = render.build(nodes)
-	render.write(lines, hls)
+	M.flush()
 
 	sticky.refresh()
 
@@ -98,19 +105,19 @@ function M.focus_path(path)
 	if not state.view or not state.view:is_valid() then return end
 
 	state.tree:open(path)
-	local nodes = state.tree:flat({ show_hidden = config.show_hidden })
+
+	local nodes = M.flush()
+
 	for i, node in ipairs(nodes) do
 		if node.path == path then
 			local line = i + 1 -- +1 for header
 			pcall(vim.api.nvim_win_set_cursor, state.view.win, { line, 0 })
-			-- Scroll window so the focused line is visible
 			vim.api.nvim_win_call(state.view.win, function()
 				vim.cmd("normal! zz")
 			end)
 			return
 		end
 	end
-	error("Path not found in explorer: " .. path)
 end
 
 function M.close()
