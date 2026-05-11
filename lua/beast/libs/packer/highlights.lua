@@ -31,5 +31,13 @@ Util.colors.set_hl("BeastPacker", {
 	Success = { fg = p.accent4 },
 	Error = { fg = p.accent1 },
 
-  Progress = { fg = p.accent3 }
+	Progress = { fg = p.accent3 },
+
+	-- Profile page
+	TableHeader = { fg = p.dimmed2, bold = true },
+	Bar = { fg = p.accent3 },
+	BarDim = { fg = p.dimmed3 },
+	SectionDivider = { fg = p.dimmed3 },
+	Checkpoint = { fg = p.accent4 },
+	SummaryLabel = { fg = p.dimmed2 },
 })

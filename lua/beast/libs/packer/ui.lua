@@ -26,11 +26,17 @@ local refresh_timer = nil
 ---@field backdrop Beast.View Backdrop window for dimming background
 ---@field sort_mode? "name"|"time"
 ---@field view_mode? "main"|"profile"|"help"
+---@field profile_sort? "total"|"packadd"|"config"|"name"|"chrono"
+---@field profile_filter_ms? number
+---@field profile_group_by_reason? boolean
 local MainView = View:extend(function(obj, ns, backdrop, sort_mode, view_mode)
 	obj.ns = ns
 	obj.backdrop = backdrop
 	obj.sort_mode = sort_mode or "name"
 	obj.view_mode = view_mode or "main"
+	obj.profile_sort = "total"
+	obj.profile_filter_ms = 0
+	obj.profile_group_by_reason = false
 end)
 
 ---@class Beast.Packer.UI.ActionView : Beast.View
@@ -460,34 +466,403 @@ function Main._render_main(main)
 	apply_segments(main, lines_segments)
 end
 
+-- =============================================================================
+-- PROFILE PAGE HELPERS
+-- =============================================================================
+
+local BAR_CHARS = { "█", "▉", "▊", "▋", "▌", "▍", "▎", "▏" }
+
+---@param ms number
+---@return string
+local function format_ms(ms)
+	return string.format("%.2f", ms or 0)
+end
+
+---@param value number
+---@param max number
+---@param width integer  number of cells
+---@return Beast.Packer.UI.Segment[]
+local function render_bar(value, max, width)
+	if not max or max <= 0 or width <= 0 or not value or value < 0 then
+		return { { text = string.rep(" ", width), hl = nil } }
+	end
+	local ratio = math.min(value / max, 1)
+	local total_eighths = math.floor(ratio * width * 8 + 0.5)
+	local full = math.floor(total_eighths / 8)
+	local remainder = total_eighths - full * 8
+	local bar = string.rep(BAR_CHARS[1], full)
+	if remainder > 0 and full < width then
+		bar = bar .. BAR_CHARS[9 - remainder]
+		full = full + 1
+	end
+	local pad = string.rep(" ", math.max(0, width - full))
+	return {
+		{ text = bar, hl = "BeastPackerBar" },
+		{ text = pad, hl = nil },
+	}
+end
+
+---@param title string
+---@param right_text? string
+---@param body_width integer
+---@return Beast.Packer.UI.Segment[]
+local function render_divider(title, right_text, body_width)
+	local left = "  " .. title .. " "
+	local right = right_text and (" " .. right_text .. " ") or ""
+	local fill = math.max(0, body_width - vim.fn.strdisplaywidth(left) - vim.fn.strdisplaywidth(right))
+	local segs = {
+		{ text = left, hl = "BeastPackerH2" },
+		{ text = string.rep("─", fill), hl = "BeastPackerSectionDivider" },
+	}
+	if right_text then
+		table.insert(segs, { text = right, hl = "BeastPackerComment" })
+	end
+	return segs
+end
+
+---@param s string
+---@param max integer
+---@return string
+local function truncate(s, max)
+	if vim.fn.strdisplaywidth(s) <= max then
+		return s
+	end
+	return string.sub(s, 1, math.max(0, max - 1)) .. "…"
+end
+
+---@return number
+local function compute_total_loaded_ms()
+	local sum = 0
+	for _, prof in profile.iter() do
+		sum = sum + (prof.total_ms or 0)
+	end
+	return sum
+end
+
+---@param main Beast.Packer.UI.MainView
+---@return { name: string, prof: Beast.Packer.LoadProfile }[]
+local function collect_loaded_profiles(main)
+	local list = {}
+	local threshold = main.profile_filter_ms or 0
+	for name, prof in profile.iter() do
+		if (prof.total_ms or 0) >= threshold then
+			table.insert(list, { name = name, prof = prof })
+		end
+	end
+	local mode = main.profile_sort or "total"
+	if mode == "name" then
+		table.sort(list, function(a, b) return a.name < b.name end)
+	elseif mode == "packadd" then
+		table.sort(list, function(a, b) return (a.prof.packadd_ms or 0) > (b.prof.packadd_ms or 0) end)
+	elseif mode == "config" then
+		table.sort(list, function(a, b) return (a.prof.config_ms or 0) > (b.prof.config_ms or 0) end)
+	elseif mode == "chrono" then
+		table.sort(list, function(a, b)
+			local la, lb = a.prof.loaded_at or math.huge, b.prof.loaded_at or math.huge
+			if la == lb then return a.name < b.name end
+			return la < lb
+		end)
+	else -- "total"
+		table.sort(list, function(a, b) return (a.prof.total_ms or 0) > (b.prof.total_ms or 0) end)
+	end
+	return list
+end
+
+---@param body_width integer
+---@return Beast.Packer.UI.Segment[][]
+local function render_timeline(body_width)
+	---@type Beast.Packer.UI.Segment[][]
+	local lines = {}
+	table.insert(lines, render_divider("Timeline", nil, body_width))
+	local phases = profile.phases or {}
+	local order = { "early_cs", "pack_add" }
+	local labels = {
+		early_cs = "Early colorscheme",
+		pack_add = "vim.pack.add",
+	}
+	local any = false
+	for _, key in ipairs(order) do
+		local p = phases[key]
+		if p and p.ms and p.ms > 0 then
+			any = true
+			table.insert(lines, {
+				{ text = "    ", hl = nil },
+				{ text = config.ui.icons.loaded .. " ", hl = "BeastPackerCheckpoint" },
+				{ text = labels[key] .. "  ", hl = "BeastPackerSummaryLabel" },
+				{ text = string.format("%sms", format_ms(p.ms)), hl = "BeastPackerComment" },
+			})
+		end
+	end
+	if not any then
+		table.insert(lines, { { text = "    (no phase data yet)", hl = "BeastPackerComment" } })
+	end
+	table.insert(lines, { { text = "", hl = nil } })
+	return lines
+end
+
+---@param total_ms number
+---@param loaded_count integer
+---@param phase_total_ms number
+---@param sort_label string
+---@param filter_ms number
+---@param grouped boolean
+---@return Beast.Packer.UI.Segment[][]
+local function render_summary(total_ms, loaded_count, phase_total_ms, sort_label, filter_ms, grouped)
+	---@type Beast.Packer.UI.Segment[][]
+	local lines = {}
+	table.insert(lines, {
+		{ text = "  Total plugin time: ", hl = "BeastPackerSummaryLabel" },
+		{ text = format_ms(total_ms) .. " ms", hl = "BeastPackerTitle" },
+		{ text = "    Plugins: ", hl = "BeastPackerSummaryLabel" },
+		{ text = tostring(loaded_count), hl = nil },
+		{ text = "    Phases: ", hl = "BeastPackerSummaryLabel" },
+		{ text = format_ms(phase_total_ms) .. " ms", hl = nil },
+	})
+	local filter_text = (filter_ms and filter_ms > 0) and (">= " .. filter_ms .. "ms") or "off"
+	table.insert(lines, {
+		{ text = "  Sort: ", hl = "BeastPackerSummaryLabel" },
+		{ text = sort_label, hl = nil },
+		{ text = "    Filter: ", hl = "BeastPackerSummaryLabel" },
+		{ text = filter_text, hl = nil },
+		{ text = "    Group: ", hl = "BeastPackerSummaryLabel" },
+		{ text = grouped and "by reason" or "off", hl = nil },
+	})
+	table.insert(lines, { { text = "", hl = nil } })
+	return lines
+end
+
+---@param compact boolean
+---@return Beast.Packer.UI.Segment[]
+local function render_table_header(compact)
+	if compact then
+		return {
+			{ text = "    ", hl = nil },
+			{ text = string.format("%-26s%9s%9s%9s  %s", "NAME", "TOTAL", "PACKADD", "CONFIG", "REASON"), hl = "BeastPackerTableHeader" },
+		}
+	end
+	return {
+		{ text = "    ", hl = nil },
+		{
+			text = string.format(
+				"%-26s%9s%9s%7s%9s%14s  %s",
+				"NAME", "TOTAL", "PACKADD", "INIT", "CONFIG", "%", "REASON"
+			),
+			hl = "BeastPackerTableHeader",
+		},
+	}
+end
+
+---@param item { name: string, prof: Beast.Packer.LoadProfile }
+---@param max_total number
+---@param total_ms number
+---@param compact boolean
+---@return Beast.Packer.UI.Segment[]
+local function render_table_row(item, max_total, total_ms, compact)
+	local prof = item.prof
+	local total = prof.total_ms or 0
+	local packadd = prof.packadd_ms or 0
+	local init = prof.init_ms or 0
+	local cfg = prof.config_ms or 0
+	local segs = {
+		{ text = "    ", hl = nil },
+		{ text = string.format("%-26s", truncate(item.name, 26)), hl = "BeastPackerPlugin" },
+		{ text = string.format("%8sms", format_ms(total)), hl = "BeastPackerComment" },
+		{ text = string.format("%8sms", format_ms(packadd)), hl = "BeastPackerComment" },
+	}
+	if not compact then
+		table.insert(segs, { text = string.format("%6s", format_ms(init)), hl = "BeastPackerComment" })
+	end
+	table.insert(segs, { text = string.format("%8sms", format_ms(cfg)), hl = "BeastPackerComment" })
+	if not compact then
+		table.insert(segs, { text = "  ", hl = nil })
+		for _, b in ipairs(render_bar(total, max_total, 8)) do
+			table.insert(segs, b)
+		end
+		local pct = (total_ms > 0) and math.floor(total / total_ms * 100 + 0.5) or 0
+		table.insert(segs, { text = string.format(" %3d%%", pct), hl = "BeastPackerComment" })
+	end
+	local reason_seg = format_reason(prof.reason)
+	if reason_seg then
+		table.insert(segs, reason_seg)
+	end
+	return segs
+end
+
+---@param body_width integer
+---@param items { name: string, prof: Beast.Packer.LoadProfile }[]
+---@param total_ms number
+---@param compact boolean
+---@return Beast.Packer.UI.Segment[][]
+local function render_plugins_table(body_width, items, total_ms, compact)
+	---@type Beast.Packer.UI.Segment[][]
+	local lines = {}
+	table.insert(lines, render_divider("Plugins", "loaded " .. #items, body_width))
+	if #items == 0 then
+		table.insert(lines, { { text = "    (no plugins match the current filter)", hl = "BeastPackerComment" } })
+		table.insert(lines, { { text = "", hl = nil } })
+		return lines
+	end
+	local max_total = 0
+	for _, it in ipairs(items) do
+		if (it.prof.total_ms or 0) > max_total then max_total = it.prof.total_ms end
+	end
+	table.insert(lines, render_table_header(compact))
+	for _, it in ipairs(items) do
+		table.insert(lines, render_table_row(it, max_total, total_ms, compact))
+	end
+	table.insert(lines, { { text = "", hl = nil } })
+	return lines
+end
+
+---@param items { name: string, prof: Beast.Packer.LoadProfile }[]
+---@return table<string, { items: { name: string, prof: Beast.Packer.LoadProfile }[], total: number }>, string[]
+local function group_by_reason(items)
+	local groups = {}
+	local order = {}
+	for _, it in ipairs(items) do
+		local r = it.prof.reason
+		local key = r and r.type or "manual"
+		if not groups[key] then
+			groups[key] = { items = {}, total = 0 }
+			table.insert(order, key)
+		end
+		table.insert(groups[key].items, it)
+		groups[key].total = groups[key].total + (it.prof.total_ms or 0)
+	end
+	table.sort(order, function(a, b) return groups[a].total > groups[b].total end)
+	return groups, order
+end
+
+---@param body_width integer
+---@param items { name: string, prof: Beast.Packer.LoadProfile }[]
+---@param total_ms number
+---@param compact boolean
+---@return Beast.Packer.UI.Segment[][]
+local function render_grouped_plugins(body_width, items, total_ms, compact)
+	---@type Beast.Packer.UI.Segment[][]
+	local lines = {}
+	local groups, order = group_by_reason(items)
+	if #order == 0 then
+		table.insert(lines, render_divider("Plugins", "loaded 0", body_width))
+		table.insert(lines, { { text = "    (no plugins match the current filter)", hl = "BeastPackerComment" } })
+		table.insert(lines, { { text = "", hl = nil } })
+		return lines
+	end
+	for _, key in ipairs(order) do
+		local g = groups[key]
+		local label = key:sub(1, 1):upper() .. key:sub(2)
+		local right = string.format("%d • %sms", #g.items, format_ms(g.total))
+		table.insert(lines, render_divider(label, right, body_width))
+		table.insert(lines, render_table_header(compact))
+		local max_total = 0
+		for _, it in ipairs(g.items) do
+			if (it.prof.total_ms or 0) > max_total then max_total = it.prof.total_ms end
+		end
+		for _, it in ipairs(g.items) do
+			table.insert(lines, render_table_row(it, max_total, total_ms, compact))
+		end
+		table.insert(lines, { { text = "", hl = nil } })
+	end
+	return lines
+end
+
+---@param body_width integer
+---@return Beast.Packer.UI.Segment[][]
+local function render_not_loaded(body_width)
+	local pending = {}
+	for _, spec in pairs(state.plugins) do
+		if state.installed_plugins[spec.name] and not state.loaded_plugins[spec.name] then
+			table.insert(pending, spec)
+		end
+	end
+	---@type Beast.Packer.UI.Segment[][]
+	local lines = {}
+	if #pending == 0 then
+		return lines
+	end
+	table.sort(pending, function(a, b) return a.name < b.name end)
+	table.insert(lines, render_divider("Not loaded", tostring(#pending), body_width))
+	for _, spec in ipairs(pending) do
+		---@type Beast.Packer.UI.Segment[]
+		local segs = {
+			{ text = "    ", hl = nil },
+			{ text = string.format("%-30s", truncate(spec.name, 30)), hl = "BeastPackerPlugin" },
+		}
+		local trigger
+		if type(spec.lazy) == "table" then
+			local lazy = spec.lazy
+			local function first_of(v)
+				if type(v) == "string" then return v end
+				if type(v) == "table" then return v[1] end
+				return nil
+			end
+			if lazy.event then
+				trigger = { text = "  " .. config.ui.icons.event .. (first_of(lazy.event) or "event"), hl = "BeastPackerTriggerEvent" }
+			elseif lazy.cmd then
+				trigger = { text = "  " .. config.ui.icons.cmd .. (first_of(lazy.cmd) or "cmd"), hl = "BeastPackerTriggerCmd" }
+			elseif lazy.keys then
+				local k = first_of(lazy.keys)
+				if type(k) == "table" then k = k[1] or k.lhs end
+				trigger = { text = "  " .. config.ui.icons.keys .. (k or "keys"), hl = "BeastPackerTriggerKeys" }
+			elseif lazy.module then
+				trigger = { text = "  " .. config.ui.icons.module .. (first_of(lazy.module) or "?"), hl = "BeastPackerTriggerModule" }
+			elseif lazy.filetype then
+				trigger = { text = "  " .. config.ui.icons.filetype .. (first_of(lazy.filetype) or "ft"), hl = "BeastPackerTriggerFiletype" }
+			elseif lazy.path then
+				trigger = { text = "  " .. config.ui.icons.path .. (first_of(lazy.path) or "path"), hl = "BeastPackerTriggerPath" }
+			end
+		elseif spec.lazy == false then
+			trigger = { text = "  " .. config.ui.icons.eager .. "Eager", hl = "BeastPackerTriggerEager" }
+		else
+			trigger = { text = "  " .. config.ui.icons.lazy .. "Manual", hl = "BeastPackerComment" }
+		end
+		if trigger then table.insert(segs, trigger) end
+		table.insert(lines, segs)
+	end
+	table.insert(lines, { { text = "", hl = nil } })
+	return lines
+end
+
 function Main._render_profile(main)
-  -- stylua: ignore
-  if not main:is_valid() then return end
+	-- stylua: ignore
+	if not main:is_valid() then return end
+
+	local win_w = vim.api.nvim_win_get_width(main.win)
+	local body_width = math.max(40, win_w - 4)
+	local compact = win_w < 100
+
+	local items = collect_loaded_profiles(main)
+	local total_ms = compute_total_loaded_ms()
+	local phase_total_ms = 0
+	for _, p in pairs(profile.phases or {}) do
+		phase_total_ms = phase_total_ms + (p.ms or 0)
+	end
+
+	local sort_label = main.profile_sort or "total"
 
 	---@type Beast.Packer.UI.Segment[][]
-	local lines_segments = {}
-	---@type Beast.Packer.UI.Segment
-	local new_line = { text = "", hl = nil }
+	local lines_segments = { { { text = "", hl = nil } } }
 
-	table.insert(lines_segments, { new_line })
+	for _, l in ipairs(render_summary(total_ms, #items, phase_total_ms, sort_label, main.profile_filter_ms or 0, main.profile_group_by_reason or false)) do
+		table.insert(lines_segments, l)
+	end
 
-	local profiles = {}
-	for name, prof in profile.iter() do
-		if prof.total_ms and prof.total_ms > 0 then
-			table.insert(profiles, { name = name, prof = prof })
+	for _, l in ipairs(render_timeline(body_width)) do
+		table.insert(lines_segments, l)
+	end
+
+	if main.profile_group_by_reason then
+		for _, l in ipairs(render_grouped_plugins(body_width, items, total_ms, compact)) do
+			table.insert(lines_segments, l)
+		end
+	else
+		for _, l in ipairs(render_plugins_table(body_width, items, total_ms, compact)) do
+			table.insert(lines_segments, l)
 		end
 	end
 
-	table.sort(profiles, function(a, b)
-		return (a.prof.total_ms or 0) > (b.prof.total_ms or 0)
-	end)
-
-	for _, item in ipairs(profiles) do
-		local segments = {}
-		table.insert(segments, { text = "  ", hl = nil })
-		table.insert(segments, { text = item.name, hl = "BeastPackerPlugin" })
-		table.insert(segments, { text = string.format("  %.1fms", item.prof.total_ms), hl = "BeastPackerComment" })
-		table.insert(lines_segments, segments)
+	for _, l in ipairs(render_not_loaded(body_width)) do
+		table.insert(lines_segments, l)
 	end
 
 	apply_segments(main, lines_segments)
@@ -502,8 +877,10 @@ function Main._render_help(main)
 	local new_line = { text = "", hl = nil }
 
 	table.insert(lines_segments, { new_line })
-	table.insert(lines_segments, { { text = "  S - Toggle sort (name/time)", hl = "BeastPackerComment" } })
-	table.insert(lines_segments, { { text = "  P - Show profile", hl = "BeastPackerComment" } })
+	table.insert(lines_segments, { { text = "  S - Toggle sort", hl = "BeastPackerComment" } })
+	table.insert(lines_segments, { { text = "  F - Cycle filter (>= 0/1/5/10/50 ms)", hl = "BeastPackerComment" } })
+	table.insert(lines_segments, { { text = "  G - Toggle group by load reason", hl = "BeastPackerComment" } })
+	table.insert(lines_segments, { { text = "  P - Toggle profile view", hl = "BeastPackerComment" } })
 	table.insert(lines_segments, { { text = "  ? - Show help", hl = "BeastPackerComment" } })
 	table.insert(lines_segments, { { text = "  Q - Close", hl = "BeastPackerComment" } })
 
@@ -653,6 +1030,7 @@ local function layout_state()
 	if state_data:is_valid() then
 		Main.layout(state_data.main)
 		Action.layout(state_data.action, state_data.main)
+    render_state()
 	end
 end
 
@@ -671,11 +1049,39 @@ local actions = setmetatable({}, {
 	end,
 })
 
-function _actions_handler.sort()
-	if state_data:is_valid() then
-		state_data.main.sort_mode = state_data.main.sort_mode == "name" and "time" or "name"
-		render_state()
+local PROFILE_SORT_CYCLE = { "total", "packadd", "config", "name", "chrono" }
+local FILTER_THRESHOLDS = { 0, 1, 5, 10, 50 }
+
+local function next_in_cycle(value, cycle)
+	for i, v in ipairs(cycle) do
+		if v == value then
+			return cycle[(i % #cycle) + 1]
+		end
 	end
+	return cycle[1]
+end
+
+function _actions_handler.sort()
+	if not state_data:is_valid() then return end
+	local main = state_data.main
+	if main.view_mode == "profile" then
+		main.profile_sort = next_in_cycle(main.profile_sort or "total", PROFILE_SORT_CYCLE)
+	else
+		main.sort_mode = main.sort_mode == "name" and "time" or "name"
+	end
+	render_state()
+end
+
+function _actions_handler.filter_cycle()
+	if not state_data:is_valid() then return end
+	state_data.main.profile_filter_ms = next_in_cycle(state_data.main.profile_filter_ms or 0, FILTER_THRESHOLDS)
+	render_state()
+end
+
+function _actions_handler.group_toggle()
+	if not state_data:is_valid() then return end
+	state_data.main.profile_group_by_reason = not state_data.main.profile_group_by_reason
+	render_state()
 end
 
 function _actions_handler.view_profile()

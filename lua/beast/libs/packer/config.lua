@@ -48,6 +48,20 @@ local defaults = {
 				on_press = "sort",
 			},
 			{
+				keys = { "F" },
+				label = "Filter",
+				key_hl = "DiagnosticHint",
+				label_hl = "Comment",
+				on_press = "filter_cycle",
+			},
+			{
+				keys = { "G" },
+				label = "Group",
+				key_hl = "DiagnosticHint",
+				label_hl = "Comment",
+				on_press = "group_toggle",
+			},
+			{
 				keys = { "P" },
 				label = "Profile",
 				key_hl = "DiagnosticWarn",
