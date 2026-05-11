@@ -4,6 +4,7 @@
 ---@field key_hl string
 ---@field label_hl string
 ---@field on_press string
+---@field views string[] View modes where this action is visible (e.g. {"main", "profile"})
 
 ---@class Beast.Packer.Colorscheme
 ---@field name string Colorscheme name passed to `:colorscheme <name>`
@@ -46,6 +47,7 @@ local defaults = {
 				key_hl = "DiagnosticInfo",
 				label_hl = "Comment",
 				on_press = "sort",
+				views = { "main", "profile" },
 			},
 			{
 				keys = { "F" },
@@ -53,6 +55,7 @@ local defaults = {
 				key_hl = "DiagnosticHint",
 				label_hl = "Comment",
 				on_press = "filter_cycle",
+				views = { "profile" },
 			},
 			{
 				keys = { "G" },
@@ -60,6 +63,7 @@ local defaults = {
 				key_hl = "DiagnosticHint",
 				label_hl = "Comment",
 				on_press = "group_toggle",
+				views = { "profile" },
 			},
 			{
 				keys = { "P" },
@@ -67,6 +71,7 @@ local defaults = {
 				key_hl = "DiagnosticWarn",
 				label_hl = "Comment",
 				on_press = "view_profile",
+				views = { "main", "profile", "help" },
 			},
 			{
 				keys = { "?", "H" },
@@ -74,6 +79,7 @@ local defaults = {
 				key_hl = "DiagnosticOk",
 				label_hl = "Comment",
 				on_press = "view_help",
+				views = { "main", "profile" },
 			},
 			{
 				keys = { "q", "<Esc>" },
@@ -81,6 +87,7 @@ local defaults = {
 				key_hl = "DiagnosticError",
 				label_hl = "Comment",
 				on_press = "close",
+				views = { "main", "profile", "help" },
 			},
 		},
 	},

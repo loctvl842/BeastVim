@@ -118,12 +118,33 @@ local function calc_action_width(actions)
 	return math.max(max_len_key + max_len_label + 1, 2) + 2
 end
 
+---@param view_mode string
+---@return Beast.Packer.UI.Action[]
+local function actions_for_view(view_mode)
+	local result = {}
+	for _, a in ipairs(config.ui.actions) do
+		if a.views then
+			for _, v in ipairs(a.views) do
+				if v == view_mode then
+					table.insert(result, a)
+					break
+				end
+			end
+		else
+			table.insert(result, a)
+		end
+	end
+	return result
+end
+
 ---@param main_win integer
+---@param view_mode string
 ---@return integer width, integer height, integer row, integer col
-local function calc_action_geometry(main_win)
+local function calc_action_geometry(main_win, view_mode)
 	local main_cfg = vim.api.nvim_win_get_config(main_win)
-	local width = calc_action_width(config.ui.actions)
-	local height = math.max(#config.ui.actions, 1)
+	local visible = actions_for_view(view_mode)
+	local width = calc_action_width(visible)
+	local height = math.max(#visible, 1)
 
 	local row = -1 -- offset into the winbar row
 	local col = math.max((main_cfg.width or width) - width - 2, 0)
@@ -906,7 +927,7 @@ local Action = {}
 ---@return Beast.Packer.UI.ActionView
 function Action.create(main)
 	local buf = Buffer.new("beast-packer-actions")
-	local width, height, row, col = calc_action_geometry(main.win)
+	local width, height, row, col = calc_action_geometry(main.win, main.view_mode or "main")
 
 	local win = vim.api.nvim_open_win(buf, false, {
 		relative = "win",
@@ -935,7 +956,7 @@ function Action.layout(action, main)
 		return
 	end
 
-	local width, height, row, col = calc_action_geometry(main.win)
+	local width, height, row, col = calc_action_geometry(main.win, main.view_mode or "main")
 
 	vim.api.nvim_win_set_config(action.win, {
 		relative = "win",
@@ -948,25 +969,27 @@ function Action.layout(action, main)
 end
 
 ---@param action Beast.Packer.UI.ActionView
-function Action.render(action)
+---@param view_mode string
+function Action.render(action, view_mode)
   -- stylua: ignore
   if not action:is_valid() then return end
 
 	vim.api.nvim_buf_clear_namespace(action.buf, action.ns, 0, -1)
 
-	local max_keys_width = get_max_keys_width(config.ui.actions)
-	for i, a in ipairs(config.ui.actions) do
+	local visible = actions_for_view(view_mode)
+	local max_keys_width = get_max_keys_width(visible)
+
+	-- Clear buffer to match visible action count
+	vim.bo[action.buf].modifiable = true
+	local lines = {}
+	for _ = 1, math.max(#visible, 1) do
+		table.insert(lines, "")
+	end
+	vim.api.nvim_buf_set_lines(action.buf, 0, -1, false, lines)
+	vim.bo[action.buf].modifiable = false
+
+	for i, a in ipairs(visible) do
 		local line0 = i - 1
-		local line_count = vim.api.nvim_buf_line_count(action.buf)
-
-		if line0 >= line_count then
-			vim.bo[action.buf].modifiable = true
-			for _ = line_count, line0 do
-				vim.api.nvim_buf_set_lines(action.buf, -1, -1, false, { "" })
-			end
-			vim.bo[action.buf].modifiable = false
-		end
-
 		local keys = keys_to_string(a.keys)
 		local padded_keys = string.format("%-" .. max_keys_width .. "s", keys)
 		vim.api.nvim_buf_set_extmark(action.buf, action.ns, line0, 0, {
@@ -990,7 +1013,8 @@ end
 local render_state = function()
 	if state_data:is_valid() then
 		Main.render(state_data.main)
-		Action.render(state_data.action)
+		Action.layout(state_data.action, state_data.main)
+		Action.render(state_data.action, state_data.main.view_mode or "main")
 	end
 end
 
