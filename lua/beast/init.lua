@@ -4,16 +4,28 @@ local M = {}
 ---@field key? Beast.Key.Config
 ---@field notify? Beast.Notify.Config
 ---@field toast? table
+---@field explorer? Beast.Explorer.Config
 ---@field packer? Beast.Packer.Config
 local defaults = {
 	key = {},
 	notify = {},
 	toast = { disabled = false },
+	explorer = {
+		icon = {
+			dir_open = "󰝰", -- nf-md-folder_open
+			dir_closed = "󰉋", -- nf-md-folder
+		},
+		mappings = {
+			["l"] = "open",
+		},
+	},
 	packer = {
 		colorscheme = { name = "monokai-pro", plugin = "monokai-pro.nvim" },
+		-- colorscheme = { name = "tokyonight", plugin = "tokyonight.nvim" },
 		spec = {
 			{ import = "beast.plugins" },
 		},
+		ui = {},
 	},
 }
 
@@ -58,28 +70,10 @@ function M.setup(opts)
 
 	require("beast.libs.confirm").setup()
 
-	local explorer = require("beast.libs.explorer")
-	explorer.setup({
-		style = "classic",
-		width = 40, -- panel columns
-		side = "left", -- "left" | "right"
-		show_hidden = false, -- toggle with your own keymap later
-		icons = true, -- requires nvim-web-devicons
-		git = true, -- async git status
-		icon = {
-			dir_open = "󰝰", -- nf-md-folder_open
-			dir_closed = "󰉋", -- nf-md-folder
-		},
-		mappings = {
-			["l"] = "open",
-		},
-	})
-	Key.safe_set("n", "<leader>e", explorer.toggle, { desc = "Toggle explorer panel", group = "Explorer" })
-
 	local packer = require("beast.libs.packer")
 
-  -- stylua: ignore
-  _G.gh = function(x) return "https://github.com/" .. x end
+	-- stylua: ignore
+	_G.gh = function(x) return "https://github.com/" .. x end
 	---@type Beast.Packer.Config
 	packer.setup(cfg.packer)
 
@@ -91,16 +85,49 @@ function M.setup(opts)
 		right = { cpn.git_commit, cpn.position, cpn.filetype, cpn.shiftwidth, cpn.encoding, cpn.mode },
 	})
 
+	-- Tabline (lazy — deferred past first screen update)
+	packer.lazy("beast.libs.tabline", {
+		event = "VimEnter",
+		defer = true,
+		highlights = "beast.libs.tabline.highlights",
+		setup = function(tabline)
+			tabline.setup({
+				max_name_width = 30,
+				min_cell_width = 18,
+				sidebar_filetypes = { ["beast-explorer"] = "EXPLORER" },
+				show_close_button = true,
+				show_modified = true,
+				show_diagnostics = true,
+			})
+		end,
+	})
+
+	-- Explorer (lazy — deferred to first <leader>e press)
+	packer.lazy("beast.libs.explorer", {
+		keys = { {
+			"<leader>e",
+			function()
+				require("beast.libs.explorer").toggle()
+			end,
+			desc = "Toggle explorer panel",
+			group = "Explorer",
+		} },
+		highlights = "beast.libs.explorer.highlights",
+		setup = function(explorer)
+			explorer.setup(cfg.explorer)
+		end,
+	})
+
 	-- Initial palette extraction (colorscheme should be loaded by packer)
 	Palette.refresh()
 	M.reload_highlights()
 end
 
 --- Registry of highlight modules to reload on ColorScheme change.
+--- Lazy-loaded libs register their highlights dynamically via packer.lazy().
 ---@type string[]
 M.highlight_modules = {
 	"beast.libs.confirm.highlights",
-	"beast.libs.explorer.highlights",
 	"beast.libs.key.highlights",
 	"beast.libs.packer.highlights",
 	"beast.libs.notify.highlights",
@@ -108,10 +135,15 @@ M.highlight_modules = {
 }
 
 --- Reload all Beast lib highlights.
+--- Skips modules whose parent lib hasn't been loaded yet.
 function M.reload_highlights()
 	for _, mod_name in ipairs(M.highlight_modules) do
+		local parent = mod_name:gsub("%.highlights$", "")
+		-- stylua: ignore
+		if not package.loaded[parent] then goto continue end
 		package.loaded[mod_name] = nil
 		pcall(require, mod_name)
+		::continue::
 	end
 end
 

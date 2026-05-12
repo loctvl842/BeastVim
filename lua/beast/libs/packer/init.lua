@@ -406,4 +406,67 @@ function M.setup(opts)
 	M.install_module_loader()
 end
 
+-- ================================
+-- Lazy loading for Beast libraries
+-- ================================
+
+---@class Beast.Packer.LazyLibOpts
+---@field event? string|string[] Event trigger(s)
+---@field keys? Beast.KeymapSpec|Beast.KeymapSpec[]|string|string[] Key trigger(s)
+---@field filetype? string|string[] Filetype trigger(s)
+---@field setup fun(lib: table) Called after require(mod), receives the module
+---@field highlights? string Highlight module to register for ColorScheme reload
+---@field defer? boolean Wrap load in vim.schedule() to run after startup completes
+
+--- Lazy-load a Beast library using the same trigger infrastructure as plugins.
+--- Instead of packadd, the load action is require(mod) + opts.setup(lib).
+---@param mod string Lua module path (e.g. "beast.libs.tabline")
+---@param opts Beast.Packer.LazyLibOpts
+function M.lazy(mod, opts)
+	local loaded = false
+
+	local function do_load()
+		-- stylua: ignore
+		if loaded then return end
+		loaded = true
+
+		local lib = require(mod)
+		if opts.setup then
+			opts.setup(lib)
+		end
+
+		-- Register highlight module for ColorScheme reload
+		if opts.highlights then
+			local beast = require("beast")
+			if not vim.tbl_contains(beast.highlight_modules, opts.highlights) then
+				table.insert(beast.highlight_modules, opts.highlights)
+			end
+			-- Apply highlights immediately for current colorscheme
+			pcall(require, opts.highlights)
+		end
+	end
+
+	local function load_lib()
+		if opts.defer then
+			vim.schedule(do_load)
+		else
+			do_load()
+		end
+	end
+
+	local spec = { name = mod }
+
+	if opts.event then
+		event_trigger.setup(spec, opts.event, load_lib)
+	end
+
+	if opts.keys then
+		keys_trigger.setup(spec, opts.keys, load_lib)
+	end
+
+	if opts.filetype then
+		filetype_trigger.setup(spec, opts.filetype, load_lib)
+	end
+end
+
 return M
