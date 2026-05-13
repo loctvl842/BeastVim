@@ -18,7 +18,7 @@ local installing = {}
 ---@param lang string
 ---@return boolean
 local function has_parser(lang)
-	local ok = pcall(vim.treesitter.language.add, lang)
+	local ok = pcall(vim.treesitter.language.inspect, lang)
 	return ok
 end
 
@@ -33,9 +33,14 @@ local function get_lang(buf)
 	return ok and lang or ft
 end
 
+-- Forward declaration (ensure_parser callback references start_buf)
+local start_buf
+
 --- Attempt async parser installation for a language.
+--- After successful install, re-triggers start_buf on all matching buffers.
 ---@param lang string
-local function ensure_parser(lang)
+---@param buf number The buffer that triggered this install
+local function ensure_parser(lang, buf)
 	-- stylua: ignore
 	if installing[lang] then return end
 	-- stylua: ignore
@@ -54,19 +59,31 @@ local function ensure_parser(lang)
 
 	installing[lang] = true
 
-	-- Use builtin install (Neovim 0.12+)
-	local ok, err = pcall(vim.treesitter.install, lang)
-	if not ok then
-		installing[lang] = nil -- allow retry on transient failures
-		vim.schedule(function()
+	local parser_info = require("beast.libs.treesitter.parsers").get(lang)
+	local install = require("beast.libs.treesitter.install")
+
+	install.install(lang, parser_info.url, parser_info.revision, { location = parser_info.location }, function(ok, err)
+		if not ok then
+			installing[lang] = nil -- allow retry on transient failures
 			vim.notify(string.format("[beast.treesitter] Failed to install parser for '%s': %s", lang, tostring(err)), vim.log.levels.WARN)
-		end)
-	end
+			return
+		end
+
+		-- Re-trigger start_buf on buffers waiting for this parser
+		for _, b in ipairs(vim.api.nvim_list_bufs()) do
+			if vim.api.nvim_buf_is_loaded(b) and not started[b] then
+				local ft_lang = get_lang(b)
+				if ft_lang == lang then
+					start_buf(b)
+				end
+			end
+		end
+	end)
 end
 
 --- Start treesitter highlighting (and optionally folding) for a buffer.
 ---@param buf number
-local function start_buf(buf)
+start_buf = function(buf)
 	-- stylua: ignore
 	if started[buf] then return end
 	-- stylua: ignore
@@ -77,7 +94,7 @@ local function start_buf(buf)
 	if not lang then return end
 
 	-- Try installing if configured
-	ensure_parser(lang)
+	ensure_parser(lang, buf)
 
 	-- Only start if parser is available
 	-- stylua: ignore
@@ -104,6 +121,17 @@ end
 
 function M.setup(opts)
 	config.setup(opts)
+	-- Invalidate scope_types lookup when config changes
+	require("beast.libs.treesitter.scope").invalidate()
+end
+
+--- Find the innermost scope node at a given position.
+--- Delegates to scope.lua — this is the public API other libs call.
+---@param bufnr number
+---@param pos? {[1]: number, [2]: number} 0-indexed {row, col}; defaults to cursor
+---@return Beast.Treesitter.Scope?
+function M.scope(bufnr, pos)
+	return require("beast.libs.treesitter.scope").get(bufnr, pos)
 end
 
 function M.enable()
