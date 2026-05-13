@@ -1,8 +1,12 @@
 vim.g.mapleader = " "
 vim.g.maplocalleader = "\\"
+-- Cap matchparen search time (default 300ms). On large files the bracket-match
+-- scan fires every CursorMoved and can stall the editor. 100ms / 30ms keeps
+-- highlighting responsive without blocking input.
+vim.g.matchparen_timeout = 100
+vim.g.matchparen_insert_timeout = 30
 
 local o = vim.opt
-
 -- stylua: ignore start
 o.backup            = false                             -- creates a backup file
 o.clipboard         = "unnamedplus"                     -- allows neovim to access the system clipboard

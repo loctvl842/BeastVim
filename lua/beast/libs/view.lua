@@ -17,10 +17,7 @@ end
 
 ---@return boolean
 function M:is_valid()
-	return self.buf ~= nil
-		and self.win ~= nil
-		and vim.api.nvim_buf_is_valid(self.buf)
-		and vim.api.nvim_win_is_valid(self.win)
+	return self.buf ~= nil and self.win ~= nil and vim.api.nvim_buf_is_valid(self.buf) and vim.api.nvim_win_is_valid(self.win)
 end
 
 function M:close()

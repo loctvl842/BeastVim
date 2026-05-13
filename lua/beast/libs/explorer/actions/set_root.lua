@@ -1,6 +1,6 @@
 local Tree = require("beast.libs.explorer.tree")
-local state = require("beast.libs.explorer.state")
 local config = require("beast.libs.explorer.config")
+local state = require("beast.libs.explorer.state")
 local ui = require("beast.libs.explorer.ui")
 
 local M = setmetatable({}, {

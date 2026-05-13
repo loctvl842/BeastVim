@@ -44,7 +44,7 @@ function M.current_node(opts)
   -- stylua: ignore
   if not ok then return end
 
-  local shift = 1 -- post[1] is shift by 1 line (due to root header)
+	local shift = 1 -- post[1] is shift by 1 line (due to root header)
 	return nodes[pos[1] - shift] -- row 1 = header, row 2 = nodes[1]
 end
 

@@ -156,8 +156,7 @@ local function build(entries, width)
 			if #prefix > 0 then
 				hls[#hls + 1] = { line = line_idx, col_s = 0, col_e = #prefix, group = "BeastExplorerIndent" }
 			end
-			hls[#hls + 1] =
-				{ line = line_idx, col_s = #prefix, col_e = #prefix + #icon, group = "BeastExplorerDir" }
+			hls[#hls + 1] = { line = line_idx, col_s = #prefix, col_e = #prefix + #icon, group = "BeastExplorerDir" }
 		end
 	end
 

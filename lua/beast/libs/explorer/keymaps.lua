@@ -1,5 +1,5 @@
-local state = require("beast.libs.explorer.state")
 local config = require("beast.libs.explorer.config")
+local state = require("beast.libs.explorer.state")
 
 local M = {}
 

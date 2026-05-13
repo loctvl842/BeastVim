@@ -1,7 +1,7 @@
-local state = require("beast.libs.explorer.state")
 local config = require("beast.libs.explorer.config")
-local ui = require("beast.libs.explorer.ui")
 local prompt = require("beast.libs.explorer.prompt")
+local state = require("beast.libs.explorer.state")
+local ui = require("beast.libs.explorer.ui")
 
 local uv = vim.uv or vim.loop
 local M = setmetatable({}, {

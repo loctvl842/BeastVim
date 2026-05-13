@@ -36,8 +36,12 @@ function methods.add_phase_time(name, delta_ms)
 	local p = phases[name] or { ms = 0, calls = 0, min = math.huge, max = 0 }
 	p.ms = p.ms + delta_ms
 	p.calls = p.calls + 1
-	if delta_ms < p.min then p.min = delta_ms end
-	if delta_ms > p.max then p.max = delta_ms end
+	if delta_ms < p.min then
+		p.min = delta_ms
+	end
+	if delta_ms > p.max then
+		p.max = delta_ms
+	end
 	phases[name] = p
 end
 

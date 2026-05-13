@@ -30,7 +30,7 @@ local profile = require("beast.libs.packer.profile")
 ---@class Beast.Packer.State
 local M = {
 	plugins = {}, ---@type table<string, Beast.Packer.PluginSpec> All plugins
-  installed_plugins = {}, ---@type table<string, boolean> Plugins that have been installed
+	installed_plugins = {}, ---@type table<string, boolean> Plugins that have been installed
 	loaded_plugins = {}, ---@type table<string, boolean> Plugins that have been loaded
 	module_to_plugin = {}, ---@type table<string, string> Map module names to plugin names
 }
@@ -119,11 +119,11 @@ end
 --- Get total number of plugins
 ---@return integer
 function M.total()
-  local total = 0
-  for _ in pairs(M.plugins) do
-    total = total + 1
-  end
-  return total
+	local total = 0
+	for _ in pairs(M.plugins) do
+		total = total + 1
+	end
+	return total
 end
 
 --- Install the module loader into package.loaders

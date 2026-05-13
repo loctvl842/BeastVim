@@ -18,6 +18,6 @@ return {
 		local result = get_filetype(ctx)
     -- stylua: ignore
 		if not result then return {} end
-    return { { text = result, hl = { fg = "accent5" } } }
+		return { { text = result, hl = { fg = "accent5" } } }
 	end,
 }

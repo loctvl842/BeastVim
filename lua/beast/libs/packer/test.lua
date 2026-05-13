@@ -1,5 +1,5 @@
-local ui = require("beast.libs.packer.ui")
 local state = require("beast.libs.packer.state")
+local ui = require("beast.libs.packer.ui")
 
 local M = {}
 

@@ -33,11 +33,7 @@ end
 local function load_specs_from_module(module_path)
 	local ok, result = pcall(require, module_path)
 	if not ok then
-		vim.notify(
-			"Failed to load specs from " .. module_path .. ": " .. result,
-			vim.log.levels.WARN,
-			{ title = "BeastVim" }
-		)
+		vim.notify("Failed to load specs from " .. module_path .. ": " .. result, vim.log.levels.WARN, { title = "BeastVim" })
 		return {}
 	end
 

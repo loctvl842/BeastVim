@@ -210,13 +210,7 @@ function M.create(parsed)
 	saved_cursor = vim.o.guicursor
 	vim.o.guicursor = HIDDEN_CURSOR
 
-	return MainView(
-		main_buf,
-		main_win,
-		parsed,
-		vim.api.nvim_create_namespace("beast_confirm"),
-		View(backdrop_buf, backdrop_win)
-	)
+	return MainView(main_buf, main_win, parsed, vim.api.nvim_create_namespace("beast_confirm"), View(backdrop_buf, backdrop_win))
 end
 
 ---@param main Beast.Confirm.UI.MainView

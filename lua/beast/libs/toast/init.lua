@@ -1,5 +1,5 @@
-local State = require("beast.libs.toast.state")
 local Record = require("beast.libs.toast.record")
+local State = require("beast.libs.toast.state")
 local config = require("beast.libs.toast.config")
 local stack = require("beast.libs.toast.stack")
 

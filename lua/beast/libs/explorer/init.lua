@@ -1,10 +1,10 @@
 local Tree = require("beast.libs.explorer.tree")
-local state = require("beast.libs.explorer.state")
-local config = require("beast.libs.explorer.config")
-local ui = require("beast.libs.explorer.ui")
-local keymaps = require("beast.libs.explorer.keymaps")
 local autocmds = require("beast.libs.explorer.autocmds")
+local config = require("beast.libs.explorer.config")
+local keymaps = require("beast.libs.explorer.keymaps")
+local state = require("beast.libs.explorer.state")
 local sticky = require("beast.libs.explorer.sticky")
+local ui = require("beast.libs.explorer.ui")
 
 local M = setmetatable({}, {
 	__call = function(self, cwd)

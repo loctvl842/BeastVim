@@ -302,7 +302,7 @@ local function format_reason(reason)
 	-- stylua: ignore
 	if not reason then return nil end
 	local t, d = reason.type, reason.detail
-  local prefix = "  "
+	local prefix = "  "
 	if t == "eager" then
 		return { text = prefix .. config.ui.icons.eager .. "Eager", hl = "BeastPackerTriggerEager" }
 	elseif t == "dependency" then
@@ -572,19 +572,29 @@ local function collect_loaded_profiles(main)
 	end
 	local mode = main.profile_sort or "total"
 	if mode == "name" then
-		table.sort(list, function(a, b) return a.name < b.name end)
+		table.sort(list, function(a, b)
+			return a.name < b.name
+		end)
 	elseif mode == "packadd" then
-		table.sort(list, function(a, b) return (a.prof.packadd_ms or 0) > (b.prof.packadd_ms or 0) end)
+		table.sort(list, function(a, b)
+			return (a.prof.packadd_ms or 0) > (b.prof.packadd_ms or 0)
+		end)
 	elseif mode == "config" then
-		table.sort(list, function(a, b) return (a.prof.config_ms or 0) > (b.prof.config_ms or 0) end)
+		table.sort(list, function(a, b)
+			return (a.prof.config_ms or 0) > (b.prof.config_ms or 0)
+		end)
 	elseif mode == "chrono" then
 		table.sort(list, function(a, b)
 			local la, lb = a.prof.loaded_at or math.huge, b.prof.loaded_at or math.huge
-			if la == lb then return a.name < b.name end
+			if la == lb then
+				return a.name < b.name
+			end
 			return la < lb
 		end)
 	else -- "total"
-		table.sort(list, function(a, b) return (a.prof.total_ms or 0) > (b.prof.total_ms or 0) end)
+		table.sort(list, function(a, b)
+			return (a.prof.total_ms or 0) > (b.prof.total_ms or 0)
+		end)
 	end
 	return list
 end
@@ -664,10 +674,7 @@ local function render_table_header(compact)
 	return {
 		{ text = "    ", hl = nil },
 		{
-			text = string.format(
-				"%-26s%9s%9s%7s%9s%14s  %s",
-				"NAME", "TOTAL", "PACKADD", "INIT", "CONFIG", "%", "REASON"
-			),
+			text = string.format("%-26s%9s%9s%7s%9s%14s  %s", "NAME", "TOTAL", "PACKADD", "INIT", "CONFIG", "%", "REASON"),
 			hl = "BeastPackerTableHeader",
 		},
 	}
@@ -725,7 +732,9 @@ local function render_plugins_table(body_width, items, total_ms, compact)
 	end
 	local max_total = 0
 	for _, it in ipairs(items) do
-		if (it.prof.total_ms or 0) > max_total then max_total = it.prof.total_ms end
+		if (it.prof.total_ms or 0) > max_total then
+			max_total = it.prof.total_ms
+		end
 	end
 	table.insert(lines, render_table_header(compact))
 	for _, it in ipairs(items) do
@@ -750,7 +759,9 @@ local function group_by_reason(items)
 		table.insert(groups[key].items, it)
 		groups[key].total = groups[key].total + (it.prof.total_ms or 0)
 	end
-	table.sort(order, function(a, b) return groups[a].total > groups[b].total end)
+	table.sort(order, function(a, b)
+		return groups[a].total > groups[b].total
+	end)
 	return groups, order
 end
 
@@ -777,7 +788,9 @@ local function render_grouped_plugins(body_width, items, total_ms, compact)
 		table.insert(lines, render_table_header(compact))
 		local max_total = 0
 		for _, it in ipairs(g.items) do
-			if (it.prof.total_ms or 0) > max_total then max_total = it.prof.total_ms end
+			if (it.prof.total_ms or 0) > max_total then
+				max_total = it.prof.total_ms
+			end
 		end
 		for _, it in ipairs(g.items) do
 			table.insert(lines, render_table_row(it, max_total, total_ms, compact))
@@ -801,7 +814,9 @@ local function render_not_loaded(body_width)
 	if #pending == 0 then
 		return lines
 	end
-	table.sort(pending, function(a, b) return a.name < b.name end)
+	table.sort(pending, function(a, b)
+		return a.name < b.name
+	end)
 	table.insert(lines, render_divider("Not loaded", tostring(#pending), body_width))
 	for _, spec in ipairs(pending) do
 		---@type Beast.Packer.UI.Segment[]
@@ -813,8 +828,12 @@ local function render_not_loaded(body_width)
 		if type(spec.lazy) == "table" then
 			local lazy = spec.lazy
 			local function first_of(v)
-				if type(v) == "string" then return v end
-				if type(v) == "table" then return v[1] end
+				if type(v) == "string" then
+					return v
+				end
+				if type(v) == "table" then
+					return v[1]
+				end
 				return nil
 			end
 			if lazy.event then
@@ -823,7 +842,9 @@ local function render_not_loaded(body_width)
 				trigger = { text = "  " .. config.ui.icons.cmd .. (first_of(lazy.cmd) or "cmd"), hl = "BeastPackerTriggerCmd" }
 			elseif lazy.keys then
 				local k = first_of(lazy.keys)
-				if type(k) == "table" then k = k[1] or k.lhs end
+				if type(k) == "table" then
+					k = k[1] or k.lhs
+				end
 				trigger = { text = "  " .. config.ui.icons.keys .. (k or "keys"), hl = "BeastPackerTriggerKeys" }
 			elseif lazy.module then
 				trigger = { text = "  " .. config.ui.icons.module .. (first_of(lazy.module) or "?"), hl = "BeastPackerTriggerModule" }
@@ -837,7 +858,9 @@ local function render_not_loaded(body_width)
 		else
 			trigger = { text = "  " .. config.ui.icons.lazy .. "Manual", hl = "BeastPackerComment" }
 		end
-		if trigger then table.insert(segs, trigger) end
+		if trigger then
+			table.insert(segs, trigger)
+		end
 		table.insert(lines, segs)
 	end
 	table.insert(lines, { { text = "", hl = nil } })
@@ -1054,7 +1077,7 @@ local function layout_state()
 	if state_data:is_valid() then
 		Main.layout(state_data.main)
 		Action.layout(state_data.action, state_data.main)
-    render_state()
+		render_state()
 	end
 end
 
@@ -1086,7 +1109,9 @@ local function next_in_cycle(value, cycle)
 end
 
 function _actions_handler.sort()
-	if not state_data:is_valid() then return end
+	if not state_data:is_valid() then
+		return
+	end
 	local main = state_data.main
 	if main.view_mode == "profile" then
 		main.profile_sort = next_in_cycle(main.profile_sort or "total", PROFILE_SORT_CYCLE)
@@ -1097,13 +1122,17 @@ function _actions_handler.sort()
 end
 
 function _actions_handler.filter_cycle()
-	if not state_data:is_valid() then return end
+	if not state_data:is_valid() then
+		return
+	end
 	state_data.main.profile_filter_ms = next_in_cycle(state_data.main.profile_filter_ms or 0, FILTER_THRESHOLDS)
 	render_state()
 end
 
 function _actions_handler.group_toggle()
-	if not state_data:is_valid() then return end
+	if not state_data:is_valid() then
+		return
+	end
 	state_data.main.profile_group_by_reason = not state_data.main.profile_group_by_reason
 	render_state()
 end

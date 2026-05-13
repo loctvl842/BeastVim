@@ -70,13 +70,7 @@ local M = setmetatable({}, {
 	end,
 
 	__newindex = function(_, key, _)
-		error(
-			string.format(
-				"beast.toast.config is read-only; cannot assign '%s' directly. Use setup() instead.",
-				tostring(key)
-			),
-			2
-		)
+		error(string.format("beast.toast.config is read-only; cannot assign '%s' directly. Use setup() instead.", tostring(key)), 2)
 	end,
 })
 

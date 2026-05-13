@@ -161,7 +161,6 @@ function PasteSession:show_conflict_prompt(plan)
 		self:_advance()
 	end
 
-
 	prompt.inline(dest_dir_node, dest_dir_node, on_confirm, on_cancel, name)
 end
 

@@ -186,8 +186,8 @@ local function register_event_autocmds()
 		for _, ev in ipairs(spec.update or {}) do
 			event_to_comps[ev] = event_to_comps[ev] or {}
 			event_to_comps[ev][#event_to_comps[ev] + 1] = comp_id
-    end
-  end
+		end
+	end
 
 	for ev, comp_ids in pairs(event_to_comps) do
 		local event_name, pattern = split_event(ev)
@@ -266,7 +266,7 @@ function M.setup(opts)
 	state.region_ids.left = register_region(config.left)
 	state.region_ids.center = register_region(config.center)
 	state.region_ids.right = register_region(config.right)
-  ensure_autocmds()
+	ensure_autocmds()
 	vim.o.statusline = "%!v:lua.require'beast.libs.statusline'.render()"
 end
 

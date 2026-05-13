@@ -15,8 +15,8 @@
 ---@field colorscheme? Beast.Packer.Colorscheme Eagerly load this colorscheme at start of setup() if its plugin is already installed
 ---@field ui table
 local defaults = {
-  spec = {},
-  colorscheme = nil,
+	spec = {},
+	colorscheme = nil,
 	ui = {
 		width = 0.7,
 		height = 0.7,
@@ -111,13 +111,7 @@ local M = setmetatable({}, {
 		return cfg[key]
 	end,
 	__newindex = function(_, key, _)
-		error(
-			string.format(
-				"beast.packer.config is read-only; cannot assign '%s' directly. Use setup() instead.",
-				tostring(key)
-			),
-			2
-		)
+		error(string.format("beast.packer.config is read-only; cannot assign '%s' directly. Use setup() instead.", tostring(key)), 2)
 	end,
 })
 

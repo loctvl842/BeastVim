@@ -1,5 +1,5 @@
-local State = require("beast.libs.notify.state")
 local Record = require("beast.libs.notify.record")
+local State = require("beast.libs.notify.state")
 local config = require("beast.libs.notify.config")
 local stack = require("beast.libs.notify.stack")
 
@@ -19,7 +19,7 @@ local M = setmetatable({}, {
 })
 
 function M.setup(opts)
-  require("beast.libs.notify.highlights")
+	require("beast.libs.notify.highlights")
 	config.setup(opts)
 	vim.notify = M.notify
 end

@@ -1,7 +1,7 @@
-local state = require("beast.libs.explorer.state")
 local config = require("beast.libs.explorer.config")
-local ui = require("beast.libs.explorer.ui")
 local confirm = require("beast.libs.confirm")
+local state = require("beast.libs.explorer.state")
+local ui = require("beast.libs.explorer.ui")
 
 local M = setmetatable({}, {
 	__call = function(t, ...)

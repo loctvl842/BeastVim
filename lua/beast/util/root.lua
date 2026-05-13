@@ -3,7 +3,7 @@
 -- Detection strategies (priority order):
 --   1. "lang" - Language-specific root markers based on buffer filetype (HIGHEST PRIORITY)
 --      - Python: pyproject.toml, setup.py, setup.cfg, requirements.txt, Pipfile, pyrightconfig.json
---      - Lua: nvim-pack-lock.json, lazy-lock.json, stylua.toml, .luacheckrc
+--      - Lua: nvim-pack-lock.json, lazy-lock.json, stylua.toml
 --      - HTML: package.json
 --      - More specific than .git for monorepos
 --      - Add more in lua/beastvim/plugins/coding/lang/*.lua (root_spec field)
@@ -116,7 +116,7 @@ end
 -- Pass 1 (Filetype-specific):
 --   - If buffer has a filetype (e.g., "python"), check its specific patterns first
 --   - Python file → check for requirements.txt, pyproject.toml, setup.py, etc.
---   - Lua file → check for lazy-lock.json, stylua.toml, .luacheckrc, etc.
+--   - Lua file → check for lazy-lock.json, stylua.toml, etc.
 --   - If found, return immediately (closest match wins)
 --
 -- Pass 2 (All patterns fallback):
