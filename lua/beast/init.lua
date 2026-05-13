@@ -6,6 +6,8 @@ local M = {}
 ---@field toast? table
 ---@field explorer? Beast.Explorer.Config
 ---@field packer? Beast.Packer.Config
+---@field treesitter? Beast.Treesitter.Config
+---@field indent? Beast.Indent.Config
 local defaults = {
 	key = {},
 	notify = {},
@@ -27,6 +29,7 @@ local defaults = {
 		},
 		ui = {},
 	},
+	treesitter = {},
 }
 
 ---@param opts? Beast.Config
@@ -134,6 +137,27 @@ function M.setup(opts)
 			if vim.fn.argc() == 0 and vim.api.nvim_buf_get_name(0) == "" then
 				explorer.open()
 			end
+		end,
+	})
+
+	-- Treesitter (lazy — enable builtin highlighting + fold on FileType)
+	packer.lazy("beast.libs.treesitter", {
+		event = "FileType",
+		defer = true,
+		setup = function(ts)
+			ts.setup(cfg.treesitter)
+			ts.enable()
+		end,
+	})
+
+	-- Indent guides (lazy — deferred past first screen update)
+	packer.lazy("beast.libs.indent", {
+		event = "BufReadPost",
+		defer = true,
+		highlights = "beast.libs.indent.highlights",
+		setup = function(indent)
+			indent.setup(cfg.indent)
+			indent.enable()
 		end,
 	})
 
