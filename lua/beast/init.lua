@@ -7,7 +7,6 @@ local M = {}
 ---@field explorer? Beast.Explorer.Config
 ---@field packer? Beast.Packer.Config
 ---@field treesitter? Beast.Treesitter.Config
----@field indent? Beast.Indent.Config
 local defaults = {
 	key = {},
 	notify = {},
@@ -29,7 +28,9 @@ local defaults = {
 		},
 		ui = {},
 	},
-	treesitter = {},
+	treesitter = {
+		ensure_installed = { "python", "lua" },
+	},
 }
 
 ---@param opts? Beast.Config
@@ -147,17 +148,6 @@ function M.setup(opts)
 		setup = function(ts)
 			ts.setup(cfg.treesitter)
 			ts.enable()
-		end,
-	})
-
-	-- Indent guides (lazy — deferred past first screen update)
-	packer.lazy("beast.libs.indent", {
-		event = "BufReadPost",
-		defer = true,
-		highlights = "beast.libs.indent.highlights",
-		setup = function(indent)
-			indent.setup(cfg.indent)
-			indent.enable()
 		end,
 	})
 
