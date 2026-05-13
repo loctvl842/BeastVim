@@ -74,7 +74,7 @@ Match the failure to a branch:
 ├── Lua-only cost growth          → beast.profile (SELF_MS rank)
 ├── :source / autocmd cost growth → --startuptime (3-column lines)
 ├── Run-time hot path             → scripts/bench-<lib>.lua exit code
-├── Plugin load failure           → :Lazy log + Lazy state dir
+├── Plugin load failure           → beast.packer state + error log
 ├── Module load error             → stack trace top frame
 └── Highlight / colorscheme       → ColorScheme reload, package.loaded resets
 ```

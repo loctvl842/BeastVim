@@ -58,7 +58,7 @@ If the functionality already exists, **reuse it**. Treat the AGENTS DRY-opportun
 
 For BeastVim this is rare, but check:
 
-- Neovim ecosystem (a dedicated plugin like `nvim-treesitter`, `lazy.nvim`, etc.) for things outside core
+- Neovim ecosystem (a dedicated plugin like `nvim-treesitter`, etc.) for things outside core
 - Native Neovim API (`vim.api.*`, `vim.fn.*`, `vim.uv.*`, `vim.schedule_wrap`, `vim.system`) — almost always the right answer, given the project conventions in `AGENTS.md`
 
 Avoid pulling in a plugin when a native API does it. The AGENTS file is explicit about preferring native primitives.

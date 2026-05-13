@@ -43,7 +43,6 @@ For each task:
    - If **FAIL** → fix the blocking issues before proceeding
 5. **Simplify** — Check the code just written against the `tec-simplify` rules: deep nesting (3+), long functions (50+), generic names, dead code, over-engineering. Fix any issues before moving on. This is automatic — don't ask the user.
 6. **Verify** — Run the relevant local checks. For BeastVim that means:
-   - `luacheck lua/` from the repo root if any Lua files changed
    - `stylua --check lua/` if `stylua` is installed
    - `nvim --clean --headless -l scripts/bench-<lib>.lua` if the task touched a lib that has a bench
    - Any phase-specific manual repro listed in the dev spec's *Testing Strategy* section

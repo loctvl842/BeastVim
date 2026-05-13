@@ -24,7 +24,7 @@ Extract from `health-config.md`:
 - The `--startuptime` measurement snippet and the **mean / std / single-sourcing-event** thresholds.
 - The `beast.profile` capture snippet and its **per-module** and **per-function** thresholds.
 - The list of `scripts/bench-*.lua` scripts to run (glob `scripts/bench-*.lua`).
-- The **process gap** checks (luacheck, stylua, codemap age, dev-spec staleness, plugin lockfile drift, empty tests directory).
+- The **process gap** checks (stylua, codemap age, dev-spec staleness, plugin lockfile drift, empty tests directory).
 - The **alert thresholds** table at the bottom — both *warn* and *action required* levels.
 
 Do **not** invent thresholds. If `health-config.md` doesn't define a threshold for something, omit it from the report rather than guessing.
@@ -75,7 +75,6 @@ If `scripts/bench-*.lua` matches nothing, surface that as a process gap ("no run
 
 From `health-config.md` § *Process Gaps*:
 
-- **luacheck** — run `luacheck lua/` from the repo root. Non-zero exit → flag. Surface the warning count from stdout.
 - **stylua** — if `stylua` is on `$PATH`, run `stylua --check lua/`. Non-zero exit → flag (drift). If `stylua` isn't installed, **skip silently** — don't surface "tool not installed" as a finding.
 
 ## Step 5: Codemap & Dev-Spec Freshness
@@ -89,7 +88,6 @@ From `health-config.md` § *Process Gaps*:
 
 The remaining rows of `health-config.md` § *Process Gaps* (BeastVim-specific):
 
-- **Plugin lockfile drift** — if `lazy-lock.json` exists at the runtime path, surface "run `:Lazy check`" as a *manual* item in the report. **Do not auto-run** — `:Lazy check` requires a TUI.
 - **Empty `tests/` directory** — flag as a *standing* process gap until tests exist. One line per report, no escalation.
 
 ## Step 7: Generate and Save Report
@@ -125,7 +123,6 @@ Use this exact structure so reports are diffable across days and the trend lines
 
 ## 🟢 / 🟡 / 🔴 Lint & Format
 
-- luacheck: PASS / FAIL (N warnings)
 - stylua: PASS / FAIL / skipped (not installed)
 
 ## 🟢 / 🟡 / 🔴 Codemap & Dev-Spec Freshness
@@ -153,12 +150,11 @@ The section colour is the **worst** signal inside that section. The summary's co
 
 Match the suggestion to the actual finding — don't suggest unrelated skills:
 
-- Startup regression > 15 % vs last report → `"Run :Lazy profile inside Neovim, or rerun the per-lib profile (Step 2) to find the new offender."`
+- Startup regression > 15 % vs last report → `"Rerun the per-lib profile (Step 2) to find the new offender."`
 - Bench exit code 1 → `"Investigate the failing bench. Compare against docs/dev-specs/<lib>.md § Success Criteria."`
 - Bench exit code 2 → `"Bench setup is broken — fix the script before the next run, don't silence it."`
 - Stale codemap → `"Run /tec-update-codemaps to regenerate."`
 - Stale dev spec with no impl → `"Run /tec-implement docs/dev-specs/<file>.md to pick up where you left off, or close the spec out."`
-- `lazy-lock.json` drift → `"Open Neovim and run :Lazy check."`
 
 ## Scope
 
@@ -166,7 +162,6 @@ Match the suggestion to the actual finding — don't suggest unrelated skills:
 
 It does **NOT**:
 
-- Diagnose *why* startup regressed (run `beast.profile` again or `:Lazy profile` manually)
+- Diagnose *why* startup regressed (run `beast.profile` again manually)
 - Fix anything (no auto-edits, no auto `stylua` runs)
 - Push or commit the saved report (the user reviews and commits it)
-- Auto-run `:Lazy check` (requires TUI — surface as manual step only)

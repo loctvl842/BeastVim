@@ -35,7 +35,7 @@ lua/beast/
 │   ├── view.lua          ← Beast.View base class (every buf+win pair subclasses this)
 │   ├── animate.lua       ← shared animation engine (pure math)
 │   └── <lib>/init.lua    ← per-lib public API
-└── plugins/              ← lazy.nvim plugin specs
+└── plugins/              ← plugin specs (loaded via beast.libs.packer)
     ├── init.lua
     └── ...
 ```
@@ -82,7 +82,7 @@ Output two files under `docs/CODEMAPS/`. Match the existing shape exactly — do
 | Globals Registered at Setup | Table: `Util`, `Key`, `Buffer`, `Icon`, `Toast`, `Palette`, etc. → module → purpose. Source of truth: `lua/beast/init.lua`. |
 | Setup Flow | Numbered list, what runs in what order during `beast.setup()`. Important for understanding why some libs require others. |
 | ColorScheme Reload Contract | List of modules whose `*.highlights` are reset on `ColorScheme` autocmd (`package.loaded[...] = nil` pattern). Cross-reference ADR-008. |
-| Plugin Loading Strategy | `vim.pack` vs `lazy.nvim` boundaries — which lives where. |
+| Plugin Loading Strategy | `beast.libs.packer` loading phases — which plugins load when and how. |
 | Cross-cutting Conventions | One-line callouts to AGENTS.md sections (View pattern, Config pattern, Type Naming) — the **link**, not the content. The codemap stays lean by referencing AGENTS.md, not duplicating it. |
 
 ### `libraries.md` — per-lib breakdown
