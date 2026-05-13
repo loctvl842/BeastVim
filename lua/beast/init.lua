@@ -102,7 +102,9 @@ function M.setup(opts)
 		end,
 	})
 
-	-- Explorer (lazy — deferred to first <leader>e press)
+	vim.g.loaded_netrw = 1
+	vim.g.loaded_netrwPlugin = 1
+	-- Explorer (lazy — deferred to first <leader>e press or VimEnter with no file)
 	packer.lazy("beast.libs.explorer", {
 		keys = { {
 			"<leader>e",
@@ -112,9 +114,26 @@ function M.setup(opts)
 			desc = "Toggle explorer panel",
 			group = "Explorer",
 		} },
+		event = "VimEnter",
+		defer = true,
 		highlights = "beast.libs.explorer.highlights",
 		setup = function(explorer)
 			explorer.setup(cfg.explorer)
+			-- Detect directory buffers from startup (e.g. `nvim ~/Downloads`),
+			-- capture the path and wipe the buffer before opening the explorer.
+			for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+				local name = vim.api.nvim_buf_get_name(buf)
+				if name ~= "" and vim.fn.isdirectory(name) == 1 then
+					local dir = vim.fn.fnamemodify(name, ":p"):gsub("/$", "")
+					pcall(vim.api.nvim_buf_delete, buf, { force = true })
+					explorer.open(dir)
+					return
+				end
+			end
+			-- No directory buffer found — auto-open when nvim started with no file
+			if vim.fn.argc() == 0 and vim.api.nvim_buf_get_name(0) == "" then
+				explorer.open()
+			end
 		end,
 	})
 
