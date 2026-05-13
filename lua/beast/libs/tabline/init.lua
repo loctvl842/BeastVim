@@ -156,6 +156,12 @@ function M.setup(opts)
 
 	ensure_autocmds()
 
+	-- Seed last_active_bufnr so sidebar-aware logic works on first open
+	local cur = vim.api.nvim_get_current_buf()
+	if vim.bo[cur].buflisted and not buffers_mod.is_sidebar_buf(cur) then
+		state.last_active_bufnr = cur
+	end
+
 	vim.o.showtabline = 2
 	vim.o.tabline = "%!v:lua.require'beast.libs.tabline'.render()"
 end

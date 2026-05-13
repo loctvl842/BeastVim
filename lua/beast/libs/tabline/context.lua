@@ -37,7 +37,9 @@ end
 ---@class Beast.Tabline.Context
 ---@field columns integer
 ---@field current_buf integer
----@field effective_active integer
+---@field effective_active integer Active buffer for highlighting (-1 when sidebar focused)
+---@field anchor_bufnr? integer Best buffer for truncation anchor (last active, even during sidebar focus)
+---@field visible_bufs table<integer, boolean> Buffers currently visible in any window
 ---@field sidebar_winid? integer
 ---@field sidebar_width? integer
 ---@field sidebar_title? string
@@ -82,16 +84,14 @@ function M.build(state)
 		modified_by_buf[bufnr] = vim.bo[bufnr].modified
 	end
 
-	-- Resolve effective active buffer (sidebar-aware)
+	-- Resolve effective active buffer
+	-- When focus is on a sidebar, no buffer is "selected" — all show as visible/normal
 	local current_buf = vim.api.nvim_get_current_buf()
 	local effective = current_buf
-	if
-		buffers_mod.is_sidebar_buf(current_buf)
-		and state.last_active_bufnr
-		and vim.api.nvim_buf_is_valid(state.last_active_bufnr)
-		and vim.bo[state.last_active_bufnr].buflisted
-	then
-		effective = state.last_active_bufnr
+	local anchor_bufnr = current_buf
+	if buffers_mod.is_sidebar_buf(current_buf) then
+		effective = -1
+		anchor_bufnr = state.last_active_bufnr
 	end
 
 	-- Sidebar detection: check first window of tabpage
@@ -105,6 +105,12 @@ function M.build(state)
 			sidebar_width = vim.api.nvim_win_get_width(wins[1])
 			sidebar_title = title
 		end
+	end
+
+	-- Build set of buffers visible in any window of this tabpage
+	local visible_bufs = {}
+	for _, w in ipairs(wins) do
+		visible_bufs[vim.api.nvim_win_get_buf(w)] = true
 	end
 
 	-- Diagnostics: single global walk with insert-mode skip
@@ -137,6 +143,8 @@ function M.build(state)
 		columns = vim.o.columns,
 		current_buf = current_buf,
 		effective_active = effective,
+		anchor_bufnr = anchor_bufnr,
+		visible_bufs = visible_bufs,
 		sidebar_winid = sidebar_winid,
 		sidebar_width = sidebar_width,
 		sidebar_title = sidebar_title,

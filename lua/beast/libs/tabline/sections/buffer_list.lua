@@ -16,11 +16,11 @@ function M.render(ctx)
 	-- stylua: ignore
 	if #listed == 0 then return "", {}, 0, 0 end
 
-	-- Find the anchor (effective active buffer, or first listed)
+	-- Find the anchor (best buffer for truncation centering)
 	local anchor = nil
 	local anchor_idx = nil
 	for i, bufnr in ipairs(listed) do
-		if bufnr == ctx.effective_active then
+		if bufnr == ctx.anchor_bufnr then
 			anchor = bufnr
 			anchor_idx = i
 			break

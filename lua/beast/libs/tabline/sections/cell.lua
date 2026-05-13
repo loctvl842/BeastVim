@@ -20,29 +20,42 @@ local function displaywidth(s)
 	return vim.fn.strdisplaywidth(s)
 end
 
---- Resolve the buffer cell highlight group based on active state and diagnostics.
----@param is_active boolean
+--- Resolve the buffer state suffix: "Selected", "Visible", or "" (normal).
+---@param bufnr integer
+---@param ctx Beast.Tabline.Context
+---@return string suffix
+---@return boolean is_selected
+local function resolve_state(bufnr, ctx)
+	if bufnr == ctx.effective_active then
+		return "Selected", true
+	elseif ctx.visible_bufs[bufnr] then
+		return "Visible", false
+	else
+		return "", false
+	end
+end
+
+--- Resolve the buffer cell highlight group based on state and diagnostics.
+---@param state_suffix string "Selected", "Visible", or ""
 ---@param diag? Beast.Tabline.DiagSummary
 ---@return string group_name
-local function resolve_buffer_hl(is_active, diag)
-	local state = is_active and "Selected" or "Visible"
+local function resolve_buffer_hl(state_suffix, diag)
 	if diag and config.show_diagnostics then
 		local sev = severity_map[diag.severity]
 		if sev then
-			return "BeastTlBuffer" .. state .. sev
+			return "BeastTlBuffer" .. state_suffix .. sev
 		end
 	end
-	return "BeastTlBuffer" .. state
+	return "BeastTlBuffer" .. state_suffix
 end
 
 --- Resolve the diagnostic count highlight group.
----@param is_active boolean
+---@param state_suffix string "Selected", "Visible", or ""
 ---@param severity integer
 ---@return string group_name
-local function resolve_diag_hl(is_active, severity)
-	local state = is_active and "Selected" or "Visible"
+local function resolve_diag_hl(state_suffix, severity)
 	local sev = severity_map[severity] or "Info"
-	return "BeastTlDiag" .. sev .. state
+	return "BeastTlDiag" .. sev .. state_suffix
 end
 
 --- Render a single buffer cell as a tabline format string.
@@ -51,9 +64,9 @@ end
 ---@param ctx Beast.Tabline.Context
 ---@return string
 function M.render(bufnr, ctx)
-	local is_active = bufnr == ctx.effective_active
+	local state_suffix, is_selected = resolve_state(bufnr, ctx)
 	local diag = ctx.diag_by_buf[bufnr]
-	local buf_hl = resolve_buffer_hl(is_active, diag)
+	local buf_hl = resolve_buffer_hl(state_suffix, diag)
 
 	-- File icon (pre-computed in context)
 	local icon_info = ctx.icons_by_buf[bufnr]
@@ -63,7 +76,8 @@ function M.render(bufnr, ctx)
 	-- Icon highlight (lazy per-color group)
 	local icon_part
 	if icon_color then
-		local icon_hl = icons_mod.ensure(icon_color, is_active)
+		local is_visible = state_suffix == "Visible"
+		local icon_hl = icons_mod.ensure(icon_color, is_selected, is_visible)
 		icon_part = "%#" .. icon_hl .. "#" .. icon .. " "
 	else
 		icon_part = "%#" .. buf_hl .. "#" .. icon .. " "
@@ -79,11 +93,11 @@ function M.render(bufnr, ctx)
 	if diag and config.show_diagnostics then
 		local count = diag.errors[diag.severity] or diag.count
 		local count_str = count > 9 and "9+" or tostring(count)
-		local diag_hl = resolve_diag_hl(is_active, diag.severity)
+		local diag_hl = resolve_diag_hl(state_suffix, diag.severity)
 		status_part = "%#" .. diag_hl .. "# " .. count_str
 		status_visible_w = 1 + #count_str -- space + count
 	elseif config.show_modified and ctx.modified_by_buf[bufnr] then
-		local mod_hl = is_active and "BeastTlModifiedSelected" or "BeastTlModifiedVisible"
+		local mod_hl = "BeastTlModified" .. state_suffix
 		status_part = "%#" .. mod_hl .. "# ●"
 		status_visible_w = 2 -- space + dot
 	end
@@ -125,7 +139,7 @@ function M.render(bufnr, ctx)
 
 	-- Region 2: Close button click region
 	local close_part
-	if is_active and config.show_close_button then
+	if is_selected and config.show_close_button then
 		close_part = "%" .. buf_str .. "@v:lua.beast_tabline_close_click@%#BeastTlCloseButton# 󰅖%X "
 	else
 		-- Placeholder wrapped in buffer click so clicking anywhere on inactive cell switches to it
