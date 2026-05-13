@@ -192,17 +192,7 @@ nvim --headless \
   -c 'qa!' && cat /tmp/beast-health.txt && rm -f /tmp/beast-health.txt
 ```
 
-### Step 2c: Lazy.nvim error log (if the failure is at plugin load)
-
-If `lazy.nvim` is the loader, plugin load errors land in its log:
-
-```bash
-nvim --headless -c 'Lazy log' -c 'qa!' 2>&1 | tee /tmp/lazy-log.txt
-# or check the on-disk log if Lazy writes one
-ls -lt ~/.local/state/BeastVim/lazy/ 2>/dev/null
-```
-
-### Step 2d: Locate the failing module
+### Step 2c: Locate the failing module
 
 A Lua stack trace's top frame names the file. From there:
 
@@ -219,7 +209,7 @@ git blame <path-from-trace> | sed -n '<lineno-from-trace>p'
 |---|---|---|
 | _none_ | _no CI configured_ | — |
 
-If GitHub Actions is added later (e.g. `luacheck.yml`, `stylua.yml`), add
+If GitHub Actions is added later (e.g. `stylua.yml`), add
 rows here and update Step 1 to mention "pipeline failure" as a fourth
 failure type. Until then, every failure is local.
 

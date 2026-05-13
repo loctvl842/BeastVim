@@ -1,4 +1,4 @@
-<!-- Generated: 2026-05-06 | Files scanned: 100 | Token estimate: ~1180 -->
+<!-- Generated: 2026-05-13 | Files scanned: 114 | Token estimate: ~1940 -->
 
 # Libraries
 
@@ -25,33 +25,64 @@ explorer/
 ```
 
 API: `explorer.open(dir)`, `explorer.close()`, `explorer.toggle(cwd)`
+Loaded via: `packer.lazy()` on VimEnter (deferred) + `<leader>e` keymap
 
 ### Sticky ancestor headers (`sticky.lua`)
 
-Floating overlay (`relative = "win"`, `zindex = 30`, `focusable = false`,
-`noautocmd = true`) sitting at the top of the explorer split. Pins the
-ancestor directories of the **cursor's** node when those ancestors have
-scrolled (or been covered by the float) above the visible region.
+Floating overlay pinning ancestor directories above the visible region.
+View subclass: `Beast.Explorer.StickyView : Beast.View`.
+Pin rule iterates to fixed point; sets `scrolloff` to keep cursor below float.
 
-- View subclass: `Beast.Explorer.StickyView : Beast.View` (adds `ns`).
-- Public API: `sticky.mount()`, `sticky.refresh()`, `sticky.close()`.
-- Pin rule: `ancestor_row < top_row + N` where `N = #pinned`. The
-  inequality has a feedback loop (more pins → bigger float → more pins),
-  so `compute_pinned()` iterates to a fixed point (≤ depth iterations,
-  monotonic).
-- Cursor-under-sticky guard: every refresh sets
-  `Util.wo(explorer_win, "scrolloff", N)`. Built-in `scrolloff` keeps
-  the cursor below the float on `gg`, `H`, `<C-u>`, `focus_path`, etc.
-  When N=0 the float is closed and `scrolloff` is reset to 0.
-- Refresh triggers (registered under `state.augroup` in `autocmds.lua`):
-  `WinScrolled` (explorer winid), `CursorMoved` (explorer buffer),
-  `WinResized`, `VimResized`, and the tail of `ui.render()`.
-- Lifecycle: `init.ensure_explorer()` → `sticky.mount()`;
-  `init.M.close()` and the existing once-`WinClosed` handler →
-  `sticky.close()`.
-- Highlights: `BeastExplorerStickyBg` (Normal of the float),
-  `BeastExplorerStickyBorder` (underline on the bottom row).
-- Toggle: `config.sticky = true|false` (default `true`).
+---
+
+## tabline — Native `%!` Tabline
+
+```
+tabline/
+├── init.lua           ← setup(), render(), autocmds, click handlers, nav helpers
+├── config.lua         ← max_name_width, min_cell_width, sidebar_filetypes, etc.
+├── context.lua        ← build per-render ctx: buffers, names, icons, diags, sidebar
+├── buffers.lua        ← list() via getbufinfo, is_sidebar_buf, sidebar_title
+├── name.lua           ← O(N) unique-name disambiguation, truncate_text
+├── truncate.lua       ← estimate_cell_width, fit_around_anchor (anchor-based)
+├── icons.lua          ← lazy per-(color × state) highlight groups
+├── highlights.lua     ← BeastTl* static groups (3-state: Selected/Visible/Normal)
+└── sections/
+    ├── cell.lua         ← single buffer cell (two click regions: body + close)
+    ├── buffer_list.lua  ← truncation orchestrator with smart marker reserve
+    ├── offset.lua       ← centered sidebar title
+    └── tabpages.lua     ← right-aligned tab indicators with %nT click regions
+```
+
+API: `tabline.setup(opts)`, `tabline.render()` (via `%!v:lua`),
+`tabline.goto_buffer(n)`, `tabline.cycle_next/prev()`, `tabline.move_next/prev()`
+Loaded via: `packer.lazy()` on VimEnter (deferred)
+
+### Render pipeline
+
+```
+render()
+  → cached? → return cached_output (0.09µs)
+  → dirty:
+    context.build(state)           ← single vim.diagnostic.get() walk
+      → buffers.list()             ← getbufinfo({buflisted=1})
+      → name.build_names()        ← O(N) disambiguation
+      → pre-compute icons, modified, visible_bufs
+    offset.render(ctx)             ← sidebar title
+    buffer_list.render(ctx)        ← truncation + N × cell.render
+    tabpages.render(ctx)           ← right-aligned tabs
+    cache result, dirty = false
+```
+
+### 3-state highlights
+
+| State | Condition | Background |
+|-------|-----------|------------|
+| Selected | `bufnr == effective_active` | `active_bg` + underline |
+| Visible | buffer in a window, not active | `active_bg` (dimmer fg) |
+| Normal | listed, not in any window | `inactive_bg` |
+
+When sidebar has focus, `effective_active = -1` → no buffer Selected.
 
 ---
 
@@ -123,20 +154,21 @@ API: `confirm(msg, "&Yes\n&No", 1)` → integer (0=dismissed, 1..N=choice)
 
 ```
 packer/
-├── init.lua         ← setup(specs), normalize, load pipeline
+├── init.lua         ← setup(specs), normalize, load pipeline, packer.lazy()
 ├── config.lua       ← pack_dir, auto_install, ui options
 ├── state.lua        ← plugins registry, loaded status
 ├── import.lua       ← spec importer (handles { import = "..." })
 ├── operation.lua    ← git clone, pull, install operations
 ├── ui.lua           ← floating dashboard (loaded/not loaded/ops)
 ├── highlights.lua   ← BeastPacker* groups
-├── profile.lua      ← per-plugin (packadd_ms/config_ms) + per-phase (pack_add/early_cs) timing
+├── profile.lua      ← per-plugin + per-phase timing
 └── triggers/        ← lazy-load trigger handlers
     ├── event.lua, cmd.lua, keys.lua
     ├── module.lua, filetype.lua, path.lua
 ```
 
-API: `packer.setup(opts)` — auto-installs + lazy-loads plugins. `opts.colorscheme = { name, plugin }` eagerly applies a colorscheme before `vim.pack.add`. Read `require("beast.libs.packer.profile").phases.{pack_add,early_cs}` for phase timings (`ms`, `calls`, `min`, `max`).
+API: `packer.setup(opts)`, `packer.lazy(mod, opts)` — deferred lib loading
+with event/keys triggers, highlight registration, and `defer` (vim.schedule).
 
 ---
 
@@ -157,45 +189,16 @@ statusline/
 ├── init.lua          ← setup(), render(), state owner, autocmd registration
 ├── config.lua        ← defaults (left/center/right, separator, priority, marker)
 ├── context.lua       ← build per-render ctx from g:statusline_winid
-│                       (laststatus=3 → vim.o.columns width fix)
-├── hlgroup.lua       ← deterministic `BeastStl_<hash>` group names from
-│                       {fg,bg,bold,…} specs; palette alias resolution;
-│                       ensure(spec) lazy-creates groups; clear_all() wipes cache
-├── highlights.lua    ← ColorScheme refresh hook; runs hlgroup.clear_all() +
-│                       redrawstatus (no static Beast<Lib>* groups defined)
-├── util.lua          ← fragment width, assemble, IGNORED_FILETYPES (beast-*),
-│                       is_file_buffer, file_bound provider wrapper
+├── hlgroup.lua       ← deterministic BeastStl_<hash> groups, palette alias resolution
+├── highlights.lua    ← ColorScheme refresh hook (clear_all + redrawstatus)
+├── util.lua          ← fragment width, assemble, IGNORED_FILETYPES, file_bound
 ├── truncate.lua      ← cross-region priority drop until total fits width
 └── components/
-    ├── init.lua      ← barrel + ComponentSpec/Fragment/HighlightSpec types
-    ├── mode.lua      ← global, ModeChanged, compound (NORMAL + colored bg)
-    ├── git_branch.lua    ← buffer, libuv fs_event on .git/HEAD,
-    │                       emits User BeastStatuslineGitChanged
-    ├── git_commit.lua    ← file_bound, `git log -1 --format=%an (%cr)`
-    ├── diagnostics.lua   ← buffer, DiagnosticChanged, compound (E/W/I/H)
-    ├── position.lua      ← file_bound, named-files only ("Ln N, Col N")
-    ├── filetype.lua      ← file_bound, capitalized first letter
-    ├── shiftwidth.lua    ← file_bound, "Spaces: N"
-    └── encoding.lua      ← file_bound, "UTF-8"
+    ├── init.lua          ← barrel + types
+    ├── mode.lua, git_branch.lua, git_commit.lua
+    ├── diagnostics.lua, position.lua, filetype.lua
+    ├── shiftwidth.lua, encoding.lua
 ```
 
 API: `stl.setup({ left = {...}, right = {...} })` — components are tables.
-
-Component spec:
-```lua
-{
-  provider  = function(ctx) return { { text = "x", hl = {fg="accent1"} } } end,
-  condition = function(ctx) return ctx.is_active end,        -- optional
-  update    = { "BufEnter", "User BeastStatuslineGitChanged" },  -- optional
-  scope     = "buffer",     -- "global"|"buffer"|"window" (declarative)
-  priority  = 50,           -- truncation priority
-  separator = " ",          -- override default separator after this comp
-}
-```
-
-`util.file_bound(compute)` — wraps a provider so it only computes on real
-file buffers; remembers the last value; on transient `beast-*` UI buffers,
-returns the last value so the right side of the bar doesn't collapse.
-Compute returns: `string` = update / `false` = clear / `nil` = keep previous.
-
-See `docs/dev-specs/statusline-library.md` for the full design doc.
+`util.file_bound(compute)` — caches per real-file buffer, persists on transient UI buffers.

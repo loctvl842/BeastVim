@@ -273,20 +273,36 @@ last bench (`packer.setup` self time inflated 3.7 → 12.2 ms with a
   precedes `profiles` in the proposed lookup). Document the convention:
   phase names use snake_case and avoid known plugin names. Acceptable risk.
 
-## Success Criteria
+## Completed
 
-- [ ] `lua require("beast.libs.packer.profile").phases.pack_add` returns a
-      table with non-nil `ms` after `packer.setup` runs.
-- [ ] `lua require("beast.libs.packer.profile").phases.early_cs` returns a
-      table with non-nil `ms` after `packer.setup` runs **with**
-      `colorscheme = { name = ..., plugin = ... }` configured.
-- [ ] `phases.early_cs.calls == 0` (table absent) when no colorscheme is
-      configured (because `apply_early_colorscheme` returns nil before doing
-      any work — but note `profile.measure` still records ~0 ms for the
-      no-op call; either outcome is acceptable provided it is documented).
-- [ ] Existing `profiles[<plugin>].packadd_ms` and `.config_ms` are unchanged
-      (per-plugin numbers stay identical between before-and-after dump).
-- [ ] Cold startup mean stays within ±15 % of the previous recorded mean.
-- [ ] Codemap (`docs/CODEMAPS/libraries.md` § packer) regenerated and
-      committed alongside if its `Beast.Packer.PhaseProfile` reference would
-      otherwise be missing — handled at `/tec-implement` wrap-up.
+2026-05-04 — Phase 1 implemented:
+- `lua/beast/libs/packer/profile.lua` — added `Beast.Packer.PhaseProfile`,
+  `phases` table, `methods.add_phase_time`, branched `methods.measure` on
+  `field == "phase_ms"`, exposed `phases` via metatable.
+- `lua/beast/libs/packer/init.lua` — wrapped `vim.pack.add` (Step 4) with
+  hoisted-timing pattern (timing outside `xpcall` to preserve traceback
+  contract; the spec's prescribed `xpcall(profile.measure(...))` was caught
+  by `tec-review` as silent-error-swallowing). Wrapped
+  `apply_early_colorscheme()` with `profile.measure("early_cs", "phase_ms",
+  ...)`. The `vim.schedule` wrapper from the prior feature was reverted by
+  the user before implementation; the wrap is correct synchronously.
+- `docs/tec-config/health-config.md` — added `phases.pack_add.ms` (30/60)
+  and `phases.early_cs.ms` (10/20) thresholds to the Alert Thresholds table.
+- `docs/CODEMAPS/libraries.md` — updated packer section to mention phases
+  and the `colorscheme` opt.
+
+Verification:
+- `luac -p` clean for both files.
+- Headless smoke test: `phases.pack_add` and `phases.early_cs` populate.
+- Error-path test: simulated `error()` inside `xpcall` body confirms
+  `packadd_ok = false` propagates and `add_phase_time` is NOT called on
+  failure (counter stays at 1).
+- 10-run cold-start bench: mean 34.13 ms, std 4.01 ms — within ±15% of
+  prior 35.83 ms baseline.
+- Per-plugin profile regression check: `monokai-pro` profile still records
+  `packadd_ms`/`config_ms`/`total_ms` unchanged.
+
+`tec-review`: PASS on second pass after BLOCK fix.
+
+ADR: not required (stays within existing per-lib profile pattern; no
+architectural shift).

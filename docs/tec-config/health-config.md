@@ -19,7 +19,7 @@ This is a personal Neovim configuration repo (not a service). The standard
 |---|---|---|
 | _none yet_ | — | _No CI configured. If `.github/workflows/` is added later, list each workflow here and check its latest run via `gh run list` or the GitHub Actions MCP._ |
 
-If a workflow is added (e.g. `luacheck.yml`, `stylua.yml`), the health check
+If a workflow is added (e.g. `stylua.yml`), the health check
 should fail-loud when its latest run on `main` is failing or older than the
 expected frequency.
 
@@ -244,7 +244,7 @@ perf contract.
 
 | Bench | Lib | Primary metric | Notes |
 |---|---|---|---|
-| `bench-statusline.lua` | `beast.libs.statusline` | full-bar `µs/render` (mean of 3 × 1000) | Opens a real file buffer and waits for `git_commit`'s async `vim.system` callback before timing — measures the cache-hit (steady-state) path. Includes Lualine baseline if `~/.local/share/{LazyVim,nvim}/lazy/lualine.nvim` exists. Hard threshold: 1 ms; soft warn: 50 µs. |
+| `bench-statusline.lua` | `beast.libs.statusline` | full-bar `µs/render` (mean of 3 × 1000) | Opens a real file buffer and waits for `git_commit`'s async `vim.system` callback before timing — measures the cache-hit (steady-state) path. Includes Lualine baseline if available. Hard threshold: 1 ms; soft warn: 50 µs. |
 
 ---
 
@@ -255,11 +255,9 @@ dev specs), check these:
 
 | Gap | How to detect |
 |---|---|
-| `luacheck` failing | Run `luacheck lua/` from the repo root. `.luacheckrc` is the source of truth. Non-zero exit = flag. |
 | `stylua` drift | If `stylua` is installed: `stylua --check lua/`. Skip silently if not installed. |
 | Stale codemaps | Read the `<!-- Generated: YYYY-MM-DD ... -->` header in `docs/CODEMAPS/INDEX.md`. Older than **7 days** = flag. |
 | Unimplemented dev specs | Files in `docs/dev-specs/` whose latest git mtime is > **14 days** old and that have no corresponding implementation commit. |
-| Plugin lockfile drift | If `lazy-lock.json` exists at the runtime path, surface "run `:Lazy check`" as a manual step in the report (don't auto-run — it requires a TUI). |
 | Test coverage gap | `tests/` directory is empty. Flag once per report as a standing process gap until tests are added. |
 
 ---
@@ -277,7 +275,6 @@ dev specs), check these:
 | `beast.packer.profile.phases.pack_add.ms` | > 30 ms | > 60 ms |
 | `beast.packer.profile.phases.early_cs.ms` | > 10 ms | > 20 ms |
 | `scripts/bench-*.lua` exit code | n/a | Any non-zero exit (1 = threshold; 2 = setup error). Each script owns its own thresholds. |
-| `luacheck` warnings | > 0 (warn) | non-zero exit (action) |
 | Codemap age | > 7 days | > 14 days |
 
 ---

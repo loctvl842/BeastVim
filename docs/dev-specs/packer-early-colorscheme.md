@@ -42,7 +42,7 @@ and the colorscheme is loaded normally later by the existing setup pipeline.
 - Reuse opportunity: **Yes** — reuse `state.load()` for the eager load (handles deps + config + profile). Reuse the existing `defaults.colorscheme = nil` field and the `config.setup(opts)` deep-merge pattern.
 
 ### Package Search
-- Lua/Neovim ecosystem: this is a startup-flicker mitigation specific to BeastVim's custom `packer` lib. There is no shared package; lazy.nvim has its own equivalent (`config.install.colorscheme`).
+- Lua/Neovim ecosystem: this is a startup-flicker mitigation specific to BeastVim's custom `packer` lib. There is no shared package.
 - Decision: **Build** — a small helper inside `packer/init.lua` (≤ 30 lines). No new files needed; this is a single integration point.
 
 ## Architecture Changes
