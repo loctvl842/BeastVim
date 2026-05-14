@@ -70,6 +70,11 @@ function M.run(win, from, to, duration, on_done, opts)
 	local ease_size = opts.ease_size or ease_in
 	local ease_blend = opts.ease_blend or ease_out
 
+	local has_geometry = (from.row ~= nil and to.row ~= nil)
+		or (from.col ~= nil and to.col ~= nil)
+		or (from.width ~= nil and to.width ~= nil)
+		or (from.height ~= nil and to.height ~= nil)
+
 	local total_frames = math.max(1, math.floor(duration / FRAME_MS))
 	local frame = 0
 
@@ -84,40 +89,42 @@ function M.run(win, from, to, duration, on_done, opts)
 		frame = frame + 1
 		local t = math.min(frame / total_frames, 1)
 
-		local ok, conf = pcall(vim.api.nvim_win_get_config, win)
-		if not ok then
-			if on_done then
-				on_done()
+		if has_geometry then
+			local ok, conf = pcall(vim.api.nvim_win_get_config, win)
+			if not ok then
+				if on_done then
+					on_done()
+				end
+				return
 			end
-			return
+
+			local next_conf = {
+				relative = conf.relative,
+				anchor = conf.anchor,
+				row = conf.row,
+				col = conf.col,
+				width = conf.width,
+				height = conf.height,
+			}
+
+			if from.row ~= nil and to.row ~= nil then
+				next_conf.row = round(lerp(from.row, to.row, ease_pos(t)))
+			end
+
+			if from.col ~= nil and to.col ~= nil then
+				next_conf.col = round(lerp(from.col, to.col, ease_pos(t)))
+			end
+
+			if from.width ~= nil and to.width ~= nil then
+				next_conf.width = math.max(1, round(lerp(from.width, to.width, ease_size(t))))
+			end
+
+			if from.height ~= nil and to.height ~= nil then
+				next_conf.height = math.max(1, round(lerp(from.height, to.height, ease_size(t))))
+			end
+
+			vim.api.nvim_win_set_config(win, next_conf)
 		end
-
-		local next_conf = {
-			relative = conf.relative,
-			anchor = conf.anchor,
-			row = conf.row,
-			col = conf.col,
-			width = conf.width,
-			height = conf.height,
-		}
-
-		if from.row ~= nil and to.row ~= nil then
-			next_conf.row = round(lerp(from.row, to.row, ease_pos(t)))
-		end
-
-		if from.col ~= nil and to.col ~= nil then
-			next_conf.col = round(lerp(from.col, to.col, ease_pos(t)))
-		end
-
-		if from.width ~= nil and to.width ~= nil then
-			next_conf.width = math.max(1, round(lerp(from.width, to.width, ease_size(t))))
-		end
-
-		if from.height ~= nil and to.height ~= nil then
-			next_conf.height = math.max(1, round(lerp(from.height, to.height, ease_size(t))))
-		end
-
-		vim.api.nvim_win_set_config(win, next_conf)
 
 		if from.blend ~= nil and to.blend ~= nil then
 			local blend_t
