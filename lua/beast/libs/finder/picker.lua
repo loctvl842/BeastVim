@@ -129,6 +129,14 @@ local function mount_keymaps(picker)
 		list_ui.move(picker.list_view, -1)
 		schedule_preview(picker)
 	end)
+	map({ "i", "n" }, "<C-n>", function()
+		list_ui.move(picker.list_view, 1)
+		schedule_preview(picker)
+	end)
+	map({ "i", "n" }, "<C-p>", function()
+		list_ui.move(picker.list_view, -1)
+		schedule_preview(picker)
+	end)
 	map({ "i", "n" }, "<Down>", function()
 		list_ui.move(picker.list_view, 1)
 		schedule_preview(picker)
@@ -140,12 +148,22 @@ local function mount_keymaps(picker)
 
 	-- Confirm
 	map({ "i", "n" }, "<CR>", function()
-		local item = list_ui.selected(picker.list_view)
-		if item then
+		local selected = list_ui.get_selected(picker.list_view)
+		if #selected > 0 then
 			picker:close()
 			local action = picker._action or actions.open
-			action(picker, { item })
+			action(picker, selected)
 		end
+	end)
+
+	-- Multi-selection
+	map({ "i", "n" }, "<Tab>", function()
+		list_ui.toggle_selection(picker.list_view)
+		list_ui.move(picker.list_view, 1)
+	end)
+	map({ "i", "n" }, "<S-Tab>", function()
+		list_ui.toggle_selection(picker.list_view)
+		list_ui.move(picker.list_view, -1)
 	end)
 
 	-- Close
@@ -210,33 +228,32 @@ local function load_items(picker)
 		return
 	end
 
-	-- Synchronous sources (buffers)
-	local result = source.get(picker.filter)
-	if type(result) == "table" then
-		picker.items = result
+	-- Async sources have source.async = true
+	if source.async then
+		picker.items = {}
+		picker._source_done = false
+		picker._batch_pending = {}
+
+		source.get(picker.filter, function(item)
+			if item == nil then
+				picker._source_done = true
+				vim.schedule(function()
+					flush_batch(picker)
+				end)
+				return
+			end
+			picker._batch_pending[#picker._batch_pending + 1] = item
+			if #picker._batch_pending >= 100 then
+				flush_batch(picker)
+			end
+		end)
+	else
+		-- Synchronous sources (buffers)
+		local result = source.get(picker.filter)
+		picker.items = result or {}
 		picker._source_done = true
 		rematch(picker)
-		return
 	end
-
-	-- Async source (files) — calls get(filter, cb)
-	picker.items = {}
-	picker._source_done = false
-	picker._batch_pending = {}
-
-	source.get(picker.filter, function(item)
-		if item == nil then
-			picker._source_done = true
-			vim.schedule(function()
-				flush_batch(picker)
-			end)
-			return
-		end
-		picker._batch_pending[#picker._batch_pending + 1] = item
-		if #picker._batch_pending >= 100 then
-			flush_batch(picker)
-		end
-	end)
 end
 
 -- ---------------------------------------------------------------------------

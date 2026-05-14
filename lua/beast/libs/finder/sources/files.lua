@@ -26,9 +26,29 @@ function M.get(filter, cb)
 		return
 	end
 
+	local cwd = filter.cwd
+	-- Ensure cwd ends with / for reliable prefix stripping
+	local cwd_prefix = cwd:sub(-1) == "/" and cwd or (cwd .. "/")
+
 	local idx = 0
 	local buf = ""
 	local stdout = uv.new_pipe(false)
+
+	--- Build a relative path from an absolute one without vim.fn (safe in libuv callbacks)
+	local function make_rel(path)
+		if path:sub(1, #cwd_prefix) == cwd_prefix then
+			return path:sub(#cwd_prefix + 1)
+		end
+		return path
+	end
+
+	--- Normalize path to absolute without vim.fn
+	local function make_abs(path)
+		if path:sub(1, 1) == "/" then
+			return path
+		end
+		return cwd_prefix .. path
+	end
 
 	local handle
 	handle = uv.spawn(cmd, { args = args, stdio = { nil, stdout, nil } }, function(code)
@@ -39,12 +59,9 @@ function M.get(filter, cb)
 			local path = vim.trim(buf)
 			if path ~= "" then
 				idx = idx + 1
-				local abs = vim.fn.fnamemodify(path, ":p")
-				local rel = path
-				if abs:sub(1, #filter.cwd) == filter.cwd then
-					rel = abs:sub(#filter.cwd + 2)
-				end
-				local item = { idx = idx, score = 0, text = rel, file = abs, cwd = filter.cwd }
+				local abs = make_abs(path)
+				local rel = make_rel(abs)
+				local item = { idx = idx, score = 0, text = rel, file = abs, cwd = cwd }
 				vim.schedule(function()
 					cb(item)
 				end)
@@ -78,12 +95,9 @@ function M.get(filter, cb)
 			local path = vim.trim(line)
 			if path ~= "" then
 				idx = idx + 1
-				local abs = vim.fn.fnamemodify(path, ":p")
-				local rel = path
-				if abs:sub(1, #filter.cwd) == filter.cwd then
-					rel = abs:sub(#filter.cwd + 2)
-				end
-				batch[#batch + 1] = { idx = idx, score = 0, text = rel, file = abs, cwd = filter.cwd }
+				local abs = make_abs(path)
+				local rel = make_rel(abs)
+				batch[#batch + 1] = { idx = idx, score = 0, text = rel, file = abs, cwd = cwd }
 			end
 		end
 
@@ -96,5 +110,7 @@ function M.get(filter, cb)
 		end
 	end)
 end
+
+M.async = true
 
 return M
