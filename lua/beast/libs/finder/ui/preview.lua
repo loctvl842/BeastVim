@@ -29,7 +29,7 @@ function M.create(win_row, win_col, win_w, win_h)
 		row = win_row,
 		col = win_col,
 		style = "minimal",
-		border = { "┬", "─", "┐", "│", "┘", "─", "┴", "│" },
+		border = { "┬", "─", "╮", "│", "╯", "─", "┴", "│" },
 		zindex = config.zindex,
 	})
 
@@ -49,6 +49,7 @@ function M.show(view, item)
 
 	local lines = {}
 	local ft = ""
+	local title = ""
 
 	if item.file then
 		local ok, result = pcall(vim.fn.readfile, item.file, "", MAX_PREVIEW_LINES)
@@ -58,9 +59,22 @@ function M.show(view, item)
 			lines = { "(cannot read file)" }
 		end
 		ft = vim.filetype.match({ filename = item.file }) or ""
+		title = vim.fn.fnamemodify(item.file, ":t")
 	elseif item.buf and vim.api.nvim_buf_is_valid(item.buf) then
 		lines = vim.api.nvim_buf_get_lines(item.buf, 0, MAX_PREVIEW_LINES, false)
 		ft = vim.bo[item.buf].filetype or ""
+		title = vim.fn.fnamemodify(vim.api.nvim_buf_get_name(item.buf), ":t")
+		if title == "" then
+			title = "[No Name]"
+		end
+	end
+
+	-- Update window title with current file name
+	if title ~= "" then
+		pcall(vim.api.nvim_win_set_config, view.win, {
+			title = " " .. title .. " ",
+			title_pos = "center",
+		})
 	end
 
 	vim.api.nvim_buf_set_option(view.buf, "modifiable", true)

@@ -2,6 +2,9 @@
 ---@field width number fraction of editor width (0–1)
 ---@field height number fraction of editor height (0–1)
 ---@field preview_ratio number fraction of list+preview width given to preview (0–1)
+---@field backdrop boolean whether to show a dark backdrop behind the picker
+---@field prompt_prefix string prefix shown in the input prompt (e.g. "> ")
+---@field selection_prefix string prefix shown on the selected item in the list
 ---@field debounce { normal_ms: number, live_ms: number, preview_ms: number }
 ---@field matcher { smartcase: boolean, ignorecase: boolean }
 ---@field actions table<string, fun(picker: table, items: Beast.Finder.Item[])>
@@ -10,7 +13,10 @@
 local defaults = {
 	width = 0.8,
 	height = 0.8,
-	preview_ratio = 0.45,
+	preview_ratio = 0.55,
+	backdrop = true,
+	prompt_prefix = " ",
+	selection_prefix = "▌",
 	debounce = {
 		normal_ms = 30,
 		live_ms = 200,

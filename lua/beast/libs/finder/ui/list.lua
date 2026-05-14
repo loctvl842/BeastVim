@@ -29,7 +29,7 @@ function M.create(win_row, win_col, win_w, win_h)
 		row = win_row,
 		col = win_col,
 		style = "minimal",
-		border = { "├", "─", "┤", "│", "┘", "─", "└", "│" },
+		border = { "", "", "", "│", "┘", "─", "╰", "│" },
 		zindex = config.zindex,
 	})
 
@@ -52,10 +52,14 @@ function M.render(view, items, format_fn)
 	view.items = items
 	view.cursor = math.min(view.cursor, math.max(1, #items))
 
+	local sel_prefix = config.selection_prefix
+	local pad = string.rep(" ", #sel_prefix)
+
 	local lines = {}
-	for _, item in ipairs(items) do
+	for i, item in ipairs(items) do
 		local highlights = format_fn(item)
 		local parts = {}
+		parts[1] = (i == view.cursor) and sel_prefix or pad
 		for _, h in ipairs(highlights) do
 			parts[#parts + 1] = h.text
 		end
@@ -69,7 +73,7 @@ function M.render(view, items, format_fn)
 	-- Apply highlight extmarks
 	vim.api.nvim_buf_clear_namespace(view.buf, view.ns, 0, -1)
 	for row, item in ipairs(items) do
-		local col = 0
+		local col = #sel_prefix -- offset by prefix width
 		local highlights = format_fn(item)
 		for _, h in ipairs(highlights) do
 			if h.hl then
@@ -90,8 +94,21 @@ end
 function M.set_cursor(view, idx)
 	-- stylua: ignore
 	if not view:is_valid() or #view.items == 0 then return end
+	local prev_cursor = view.cursor
 	view.cursor = math.max(1, math.min(idx, #view.items))
 	vim.api.nvim_win_set_cursor(view.win, { view.cursor, 0 })
+
+	-- Update selection prefix for old and new cursor lines
+	local sel_prefix = config.selection_prefix
+	local pad = string.rep(" ", #sel_prefix)
+	vim.api.nvim_buf_set_option(view.buf, "modifiable", true)
+	if prev_cursor ~= view.cursor and prev_cursor >= 1 and prev_cursor <= #view.items then
+		local old_line = vim.api.nvim_buf_get_lines(view.buf, prev_cursor - 1, prev_cursor, false)[1] or ""
+		vim.api.nvim_buf_set_lines(view.buf, prev_cursor - 1, prev_cursor, false, { pad .. old_line:sub(#sel_prefix + 1) })
+	end
+	local new_line = vim.api.nvim_buf_get_lines(view.buf, view.cursor - 1, view.cursor, false)[1] or ""
+	vim.api.nvim_buf_set_lines(view.buf, view.cursor - 1, view.cursor, false, { sel_prefix .. new_line:sub(#sel_prefix + 1) })
+	vim.api.nvim_buf_set_option(view.buf, "modifiable", false)
 end
 
 ---@param view Beast.Finder.ListView

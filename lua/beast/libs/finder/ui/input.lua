@@ -11,17 +11,8 @@ end)
 
 local M = {}
 
----@return integer width, integer height, integer row, integer col
-local function calc_geometry(total_w, total_h, win_row, win_col)
-	local w = math.floor(vim.o.columns * config.width)
-	local h = 1
-	local row = win_row
-	local col = win_col
-	return w, h, row, col
-end
-
 ---@param on_change fun(text: string)
----@param total_w integer list+preview combined width
+---@param total_w integer width for the input window
 ---@param total_h integer unused, kept for symmetry
 ---@param win_row integer top row of the picker layout
 ---@param win_col integer left col of the picker layout
@@ -29,19 +20,20 @@ end
 function M.create(on_change, total_w, total_h, win_row, win_col)
 	local buf = Util.create_scratch_buf("beastvim-finder-input")
 	vim.bo[buf].buftype = "prompt"
-	vim.fn.prompt_setprompt(buf, "")
+	vim.fn.prompt_setprompt(buf, config.prompt_prefix)
 
-	local w, _, row, col = calc_geometry(total_w, total_h, win_row, win_col)
 	local ns = vim.api.nvim_create_namespace("beastvim-finder-input")
 
+	-- Input: top-left panel with full border. Right side junctions connect to preview.
+	-- Bottom border ├─┤ is the visual separator between input and list.
 	local win = vim.api.nvim_open_win(buf, true, {
 		relative = "editor",
-		width = w,
+		width = total_w,
 		height = 1,
-		row = row,
-		col = col,
+		row = win_row,
+		col = win_col,
 		style = "minimal",
-		border = "rounded",
+		border = { "╭", "─", "┬", "│", "┤", "─", "├", "│" },
 		title = " Find ",
 		title_pos = "left",
 		zindex = config.zindex,
@@ -77,7 +69,13 @@ function M.get_text(view)
 	-- stylua: ignore
 	if not view:is_valid() then return "" end
 	local lines = vim.api.nvim_buf_get_lines(view.buf, 0, 1, false)
-	return lines[1] or ""
+	local text = lines[1] or ""
+	-- Strip the prompt prefix set by prompt_setprompt
+	local prefix = config.prompt_prefix
+	if prefix ~= "" and text:sub(1, #prefix) == prefix then
+		text = text:sub(#prefix + 1)
+	end
+	return text
 end
 
 return M

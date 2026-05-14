@@ -7,6 +7,7 @@ local M = {}
 ---@field explorer? Beast.Explorer.Config
 ---@field packer? Beast.Packer.Config
 ---@field treesitter? Beast.Treesitter.Config
+---@field finder? Beast.Finder.Config
 local defaults = {
 	key = {},
 	notify = {},
@@ -149,6 +150,30 @@ function M.setup(opts)
 			ts.setup(cfg.treesitter)
 			ts.enable()
 		end,
+	})
+
+	packer.lazy("beast.libs.finder", {
+		defer = true,
+		highlights = "beast.libs.finder.highlights",
+		setup = function(finder)
+			finder.setup(cfg.finder or {})
+		end,
+		keys = {
+			{
+				"<leader>f",
+				function()
+					require("beast.libs.finder").open("files")
+				end,
+				desc = "Find files",
+			},
+			{
+				"<leader>f",
+				function()
+					require("beast.libs.finder").open("buffers")
+				end,
+				desc = "Find buffers",
+			},
+		},
 	})
 
 	-- Initial palette extraction (colorscheme should be loaded by packer)
