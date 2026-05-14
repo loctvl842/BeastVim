@@ -16,13 +16,16 @@ local M = {}
 ---@param total_h integer unused, kept for symmetry
 ---@param win_row integer top row of the picker layout
 ---@param win_col integer left col of the picker layout
+---@param title? string title displayed in the input border
 ---@return Beast.Finder.InputView
-function M.create(on_change, total_w, total_h, win_row, win_col)
-	local buf = Util.create_scratch_buf("beastvim-finder-input")
+function M.create(on_change, total_w, total_h, win_row, win_col, title)
+	local buf = Buffer.new("beastvim-finder-input")
 	vim.bo[buf].buftype = "prompt"
 	vim.fn.prompt_setprompt(buf, config.prompt_prefix)
 
 	local ns = vim.api.nvim_create_namespace("beastvim-finder-input")
+
+	local display_title = " " .. (title or "Find") .. " "
 
 	-- Input: top-left panel with full border. Right side junctions connect to preview.
 	-- Bottom border ├─┤ is the visual separator between input and list.
@@ -34,7 +37,7 @@ function M.create(on_change, total_w, total_h, win_row, win_col)
 		col = win_col,
 		style = "minimal",
 		border = { "╭", "─", "┬", "│", "┤", "─", "├", "│" },
-		title = " Find ",
+		title = display_title,
 		title_pos = "left",
 		zindex = config.zindex,
 	})

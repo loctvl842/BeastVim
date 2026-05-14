@@ -19,7 +19,7 @@ local MAX_PREVIEW_LINES = 500
 ---@param win_h integer
 ---@return Beast.Finder.PreviewView
 function M.create(win_row, win_col, win_w, win_h)
-	local buf = Util.create_scratch_buf("beastvim-finder-preview")
+	local buf = Buffer.new("beastvim-finder-preview")
 	local ns = vim.api.nvim_create_namespace("beastvim-finder-preview")
 
 	local win = vim.api.nvim_open_win(buf, false, {
@@ -77,10 +77,10 @@ function M.show(view, item)
 		})
 	end
 
-	vim.api.nvim_buf_set_option(view.buf, "modifiable", true)
+	vim.bo[view.buf].modifiable = true
 	vim.api.nvim_buf_set_lines(view.buf, 0, -1, false, lines)
-	vim.api.nvim_buf_set_option(view.buf, "modifiable", false)
-	vim.api.nvim_buf_set_option(view.buf, "filetype", ft)
+	vim.bo[view.buf].modifiable = false
+	vim.bo[view.buf].filetype = ft
 
 	-- Jump to the item's line if provided
 	if item.pos and view:is_valid() then

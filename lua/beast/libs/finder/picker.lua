@@ -5,6 +5,7 @@ local filter_mod = require("beast.libs.finder.filter")
 local format = require("beast.libs.finder.format")
 local input_ui = require("beast.libs.finder.ui.input")
 local list_ui = require("beast.libs.finder.ui.list")
+local match_hl = require("beast.libs.finder.ui.match_hl")
 local matcher = require("beast.libs.finder.matcher")
 local preview_ui = require("beast.libs.finder.ui.preview")
 
@@ -85,7 +86,12 @@ end
 local function render(picker)
 	local format_fn = picker._format_fn or format.filename
 	list_ui.render(picker.list_view, picker.matched, format_fn)
+	-- Apply fuzzy match highlights to list using item.positions
+	if picker.list_view:is_valid() then
+		match_hl.apply_list(picker.list_view.buf, picker.matched, format_fn)
+	end
 	schedule_preview(picker)
+	vim.cmd("redraw")
 end
 
 local function rematch(picker)
@@ -108,6 +114,15 @@ local function flush_batch(picker)
 	rematch(picker)
 end
 
+local function move_cursor(picker, delta)
+	local old_cursor = picker.list_view.cursor
+	list_ui.move(picker.list_view, delta)
+	if old_cursor ~= picker.list_view.cursor then
+		vim.cmd("redraw")
+	end
+	schedule_preview(picker)
+end
+
 -- ---------------------------------------------------------------------------
 -- Keymaps
 -- ---------------------------------------------------------------------------
@@ -122,28 +137,22 @@ local function mount_keymaps(picker)
 
 	-- Navigation
 	map({ "i", "n" }, "<C-j>", function()
-		list_ui.move(picker.list_view, 1)
-		schedule_preview(picker)
+		move_cursor(picker, 1)
 	end)
 	map({ "i", "n" }, "<C-k>", function()
-		list_ui.move(picker.list_view, -1)
-		schedule_preview(picker)
+		move_cursor(picker, -1)
 	end)
 	map({ "i", "n" }, "<C-n>", function()
-		list_ui.move(picker.list_view, 1)
-		schedule_preview(picker)
+		move_cursor(picker, 1)
 	end)
 	map({ "i", "n" }, "<C-p>", function()
-		list_ui.move(picker.list_view, -1)
-		schedule_preview(picker)
+		move_cursor(picker, -1)
 	end)
 	map({ "i", "n" }, "<Down>", function()
-		list_ui.move(picker.list_view, 1)
-		schedule_preview(picker)
+		move_cursor(picker, 1)
 	end)
 	map({ "i", "n" }, "<Up>", function()
-		list_ui.move(picker.list_view, -1)
-		schedule_preview(picker)
+		move_cursor(picker, -1)
 	end)
 
 	-- Confirm
@@ -174,11 +183,6 @@ local function mount_keymaps(picker)
 		picker:close()
 	end)
 
-	-- Toggle preview
-	map({ "i", "n" }, "<C-p>", function()
-		preview_ui.toggle(picker.preview_view)
-	end)
-
 	-- Open in split / vsplit
 	map({ "i", "n" }, "<C-s>", function()
 		local item = list_ui.selected(picker.list_view)
@@ -202,6 +206,141 @@ local function mount_keymaps(picker)
 			actions.copy_path(picker, { item })
 		end
 	end)
+
+	-- Toggle focus between input and list
+	map({ "i", "n" }, "<C-l>", function()
+		if picker.list_view:is_valid() then
+			vim.api.nvim_set_current_win(picker.list_view.win)
+		end
+	end)
+
+	-- -----------------------------------------------------------------------
+	-- List window keymaps
+	-- -----------------------------------------------------------------------
+	local function mount_list_keymaps()
+		-- stylua: ignore
+		if not picker.list_view:is_valid() then return end
+		local lbuf = picker.list_view.buf
+		local lopts = { buffer = lbuf, nowait = true }
+		local function lmap(mode, lhs, fn)
+			vim.keymap.set(mode, lhs, fn, lopts)
+		end
+
+		-- Special keys (non-printable)
+		lmap("n", "<C-n>", function()
+			move_cursor(picker, 1)
+		end)
+		lmap("n", "<C-p>", function()
+			move_cursor(picker, -1)
+		end)
+		lmap("n", "<Down>", function()
+			move_cursor(picker, 1)
+		end)
+		lmap("n", "<Up>", function()
+			move_cursor(picker, -1)
+		end)
+		lmap("n", "<CR>", function()
+			local selected = list_ui.get_selected(picker.list_view)
+			if #selected > 0 then
+				picker:close()
+				local action = picker._action or actions.open
+				action(picker, selected)
+			end
+		end)
+		lmap("n", "<Tab>", function()
+			list_ui.toggle_selection(picker.list_view)
+			list_ui.move(picker.list_view, 1)
+		end)
+		lmap("n", "<S-Tab>", function()
+			list_ui.toggle_selection(picker.list_view)
+			list_ui.move(picker.list_view, -1)
+		end)
+		lmap("n", "<Esc>", function()
+			picker:close()
+		end)
+		lmap("n", "<C-s>", function()
+			local item = list_ui.selected(picker.list_view)
+			if item then
+				picker:close()
+				actions.open_split(picker, { item })
+			end
+		end)
+		lmap("n", "<C-v>", function()
+			local item = list_ui.selected(picker.list_view)
+			if item then
+				picker:close()
+				actions.open_vsplit(picker, { item })
+			end
+		end)
+
+		-- Every printable char redirects to input and feeds the char
+		for byte = 32, 126 do
+			local char = string.char(byte)
+			lmap("n", char, function()
+				vim.api.nvim_set_current_win(picker.input_view.win)
+				vim.cmd("startinsert!")
+				vim.api.nvim_feedkeys(char, "n", false)
+			end)
+		end
+	end
+
+	-- -----------------------------------------------------------------------
+	-- Preview window keymaps
+	-- -----------------------------------------------------------------------
+	local function mount_preview_keymaps()
+		-- stylua: ignore
+		if not picker.preview_view:is_valid() then return end
+		local pbuf = picker.preview_view.buf
+		local popts = { buffer = pbuf, nowait = true }
+		local function pmap(mode, lhs, fn)
+			vim.keymap.set(mode, lhs, fn, popts)
+		end
+
+		pmap("n", "<Esc>", function()
+			picker:close()
+		end)
+
+		-- Insert/modify keys redirect to input and feed the char
+		local redirect_keys = {
+			"i",
+			"I",
+			"a",
+			"A",
+			"o",
+			"O",
+			"s",
+			"S",
+			"c",
+			"C",
+			"r",
+			"R",
+			"x",
+			"X",
+			"d",
+			"D",
+			"p",
+			"P",
+			"/",
+		}
+		for _, key in ipairs(redirect_keys) do
+			pmap("n", key, function()
+				vim.api.nvim_set_current_win(picker.input_view.win)
+				vim.cmd("startinsert!")
+				if key ~= "/" then
+					vim.api.nvim_feedkeys(key, "n", false)
+				end
+			end)
+		end
+
+		-- Block <leader> from triggering global mappings — redirect to input
+		pmap("n", "<leader>", function()
+			vim.api.nvim_set_current_win(picker.input_view.win)
+			vim.cmd("startinsert!")
+		end)
+	end
+
+	mount_list_keymaps()
+	mount_preview_keymaps()
 end
 
 -- ---------------------------------------------------------------------------
@@ -287,18 +426,32 @@ function Picker.new(source_name, opts)
 
 	self.list_view = list_ui.create(layout.list.row, layout.list.col, layout.list.w, layout.list.h)
 
+	local title = source_name:sub(1, 1):upper() .. source_name:sub(2)
 	self.input_view = input_ui.create(function(text)
 		filter_mod.update(self.filter, text)
 		rematch(self)
-	end, layout.input.w, layout.input.h, layout.input.row, layout.input.col)
+	end, layout.input.w, layout.input.h, layout.input.row, layout.input.col, title)
 
 	mount_keymaps(self)
 	load_items(self)
+
+	-- Relayout on terminal resize
+	self._resize_augroup = vim.api.nvim_create_augroup("BeastFinderResize", { clear = true })
+	vim.api.nvim_create_autocmd("VimResized", {
+		group = self._resize_augroup,
+		callback = function()
+			self:relayout()
+		end,
+	})
 
 	return self
 end
 
 function Picker:close()
+	if self._resize_augroup then
+		vim.api.nvim_del_augroup_by_id(self._resize_augroup)
+		self._resize_augroup = nil
+	end
 	if self._preview_timer then
 		vim.fn.timer_stop(self._preview_timer)
 		self._preview_timer = nil
@@ -310,6 +463,54 @@ function Picker:close()
 	self._backdrop_win = nil
 	if self.main_win and vim.api.nvim_win_is_valid(self.main_win) then
 		vim.api.nvim_set_current_win(self.main_win)
+	end
+end
+
+function Picker:relayout()
+	local layout = calc_layout()
+
+	-- Reposition backdrop
+	if self._backdrop_win and vim.api.nvim_win_is_valid(self._backdrop_win) then
+		pcall(vim.api.nvim_win_set_config, self._backdrop_win, {
+			relative = "editor",
+			width = vim.o.columns,
+			height = vim.o.lines,
+			row = 0,
+			col = 0,
+		})
+	end
+
+	-- Reposition input
+	if self.input_view:is_valid() then
+		pcall(vim.api.nvim_win_set_config, self.input_view.win, {
+			relative = "editor",
+			width = layout.input.w,
+			height = layout.input.h,
+			row = layout.input.row,
+			col = layout.input.col,
+		})
+	end
+
+	-- Reposition list
+	if self.list_view:is_valid() then
+		pcall(vim.api.nvim_win_set_config, self.list_view.win, {
+			relative = "editor",
+			width = layout.list.w,
+			height = layout.list.h,
+			row = layout.list.row,
+			col = layout.list.col,
+		})
+	end
+
+	-- Reposition preview
+	if self.preview_view:is_valid() then
+		pcall(vim.api.nvim_win_set_config, self.preview_view.win, {
+			relative = "editor",
+			width = layout.preview.w,
+			height = layout.preview.h,
+			row = layout.preview.row,
+			col = layout.preview.col,
+		})
 	end
 end
 

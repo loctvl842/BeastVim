@@ -90,30 +90,35 @@ end
 ---@param suffix boolean must match at end
 ---@param exact boolean substring match, no gap penalty
 ---@return number score (0 = no match)
+---@return integer[]? positions 1-based byte indices of matched chars in hay
 local function score_term(hay, needle, prefix, suffix, exact)
 	local hlen = #hay
 	local nlen = #needle
 	if nlen == 0 or nlen > hlen then
-		return 0
+		return 0, nil
 	end
 
 	-- Exact / prefix / suffix shortcuts
 	if exact or prefix or suffix then
 		local idx = hay:find(needle, 1, true)
 		if not idx then
-			return 0
+			return 0, nil
 		end
 		if prefix and idx ~= 1 then
-			return 0
+			return 0, nil
 		end
 		if suffix and idx + nlen - 1 ~= hlen then
-			return 0
+			return 0, nil
 		end
 		local base = SCORE_MATCH * nlen
 		if idx == 1 then
 			base = base + BONUS_FIRST_CHAR
 		end
-		return base
+		local pos = {}
+		for i = idx, idx + nlen - 1 do
+			pos[#pos + 1] = i
+		end
+		return base, pos
 	end
 
 	-- Fuzzy: forward scan to find first match
@@ -134,34 +139,43 @@ local function score_term(hay, needle, prefix, suffix, exact)
 		end
 	end
 	if ni <= nlen then
-		return 0
+		return 0, nil
 	end
 
-	-- Backward scan from first_match to find tightest window
-	-- Walk backwards through needle from the last matched position
-	local last_hi = hlen
-	for hi = hlen, first_match, -1 do
-		if hbytes[hi] == nbytes[nlen] then
-			last_hi = hi
-			break
+	-- Backward scan: find tightest match window
+	local last_match = 0
+	do
+		local nj = nlen
+		for hi = hlen, first_match, -1 do
+			if hbytes[hi] == nbytes[nj] then
+				if nj == nlen then
+					last_match = hi
+				end
+				nj = nj - 1
+				if nj == 0 then
+					first_match = hi
+					break
+				end
+			end
 		end
 	end
 
-	-- Score the window [first_match .. last_hi]
+	-- Score the window [first_match .. last_match] and collect positions
 	local score = 0
+	local positions = {}
 	local in_gap = false
 	ni = 1
-	for hi = first_match, last_hi do
+	for hi = first_match, last_match do
 		local hb = hbytes[hi]
 		if hb == nbytes[ni] then
 			score = score + SCORE_MATCH
+			positions[#positions + 1] = hi
 			-- Boundary bonus
 			if hi == 1 then
 				score = score + BONUS_FIRST_CHAR
 			elseif BOUNDARY_CHARS[hbytes[hi - 1]] then
 				score = score + BONUS_BOUNDARY
 			elseif hb >= 65 and hb <= 90 and hbytes[hi - 1] >= 97 and hbytes[hi - 1] <= 122 then
-				-- camelCase: uppercase after lowercase
 				score = score + BONUS_CAMEL
 			elseif ni > 1 then
 				score = score + BONUS_CONSECUTIVE
@@ -181,7 +195,7 @@ local function score_term(hay, needle, prefix, suffix, exact)
 		end
 	end
 
-	return math.max(0, score)
+	return math.max(0, score), positions
 end
 
 -- ---------------------------------------------------------------------------
@@ -191,19 +205,22 @@ end
 ---@param item Beast.Finder.Item
 ---@param and_groups Beast.Finder.Term[][]
 ---@return number score 0 = excluded
+---@return integer[]? positions 1-based byte indices into item.text
 local function score_item(item, and_groups)
 	if #and_groups == 0 then
-		return 1
+		return 1, nil
 	end
 	local hay_orig = item.text or ""
 	local hay_lower = hay_orig:lower()
 	local total = 0
+	local all_positions = {}
 	for _, or_terms in ipairs(and_groups) do
 		local best = 0
+		local best_pos = nil
 		local any_match = false
 		for _, term in ipairs(or_terms) do
 			local hay = term.ignorecase and hay_lower or hay_orig
-			local s = score_term(hay, term.text, term.prefix, term.suffix, term.exact)
+			local s, pos = score_term(hay, term.text, term.prefix, term.suffix, term.exact)
 			if term.inverse then
 				if s == 0 then
 					best = math.max(best, 1)
@@ -211,17 +228,25 @@ local function score_item(item, and_groups)
 				end
 			else
 				if s > 0 then
-					best = math.max(best, s)
+					if s > best then
+						best = s
+						best_pos = pos
+					end
 					any_match = true
 				end
 			end
 		end
 		if not any_match then
-			return 0
+			return 0, nil
+		end
+		if best_pos then
+			for _, p in ipairs(best_pos) do
+				all_positions[#all_positions + 1] = p
+			end
 		end
 		total = total + best
 	end
-	return total
+	return total, all_positions
 end
 
 ---@param item Beast.Finder.Item
@@ -230,7 +255,9 @@ end
 ---@return number score 0 = no match
 function M.score(item, filter, cfg)
 	local groups = parse_pattern(filter.pattern, cfg.ignorecase, cfg.smartcase)
-	return score_item(item, groups)
+	local s, pos = score_item(item, groups)
+	item.positions = pos
+	return s
 end
 
 ---@param items Beast.Finder.Item[]
@@ -244,8 +271,9 @@ function M.run(items, filter, cfg, on_done)
 		local yield = async.yielder(1)
 		for i = 1, #items do
 			local item = items[i]
-			local s = score_item(item, groups)
+			local s, pos = score_item(item, groups)
 			item.score = s
+			item.positions = pos
 			if s > 0 then
 				matched[#matched + 1] = item
 			end

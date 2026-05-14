@@ -4,6 +4,20 @@
 
 local M = {}
 
+local devicons ---@type table|false|nil nil=not loaded yet, false=unavailable
+
+local function get_icon(filename)
+	if devicons == nil then
+		local ok, mod = pcall(require, "nvim-web-devicons")
+		devicons = ok and mod or false
+	end
+	if devicons then
+		local icon, hl = devicons.get_icon(filename, nil, { default = true })
+		return icon, hl
+	end
+	return nil, nil
+end
+
 ---@param item Beast.Finder.Item
 ---@return Beast.Finder.Highlight[]
 function M.filename(item)
@@ -21,15 +35,8 @@ function M.filename(item)
 
 	local result = {}
 
-	-- Icon via global Icon if available
-	local ok, icon, icon_hl = pcall(function()
-		if Icon and Icon.get then
-			local i, h = Icon.get(base)
-			return i, h
-		end
-		return nil, nil
-	end)
-	if ok and icon then
+	local icon, icon_hl = get_icon(base)
+	if icon then
 		result[#result + 1] = { text = icon .. " ", hl = icon_hl }
 	end
 

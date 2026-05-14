@@ -8,9 +8,7 @@ function M.create(zindex)
 	-- stylua: ignore
 	if not config.backdrop then return nil end
 
-	local buf = vim.api.nvim_create_buf(false, true)
-	vim.bo[buf].buftype = "nofile"
-	vim.bo[buf].bufhidden = "wipe"
+	local buf = Buffer.new("beastvim-finder-backdrop")
 
 	local win = vim.api.nvim_open_win(buf, false, {
 		relative = "editor",

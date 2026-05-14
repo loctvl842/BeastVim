@@ -167,7 +167,7 @@ function M.setup(opts)
 				desc = "Find files",
 			},
 			{
-				"<leader>f",
+				"<leader>b",
 				function()
 					require("beast.libs.finder").open("buffers")
 				end,

@@ -11,7 +11,7 @@ function M.setup()
 		Match = { fg = p.accent3, bold = true },
 		File = { fg = p.text },
 		Dir = { fg = p.dimmed3 },
-		Selected = { bg = p.dark2, fg = p.text, bold = true },
+		Selected = { bg = p.dark2, bold = true },
 		PreviewBorder = { fg = p.dimmed3, bg = p.dark1 },
 	})
 end

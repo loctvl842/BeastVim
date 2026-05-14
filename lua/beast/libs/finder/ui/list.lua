@@ -3,12 +3,16 @@ local config = require("beast.libs.finder.config")
 
 ---@class Beast.Finder.ListView : Beast.View
 ---@field ns integer
+---@field prefix_ns integer namespace for selection prefix extmarks
 ---@field items Beast.Finder.Item[]
 ---@field cursor integer 1-based index into items
+---@field selected table<integer, boolean> set of selected item indices
 local ListView = View:extend(function(obj, ns)
 	obj.ns = ns
+	obj.prefix_ns = vim.api.nvim_create_namespace("")
 	obj.items = {}
 	obj.cursor = 1
+	obj.selected = {}
 end)
 
 local M = {}
@@ -19,7 +23,7 @@ local M = {}
 ---@param win_h integer height available for list
 ---@return Beast.Finder.ListView
 function M.create(win_row, win_col, win_w, win_h)
-	local buf = Util.create_scratch_buf("beastvim-finder-list")
+	local buf = Buffer.new("beastvim-finder-list")
 	local ns = vim.api.nvim_create_namespace("beastvim-finder-list")
 
 	local win = vim.api.nvim_open_win(buf, false, {
@@ -39,10 +43,6 @@ function M.create(win_row, win_col, win_w, win_h)
 	return ListView(buf, win, ns)
 end
 
----@class Beast.Finder.Highlight
----@field text string
----@field hl string?
-
 ---@param view Beast.Finder.ListView
 ---@param items Beast.Finder.Item[]
 ---@param format_fn fun(item: Beast.Finder.Item): Beast.Finder.Highlight[]
@@ -52,29 +52,37 @@ function M.render(view, items, format_fn)
 	view.items = items
 	view.cursor = math.min(view.cursor, math.max(1, #items))
 
-	local sel_prefix = config.selection_prefix
-	local pad = string.rep(" ", #sel_prefix)
-
 	local lines = {}
+	local all_highlights = {}
 	for i, item in ipairs(items) do
 		local highlights = format_fn(item)
+		all_highlights[i] = highlights
 		local parts = {}
-		parts[1] = (i == view.cursor) and sel_prefix or pad
 		for _, h in ipairs(highlights) do
 			parts[#parts + 1] = h.text
 		end
 		lines[#lines + 1] = table.concat(parts)
 	end
 
-	vim.api.nvim_buf_set_option(view.buf, "modifiable", true)
+	vim.bo[view.buf].modifiable = true
 	vim.api.nvim_buf_set_lines(view.buf, 0, -1, false, lines)
-	vim.api.nvim_buf_set_option(view.buf, "modifiable", false)
+	vim.bo[view.buf].modifiable = false
 
-	-- Apply highlight extmarks
+	-- Apply highlight extmarks and inline prefix via virtual text
 	vim.api.nvim_buf_clear_namespace(view.buf, view.ns, 0, -1)
-	for row, item in ipairs(items) do
-		local col = #sel_prefix -- offset by prefix width
-		local highlights = format_fn(item)
+	vim.api.nvim_buf_clear_namespace(view.buf, view.prefix_ns, 0, -1)
+	local sel_prefix = config.selection_prefix .. " "
+	local pad = string.rep(" ", vim.fn.strdisplaywidth(sel_prefix))
+
+	for row, highlights in ipairs(all_highlights) do
+		-- Inline virtual text prefix (selected vs padding)
+		local prefix_text = (row == view.cursor) and sel_prefix or pad
+		vim.api.nvim_buf_set_extmark(view.buf, view.prefix_ns, row - 1, 0, {
+			virt_text = { { prefix_text, "BeastFinderNormal" } },
+			virt_text_pos = "inline",
+		})
+
+		local col = 0
 		for _, h in ipairs(highlights) do
 			if h.hl then
 				vim.api.nvim_buf_set_extmark(view.buf, view.ns, row - 1, col, {
@@ -98,23 +106,64 @@ function M.set_cursor(view, idx)
 	view.cursor = math.max(1, math.min(idx, #view.items))
 	vim.api.nvim_win_set_cursor(view.win, { view.cursor, 0 })
 
-	-- Update selection prefix for old and new cursor lines
-	local sel_prefix = config.selection_prefix
-	local pad = string.rep(" ", #sel_prefix)
-	vim.api.nvim_buf_set_option(view.buf, "modifiable", true)
-	if prev_cursor ~= view.cursor and prev_cursor >= 1 and prev_cursor <= #view.items then
-		local old_line = vim.api.nvim_buf_get_lines(view.buf, prev_cursor - 1, prev_cursor, false)[1] or ""
-		vim.api.nvim_buf_set_lines(view.buf, prev_cursor - 1, prev_cursor, false, { pad .. old_line:sub(#sel_prefix + 1) })
+	-- Update inline virtual text prefix for old and new cursor rows
+	if prev_cursor ~= view.cursor then
+		local sel_prefix = config.selection_prefix .. " "
+		local pad = string.rep(" ", vim.fn.strdisplaywidth(sel_prefix))
+
+		-- Replace prefix on old cursor line
+		if prev_cursor >= 1 and prev_cursor <= #view.items then
+			vim.api.nvim_buf_clear_namespace(view.buf, view.prefix_ns, prev_cursor - 1, prev_cursor)
+			vim.api.nvim_buf_set_extmark(view.buf, view.prefix_ns, prev_cursor - 1, 0, {
+				virt_text = { { pad, "BeastFinderNormal" } },
+				virt_text_pos = "inline",
+			})
+		end
+
+		-- Replace prefix on new cursor line
+		vim.api.nvim_buf_clear_namespace(view.buf, view.prefix_ns, view.cursor - 1, view.cursor)
+		vim.api.nvim_buf_set_extmark(view.buf, view.prefix_ns, view.cursor - 1, 0, {
+			virt_text = { { sel_prefix, "BeastFinderNormal" } },
+			virt_text_pos = "inline",
+		})
 	end
-	local new_line = vim.api.nvim_buf_get_lines(view.buf, view.cursor - 1, view.cursor, false)[1] or ""
-	vim.api.nvim_buf_set_lines(view.buf, view.cursor - 1, view.cursor, false, { sel_prefix .. new_line:sub(#sel_prefix + 1) })
-	vim.api.nvim_buf_set_option(view.buf, "modifiable", false)
 end
 
 ---@param view Beast.Finder.ListView
 ---@param delta integer positive = down, negative = up
 function M.move(view, delta)
 	M.set_cursor(view, view.cursor + delta)
+end
+
+---@param view Beast.Finder.ListView
+function M.toggle_selection(view)
+	-- stylua: ignore
+	if not view:is_valid() or #view.items == 0 then return end
+	local idx = view.items[view.cursor] and view.items[view.cursor].idx
+	if not idx then
+		return
+	end
+	if view.selected[idx] then
+		view.selected[idx] = nil
+	else
+		view.selected[idx] = true
+	end
+end
+
+---@param view Beast.Finder.ListView
+---@return Beast.Finder.Item[] selected items, or current item if none selected
+function M.get_selected(view)
+	if not next(view.selected) then
+		local item = view.items[view.cursor]
+		return item and { item } or {}
+	end
+	local result = {}
+	for _, item in ipairs(view.items) do
+		if view.selected[item.idx] then
+			result[#result + 1] = item
+		end
+	end
+	return result
 end
 
 ---@param view Beast.Finder.ListView
