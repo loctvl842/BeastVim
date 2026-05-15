@@ -44,8 +44,15 @@ M.cache = {}
 ---@type table<string, string[]>?
 M._lang_patterns = nil
 
--- CWD detector - returns current working directory
+-- CWD detector - returns current working directory or directory from argv
 function M.detectors.cwd()
+	-- Check if nvim was launched with a directory argument
+	for i = 0, vim.fn.argc() - 1 do
+		local arg = vim.fn.argv(i)
+		if arg and arg ~= "" and vim.fn.isdirectory(arg) == 1 then
+			return { vim.fn.fnamemodify(arg, ":p"):gsub("/$", "") }
+		end
+	end
 	return { vim.uv.cwd() }
 end
 
@@ -91,7 +98,9 @@ end
 function M.detectors.pattern(buf, patterns)
 	patterns = type(patterns) == "string" and { patterns } or patterns
 	---@cast patterns string[]
-	local path = M.bufpath(buf) or vim.uv.cwd()
+	local path = M.bufpath(buf)
+	-- stylua: ignore
+	if not path then return {} end
 
 	local pattern = vim.fs.find(function(name)
 		for _, p in ipairs(patterns) do
@@ -226,8 +235,9 @@ function M.realpath(path)
 	-- Only resolve symlinks on Unix
 	if vim.fn.has("win32") == 0 then
 		local rp = vim.uv.fs_realpath(path)
-		---@cast rp string?
-		path = rp or path
+		-- stylua: ignore
+		if not rp then return nil end
+		path = rp
 	end
 
 	-- Normalize path separators

@@ -54,6 +54,9 @@ function M.show(view, item)
 	if item.file then
 		local ok, result = pcall(vim.fn.readfile, item.file, "", MAX_PREVIEW_LINES)
 		if ok then
+			for i, line in ipairs(result) do
+				result[i] = line:gsub("[\r%z]", "")
+			end
 			lines = result
 		else
 			lines = { "(cannot read file)" }
@@ -78,7 +81,13 @@ function M.show(view, item)
 	end
 
 	vim.bo[view.buf].modifiable = true
-	vim.api.nvim_buf_set_lines(view.buf, 0, -1, false, lines)
+	local ok_set = pcall(vim.api.nvim_buf_set_lines, view.buf, 0, -1, false, lines)
+	if not ok_set then
+		-- Binary file — lines contain embedded newlines
+		vim.api.nvim_buf_set_lines(view.buf, 0, -1, false, { "(binary file)" })
+		vim.bo[view.buf].modifiable = false
+		return
+	end
 	vim.bo[view.buf].modifiable = false
 	vim.bo[view.buf].filetype = ft
 

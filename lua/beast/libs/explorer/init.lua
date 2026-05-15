@@ -14,7 +14,7 @@ local M = setmetatable({}, {
 
 ---@param dir? string
 local function ensure_explorer(dir)
-	dir = dir and vim.fn.fnamemodify(dir, ":p"):gsub("/$", "") or vim.fn.getcwd()
+	dir = dir and vim.fn.fnamemodify(dir, ":p"):gsub("/$", "") or Util.root()
 	if not state.tree or state.tree.root.path ~= dir then
 		state.tree = Tree(dir)
 	end
@@ -72,7 +72,7 @@ function M.toggle(cwd)
 		return
 	end
 
-	cwd = cwd and vim.fn.fnamemodify(cwd, ":p"):gsub("/$", "") or vim.fn.getcwd()
+	cwd = cwd and vim.fn.fnamemodify(cwd, ":p"):gsub("/$", "") or Util.root()
 	M.open(cwd)
 end
 

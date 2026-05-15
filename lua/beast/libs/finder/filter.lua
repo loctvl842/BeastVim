@@ -13,7 +13,7 @@ function M.new(opts)
 	return {
 		pattern = "",
 		search = opts.search or "",
-		cwd = opts.cwd or vim.fn.getcwd(),
+		cwd = opts.cwd or Util.root(),
 		buf = opts.buf,
 	}
 end
