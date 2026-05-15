@@ -25,7 +25,16 @@ local M = {}
 ---@return Beast.Explorer.View
 function M.create()
 	local ns = vim.api.nvim_create_namespace("beastvim_explorer")
-	local buf = Buffer.new("beast-explorer")
+
+	-- Reuse the persisted buffer if still valid; otherwise create fresh.
+	local has_buf = state.view ~= nil and state.view.buf ~= nil and vim.api.nvim_buf_is_valid(state.view.buf)
+	local buf
+	if has_buf then
+		buf = state.view.buf
+	else
+		buf = Buffer.new("beast-explorer")
+		vim.bo[buf].bufhidden = "hide" -- keep alive across window close
+	end
 
 	-- Snapshot the real editing window's options before splitting, so we can
 	-- restore them on any new window created later (vsplit from explorer).
@@ -120,9 +129,11 @@ function M.focus_path(path)
 	end
 end
 
+--- Close only the window; the buffer is kept alive for fast reopen.
 function M.close()
-	if state.view and state.view:is_valid() then
-		state.view:close()
+	if state.view and state.view.win and vim.api.nvim_win_is_valid(state.view.win) then
+		vim.api.nvim_win_close(state.view.win, true)
+		state.view.win = nil
 	end
 end
 
