@@ -1,28 +1,13 @@
 local Picker = require("beast.libs.finder.picker")
 local config = require("beast.libs.finder.config")
-local highlights = require("beast.libs.finder.highlights")
 
 local _picker = nil ---@type Beast.Finder.Picker|nil
-local _augroup = nil
 
 local M = {}
-
-local function ensure_autocmds()
-	if _augroup then
-		return
-	end
-	_augroup = vim.api.nvim_create_augroup("BeastFinder", { clear = true })
-	vim.api.nvim_create_autocmd("ColorScheme", {
-		group = _augroup,
-		callback = highlights.setup,
-	})
-end
 
 ---@param opts? Beast.Finder.Config
 function M.setup(opts)
 	config.setup(opts)
-	highlights.setup()
-	ensure_autocmds()
 
 	-- Override vim.ui.select
 	vim.ui.select = function(items, ui_opts, on_choice)
