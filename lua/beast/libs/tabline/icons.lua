@@ -3,6 +3,10 @@ local M = {}
 ---@type table<string, string>
 local cache = {}
 
+--- Monotonic counter bumped on every clear_cache(). Checked by render() to
+--- detect a palette change that requires a full tabline rebuild.
+M._generation = 0
+
 --- Ensure a highlight group exists for the given icon color and buffer state.
 --- Creates the group lazily on first use and caches the name.
 ---@param icon_color string Hex color from devicons
@@ -43,6 +47,7 @@ function M.clear_cache()
 		pcall(vim.api.nvim_set_hl, 0, name, {})
 	end
 	cache = {}
+	M._generation = M._generation + 1
 end
 
 return M

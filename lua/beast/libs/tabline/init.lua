@@ -2,6 +2,7 @@ local buffer_list = require("beast.libs.tabline.sections.buffer_list")
 local buffers_mod = require("beast.libs.tabline.buffers")
 local config = require("beast.libs.tabline.config")
 local context = require("beast.libs.tabline.context")
+local icons_mod = require("beast.libs.tabline.icons")
 local offset = require("beast.libs.tabline.sections.offset")
 local tabpages = require("beast.libs.tabline.sections.tabpages")
 
@@ -17,6 +18,7 @@ local M = {}
 ---@field dirty boolean
 ---@field cached_output? string
 ---@field cached_columns? integer
+---@field icon_generation integer
 
 ---@type Beast.Tabline.State
 local state = {
@@ -29,6 +31,7 @@ local state = {
 	dirty = true,
 	cached_output = nil,
 	cached_columns = nil,
+	icon_generation = 0,
 }
 
 --- Mark tabline as dirty so the next render() call rebuilds.
@@ -66,7 +69,7 @@ local function ensure_autocmds()
 		end,
 	})
 
-	-- Layout-changing events
+	-- Layout-changing events (ColorScheme invalidates so icon highlights rebuild with new palette)
 	vim.api.nvim_create_autocmd({
 		"BufWinEnter",
 		"BufWinLeave",
@@ -77,6 +80,7 @@ local function ensure_autocmds()
 		"BufModifiedSet",
 		"VimResized",
 		"TabEnter",
+		"ColorScheme",
 	}, {
 		group = state.augroup,
 		callback = function()
@@ -91,6 +95,12 @@ end
 --- Render the tabline. Called by Neovim via %!v:lua.require'beast.libs.tabline'.render()
 ---@return string
 function M.render()
+	-- Detect icon cache clear (ColorScheme reload) that happened after our last render
+	if icons_mod._generation ~= state.icon_generation then
+		state.icon_generation = icons_mod._generation
+		invalidate()
+	end
+
 	-- Fast path: return cached output if nothing changed
 	local columns = vim.o.columns
 	if state.cached_output and not state.dirty and state.cached_columns == columns then
