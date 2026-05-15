@@ -22,8 +22,7 @@ local defaults = {
 		},
 	},
 	packer = {
-		colorscheme = { name = "monokai-pro", plugin = "monokai-pro.nvim" },
-		-- colorscheme = { name = "tokyonight", plugin = "tokyonight.nvim" },
+		colorscheme = { name = "monokai-pro", plugin = "monokai-pro.nvim" }, -- builtin, no plugin needed
 		spec = {
 			{ import = "beast.plugins" },
 		},
@@ -135,10 +134,10 @@ function M.setup(opts)
 					return
 				end
 			end
-			-- No directory buffer found — auto-open when nvim started with no file
-			if vim.fn.argc() == 0 and vim.api.nvim_buf_get_name(0) == "" then
-				explorer.open()
-			end
+			-- -- No directory buffer found — auto-open when nvim started with no file
+			-- if vim.fn.argc() == 0 and vim.api.nvim_buf_get_name(0) == "" then
+			-- 	explorer.open()
+			-- end
 		end,
 	})
 
@@ -172,6 +171,39 @@ function M.setup(opts)
 					require("beast.libs.finder").open("buffers")
 				end,
 				desc = "Find buffers",
+			},
+			{
+				"<leader>g",
+				function()
+					require("beast.libs.finder").open("live_grep")
+				end,
+				desc = "Live grep",
+			},
+			{
+				"<leader>c",
+				function()
+					local original = vim.g.colors_name
+					local confirmed = false
+					require("beast.libs.finder").open("colorschemes", {
+						no_preview = true,
+						on_preview = function(item)
+							pcall(vim.cmd.colorscheme, item.text)
+						end,
+						on_close = function()
+							if not confirmed then
+								pcall(vim.cmd.colorscheme, original)
+							end
+						end,
+						action = function(_, selected)
+							local item = selected[1]
+							-- stylua: ignore
+							if not item then return end
+							confirmed = true
+							pcall(vim.cmd.colorscheme, item.text)
+						end,
+					})
+				end,
+				desc = "Colorschemes",
 			},
 		},
 	})

@@ -124,10 +124,12 @@ local function run_cmd(spec)
 		error("Invalid build cmd: " .. tostring(cmd))
 	end
 end
---- Eagerly load the colorscheme plugin (if installed) so its colors apply
+--- Eagerly apply the configured colorscheme so its colors are available
 --- before the rest of packer.setup runs, avoiding a flash of the default
---- colorscheme during startup. Returns the plugin name on success, nil on
---- skip (not configured / not installed / bad shape / error).
+--- colorscheme during startup.
+---
+--- When `plugin` is set, loads the plugin first (with dependency checks).
+--- When `plugin` is nil, applies a builtin colorscheme directly via `:colorscheme`.
 ---
 --- Must be called AFTER specs are normalized, init() has run for every
 --- spec, and state.plugins is fully populated, so spec dependency lookup
@@ -135,11 +137,17 @@ end
 ---@return string|nil plugin_name
 local function apply_early_colorscheme()
 	local cs = config.colorscheme
-  -- stylua: ignore
-  if cs == nil then return nil end
+	-- stylua: ignore
+	if cs == nil then return nil end
 
-	if type(cs) ~= "table" or type(cs.name) ~= "string" or cs.name == "" or type(cs.plugin) ~= "string" or cs.plugin == "" then
-		vim.notify("packer: invalid `colorscheme` config; expected { name = string, plugin = string }", vim.log.levels.WARN, { title = "BeastVim" })
+	if type(cs) ~= "table" or type(cs.name) ~= "string" or cs.name == "" then
+		vim.notify("packer: invalid `colorscheme` config; expected { name = string, plugin? = string }", vim.log.levels.WARN, { title = "BeastVim" })
+		return nil
+	end
+
+	-- Builtin colorscheme: no plugin to load, just apply it directly.
+	if not cs.plugin or cs.plugin == "" then
+		pcall(vim.cmd.colorscheme, cs.name)
 		return nil
 	end
 
@@ -148,12 +156,12 @@ local function apply_early_colorscheme()
 		return vim.uv.fs_stat(opt_dir .. plugin_name) ~= nil
 	end
 
-  -- stylua: ignore
-  if not is_installed(cs.plugin) then return nil end
+	-- stylua: ignore
+	if not is_installed(cs.plugin) then return nil end
 
 	local spec = state.plugins[cs.plugin]
-  -- stylua: ignore
-  if spec == nil then return nil end
+	-- stylua: ignore
+	if spec == nil then return nil end
 
 	-- Bail if any declared dependency is not yet installed; fall back to
 	-- the normal install/load path rather than half-loading a broken graph.

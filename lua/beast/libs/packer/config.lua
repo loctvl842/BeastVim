@@ -8,7 +8,7 @@
 
 ---@class Beast.Packer.Colorscheme
 ---@field name string Colorscheme name passed to `:colorscheme <name>`
----@field plugin string Plugin directory name (matches spec.name)
+---@field plugin? string Plugin directory name (matches spec.name). Omit for builtin colorschemes.
 
 ---@class Beast.Packer.Config
 ---@field spec? Beast.Packer.PluginSpec[] List of plugin specs

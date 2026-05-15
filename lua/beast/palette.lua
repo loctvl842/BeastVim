@@ -19,21 +19,21 @@ local M = {}
 
 ---@type Beast.Palette
 local defaults = {
-	dark2 = "#1a1a1a",
-	dark1 = "#222222",
-	background = "#282828",
-	text = "#d4d4d4",
-	accent1 = "#f44747",
-	accent2 = "#ff8800",
-	accent3 = "#ffcc00",
-	accent4 = "#6a9955",
-	accent5 = "#4ec9b0",
-	accent6 = "#c586c0",
-	dimmed1 = "#cccccc",
-	dimmed2 = "#aaaaaa",
-	dimmed3 = "#808080",
-	dimmed4 = "#555555",
-	dimmed5 = "#333333",
+	dark2 = "#4f5258",
+	dark1 = "#2c2e33",
+	background = "#14161b",
+	text = "#e0e2ea",
+	accent1 = "#ffc0b9",
+	accent2 = "#fce094",
+	accent3 = "#b3f6c0",
+	accent4 = "#8cf8f7",
+	accent5 = "#a6dbff",
+	accent6 = "#8cf8f7",
+	dimmed1 = "#c4c6cd",
+	dimmed2 = "#9b9ea4",
+	dimmed3 = "#9b9ea4",
+	dimmed4 = "#4f5258",
+	dimmed5 = "#2c2e33",
 }
 
 ---@type Beast.Palette
@@ -48,9 +48,62 @@ local function extract(group, attr, fallback)
 	return value or fallback
 end
 
---- Re-extract all palette colors from the current colorscheme.
-function M.refresh()
-	cache = {
+--- Pick the first candidate whose fg/bg is defined and differs from `exclude`.
+---@param candidates string[] Highlight group names
+---@param attr "fg"|"bg"
+---@param exclude? string Hex color to skip (e.g. Normal fg to avoid indistinct accents)
+---@param fallback string
+---@return string
+local function first_distinct(candidates, attr, exclude, fallback)
+	for _, group in ipairs(candidates) do
+		local value = Util.colors.inspect(group)[attr]
+		if value and value ~= exclude then
+			return value
+		end
+	end
+	return fallback
+end
+
+---@return boolean
+local function is_builtin_colorscheme()
+	local name = vim.g.colors_name or "default"
+	local path = vim.env.VIMRUNTIME .. "/colors/"
+	return vim.uv.fs_stat(path .. name .. ".lua") ~= nil or vim.uv.fs_stat(path .. name .. ".vim") ~= nil
+end
+
+--- Derive palette from Normal bg/fg for builtin colorschemes.
+--- Scale colors (darks, dimmeds) are computed via blend so they work
+--- regardless of how the colorscheme styles StatusLine, NormalFloat, etc.
+--- Accents use a fallback chain that skips groups equal to Normal fg.
+---@return Beast.Palette
+local function extract_builtin()
+	local background = extract("Normal", "bg", defaults.background)
+	local text = extract("Normal", "fg", defaults.text)
+	local blend = Util.colors.blend
+
+	return {
+		dark2 = blend(text, 0.20, background),
+		dark1 = blend(text, 0.10, background),
+		background = background,
+		text = text,
+		accent1 = extract("DiagnosticError", "fg", defaults.accent1),
+		accent2 = extract("DiagnosticWarn", "fg", defaults.accent2),
+		accent3 = extract("String", "fg", defaults.accent3),
+		accent4 = extract("@function", "fg", defaults.accent4),
+		accent5 = first_distinct({ "Structure", "Identifier", "Type" }, "fg", text, defaults.accent5),
+		accent6 = first_distinct({ "Boolean", "Constant", "Special", "Keyword" }, "fg", text, defaults.accent6),
+		dimmed1 = blend(text, 0.75, background),
+		dimmed2 = blend(text, 0.55, background),
+		dimmed3 = blend(text, 0.40, background),
+		dimmed4 = blend(text, 0.25, background),
+		dimmed5 = blend(text, 0.10, background),
+	}
+end
+
+--- Extraction map for third-party colorschemes with rich highlight definitions.
+---@return Beast.Palette
+local function extract_custom()
+	return {
 		dark2 = extract("StatusLine", "bg", defaults.dark2),
 		dark1 = extract("TabLineFill", "bg", defaults.dark1),
 		background = extract("Normal", "bg", defaults.background),
@@ -67,6 +120,19 @@ function M.refresh()
 		dimmed4 = extract("LineNr", "fg", defaults.dimmed4),
 		dimmed5 = extract("Pmenu", "bg", defaults.dimmed5),
 	}
+end
+
+--- Re-extract all palette colors from the current colorscheme.
+function M.refresh()
+	if is_builtin_colorscheme() then
+		cache = extract_builtin()
+		-- Builtin colorschemes often define StatusLine with reverse or light bg
+		-- which clashes with dark-themed UI. Override with palette-derived colors.
+		vim.api.nvim_set_hl(0, "StatusLine", { fg = cache.text, bg = cache.dark2 })
+		vim.api.nvim_set_hl(0, "StatusLineNC", { fg = cache.dimmed3, bg = cache.dark1 })
+	else
+		cache = extract_custom()
+	end
 end
 
 --- Get the current palette (read-only snapshot).
