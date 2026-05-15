@@ -21,7 +21,7 @@ function M.cancel()
 	end
 	if current_handle then
 		pcall(function()
-			current_handle:kill("sigterm")
+			current_handle:kill("SIGTERM")
 			current_handle:close()
 		end)
 		current_handle = nil

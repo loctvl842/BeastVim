@@ -18,8 +18,9 @@ local M = {}
 ---@param win_col integer left col of the picker layout
 ---@param title? string title displayed in the input border
 ---@param debounce_ms? integer override debounce interval
+---@param border? table border chars
 ---@return Beast.Finder.InputView
-function M.create(on_change, total_w, total_h, win_row, win_col, title, debounce_ms)
+function M.create(on_change, total_w, total_h, win_row, win_col, title, debounce_ms, border)
 	local buf = Buffer.new("beastvim-finder-input")
 	vim.bo[buf].buftype = "prompt"
 	vim.fn.prompt_setprompt(buf, config.prompt_prefix)

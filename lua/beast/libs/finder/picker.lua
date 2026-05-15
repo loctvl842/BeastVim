@@ -722,6 +722,10 @@ function Picker:close()
 	if source and source.cancel then
 		source.cancel()
 	end
+	if self.input_view._timer then
+		vim.fn.timer_stop(self.input_view._timer)
+		self.input_view._timer = nil
+	end
 	if self.preview_view then
 		self.preview_view:close()
 	end
