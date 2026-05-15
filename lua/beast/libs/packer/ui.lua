@@ -921,6 +921,7 @@ function Main._render_help(main)
 	local new_line = { text = "", hl = nil }
 
 	table.insert(lines_segments, { new_line })
+	table.insert(lines_segments, { { text = "  <CR> - Load plugin under cursor", hl = "BeastPackerComment" } })
 	table.insert(lines_segments, { { text = "  S - Toggle sort", hl = "BeastPackerComment" } })
 	table.insert(lines_segments, { { text = "  F - Cycle filter (>= 0/1/5/10/50 ms)", hl = "BeastPackerComment" } })
 	table.insert(lines_segments, { { text = "  G - Toggle group by load reason", hl = "BeastPackerComment" } })
@@ -1082,6 +1083,36 @@ local function layout_state()
 end
 
 -- =============================================================================
+-- CURSOR HELPERS
+-- =============================================================================
+
+--- Extract the plugin name from the line under the cursor.
+--- Lines are formatted as "    icon name ..." — the second non-whitespace token is the name.
+---@return string|nil
+local function get_plugin_at_cursor()
+	-- stylua: ignore
+	if not state_data:is_valid() then return nil end
+
+	local buf = state_data.main.buf
+	local cursor = vim.api.nvim_win_get_cursor(0)
+	local line = vim.api.nvim_buf_get_lines(buf, cursor[1] - 1, cursor[1], false)[1]
+	-- stylua: ignore
+	if not line then return nil end
+
+	-- Match "  <icon> <plugin_name> ..." — icon is any non-space token, name is the next one
+	local plugin_name = line:match("^%s*[%S]+%s+([%S]+)")
+	-- stylua: ignore
+	if not plugin_name then return nil end
+
+	-- Validate against known plugins
+	if state.plugins[plugin_name] then
+		return plugin_name
+	end
+
+	return nil
+end
+
+-- =============================================================================
 -- ACTIONS
 -- =============================================================================
 
@@ -1153,6 +1184,22 @@ end
 
 function _actions_handler.close()
 	M.close()
+end
+
+function _actions_handler.load_plugin()
+	local plugin_name = get_plugin_at_cursor()
+	if not plugin_name then
+		vim.notify("No plugin under cursor", vim.log.levels.WARN, { title = "BeastVim" })
+		return
+	end
+
+	if state.loaded_plugins[plugin_name] then
+		Toast(plugin_name .. " is already loaded", vim.log.levels.INFO, { title = "BeastVim" })
+		return
+	end
+
+	state.load(plugin_name, { type = "manual", detail = nil })
+	render_state()
 end
 
 local function mount_keymaps()

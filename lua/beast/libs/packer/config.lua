@@ -42,6 +42,14 @@ local defaults = {
 		},
 		actions = {
 			{
+				keys = { "<CR>" },
+				label = "Load",
+				key_hl = "DiagnosticOk",
+				label_hl = "Comment",
+				on_press = "load_plugin",
+				views = { "main" },
+			},
+			{
 				keys = { "S" },
 				label = "Sort",
 				key_hl = "DiagnosticInfo",
