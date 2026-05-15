@@ -45,7 +45,7 @@ function M.setup(opts)
 	end
 end
 
----@param source_name string "files"|"buffers"|"_select"
+---@param source_name string "files"|"buffers"|"live_grep"|"_select"
 ---@param opts? table
 function M.open(source_name, opts)
 	M.close()

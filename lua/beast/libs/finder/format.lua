@@ -41,9 +41,38 @@ function M.filename(item)
 	end
 
 	if dir then
-		result[#result + 1] = { text = dir .. "/", hl = "BeastFinderDir" }
+		result[#result + 1] = { text = dir .. "/", hl = "BeastFinderListDir" }
 	end
-	result[#result + 1] = { text = base, hl = "BeastFinderFile" }
+	result[#result + 1] = { text = base, hl = "BeastFinderListFile" }
+
+	return result
+end
+
+---@param item Beast.Finder.Item
+---@return Beast.Finder.Highlight[]
+function M.grep(item)
+	local path = item.file or ""
+	local cwd = item.cwd or vim.fn.getcwd()
+
+	local rel = path
+	if path:sub(1, #cwd) == cwd then
+		rel = path:sub(#cwd + 2)
+	end
+
+	local base = rel:match("[^/]+$") or rel
+	local lnum = item.pos and item.pos[1] or 0
+	local text = item.grep_text or ""
+
+	local result = {}
+
+	local icon, icon_hl = get_icon(base)
+	if icon then
+		result[#result + 1] = { text = icon .. " ", hl = icon_hl }
+	end
+
+	result[#result + 1] = { text = rel .. ":" .. lnum, hl = "BeastFinderListDir" }
+	result[#result + 1] = { text = ": ", hl = "BeastFinderNormal" }
+	result[#result + 1] = { text = text, hl = "BeastFinderListFile" }
 
 	return result
 end
@@ -65,9 +94,17 @@ function M.buffer(item)
 	local bufnr_str = item.buf and ("[" .. item.buf .. "] ") or ""
 
 	return {
-		{ text = bufnr_str, hl = "BeastFinderDir" },
-		{ text = name, hl = "BeastFinderFile" },
-		{ text = modified, hl = "BeastFinderMatch" },
+		{ text = bufnr_str, hl = "BeastFinderListDir" },
+		{ text = name, hl = "BeastFinderListFile" },
+		{ text = modified, hl = "BeastFinderListMatch" },
+	}
+end
+
+---@param item Beast.Finder.Item
+---@return Beast.Finder.Highlight[]
+function M.colorscheme(item)
+	return {
+		{ text = item.text, hl = "BeastFinderListFile" },
 	}
 end
 

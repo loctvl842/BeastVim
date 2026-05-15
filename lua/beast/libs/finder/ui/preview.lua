@@ -33,7 +33,7 @@ function M.create(win_row, win_col, win_w, win_h)
 		zindex = config.zindex,
 	})
 
-	Util.wo(win, "winhl", "Normal:BeastFinderNormal,FloatBorder:BeastFinderBorder")
+	Util.wo(win, "winhl", "Normal:BeastFinderNormal,FloatBorder:BeastFinderBorder,FloatTitle:BeastFinderPreviewTitle")
 	Util.wo(win, "wrap", false)
 	Util.wo(win, "number", true)
 	Util.wo(win, "relativenumber", false)
@@ -89,6 +89,16 @@ function M.show(view, item)
 	else
 		pcall(vim.api.nvim_win_set_cursor, view.win, { 1, 0 })
 	end
+end
+
+---@param view Beast.Finder.PreviewView
+function M.clear(view)
+	-- stylua: ignore
+	if not view:is_valid() then return end
+	vim.bo[view.buf].modifiable = true
+	vim.api.nvim_buf_set_lines(view.buf, 0, -1, false, {})
+	vim.bo[view.buf].modifiable = false
+	pcall(vim.api.nvim_win_set_config, view.win, { title = "", title_pos = "center" })
 end
 
 ---@param view Beast.Finder.PreviewView

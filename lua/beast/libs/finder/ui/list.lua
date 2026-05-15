@@ -21,8 +21,9 @@ local M = {}
 ---@param win_col integer left col of the picker layout
 ---@param win_w integer width available for list
 ---@param win_h integer height available for list
+---@param border? table border chars
 ---@return Beast.Finder.ListView
-function M.create(win_row, win_col, win_w, win_h)
+function M.create(win_row, win_col, win_w, win_h, border)
 	local buf = Buffer.new("beastvim-finder-list")
 	local ns = vim.api.nvim_create_namespace("beastvim-finder-list")
 
@@ -33,12 +34,12 @@ function M.create(win_row, win_col, win_w, win_h)
 		row = win_row,
 		col = win_col,
 		style = "minimal",
-		border = { "", "", "", "│", "┘", "─", "╰", "│" },
+		border = border or { "", "", "", "│", "┘", "─", "╰", "│" },
 		zindex = config.zindex,
 	})
 
 	Util.wo(win, "cursorline", true)
-	Util.wo(win, "winhl", "Normal:BeastFinderNormal,FloatBorder:BeastFinderBorder,CursorLine:BeastFinderSelected")
+	Util.wo(win, "winhl", "Normal:BeastFinderNormal,FloatBorder:BeastFinderBorder,CursorLine:BeastFinderListCursorLine")
 
 	return ListView(buf, win, ns)
 end
@@ -78,7 +79,7 @@ function M.render(view, items, format_fn)
 		-- Inline virtual text prefix (selected vs padding)
 		local prefix_text = (row == view.cursor) and sel_prefix or pad
 		vim.api.nvim_buf_set_extmark(view.buf, view.prefix_ns, row - 1, 0, {
-			virt_text = { { prefix_text, "BeastFinderNormal" } },
+			virt_text = { { prefix_text, "BeastFinderListSelectionPrefix" } },
 			virt_text_pos = "inline",
 		})
 
@@ -115,7 +116,7 @@ function M.set_cursor(view, idx)
 		if prev_cursor >= 1 and prev_cursor <= #view.items then
 			vim.api.nvim_buf_clear_namespace(view.buf, view.prefix_ns, prev_cursor - 1, prev_cursor)
 			vim.api.nvim_buf_set_extmark(view.buf, view.prefix_ns, prev_cursor - 1, 0, {
-				virt_text = { { pad, "BeastFinderNormal" } },
+				virt_text = { { pad, "BeastFinderListSelectionPrefix" } },
 				virt_text_pos = "inline",
 			})
 		end
@@ -123,7 +124,7 @@ function M.set_cursor(view, idx)
 		-- Replace prefix on new cursor line
 		vim.api.nvim_buf_clear_namespace(view.buf, view.prefix_ns, view.cursor - 1, view.cursor)
 		vim.api.nvim_buf_set_extmark(view.buf, view.prefix_ns, view.cursor - 1, 0, {
-			virt_text = { { sel_prefix, "BeastFinderNormal" } },
+			virt_text = { { sel_prefix, "BeastFinderListSelectionPrefix" } },
 			virt_text_pos = "inline",
 		})
 	end
@@ -132,7 +133,16 @@ end
 ---@param view Beast.Finder.ListView
 ---@param delta integer positive = down, negative = up
 function M.move(view, delta)
-	M.set_cursor(view, view.cursor + delta)
+	-- stylua: ignore
+	if #view.items == 0 then return end
+	local new_idx = view.cursor + delta
+	-- Cycle: past bottom → top, past top → bottom
+	if new_idx > #view.items then
+		new_idx = 1
+	elseif new_idx < 1 then
+		new_idx = #view.items
+	end
+	M.set_cursor(view, new_idx)
 end
 
 ---@param view Beast.Finder.ListView

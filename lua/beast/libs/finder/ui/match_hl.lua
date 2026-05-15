@@ -113,7 +113,7 @@ function M.apply_list(buf, items, format_fn)
 			if start_col < #rendered and end_col <= #rendered then
 				vim.api.nvim_buf_set_extmark(buf, MATCH_NS, row - 1, start_col, {
 					end_col = end_col,
-					hl_group = "BeastFinderMatch",
+					hl_group = "BeastFinderListMatch",
 					priority = 5000,
 				})
 			end
@@ -169,7 +169,7 @@ function M.apply_preview(buf, query)
 			for _, range in ipairs(ranges) do
 				vim.api.nvim_buf_set_extmark(buf, MATCH_NS, row - 1, range[1], {
 					end_col = range[2],
-					hl_group = "BeastFinderMatch",
+					hl_group = "BeastFinderPreviewMatch",
 					priority = 5000,
 				})
 			end

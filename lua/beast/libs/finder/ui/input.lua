@@ -17,8 +17,9 @@ local M = {}
 ---@param win_row integer top row of the picker layout
 ---@param win_col integer left col of the picker layout
 ---@param title? string title displayed in the input border
+---@param debounce_ms? integer override debounce interval
 ---@return Beast.Finder.InputView
-function M.create(on_change, total_w, total_h, win_row, win_col, title)
+function M.create(on_change, total_w, total_h, win_row, win_col, title, debounce_ms)
 	local buf = Buffer.new("beastvim-finder-input")
 	vim.bo[buf].buftype = "prompt"
 	vim.fn.prompt_setprompt(buf, config.prompt_prefix)
@@ -36,24 +37,33 @@ function M.create(on_change, total_w, total_h, win_row, win_col, title)
 		row = win_row,
 		col = win_col,
 		style = "minimal",
-		border = { "╭", "─", "┬", "│", "┤", "─", "├", "│" },
+		border = border or { "╭", "─", "┬", "│", "┤", "─", "├", "│" },
 		title = display_title,
 		title_pos = "left",
 		zindex = config.zindex,
 	})
 
 	Util.wo(win, "cursorline", false)
-	Util.wo(win, "winhl", "Normal:BeastFinderPrompt,FloatBorder:BeastFinderBorder,FloatTitle:BeastFinderBorder")
+	Util.wo(win, "winhl", "Normal:BeastFinderInputNormal,FloatBorder:BeastFinderBorder,FloatTitle:BeastFinderInputTitle")
 
 	local view = InputView(buf, win, ns)
 
-	local debounce_ms = config.debounce.normal_ms
+	-- Highlight the prompt prefix
+	local prefix_len = #config.prompt_prefix
+	if prefix_len > 0 then
+		vim.api.nvim_buf_set_extmark(buf, ns, 0, 0, {
+			end_col = prefix_len,
+			hl_group = "BeastFinderInputPromptPrefix",
+		})
+	end
+
+	local db_ms = debounce_ms or config.debounce.normal_ms
 	vim.api.nvim_create_autocmd({ "TextChangedI", "TextChanged" }, {
 		buffer = buf,
 		callback = function()
 			-- stylua: ignore
 			if view._timer then vim.fn.timer_stop(view._timer) end
-			view._timer = vim.fn.timer_start(debounce_ms, function()
+			view._timer = vim.fn.timer_start(db_ms, function()
 				view._timer = nil
 				local text = M.get_text(view)
 				on_change(text)

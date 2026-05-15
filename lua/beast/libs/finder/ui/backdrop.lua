@@ -6,7 +6,7 @@ local M = {}
 ---@return integer? win handle of the backdrop window, or nil if disabled
 function M.create(zindex)
 	-- stylua: ignore
-	if not config.backdrop then return nil end
+	if not config.backdrop or config.backdrop <= 0 then return nil end
 
 	local buf = Buffer.new("beastvim-finder-backdrop")
 
@@ -22,7 +22,7 @@ function M.create(zindex)
 	})
 
 	Util.wo(win, "winhl", "Normal:BeastFinderBackdrop")
-	Util.wo(win, "winblend", 60)
+	Util.wo(win, "winblend", config.backdrop)
 
 	return win
 end
