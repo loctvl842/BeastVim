@@ -77,11 +77,13 @@ function M.apply_list(buf, items, format_fn)
 		local highlights = format_fn(item)
 		local prefix_len = 0
 		local item_text = item.text or ""
-		-- The rendered line = concat of all highlight parts
+		-- The rendered line = concat of all highlight parts (excluding right_align)
 		-- item.text is the raw path; find where it starts in the rendered line
 		local rendered_parts = {}
 		for _, h in ipairs(highlights) do
-			rendered_parts[#rendered_parts + 1] = h.text
+			if not h.right_align then
+				rendered_parts[#rendered_parts + 1] = h.text
+			end
 		end
 		local rendered = table.concat(rendered_parts)
 		-- Find the offset: item.text (or its relative form) starts at some byte in rendered

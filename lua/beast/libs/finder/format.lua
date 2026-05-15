@@ -1,6 +1,7 @@
 ---@class Beast.Finder.Highlight
 ---@field text string
 ---@field hl string?
+---@field right_align boolean?
 
 local M = {}
 
@@ -106,6 +107,26 @@ function M.colorscheme(item)
 	return {
 		{ text = item.text, hl = "BeastFinderListFile" },
 	}
+end
+
+---@param item Beast.Finder.Item
+---@return Beast.Finder.Highlight[]
+function M.help_tag(item)
+	local tag = item.text or item.help_tag or ""
+	local doc_name
+	if item.is_readme then
+		doc_name = "README.md"
+	else
+		doc_name = item.file and vim.fn.fnamemodify(item.file, ":t") or ""
+	end
+
+	local result = {}
+	result[#result + 1] = { text = " ", hl = "BeastFinderListDir" }
+	result[#result + 1] = { text = tag, hl = "BeastFinderListFile" }
+	if doc_name ~= "" then
+		result[#result + 1] = { text = doc_name .. string.rep(" ", 5), hl = "BeastFinderListDir", right_align = true }
+	end
+	return result
 end
 
 return M

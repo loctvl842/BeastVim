@@ -52,7 +52,7 @@ function M.copy_path(_picker, items)
 	vim.notify("Copied: " .. item.file, vim.log.levels.INFO)
 end
 
----@param picker table Beast.Finder.Picker
+---@param _picker table
 ---@param items Beast.Finder.Item[]
 function M.open_buf(picker, items)
 	local item = items[1]
@@ -63,6 +63,23 @@ function M.open_buf(picker, items)
 		vim.api.nvim_set_current_win(win)
 	end
 	vim.api.nvim_set_current_buf(item.buf)
+end
+
+---@param picker table Beast.Finder.Picker
+---@param items Beast.Finder.Item[]
+function M.open_help(picker, items)
+	local item = items[1]
+	-- stylua: ignore
+	if not item or not item.help_tag then return end
+	local win = picker.main_win
+	if win and vim.api.nvim_win_is_valid(win) then
+		vim.api.nvim_set_current_win(win)
+	end
+	if item.is_readme then
+		vim.cmd("vsplit " .. vim.fn.fnameescape(item.file))
+	else
+		vim.cmd("vertical help " .. vim.fn.fnameescape(item.help_tag))
+	end
 end
 
 return M

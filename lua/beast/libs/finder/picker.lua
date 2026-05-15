@@ -43,6 +43,7 @@ local SOURCES = {
 	buffers = require("beast.libs.finder.sources.buffers"),
 	live_grep = require("beast.libs.finder.sources.grep"),
 	colorschemes = require("beast.libs.finder.sources.colorschemes"),
+	help_tags = require("beast.libs.finder.sources.help_tags"),
 }
 
 -- ---------------------------------------------------------------------------
@@ -603,6 +604,8 @@ function Picker.new(source_name, opts)
 		self._format_fn = format.grep
 	elseif source_name == "colorschemes" then
 		self._format_fn = format.colorscheme
+	elseif source_name == "help_tags" then
+		self._format_fn = format.help_tag
 	else
 		self._format_fn = format.filename
 	end

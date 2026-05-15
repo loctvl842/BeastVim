@@ -51,7 +51,20 @@ function M.show(view, item)
 	local ft = ""
 	local title = ""
 
-	if item.file then
+	if item.help_tag then
+		-- Help tags store the doc file path in item.file
+		if item.file then
+			local ok_read, result = pcall(vim.fn.readfile, item.file, "", MAX_PREVIEW_LINES)
+			if ok_read then
+				for i, line in ipairs(result) do
+					result[i] = line:gsub("[\r%z]", "")
+				end
+				lines = result
+			end
+		end
+		ft = item.is_readme and "markdown" or "help"
+		title = item.help_tag
+	elseif item.file then
 		local ok, result = pcall(vim.fn.readfile, item.file, "", MAX_PREVIEW_LINES)
 		if ok then
 			for i, line in ipairs(result) do

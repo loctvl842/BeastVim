@@ -60,7 +60,9 @@ function M.render(view, items, format_fn)
 		all_highlights[i] = highlights
 		local parts = {}
 		for _, h in ipairs(highlights) do
-			parts[#parts + 1] = h.text
+			if not h.right_align then
+				parts[#parts + 1] = h.text
+			end
 		end
 		lines[#lines + 1] = table.concat(parts)
 	end
@@ -84,14 +86,26 @@ function M.render(view, items, format_fn)
 		})
 
 		local col = 0
+		local right_virt = nil
 		for _, h in ipairs(highlights) do
-			if h.hl then
+			if h.right_align then
+				right_virt = { h.text, h.hl or "BeastFinderNormal" }
+			elseif h.hl then
 				vim.api.nvim_buf_set_extmark(view.buf, view.ns, row - 1, col, {
 					end_col = col + #h.text,
 					hl_group = h.hl,
 				})
+				col = col + #h.text
+			else
+				col = col + #h.text
 			end
-			col = col + #h.text
+		end
+		if right_virt then
+			vim.api.nvim_buf_set_extmark(view.buf, view.ns, row - 1, 0, {
+				virt_text = { right_virt },
+				virt_text_pos = "right_align",
+				hl_mode = "combine",
+			})
 		end
 	end
 

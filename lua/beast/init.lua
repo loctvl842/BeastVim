@@ -22,7 +22,7 @@ local defaults = {
 		},
 	},
 	packer = {
-		colorscheme = { name = "monokai-pro", plugin = "monokai-pro.nvim" }, -- builtin, no plugin needed
+		-- colorscheme = { name = "monokai-pro", plugin = "monokai-pro.nvim" },
 		spec = {
 			{ import = "beast.plugins" },
 		},
@@ -204,6 +204,16 @@ function M.setup(opts)
 					})
 				end,
 				desc = "Colorschemes",
+			},
+			{
+				"<leader>h",
+				function()
+					local actions = require("beast.libs.finder.actions")
+					require("beast.libs.finder").open("help_tags", {
+						action = actions.open_help,
+					})
+				end,
+				desc = "Help tags",
 			},
 		},
 	})
