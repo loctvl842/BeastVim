@@ -6,15 +6,14 @@ local config = require("beast.libs.finder.config")
 ---@field prefix_ns integer namespace for selection prefix extmarks
 ---@field items Beast.Finder.Item[]
 ---@field cursor integer 1-based index into items
----@field selected table<integer, boolean> set of selected item indices
 local ListView = View:extend(function(obj, ns)
 	obj.ns = ns
 	obj.prefix_ns = vim.api.nvim_create_namespace("")
 	obj.items = {}
 	obj.cursor = 1
-	obj.selected = {}
 end)
 
+---@class Beast.Finder.UI.List
 local M = {}
 
 ---@param win_row integer top row of the picker layout (below input)
@@ -24,8 +23,8 @@ local M = {}
 ---@param border? table border chars
 ---@return Beast.Finder.ListView
 function M.create(win_row, win_col, win_w, win_h, border)
-	local buf = Buffer.new("beastvim-finder-list")
-	local ns = vim.api.nvim_create_namespace("beastvim-finder-list")
+	local buf = Buffer.new("beast-finder-list")
+	local ns = vim.api.nvim_create_namespace("beast-finder-list")
 
 	local win = vim.api.nvim_open_win(buf, false, {
 		relative = "editor",
@@ -35,10 +34,11 @@ function M.create(win_row, win_col, win_w, win_h, border)
 		col = win_col,
 		style = "minimal",
 		border = border or { "", "", "", "│", "┘", "─", "╰", "│" },
-		zindex = config.zindex,
+		zindex = 101,
 	})
 
 	Util.wo(win, "cursorline", true)
+  Util.wo(win, "scrolloff", 0)
 	Util.wo(win, "winhl", "Normal:BeastFinderNormal,FloatBorder:BeastFinderBorder,CursorLine:BeastFinderListCursorLine")
 
 	return ListView(buf, win, ns)
@@ -159,37 +159,7 @@ function M.move(view, delta)
 	M.set_cursor(view, new_idx)
 end
 
----@param view Beast.Finder.ListView
-function M.toggle_selection(view)
-	-- stylua: ignore
-	if not view:is_valid() or #view.items == 0 then return end
-	local idx = view.items[view.cursor] and view.items[view.cursor].idx
-	if not idx then
-		return
-	end
-	if view.selected[idx] then
-		view.selected[idx] = nil
-	else
-		view.selected[idx] = true
-	end
-end
-
----@param view Beast.Finder.ListView
----@return Beast.Finder.Item[] selected items, or current item if none selected
-function M.get_selected(view)
-	if not next(view.selected) then
-		local item = view.items[view.cursor]
-		return item and { item } or {}
-	end
-	local result = {}
-	for _, item in ipairs(view.items) do
-		if view.selected[item.idx] then
-			result[#result + 1] = item
-		end
-	end
-	return result
-end
-
+--- Get the selected item under the cursor, or nil if no items
 ---@param view Beast.Finder.ListView
 ---@return Beast.Finder.Item|nil
 function M.selected(view)

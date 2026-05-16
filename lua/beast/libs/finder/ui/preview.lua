@@ -1,5 +1,4 @@
 local View = require("beast.libs.view")
-local config = require("beast.libs.finder.config")
 
 ---@class Beast.Finder.PreviewView : Beast.View
 ---@field ns integer
@@ -9,6 +8,7 @@ local PreviewView = View:extend(function(obj, ns)
 	obj.visible = true
 end)
 
+---@class Beast.Finder.UI.Preview
 local M = {}
 
 local MAX_PREVIEW_LINES = 500
@@ -19,8 +19,8 @@ local MAX_PREVIEW_LINES = 500
 ---@param win_h integer
 ---@return Beast.Finder.PreviewView
 function M.create(win_row, win_col, win_w, win_h)
-	local buf = Buffer.new("beastvim-finder-preview")
-	local ns = vim.api.nvim_create_namespace("beastvim-finder-preview")
+	local buf = Buffer.new("beast-finder-preview")
+	local ns = vim.api.nvim_create_namespace("beast-finder-preview")
 
 	local win = vim.api.nvim_open_win(buf, false, {
 		relative = "editor",
@@ -30,7 +30,7 @@ function M.create(win_row, win_col, win_w, win_h)
 		col = win_col,
 		style = "minimal",
 		border = { "┬", "─", "╮", "│", "╯", "─", "┴", "│" },
-		zindex = config.zindex,
+		zindex = 101,
 	})
 
 	Util.wo(win, "winhl", "Normal:BeastFinderNormal,FloatBorder:BeastFinderBorder,FloatTitle:BeastFinderPreviewTitle")
@@ -50,21 +50,8 @@ function M.show(view, item)
 	local lines = {}
 	local ft = ""
 	local title = ""
-
-	if item.help_tag then
-		-- Help tags store the doc file path in item.file
-		if item.file then
-			local ok_read, result = pcall(vim.fn.readfile, item.file, "", MAX_PREVIEW_LINES)
-			if ok_read then
-				for i, line in ipairs(result) do
-					result[i] = line:gsub("[\r%z]", "")
-				end
-				lines = result
-			end
-		end
-		ft = item.is_readme and "markdown" or "help"
-		title = item.help_tag
-	elseif item.file then
+	if item.file then
+    print('file')
 		local ok, result = pcall(vim.fn.readfile, item.file, "", MAX_PREVIEW_LINES)
 		if ok then
 			for i, line in ipairs(result) do
@@ -76,13 +63,6 @@ function M.show(view, item)
 		end
 		ft = vim.filetype.match({ filename = item.file }) or ""
 		title = vim.fn.fnamemodify(item.file, ":t")
-	elseif item.buf and vim.api.nvim_buf_is_valid(item.buf) then
-		lines = vim.api.nvim_buf_get_lines(item.buf, 0, MAX_PREVIEW_LINES, false)
-		ft = vim.bo[item.buf].filetype or ""
-		title = vim.fn.fnamemodify(vim.api.nvim_buf_get_name(item.buf), ":t")
-		if title == "" then
-			title = "[No Name]"
-		end
 	end
 
 	-- Update window title with current file name
@@ -92,7 +72,6 @@ function M.show(view, item)
 			title_pos = "center",
 		})
 	end
-
 	vim.bo[view.buf].modifiable = true
 	local ok_set = pcall(vim.api.nvim_buf_set_lines, view.buf, 0, -1, false, lines)
 	if not ok_set then
@@ -121,19 +100,6 @@ function M.clear(view)
 	vim.api.nvim_buf_set_lines(view.buf, 0, -1, false, {})
 	vim.bo[view.buf].modifiable = false
 	pcall(vim.api.nvim_win_set_config, view.win, { title = "", title_pos = "center" })
-end
-
----@param view Beast.Finder.PreviewView
-function M.toggle(view)
-	-- stylua: ignore
-	if not view:is_valid() then return end
-	view.visible = not view.visible
-	local ok, conf = pcall(vim.api.nvim_win_get_config, view.win)
-	if not ok then
-		return
-	end
-	conf.hide = not view.visible
-	pcall(vim.api.nvim_win_set_config, view.win, conf)
 end
 
 return M

@@ -1,8 +1,6 @@
-local config = require("beast.libs.finder.config")
-
 local M = {}
 
-local MATCH_NS = vim.api.nvim_create_namespace("beastvim-finder-match")
+local MATCH_NS = vim.api.nvim_create_namespace("beast-finder-match")
 
 --- Escape Lua pattern special characters
 ---@param str string
@@ -75,7 +73,6 @@ function M.apply_list(buf, items, format_fn)
 
 		-- Calculate the byte offset added by the format prefix (icon + space, etc.)
 		local highlights = format_fn(item)
-		local prefix_len = 0
 		local item_text = item.text or ""
 		-- The rendered line = concat of all highlight parts (excluding right_align)
 		-- item.text is the raw path; find where it starts in the rendered line

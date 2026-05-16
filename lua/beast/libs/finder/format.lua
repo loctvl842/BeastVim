@@ -51,7 +51,7 @@ end
 
 ---@param item Beast.Finder.Item
 ---@return Beast.Finder.Highlight[]
-function M.grep(item)
+function M.live_grep(item)
 	local path = item.file or ""
 	local cwd = item.cwd or vim.fn.getcwd()
 
@@ -80,7 +80,7 @@ end
 
 ---@param item Beast.Finder.Item
 ---@return Beast.Finder.Highlight[]
-function M.buffer(item)
+function M.buffers(item)
 	local name = item.file or ""
 	if name == "" then
 		name = "[No Name]"
@@ -103,7 +103,7 @@ end
 
 ---@param item Beast.Finder.Item
 ---@return Beast.Finder.Highlight[]
-function M.colorscheme(item)
+function M.colorschemes(item)
 	return {
 		{ text = item.text, hl = "BeastFinderListFile" },
 	}
@@ -111,7 +111,7 @@ end
 
 ---@param item Beast.Finder.Item
 ---@return Beast.Finder.Highlight[]
-function M.help_tag(item)
+function M.help_tags(item)
 	local tag = item.text or item.help_tag or ""
 	local doc_name
 	if item.is_readme then

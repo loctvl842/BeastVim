@@ -1,14 +1,10 @@
-local config = require("beast.libs.finder.config")
-
+---@class Beast.Finder.UI.Backdrop
 local M = {}
 
----@param zindex integer zindex of the picker windows (backdrop goes below)
+---@param backdrop integer?
 ---@return integer? win handle of the backdrop window, or nil if disabled
-function M.create(zindex)
-	-- stylua: ignore
-	if not config.backdrop or config.backdrop <= 0 then return nil end
-
-	local buf = Buffer.new("beastvim-finder-backdrop")
+function M.create(backdrop)
+	local buf = Buffer.new("beast-finder-backdrop")
 
 	local win = vim.api.nvim_open_win(buf, false, {
 		relative = "editor",
@@ -18,11 +14,11 @@ function M.create(zindex)
 		col = 0,
 		style = "minimal",
 		focusable = false,
-		zindex = zindex - 1,
+		zindex = 100, -- 'input', 'preview', 'list' windows are 101+
 	})
 
 	Util.wo(win, "winhl", "Normal:BeastFinderBackdrop")
-	Util.wo(win, "winblend", config.backdrop)
+	Util.wo(win, "winblend", backdrop or 60)
 
 	return win
 end

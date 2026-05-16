@@ -3,25 +3,28 @@
 ---@field search string seed passed to live sources (e.g. grep term)
 ---@field cwd string normalized working directory
 ---@field buf? number restrict to buffer
-
-local M = {}
+local M = setmetatable({}, {
+	__call = function(t, ...)
+		return t:new(...)
+	end,
+})
+M.__index = M
 
 ---@param opts? {cwd?: string, buf?: number, search?: string}
 ---@return Beast.Finder.Filter
-function M.new(opts)
+function M:new(opts)
 	opts = opts or {}
-	return {
+	return setmetatable({
 		pattern = "",
 		search = opts.search or "",
 		cwd = opts.cwd or Util.root(),
 		buf = opts.buf,
-	}
+	}, self)
 end
 
----@param filter Beast.Finder.Filter
 ---@param pattern string
-function M.update(filter, pattern)
-	filter.pattern = pattern
+function M:update(pattern)
+	self.pattern = pattern
 end
 
 return M

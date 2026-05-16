@@ -198,7 +198,11 @@ local function register_event_autocmds()
 				for _, comp_id in ipairs(comp_ids) do
 					invalidate_component(comp_id)
 				end
-				vim.cmd("redrawstatus")
+				-- Deferred: OptionSet can fire during modeline processing (secure mode),
+				-- where redrawstatus is forbidden (E12).
+				vim.schedule(function()
+					vim.cmd("redrawstatus")
+				end)
 			end,
 		})
 	end
