@@ -16,3 +16,6 @@
 | [012](012-compound-fragment-component-model.md) | Compound-Fragment Component Model | Accepted | 2026-05-02 |
 | [013](013-opt-in-statusline-result-caching.md) | Opt-In Result Caching with Event-Gated Invalidation | Accepted | 2026-05-03 |
 | [014](014-child-float-over-split-parent-owned-lifecycle.md) | Child Float Overlaying a Split, Lifecycle Owned by Parent | Accepted | 2026-05-06 |
+| [015](015-native-tabline-replaces-heirline.md) | Native `%!` Tabline Replaces Heirline | Accepted | 2026-05-11 |
+| [016](016-tabline-3-state-highlights-event-cache.md) | Tabline 3-State Highlights with Event Cache | Accepted | 2026-05-11 |
+| [017](017-pure-lua-finder-modular-query.md) | Pure-Lua Finder with Modular Query Architecture | Accepted | 2026-05-17 |
