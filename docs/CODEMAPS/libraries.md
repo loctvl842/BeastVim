@@ -1,4 +1,4 @@
-<!-- Generated: 2026-05-13 | Files scanned: 114 | Token estimate: ~1940 -->
+<!-- Generated: 2026-05-17 | Files scanned: 151 | Token estimate: ~2100 -->
 
 # Libraries
 
@@ -35,6 +35,54 @@ Pin rule iterates to fixed point; sets `scrolloff` to keep cursor below float.
 
 ---
 
+## finder — Fuzzy Finder
+
+```
+finder/
+├── init.lua       ← open(source, opts), setup()
+├── config.lua     ← width, height, preview_ratio, debounce, matcher opts
+├── query.lua      ← Query class: layout, source loading, batch flush, rematch
+├── filter.lua     ← Filter class: pattern + cwd state
+├── matcher.lua    ← fuzzy matching (smartcase, scoring, positions)
+├── format.lua     ← per-source display formatters (filename, live_grep, help_tags, …)
+├── match_hl.lua   ← fuzzy match highlight extmarks (list + preview)
+├── action.lua     ← open, open_help, open_split, open_vsplit, copy_path
+├── keymaps.lua    ← input/list/preview pane keymaps + printable-char redirect
+├── autocmds.lua   ← picker lifetime autocmds (BufEnter, WinClosed)
+├── highlights.lua ← BeastFinder* groups
+├── source/
+│   ├── init.lua       ← lazy registry (__index → require source.<name>)
+│   ├── files.lua      ← async (fd/rg/find via uv.spawn)
+│   ├── buffers.lua    ← sync (getbufinfo)
+│   ├── live_grep.lua  ← live async (rg with pattern)
+│   ├── colorschemes.lua ← sync (rtp-only globpath)
+│   └── help_tags.lua  ← sync (rtp-only tag parsing)
+└── ui/
+    ├── init.lua     ← barrel (input, list, preview, backdrop)
+    ├── input.lua    ← prompt buffer + debounced TextChanged
+    ├── list.lua     ← rendered items + cursor + selection prefix
+    ├── preview.lua  ← file preview with filetype detection
+    └── backdrop.lua ← fullscreen dim overlay
+```
+
+API: `finder.open("files", opts)`, `finder.open("live_grep")`, `finder.open("help_tags")`
+View subclasses: `Beast.Finder.InputView`, `Beast.Finder.ListView`, `Beast.Finder.PreviewView`
+Loaded via: `packer.lazy()` on keys (`<leader>f/b/g/c/h`)
+
+### Query lifecycle
+
+```
+Query:new(source_name, opts)
+  → calc_layout(has_preview) → create input/list/preview views
+  → mount keymaps → load source (sync or async batch)
+  → rematch → render list → schedule_preview
+```
+
+Sources: `files` (async, fd/rg/find), `buffers` (sync), `live_grep` (live async),
+`colorschemes` (sync, rtp-only), `help_tags` (sync, rtp-only — loaded plugins only).
+
+---
+
 ## tabline — Native `%!` Tabline
 
 ```
@@ -57,32 +105,6 @@ tabline/
 API: `tabline.setup(opts)`, `tabline.render()` (via `%!v:lua`),
 `tabline.goto_buffer(n)`, `tabline.cycle_next/prev()`, `tabline.move_next/prev()`
 Loaded via: `packer.lazy()` on VimEnter (deferred)
-
-### Render pipeline
-
-```
-render()
-  → cached? → return cached_output (0.09µs)
-  → dirty:
-    context.build(state)           ← single vim.diagnostic.get() walk
-      → buffers.list()             ← getbufinfo({buflisted=1})
-      → name.build_names()        ← O(N) disambiguation
-      → pre-compute icons, modified, visible_bufs
-    offset.render(ctx)             ← sidebar title
-    buffer_list.render(ctx)        ← truncation + N × cell.render
-    tabpages.render(ctx)           ← right-aligned tabs
-    cache result, dirty = false
-```
-
-### 3-state highlights
-
-| State | Condition | Background |
-|-------|-----------|------------|
-| Selected | `bufnr == effective_active` | `active_bg` + underline |
-| Visible | buffer in a window, not active | `active_bg` (dimmer fg) |
-| Normal | listed, not in any window | `inactive_bg` |
-
-When sidebar has focus, `effective_active = -1` → no buffer Selected.
 
 ---
 
@@ -169,6 +191,22 @@ packer/
 
 API: `packer.setup(opts)`, `packer.lazy(mod, opts)` — deferred lib loading
 with event/keys triggers, highlight registration, and `defer` (vim.schedule).
+
+---
+
+## treesitter — Treesitter Setup & Parser Management
+
+```
+treesitter/
+├── init.lua       ← setup(opts), enable() (highlight + fold)
+├── config.lua     ← ensure_installed list
+├── install.lua    ← async parser install via vim.system
+├── parsers.lua    ← parser status queries
+└── scope.lua      ← scope-based queries
+```
+
+API: `treesitter.setup(opts)`, `treesitter.enable()`
+Loaded via: `packer.lazy()` on FileType (deferred)
 
 ---
 

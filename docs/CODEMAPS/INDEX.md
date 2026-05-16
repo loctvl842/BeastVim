@@ -1,4 +1,4 @@
-<!-- Generated: 2026-05-13 | Files scanned: 114 | Token estimate: ~450 -->
+<!-- Generated: 2026-05-17 | Files scanned: 151 | Token estimate: ~450 -->
 
 # BeastVim Codemaps
 
@@ -11,7 +11,7 @@ Quick-reference architecture documentation. Regenerate with `/tec-update-codemap
 ## Project Stats
 - Language: Lua
 - Platform: Neovim plugin (config-as-plugin)
-- Lines of code: ~14,434
-- Libraries: 9 (explorer, tabline, notify, toast, key, confirm, packer, buf, statusline)
-- Shared modules: view.lua, animate.lua, util/
-- Last updated: 2026-05-13
+- Lines of code: ~19,622
+- Libraries: 12 (explorer, finder, tabline, notify, toast, key, confirm, packer, buf, statusline, treesitter + shared: view.lua, animate.lua, async.lua)
+- Shared modules: view.lua, animate.lua, async.lua, util/
+- Last updated: 2026-05-17

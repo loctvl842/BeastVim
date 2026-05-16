@@ -1,4 +1,4 @@
-<!-- Generated: 2026-05-13 | Files scanned: 114 | Token estimate: ~980 -->
+<!-- Generated: 2026-05-17 | Files scanned: 151 | Token estimate: ~980 -->
 
 # Architecture
 
@@ -17,6 +17,7 @@ lua/beast/
 ├── option.lua            ← vim options
 ├── icon.lua              ← icon definitions
 ├── palette.lua           ← theme palette (resolves accent1, …)
+├── profile.lua           ← startup profiling
 ├── util/
 │   ├── init.lua          ← Util.wo, Util.create_scratch_buf, Util.hrtime
 │   ├── colors.lua        ← Util.colors.set_hl
@@ -24,15 +25,18 @@ lua/beast/
 ├── libs/
 │   ├── view.lua          ← Beast.View base class (buf+win pair)
 │   ├── animate.lua       ← shared animation engine (pure math)
+│   ├── async.lua         ← cooperative coroutine scheduler (budget-limited)
 │   ├── buf.lua           ← Beast.Buf (buffer delete, scratch buf)
 │   ├── confirm/          ← vim.fn.confirm drop-in UI
 │   ├── explorer/         ← file explorer (split panel + sticky headers)
+│   ├── finder/           ← fuzzy finder (files, buffers, grep, help, colorschemes)
 │   ├── key/              ← keybinding viewer/manager
 │   ├── notify/           ← floating notification stack
 │   ├── packer/           ← plugin loader with lazy triggers + packer.lazy()
-│   ├── statusline/       ← native %! statusline (replaces heirline statusline)
-│   ├── tabline/          ← native %! tabline (replaces heirline tabline)
-│   └── toast/            ← toast notification stack
+│   ├── statusline/       ← native %! statusline
+│   ├── tabline/          ← native %! tabline
+│   ├── toast/            ← toast notification stack
+│   └── treesitter/       ← treesitter setup, parser install, scope queries
 └── plugins/
     ├── init.lua           ← plugin spec imports
     └── colorscheme.lua    ← colorscheme plugin spec
@@ -63,12 +67,14 @@ beast.setup(opts)
   8. statusline.setup() → native %! with component specs
   9. packer.lazy("beast.libs.tabline") → deferred VimEnter
  10. packer.lazy("beast.libs.explorer") → deferred VimEnter + <leader>e
- 11. Palette.refresh() + reload_highlights()
+ 11. packer.lazy("beast.libs.treesitter") → deferred FileType
+ 12. packer.lazy("beast.libs.finder") → deferred keys (<leader>f/b/g/c/h)
+ 13. Palette.refresh() + reload_highlights()
 ```
 
 ## Lazy Lib Loading (`packer.lazy`)
 
-Explorer and tabline load via `packer.lazy(mod, opts)`, not `require()` in setup.
+Explorer, tabline, treesitter, and finder load via `packer.lazy(mod, opts)`, not `require()` in setup.
 Triggers: `event`, `keys`. Options: `defer` (vim.schedule), `highlights` (auto-registers
 in `M.highlight_modules`), `setup(lib)` callback.
 
@@ -76,10 +82,13 @@ in `M.highlight_modules`), `setup(lib)` callback.
 
 ```
 Beast.View (view.lua)
-  └── extended by: notify, toast, explorer, key
+  └── extended by: notify, toast, explorer, key, finder (InputView, ListView, PreviewView)
 
 animate.lua
   └── used by: notify/ui.lua, toast/ui.lua
+
+async.lua
+  └── cooperative coroutine scheduler, budget-limited (10ms per frame)
 
 Util.create_scratch_buf
   └── used by: confirm, explorer, key, notify, toast
@@ -104,8 +113,7 @@ Palette.get / Palette.refresh
             require(m)
 ```
 
-`M.highlight_modules` starts with: confirm, key, packer, notify, statusline.
-Lazy libs (tabline, explorer) register dynamically via `packer.lazy(opts.highlights)`.
+`M.highlight_modules` includes: confirm, key, packer, notify, statusline, tabline, explorer, finder.
 
 ## Patterns
 
@@ -117,3 +125,4 @@ Lazy libs (tabline, explorer) register dynamically via `packer.lazy(opts.highlig
 - **Statusline = `%!`**: component-based, file_bound caching, priority truncation
 - **Tabline = `%!`**: event-driven cache, 3-state highlights, anchor-based truncation
 - **Transient UI buffers**: `IGNORED_FILETYPES` table (beast-* only)
+- **Secure-mode safety**: statusline defers `redrawstatus` via `vim.schedule` (avoids E12)
