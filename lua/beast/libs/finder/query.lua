@@ -298,7 +298,7 @@ function M:new(source_name, opts)
 		items = {},
 		matched = {},
 		filter = Filter({ cwd = opts.cwd }),
-		main_win = vim.api.nvim_get_current_win(),
+		main_win = Util.find_normal_win(),
 		source = source_name,
 		_preview = has_preview,
 		_live = is_live,

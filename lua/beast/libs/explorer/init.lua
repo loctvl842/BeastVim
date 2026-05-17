@@ -30,7 +30,7 @@ end
 ---@param dir? string
 function M.open(dir)
 	-- This is to go back to the previous window after selecting a file
-	state.source_win = vim.fn.win_getid(vim.fn.winnr())
+	state.source_win = Util.find_normal_win()
 	if state.view and state.view:is_valid() and state.tree.root.path == dir then
 		pcall(vim.api.nvim_set_current_win, state.view.win)
 		return
