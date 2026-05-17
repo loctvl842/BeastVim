@@ -3,7 +3,11 @@ local state = require("beast.libs.explorer.state")
 
 local M = {}
 
+local mounted = false
+
 function M.mount()
+  if mounted then return end
+  mounted = true
   -- stylua: ignore
   if not state.view:is_valid() then return end
 
