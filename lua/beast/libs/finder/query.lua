@@ -132,6 +132,9 @@ function M:schedule_preview()
 		config.debounce.preview_ms,
 		0,
 		vim.schedule_wrap(function()
+			-- stylua: ignore
+			if not self.list_view:is_valid() then return end
+
 			local item = ui.list.selected(self.list_view)
 
 			if item then

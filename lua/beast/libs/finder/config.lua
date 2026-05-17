@@ -2,7 +2,7 @@
 local defaults = {
 	width = 0.8,
 	height = 0.8,
-	preview_ratio = 0.45,
+	preview_ratio = 0.5,
 	backdrop = 60,
 	prompt_prefix = " ",
 	selection_prefix = "▌",
