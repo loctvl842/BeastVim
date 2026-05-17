@@ -86,12 +86,16 @@ function M.build(state)
 
 	-- Resolve effective active buffer
 	-- When focus is on a sidebar, no buffer is "selected" — all show as visible/normal
+	-- When focus is on a non-listed buffer (finder, floating UI), preserve last active as selected
 	local current_buf = vim.api.nvim_get_current_buf()
 	local effective = current_buf
 	local anchor_bufnr = current_buf
 	if buffers_mod.is_sidebar_buf(current_buf) then
 		effective = -1
 		anchor_bufnr = state.last_active_bufnr
+	elseif not vim.bo[current_buf].buflisted then
+		effective = state.last_active_bufnr or current_buf
+		anchor_bufnr = state.last_active_bufnr or current_buf
 	end
 
 	-- Sidebar detection: check first window of tabpage

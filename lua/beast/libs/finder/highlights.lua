@@ -2,7 +2,7 @@ local p = Palette.get()
 
 Util.colors.set_hl("BeastFinder", {
 	-- Shared
-	Backdrop = { bg = "#000000" },
+	Backdrop = { bg = "#000000", underline = true, sp = p.dimmed3 },
 	Border = { fg = p.dimmed3, bg = p.dark1 },
 	Normal = { bg = p.dark1, fg = p.text },
 	-- Input

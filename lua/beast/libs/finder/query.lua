@@ -306,7 +306,7 @@ function M:new(source_name, opts)
 	}, self)
 
 	-- Backdrop must open before picker windows (lower zindex)
-	self._backdrop_win = ui.backdrop.create(config.zindex)
+	self._backdrop_win = ui.backdrop.create(config.backdrop)
 
 	local title_name = source_name:gsub("_", " ")
 	local title = title_name:sub(1, 1):upper() .. title_name:sub(2)

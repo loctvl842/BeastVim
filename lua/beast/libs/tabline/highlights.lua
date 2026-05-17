@@ -91,7 +91,7 @@ Util.colors.set_hl("BeastTl", {
 	OffsetSeparator = { fg = p.background, bg = p.background },
 
 	-- Truncation markers
-	TruncMarker = { fg = p.dimmed3, bg = active_bg },
+	TruncMarker = { fg = p.dimmed3, bg = active_bg, underline = true, sp = inactive_border },
 
 	-- Fill (background)
 	Fill = { bg = p.dark1, underline = true, sp = inactive_border },

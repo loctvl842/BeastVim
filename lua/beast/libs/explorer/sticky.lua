@@ -35,6 +35,13 @@ end)
 ---@field node? Beast.Explorer.Node  -- only set for kind = "dir"
 
 local DEFAULT_SCROLLOFF = 0
+
+-- NOTE: Neovim's compositor only blends float → base grid (no multi-layer
+-- compositing). Intermediate floats between a blending window and the base
+-- grid are invisible — their content is skipped entirely, not dimmed.
+-- Backdrop floats (zindex 100, winblend > 0) therefore erase this sticky
+-- overlay (zindex 30) from the composited output. Raising ZINDEX above 100
+-- would keep the sticky visible but un-dimmed; we accept the disappearance.
 local ZINDEX = 30
 
 ---@param n integer
