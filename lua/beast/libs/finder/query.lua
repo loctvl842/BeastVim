@@ -18,6 +18,7 @@ local ui = require("beast.libs.finder.ui")
 ---@field grep_text? string
 ---@field help_tag? string
 ---@field is_readme? boolean
+---@field _lower? string cached lowercased text for matcher
 
 ---@class Beast.Finder.Query
 ---@field items Beast.Finder.Item[]
@@ -36,6 +37,7 @@ local ui = require("beast.libs.finder.ui")
 ---@field _augroup integer
 ---@field _on_preview? fun(item: Beast.Finder.Item)
 ---@field _on_close? fun()
+---@field _match_state? Beast.Finder.MatchState
 local M = setmetatable({}, {
 	__call = function(t, ...)
 		return t:new(...)
@@ -164,9 +166,10 @@ end
 local function render(query)
 	local format_fn = format[query.source] or format.filename
 	ui.list.render(query.list_view, query.matched, format_fn)
-	-- Apply fuzzy match highlights to list (only for non-live sources)
+	-- Apply fuzzy match highlights to list (only for non-live sources, only visible rows)
 	if not query._live and query.list_view:is_valid() then
-		match_hl.apply_list(query.list_view.buf, query.matched, format_fn)
+		local from, to = ui.list.visible_range(query.list_view)
+		match_hl.apply_list(query.list_view.buf, query.matched, format_fn, from, to)
 	end
 	query:schedule_preview()
 	vim.cmd("redraw")
@@ -213,10 +216,11 @@ end
 
 ---@param query Beast.Finder.Query
 local function rematch(query)
-	matcher.run(query.items, query.filter, config.matcher, function(matched)
+	matcher.run(query.items, query.filter, config.matcher, function(matched, state)
 		query.matched = matched
+		query._match_state = state
 		render(query)
-	end)
+	end, query._match_state)
 end
 
 -- ---------------------------------------------------------------------------
@@ -231,6 +235,8 @@ function M:flush_batch()
 	for _, item in ipairs(batch) do
 		self.items[#self.items + 1] = item
 	end
+	-- New items arrived — previous match state is incomplete, force full rescan
+	self._match_state = nil
 	if self._live then
 		-- Live sources are pre-filtered — render directly without matcher
 		self.matched = self.items

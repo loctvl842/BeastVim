@@ -59,15 +59,23 @@ local function positions_to_ranges(positions)
 	return ranges
 end
 
---- Apply fuzzy match highlights to the list buffer using item.positions
+--- Apply fuzzy match highlights to the list buffer using item.positions.
+--- Only processes items in the visible range [from, to] (1-based into items).
+--- Buffer rows are offset so that from maps to buffer row 0.
 ---@param buf integer buffer handle
 ---@param items Beast.Finder.Item[] matched items (with .positions field)
 ---@param format_fn fun(item: Beast.Finder.Item): Beast.Finder.Highlight[]
-function M.apply_list(buf, items, format_fn)
+---@param from integer 1-based first visible item index
+---@param to integer 1-based last visible item index
+function M.apply_list(buf, items, format_fn, from, to)
 	vim.api.nvim_buf_clear_namespace(buf, MATCH_NS, 0, -1)
 
-	for row, item in ipairs(items) do
-		if not item.positions or #item.positions == 0 then
+	from = from or 1
+	to = to or #items
+
+	for i = from, to do
+		local item = items[i]
+		if not item or not item.positions or #item.positions == 0 then
 			goto continue
 		end
 
@@ -106,11 +114,14 @@ function M.apply_list(buf, items, format_fn)
 		table.sort(sorted_pos)
 		local ranges = positions_to_ranges(sorted_pos)
 
+		-- Buffer row is offset from `from` (0-based)
+		local buf_row = i - from
+
 		for _, range in ipairs(ranges) do
 			local start_col = range[1] + offset
 			local end_col = range[2] + offset
 			if start_col < #rendered and end_col <= #rendered then
-				vim.api.nvim_buf_set_extmark(buf, MATCH_NS, row - 1, start_col, {
+				vim.api.nvim_buf_set_extmark(buf, MATCH_NS, buf_row, start_col, {
 					end_col = end_col,
 					hl_group = "BeastFinderListMatch",
 					priority = 5000,

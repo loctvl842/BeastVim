@@ -53,9 +53,11 @@ function M.mount(query)
 		callback = function()
 			-- stylua: ignore
 			if not query.list_view:is_valid() then return end
-			local row = vim.api.nvim_win_get_cursor(query.list_view.win)[1]
-			if row ~= query.list_view.cursor then
-				ui.list.set_cursor(query.list_view, row)
+			local buf_row = vim.api.nvim_win_get_cursor(query.list_view.win)[1]
+			-- Translate buffer row to item index (virtual rendering offset)
+			local item_idx = query.list_view._offset + buf_row
+			if item_idx ~= query.list_view.cursor then
+				ui.list.set_cursor(query.list_view, item_idx)
 				vim.cmd("redraw")
 				query:schedule_preview()
 			end

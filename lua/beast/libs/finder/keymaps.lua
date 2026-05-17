@@ -8,11 +8,15 @@ local M = {}
 ---@param query Beast.Finder.Query
 ---@param delta integer positive = down, negative = up
 local function move_cursor(query, delta)
-	local old_cursor = query.list_view.cursor
+	local old_offset = query.list_view._offset
 	ui.list.move(query.list_view, delta)
-	if old_cursor ~= query.list_view.cursor then
-		vim.cmd("redraw")
+	-- Re-apply match highlights when viewport scrolled to new rows
+	if query.list_view._offset ~= old_offset and not query._live and query.list_view:is_valid() then
+		local format_fn = require("beast.libs.finder.format")[query.source] or require("beast.libs.finder.format").filename
+		local from, to = ui.list.visible_range(query.list_view)
+		match_hl.apply_list(query.list_view.buf, query.matched, format_fn, from, to)
 	end
+	vim.cmd("redraw")
 	query:schedule_preview()
 end
 

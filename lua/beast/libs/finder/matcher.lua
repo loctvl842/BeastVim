@@ -1,3 +1,4 @@
+local TopK = require("beast.libs.finder.topk")
 local async = require("beast.libs.async")
 
 local M = {}
@@ -268,8 +269,9 @@ local function score_term(hay, needle, prefix, suffix, exact)
 	--
 	--   {97, 98, 99}
 	--
-	local hbytes = { hay:byte(1, hlen) }
-	local nbytes = { needle:byte(1, nlen) }
+	local hbytes = hay
+	local nbytes = needle
+	local byte = string.byte
 
 	-- ---------------------------------------------------------------------
 	-- Forward scan
@@ -277,21 +279,11 @@ local function score_term(hay, needle, prefix, suffix, exact)
 	--
 	-- Find whether all needle characters exist in-order inside haystack.
 	--
-	-- Example:
-	--
-	--   needle = "bfi"
-	--   hay    = "beast_finder"
-	--
-	-- matches:
-	--
-	--   b east_ f inder
-	--   ^       ^
-	--
 	local first_match = -1
 	local ni = 1
 
 	for hi = 1, hlen do
-		if hbytes[hi] == nbytes[ni] then
+		if byte(hbytes, hi) == byte(nbytes, ni) then
 			if ni == 1 then
 				first_match = hi
 			end
@@ -335,7 +327,7 @@ local function score_term(hay, needle, prefix, suffix, exact)
 		local nj = nlen
 
 		for hi = hlen, first_match, -1 do
-			if hbytes[hi] == nbytes[nj] then
+			if byte(hbytes, hi) == byte(nbytes, nj) then
 				-- First backward match = end of window.
 				if nj == nlen then
 					last_match = hi
@@ -372,12 +364,12 @@ local function score_term(hay, needle, prefix, suffix, exact)
 	ni = 1
 
 	for hi = first_match, last_match do
-		local hb = hbytes[hi]
+		local hb = byte(hbytes, hi)
 
 		-- -----------------------------------------------------------------
 		-- Matched next needle character
 		-- -----------------------------------------------------------------
-		if hb == nbytes[ni] then
+		if hb == byte(nbytes, ni) then
 			score = score + SCORE_MATCH
 
 			positions[#positions + 1] = hi
@@ -386,26 +378,15 @@ local function score_term(hay, needle, prefix, suffix, exact)
 			if hi == 1 then
 				score = score + BONUS_FIRST_CHAR
 
-			-- Match after separators like:
-			--   /
-			--   _
-			--   -
-			--   .
-			elseif BOUNDARY_CHARS[hbytes[hi - 1]] then
+			-- Match after separators
+			elseif BOUNDARY_CHARS[byte(hbytes, hi - 1)] then
 				score = score + BONUS_BOUNDARY
 
-			-- camelCase boundary:
-			--
-			--   beastFinder
-			--        ^
-			elseif hb >= ("A"):byte() and hb <= ("Z"):byte() and hbytes[hi - 1] >= ("a"):byte() and hbytes[hi - 1] <= ("z"):byte() then
+			-- camelCase boundary
+			elseif hb >= 65 and hb <= 90 and byte(hbytes, hi - 1) >= 97 and byte(hbytes, hi - 1) <= 122 then
 				score = score + BONUS_CAMEL
 
-			-- Consecutive match bonus:
-			--
-			--   finder
-			--   fin
-			--   ^^^
+			-- Consecutive match bonus
 			elseif ni > 1 then
 				score = score + BONUS_CONSECUTIVE
 			end
@@ -454,7 +435,12 @@ local function score_item(item, and_groups)
 		return 1, nil
 	end
 	local hay_orig = item.text or ""
-	local hay_lower = hay_orig:lower()
+	-- Cache lowered text to avoid re-allocation on subsequent match cycles
+	local hay_lower = item._lower
+	if not hay_lower then
+		hay_lower = hay_orig:lower()
+		item._lower = hay_lower
+	end
 	local total = 0
 	local all_positions = {}
 	for _, or_terms in ipairs(and_groups) do
@@ -493,33 +479,96 @@ local function score_item(item, and_groups)
 end
 
 -- ---------------------------------------------------------------------------
+-- Subset detection
+-- ---------------------------------------------------------------------------
+
+--- Returns true when `new_pattern` is a strict superset of `old_pattern`
+--- (user only appended characters — no deletions, insertions, or edits).
+---@param old_pattern string
+---@param new_pattern string
+---@return boolean
+local function is_superset(old_pattern, new_pattern)
+	-- stylua: ignore
+	if old_pattern == "" or new_pattern == "" then return false end
+	-- stylua: ignore
+	if #new_pattern <= #old_pattern then return false end
+	return new_pattern:sub(1, #old_pattern) == old_pattern
+end
+
+-- ---------------------------------------------------------------------------
 -- Public API
 -- ---------------------------------------------------------------------------
 
+---@class Beast.Finder.MatcherOpts
+---@field smartcase boolean
+---@field ignorecase boolean
+
+---@class Beast.Finder.MatchState
+---@field pattern string the pattern used in the last run
+---@field scores table<integer, number> map of item.idx → score from last run
+
 ---@param items Beast.Finder.Item[]
 ---@param filter Beast.Finder.Filter
----@param cfg {smartcase: boolean, ignorecase: boolean}
----@param on_done fun(matched: Beast.Finder.Item[])
-function M.run(items, filter, cfg, on_done)
+---@param cfg Beast.Finder.MatcherOpts
+---@param on_done fun(matched: Beast.Finder.Item[], state: Beast.Finder.MatchState)
+---@param prev_state? Beast.Finder.MatchState
+---@param topk_capacity? integer defaults to 1000
+function M.run(items, filter, cfg, on_done, prev_state, topk_capacity)
 	async.spawn(function()
-		local groups = parse_pattern(filter.pattern, cfg.ignorecase, cfg.smartcase)
-		local matched = {}
+		local pattern = filter.pattern
+		local scores = {} ---@type table<integer, number>
+
+		-- Empty pattern fast-path: all items match with score=1, insertion order
+		if pattern == "" then
+			local capacity = topk_capacity or 1000
+			local count = math.min(#items, capacity)
+			local result = {}
+			for i = 1, #items do
+				items[i].score = 1
+				items[i].positions = nil
+				scores[items[i].idx] = 1
+				if i <= count then
+					result[i] = items[i]
+				end
+			end
+			vim.schedule(function()
+				on_done(result, { pattern = pattern, scores = scores })
+			end)
+			return
+		end
+
+		local groups = parse_pattern(pattern, cfg.ignorecase, cfg.smartcase)
+		local capacity = topk_capacity or 1000
+		local topk = TopK(capacity)
 		local yield = async.yielder(1)
+
+		-- Determine if we can use subset elimination
+		local use_subset = prev_state and is_superset(prev_state.pattern, pattern)
+		local prev_scores = use_subset and prev_state.scores or nil
+
 		for i = 1, #items do
 			local item = items[i]
-			local s, pos = score_item(item, groups)
-			item.score = s
-			item.positions = pos
-			if s > 0 then
-				matched[#matched + 1] = item
+
+			-- Subset elimination: skip items that failed the previous (shorter) query
+			if prev_scores and prev_scores[item.idx] == 0 then
+				item.score = 0
+				item.positions = nil
+				scores[item.idx] = 0
+			else
+				local s, pos = score_item(item, groups)
+				item.score = s
+				item.positions = pos
+				scores[item.idx] = s
+				if s > 0 then
+					topk:push(item)
+				end
 			end
 			yield()
 		end
-		table.sort(matched, function(a, b)
-			return a.score > b.score
-		end)
+
+		local matched = topk:sorted()
 		vim.schedule(function()
-			on_done(matched)
+			on_done(matched, { pattern = pattern, scores = scores })
 		end)
 	end)
 end
