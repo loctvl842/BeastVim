@@ -5,6 +5,8 @@ local truncate = require("beast.libs.tabline.truncate")
 
 local M = {}
 
+local SEPARATOR = "▕"
+
 local severity_map = {
 	[1] = "Error",
 	[2] = "Warn",
@@ -95,7 +97,7 @@ function M.render(bufnr, ctx)
 
 	-- Min-width padding: center content within min_cell_width
 	-- Edge-trimmed cells skip min_cell_width — they intentionally render narrower
-	local sep_w = displaywidth(config.separator)
+	local sep_w = displaywidth(SEPARATOR)
 	local pad_left = ""
 	local pad_right = ""
 	local is_edge_trimmed = ctx.edge_trim_bufs and ctx.edge_trim_bufs[bufnr]
@@ -138,7 +140,7 @@ function M.render(bufnr, ctx)
 	-- Left compact: keep separator (next visible cell follows)
 	if is_compact then
 		if is_compact == "left" then
-			local sep_part = "%#BeastTlSeparator" .. state_suffix .. "#" .. config.separator
+			local sep_part = "%#BeastTlSeparator" .. state_suffix .. "#" .. SEPARATOR
 			return body .. sep_part
 		end
 		return body
@@ -157,7 +159,7 @@ function M.render(bufnr, ctx)
 	end
 
 	-- Separator
-	local sep_part = "%#BeastTlSeparator" .. state_suffix .. "#" .. config.separator
+	local sep_part = "%#BeastTlSeparator" .. state_suffix .. "#" .. SEPARATOR
 
 	return body .. close_part .. sep_part
 end
