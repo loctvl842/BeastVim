@@ -87,7 +87,8 @@ function M.render(bufnr, ctx)
 	local display_name = ctx.names_by_buf[bufnr] or "[No Name]"
 	display_name = name_mod.truncate_text(display_name, config.max_name_width)
 
-	-- Status: diagnostic count or modified dot
+	-- Status: diagnostic count (modified indicator moved to close button slot)
+	local is_modified = config.show_modified and ctx.modified_by_buf[bufnr]
 	local status_part = ""
 	local status_visible_w = 0
 	if diag and config.show_diagnostics then
@@ -96,10 +97,6 @@ function M.render(bufnr, ctx)
 		local diag_hl = resolve_diag_hl(state_suffix, diag.severity)
 		status_part = "%#" .. diag_hl .. "# " .. count_str
 		status_visible_w = 1 + #count_str -- space + count
-	elseif config.show_modified and ctx.modified_by_buf[bufnr] then
-		local mod_hl = "BeastTlModified" .. state_suffix
-		status_part = "%#" .. mod_hl .. "# ●"
-		status_visible_w = 2 -- space + dot
 	end
 
 	-- Min-width padding: center content within min_cell_width
@@ -137,9 +134,12 @@ function M.render(bufnr, ctx)
 		.. pad_right
 		.. "%X"
 
-	-- Region 2: Close button click region
+	-- Region 2: Close button / modified indicator slot
 	local close_part
-	if is_selected and config.show_close_button then
+	if is_modified then
+		local mod_hl = "BeastTlModified" .. state_suffix
+		close_part = "%" .. buf_str .. "@v:lua.beast_tabline_buffer_click@%#" .. mod_hl .. "# ●%X "
+	elseif is_selected and config.show_close_button then
 		close_part = "%" .. buf_str .. "@v:lua.beast_tabline_close_click@%#BeastTlCloseButton# 󰅖%X "
 	else
 		-- Placeholder wrapped in buffer click so clicking anywhere on inactive cell switches to it
