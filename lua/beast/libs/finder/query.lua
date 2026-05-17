@@ -299,7 +299,7 @@ function M:new(source_name, opts)
 		matched = {},
 		filter = Filter({ cwd = opts.cwd }),
 		main_win = vim.api.nvim_get_current_win(),
-		_source = source_name,
+		source = source_name,
 		_preview = has_preview,
 		_live = is_live,
 		_batch_pending = {},
