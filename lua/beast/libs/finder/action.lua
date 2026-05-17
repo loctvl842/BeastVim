@@ -3,9 +3,9 @@ local M = {}
 ---@param query Beast.Finder.Query
 ---@param item Beast.Finder.Item
 function M.open(query, item)
-	if query._source == "help_tags" then
+	if query.source == "help_tags" then
 		return M.open_help(query, item)
-	elseif query._source == "colorschemes" then
+	elseif query.source == "colorschemes" then
 		pcall(vim.cmd.colorscheme, item.text)
 		return
 	end

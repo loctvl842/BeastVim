@@ -28,7 +28,7 @@ local ui = require("beast.libs.finder.ui")
 ---@field list_view Beast.Finder.ListView
 ---@field preview_view Beast.Finder.PreviewView|nil
 ---@field _backdrop_win integer
----@field _source Beast.Finder.Source
+---@field source Beast.Finder.Source
 ---@field _preview boolean -- whether to show preview window
 ---@field _live boolean
 ---@field _preview_timer uv.uv_timer_t|nil
@@ -159,7 +159,7 @@ end
 
 ---@param query Beast.Finder.Query
 local function render(query)
-	local format_fn = format[query._source] or format.filename
+	local format_fn = format[query.source] or format.filename
 	ui.list.render(query.list_view, query.matched, format_fn)
 	-- Apply fuzzy match highlights to list (only for non-live sources)
 	if not query._live and query.list_view:is_valid() then
@@ -172,7 +172,7 @@ end
 --- Re-run a live source (e.g. grep) with the current filter pattern
 ---@param query Beast.Finder.Query
 local function reload_live(query)
-	local source = source_registry[query._source]
+	local source = source_registry[query.source]
 	-- stylua: ignore
 	if not source then return end
 
@@ -239,9 +239,9 @@ end
 
 ---@private
 function M:load()
-	local source = source_registry[self._source]
+	local source = source_registry[self.source]
 	if not source then
-		vim.notify("beast.libs.finder: unknown source '" .. self._source .. "'", vim.log.levels.ERROR)
+		vim.notify("beast.libs.finder: unknown source '" .. self.source .. "'", vim.log.levels.ERROR)
 		return
 	end
 
@@ -344,7 +344,7 @@ function M:close()
 		self._preview_timer:close()
 		self._preview_timer = nil
 	end
-	local source = source_registry[self._source]
+	local source = source_registry[self.source]
 	if source and source.cancel then
 		source.cancel()
 	end
