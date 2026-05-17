@@ -5,6 +5,7 @@ local defaults = {
 	anim_ms = 180,
 	gap = 0,
 	margin_bottom = 0,
+	padding_right = 1,
 	level = vim.log.levels.INFO,
 	title = "",
 	max_width = function()
@@ -17,13 +18,6 @@ local defaults = {
 		INFO = "",
 		DEBUG = "",
 		TRACE = "",
-	},
-	hl = {
-		ERROR = { title = "DiagnosticError", body = "Normal" },
-		WARN = { title = "DiagnosticWarn", body = "Normal" },
-		INFO = { title = "DiagnosticInfo", body = "Normal" },
-		DEBUG = { title = "DiagnosticHint", body = "Normal" },
-		TRACE = { title = "Comment", body = "Normal" },
 	},
 }
 

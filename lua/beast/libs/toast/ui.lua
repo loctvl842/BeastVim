@@ -44,7 +44,7 @@ function M.create(record, bottom_row)
 		relative = "editor",
 		anchor = "SE",
 		row = bottom_row,
-		col = vim.o.columns,
+		col = vim.o.columns - config.padding_right,
 		width = width,
 		height = height,
 		style = "minimal",
@@ -54,7 +54,7 @@ function M.create(record, bottom_row)
 		noautocmd = true,
 	})
 	Util.wo(win, "wrap", false)
-	Util.wo(win, "winhl", "Normal:Normal")
+	Util.wo(win, "winhl", "Normal:BeastToastNormal")
 	Util.wo(win, "winblend", 100) -- start transparent; fade_in animates to 0
 
 	local ns = vim.api.nvim_create_namespace("beastvim_toast_" .. record.id)
@@ -89,24 +89,24 @@ function M.render(view)
 
 	-- Apply highlight
 	local ns = vim.api.nvim_create_namespace("beastvim_toast_hl")
-	local hl = config.hl[r.level] or config.hl.INFO
 	vim.api.nvim_buf_clear_namespace(view.buf, ns, 0, -1)
 	local msg_bytes = #msg_fit + pad
 	if msg_bytes > 0 then
-		local body_hl = r.dim and "Comment" or hl.body
+		local body_hl = r.dim and "Comment" or "BeastToastBody"
 		vim.api.nvim_buf_set_extmark(view.buf, ns, 0, 0, { end_row = 0, end_col = msg_bytes, hl_group = body_hl })
 	end
 
+	local hl_title = "BeastToastTitle" .. r.level
 	local col = msg_bytes
 	if title_str ~= "" then
 		local tbytes = #(" " .. title_str)
-		vim.api.nvim_buf_set_extmark(view.buf, ns, 0, col, { end_row = 0, end_col = col + tbytes, hl_group = hl.title })
+		vim.api.nvim_buf_set_extmark(view.buf, ns, 0, col, { end_row = 0, end_col = col + tbytes, hl_group = hl_title })
 		col = col + tbytes
 	end
 
 	if icon_str ~= "" then
 		local ibytes = #(" " .. icon_str)
-		vim.api.nvim_buf_set_extmark(view.buf, ns, 0, col, { end_row = 0, end_col = col + ibytes, hl_group = hl.title })
+		vim.api.nvim_buf_set_extmark(view.buf, ns, 0, col, { end_row = 0, end_col = col + ibytes, hl_group = hl_title })
 	end
 end
 
@@ -124,7 +124,7 @@ function M.move(view, bottom_row)
 		relative = "editor",
 		anchor = "SE",
 		row = bottom_row,
-		col = vim.o.columns,
+		col = vim.o.columns - config.padding_right,
 	})
 end
 
