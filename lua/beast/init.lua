@@ -93,7 +93,6 @@ function M.setup(opts)
 	packer.lazy("beast.libs.tabline", {
 		event = "VimEnter",
 		defer = true,
-		highlights = "beast.libs.tabline.highlights",
 		setup = function(tabline)
 			tabline.setup({
 				max_name_width = 30,
@@ -105,6 +104,18 @@ function M.setup(opts)
 			})
 		end,
 	})
+	Key.safe_set("n", "[b", function()
+		require("beast.libs.tabline").cycle_prev()
+	end, { desc = "Prev Buffer", group = "Tabline" })
+	Key.safe_set("n", "]b", function()
+		require("beast.libs.tabline").cycle_next()
+	end, { desc = "Next Buffer", group = "Tabline" })
+	Key.safe_set("n", "[B", function()
+		require("beast.libs.tabline").move_prev()
+	end, { desc = "Move buffer prev", group = "Tabline" })
+	Key.safe_set("n", "]B", function()
+		require("beast.libs.tabline").move_next()
+	end, { desc = "Move buffer next", group = "Tabline" })
 
 	vim.g.loaded_netrw = 1
 	vim.g.loaded_netrwPlugin = 1
@@ -120,7 +131,6 @@ function M.setup(opts)
 		} },
 		event = "VimEnter",
 		defer = true,
-		highlights = "beast.libs.explorer.highlights",
 		setup = function(explorer)
 			explorer.setup(cfg.explorer)
 			-- Detect directory buffers from startup (e.g. `nvim ~/Downloads`),
@@ -153,7 +163,6 @@ function M.setup(opts)
 
 	packer.lazy("beast.libs.finder", {
 		defer = true,
-		highlights = "beast.libs.finder.highlights",
 		setup = function(finder)
 			finder.setup(cfg.finder or {})
 		end,
@@ -185,7 +194,7 @@ function M.setup(opts)
 					local original = vim.g.colors_name
 					local confirmed = false
 					require("beast.libs.finder").open("colorschemes", {
-						no_preview = true,
+						preview = false,
 						on_preview = function(item)
 							pcall(vim.cmd.colorscheme, item.text)
 						end,
@@ -194,13 +203,6 @@ function M.setup(opts)
 								pcall(vim.cmd.colorscheme, original)
 							end
 						end,
-						action = function(_, selected)
-							local item = selected[1]
-							-- stylua: ignore
-							if not item then return end
-							confirmed = true
-							pcall(vim.cmd.colorscheme, item.text)
-						end,
 					})
 				end,
 				desc = "Colorschemes",
@@ -208,10 +210,7 @@ function M.setup(opts)
 			{
 				"<leader>h",
 				function()
-					local actions = require("beast.libs.finder.actions")
-					require("beast.libs.finder").open("help_tags", {
-						action = actions.open_help,
-					})
+					require("beast.libs.finder").open("help_tags")
 				end,
 				desc = "Help tags",
 			},
@@ -228,10 +227,15 @@ end
 ---@type string[]
 M.highlight_modules = {
 	"beast.libs.confirm.highlights",
+	"beast.libs.explorer.highlights",
+	"beast.libs.finder.highlights",
 	"beast.libs.key.highlights",
-	"beast.libs.packer.highlights",
 	"beast.libs.notify.highlights",
+	"beast.libs.packer.highlights",
 	"beast.libs.statusline.highlights",
+	"beast.libs.tabline.highlights",
+  "beast.libs.toast.highlights",
+  "beast.libs.treesitter.highlights",
 }
 
 --- Reload all Beast lib highlights.
