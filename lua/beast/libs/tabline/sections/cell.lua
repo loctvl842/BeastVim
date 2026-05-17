@@ -1,6 +1,7 @@
 local config = require("beast.libs.tabline.config")
 local icons_mod = require("beast.libs.tabline.icons")
 local name_mod = require("beast.libs.tabline.name")
+local truncate = require("beast.libs.tabline.truncate")
 
 local M = {}
 
@@ -11,14 +12,7 @@ local severity_map = {
 	[4] = "Hint",
 }
 
---- Fast display-width: use byte length for ASCII, fallback for multibyte.
----@param s string
----@return integer
-local function displaywidth(s)
-	-- stylua: ignore
-	if not s:find("[\128-\255]") then return #s end
-	return vim.fn.strdisplaywidth(s)
-end
+local displaywidth = truncate.displaywidth
 
 --- Resolve the buffer state suffix: "Selected", "Visible", or "" (normal).
 ---@param bufnr integer
@@ -100,10 +94,13 @@ function M.render(bufnr, ctx)
 	end
 
 	-- Min-width padding: center content within min_cell_width
+	-- Edge-trimmed cells skip min_cell_width — they intentionally render narrower
 	local sep_w = displaywidth(config.separator)
 	local pad_left = ""
 	local pad_right = ""
-	if config.min_cell_width > 0 then
+	local is_edge_trimmed = ctx.edge_trim_bufs and ctx.edge_trim_bufs[bufnr]
+	local is_compact = ctx.edge_trim_compact and ctx.edge_trim_compact[bufnr]
+	if config.min_cell_width > 0 and not is_edge_trimmed and not is_compact then
 		local icon_w = displaywidth(icon) + 1 -- icon + space
 		local name_w = displaywidth(display_name)
 		local close_w = 2 -- " 󰅖" or "  "
@@ -122,18 +119,30 @@ function M.render(bufnr, ctx)
 	local hl_open = "%#" .. buf_hl .. "#"
 
 	-- Region 1: Buffer body click region
+	local leading_pad = is_compact and " " or "  "
 	local body = "%"
 		.. buf_str
 		.. "@v:lua.beast_tabline_buffer_click@"
 		.. hl_open
 		.. pad_left
-		.. "  "
+		.. leading_pad
 		.. icon_part
 		.. hl_open
 		.. display_name
 		.. status_part
 		.. pad_right
 		.. "%X"
+
+	-- Compact edge cells: skip close button, use 1 leading pad
+	-- Right compact: also skip separator (right marker follows)
+	-- Left compact: keep separator (next visible cell follows)
+	if is_compact then
+		if is_compact == "left" then
+			local sep_part = "%#BeastTlSeparator" .. state_suffix .. "#" .. config.separator
+			return body .. sep_part
+		end
+		return body
+	end
 
 	-- Region 2: Close button / modified indicator slot
 	local close_part

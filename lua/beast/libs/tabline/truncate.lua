@@ -5,11 +5,13 @@ local M = {}
 --- Fast display-width: use byte length for ASCII, fallback for multibyte.
 ---@param s string
 ---@return integer
-local function displaywidth(s)
+function M.displaywidth(s)
 	-- stylua: ignore
 	if not s:find("[\128-\255]") then return #s end
 	return vim.fn.strdisplaywidth(s)
 end
+
+local displaywidth = M.displaywidth
 
 --- Estimate the display width of a single buffer cell.
 --- Uses ctx.diag_by_buf[bufnr] ~= nil as a binary check (no count/severity needed).
@@ -20,7 +22,8 @@ end
 function M.estimate_cell_width(bufnr, ctx, is_anchor)
 	local display_name = ctx.names_by_buf[bufnr] or "[No Name]"
 	local name_w = math.min(displaywidth(display_name), config.max_name_width)
-	local icon_w = 2 -- icon + space
+	local icon_info = ctx.icons_by_buf[bufnr]
+	local icon_w = (icon_info and displaywidth(icon_info.icon) or 0) + 1 -- icon + space
 	local pads = 2 -- leading spaces in body (gap after right-aligned separator)
 	local close_w = 2 -- " 󰅖" or " ●" or "  " (no trailing space, separator follows)
 	local sep_w = 1 -- right separator
@@ -43,6 +46,7 @@ end
 ---@return integer[] visible Visible buffers in display order
 ---@return integer left_hidden Count of hidden buffers on the left
 ---@return integer right_hidden Count of hidden buffers on the right
+---@return integer total_width Total display width of all visible cells
 function M.fit_around_anchor(before, anchor, after, est_fn, available)
 	local visible = { anchor }
 	local total_width = est_fn(anchor, true)
@@ -111,7 +115,7 @@ function M.fit_around_anchor(before, anchor, after, est_fn, available)
 	local left_hidden = math.max(0, left_idx)
 	local right_hidden = math.max(0, #after - right_idx + 1)
 
-	return visible, left_hidden, right_hidden
+	return visible, left_hidden, right_hidden, total_width
 end
 
 --- Get the non-name overhead of a cell (pads + icon + status + close + separator).
@@ -122,7 +126,8 @@ end
 ---@return integer overhead
 function M.cell_overhead(bufnr, ctx, is_anchor)
 	local pads = 2
-	local icon_w = 2
+	local icon_info = ctx.icons_by_buf[bufnr]
+	local icon_w = (icon_info and displaywidth(icon_info.icon) or 0) + 1
 	local has_diag = ctx.diag_by_buf[bufnr] ~= nil
 	local status_w = (has_diag or ctx.modified_by_buf[bufnr]) and 2 or 0
 	local close_w = 2

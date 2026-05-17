@@ -118,4 +118,47 @@ function M.truncate_text(text, max_width)
 	return "…" .. vim.fn.strcharpart(text, start_index)
 end
 
+--- Truncate a text to a target display width with trailing ellipsis.
+---@param text string
+---@param max_width integer
+---@return string
+function M.truncate_text_end(text, max_width)
+	-- stylua: ignore
+	if max_width == nil or max_width <= 0 then return "" end
+
+	local len = #text
+	-- Fast path: pure ASCII (byte length == display width)
+	if not text:find("[\128-\255]") then
+		-- stylua: ignore
+		if len <= max_width then return text end
+		-- stylua: ignore
+		if max_width <= 1 then return "…" end
+		return text:sub(1, max_width - 1) .. "…"
+	end
+
+	-- Slow path: multibyte characters
+	local total_width = vim.fn.strdisplaywidth(text)
+	-- stylua: ignore
+	if total_width <= max_width then return text end
+
+	-- stylua: ignore
+	if max_width <= 1 then return "…" end
+
+	local chars = vim.fn.strchars(text)
+	local current_width = 0
+	local end_index = 0
+
+	for i = 0, chars - 1 do
+		local char = vim.fn.strcharpart(text, i, 1)
+		local char_w = vim.fn.strdisplaywidth(char)
+		if current_width + char_w > (max_width - 1) then
+			break
+		end
+		current_width = current_width + char_w
+		end_index = i + 1
+	end
+
+	return vim.fn.strcharpart(text, 0, end_index) .. "…"
+end
+
 return M
