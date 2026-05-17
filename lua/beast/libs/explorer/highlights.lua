@@ -29,5 +29,5 @@ Util.colors.set_hl("BeastExplorer", {
 	StickyBg = { fg = p.dimmed1, bg = Util.colors.darken(p.dark1, 3) },
 	-- No `fg` so indent / icon / label colors on the last line still show
 	-- through; only the underline (sp) is contributed by this group.
-	StickyBorder = { sp = Util.colors.darken(p.dimmed5, 10), underline = true },
+	StickyBorder = { sp = Util.colors.darken(p.dimmed3, 10), underline = true },
 })
