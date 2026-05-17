@@ -38,6 +38,8 @@ local ui = require("beast.libs.finder.ui")
 ---@field _on_preview? fun(item: Beast.Finder.Item)
 ---@field _on_close? fun()
 ---@field _match_state? Beast.Finder.MatchState
+---@field _render_timer? uv.uv_timer_t throttle timer for live source rendering
+---@field _render_pending boolean whether a render is queued
 local M = setmetatable({}, {
 	__call = function(t, ...)
 		return t:new(...)
@@ -187,6 +189,12 @@ local function reload_live(query)
 		source.cancel()
 	end
 
+	-- Reset render throttle state
+	query._render_pending = false
+	if query._render_timer and not query._render_timer:is_closing() then
+		query._render_timer:stop()
+	end
+
 	-- Empty query → clear results
 	if query.filter.pattern == "" then
 		query.items = {}
@@ -202,13 +210,21 @@ local function reload_live(query)
 
 	source.get(query.filter, function(item)
 		if item == nil then
+			-- Source completed — flush remaining batch and force a final render
 			vim.schedule(function()
 				query:flush_batch()
+				-- Ensure final render even if throttle timer hasn't fired
+				if query._render_timer and not query._render_timer:is_closing() then
+					query._render_timer:stop()
+				end
+				query._render_pending = false
+				query.matched = query.items
+				render(query)
 			end)
 			return
 		end
 		query._batch_pending[#query._batch_pending + 1] = item
-		if #query._batch_pending >= 100 then
+		if #query._batch_pending >= 500 then
 			query:flush_batch()
 		end
 	end)
@@ -226,9 +242,13 @@ end
 -- ---------------------------------------------------------------------------
 -- Source loading
 -- ---------------------------------------------------------------------------
+
+--- Throttle interval for live source rendering (ms)
+local LIVE_RENDER_THROTTLE_MS = 50
+
 function M:flush_batch()
-  -- stylua: ignore
-  if #self._batch_pending == 0 then return end
+	-- stylua: ignore
+	if #self._batch_pending == 0 then return end
 
 	local batch = self._batch_pending
 	self._batch_pending = {}
@@ -239,8 +259,25 @@ function M:flush_batch()
 	self._match_state = nil
 	if self._live then
 		-- Live sources are pre-filtered — render directly without matcher
+		-- Throttle renders to avoid redrawing on every 100-item batch
 		self.matched = self.items
-		render(self)
+		if not self._render_pending then
+			self._render_pending = true
+			if not self._render_timer or self._render_timer:is_closing() then
+				self._render_timer = assert(vim.uv.new_timer(), "failed to create render timer")
+			end
+			self._render_timer:start(
+				LIVE_RENDER_THROTTLE_MS,
+				0,
+				vim.schedule_wrap(function()
+					self._render_pending = false
+					-- stylua: ignore
+					if not self.list_view:is_valid() then return end
+					self.matched = self.items
+					render(self)
+				end)
+			)
+		end
 	else
 		rematch(self)
 	end
@@ -312,6 +349,7 @@ function M:new(source_name, opts)
 		_preview = has_preview,
 		_live = is_live,
 		_batch_pending = {},
+		_render_pending = false,
 	}, self)
 
 	-- Backdrop must open before picker windows (lower zindex)
@@ -352,6 +390,11 @@ function M:close()
 		self._preview_timer:stop()
 		self._preview_timer:close()
 		self._preview_timer = nil
+	end
+	if self._render_timer then
+		self._render_timer:stop()
+		self._render_timer:close()
+		self._render_timer = nil
 	end
 	local source = source_registry[self.source]
 	if source and source.cancel then
