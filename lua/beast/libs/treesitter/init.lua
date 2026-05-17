@@ -123,6 +123,7 @@ function M.setup(opts)
 	config.setup(opts)
 	-- Invalidate scope_types lookup when config changes
 	require("beast.libs.treesitter.scope").invalidate()
+	require("beast.libs.treesitter.highlights")
 end
 
 --- Find the innermost scope node at a given position.
