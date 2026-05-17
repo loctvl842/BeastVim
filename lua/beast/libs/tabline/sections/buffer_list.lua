@@ -6,13 +6,15 @@ local truncate = require("beast.libs.tabline.truncate")
 local M = {}
 
 --- Display width of a truncation marker for N hidden buffers.
---- Format: " N … " (left) or " … N " (right) → 1 + digits + 3
+--- Left: " N <icon> "   Right: " <icon> N "
 ---@param count integer Number of hidden buffers (0 → no marker)
+---@param side "left"|"right"
 ---@return integer
-local function marker_width(count)
+local function marker_width(count, side)
 	-- stylua: ignore
 	if count <= 0 then return 0 end
-	return 1 + #tostring(count) + 3
+	local icon = side == "left" and config.left_trunc_icon or config.right_trunc_icon
+	return 1 + #tostring(count) + 1 + vim.fn.strdisplaywidth(icon) + 1
 end
 
 --- Trim a cell's display name and mark it as edge-trimmed.
@@ -89,8 +91,8 @@ function M.render(ctx)
 		-- Step B–F: Edge-trim when truncation occurs
 		if left_hidden > 0 or right_hidden > 0 then
 			-- Step C: Exact marker widths
-			local left_marker_w = marker_width(left_hidden)
-			local right_marker_w = marker_width(right_hidden)
+			local left_marker_w = marker_width(left_hidden, "left")
+			local right_marker_w = marker_width(right_hidden, "right")
 
 			-- Step D: Space to free
 			local gap = available - total_width
@@ -114,7 +116,7 @@ function M.render(ctx)
 				else
 					table.remove(visible)
 					right_hidden = right_hidden + 1
-					right_marker_w = marker_width(right_hidden)
+					right_marker_w = marker_width(right_hidden, "right")
 					need_to_trim = left_marker_w + right_marker_w - (gap + cell_w)
 					gap = gap + cell_w
 				end
@@ -135,7 +137,7 @@ function M.render(ctx)
 				else
 					table.remove(visible, 1)
 					left_hidden = left_hidden + 1
-					left_marker_w = marker_width(left_hidden)
+					left_marker_w = marker_width(left_hidden, "left")
 					need_to_trim = left_marker_w + right_marker_w - (gap + cell_w)
 					gap = gap + cell_w
 				end
@@ -175,8 +177,8 @@ function M.render(ctx)
 					end
 				end
 
-				local cur_lmw = marker_width(left_hidden)
-				local cur_rmw = marker_width(right_hidden)
+				local cur_lmw = marker_width(left_hidden, "left")
+				local cur_rmw = marker_width(right_hidden, "right")
 				local remaining = available - vis_total - cur_lmw - cur_rmw
 
 				-- Try right side first, then left
@@ -191,7 +193,7 @@ function M.render(ctx)
 						new_hidden = left_hidden - 1
 					end
 
-					local new_mw = marker_width(new_hidden)
+					local new_mw = marker_width(new_hidden, pull_side)
 					local marker_savings = (pull_side == "right" and cur_rmw or cur_lmw) - new_mw
 					local space_for_cell = remaining + marker_savings
 					local overhead = truncate.cell_overhead(next_buf, ctx, false)
@@ -233,7 +235,7 @@ function M.render(ctx)
 
 	-- Left truncation marker
 	if left_hidden > 0 then
-		table.insert(parts, "%#BeastTlTruncMarker# " .. left_hidden .. " … ")
+		table.insert(parts, "%#BeastTlTruncMarker# " .. left_hidden .. " " .. config.left_trunc_icon .. " ")
 	end
 
 	-- Render visible buffer cells
@@ -243,7 +245,7 @@ function M.render(ctx)
 
 	-- Right truncation marker
 	if right_hidden > 0 then
-		table.insert(parts, "%#BeastTlTruncMarker# … " .. right_hidden .. " ")
+		table.insert(parts, "%#BeastTlTruncMarker# " .. config.right_trunc_icon .. " " .. right_hidden .. " ")
 	end
 
 	return table.concat(parts), visible, left_hidden, right_hidden

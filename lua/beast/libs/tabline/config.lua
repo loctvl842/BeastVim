@@ -19,6 +19,11 @@ local defaults = {
 
 	-- Reserved cells for "<N> …" truncation markers on either side of the buffer list.
 	truncation_marker_reserve = 8,
+
+	-- Icons shown inside truncation markers
+	-- Left: " N <icon> " (e.g. " 3 … ")   Right: " <icon> N " (e.g. " … 2 ")
+	left_trunc_icon = "",
+	right_trunc_icon = "",
 }
 
 ---@type Beast.Tabline.Config
