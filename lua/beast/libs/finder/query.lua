@@ -208,6 +208,8 @@ local function reload_live(query)
 	query.matched = {}
 	query._batch_pending = {}
 
+	ui.input.start_spinner(query.input_view)
+
 	source.get(query.filter, function(item)
 		if item == nil then
 			-- Source completed — flush remaining batch and force a final render
@@ -220,6 +222,7 @@ local function reload_live(query)
 				query._render_pending = false
 				query.matched = query.items
 				render(query)
+				ui.input.stop_spinner(query.input_view)
 			end)
 			return
 		end
@@ -297,10 +300,12 @@ function M:load()
 		self.items = {}
 	elseif source.async then
 		self.items = {}
+		ui.input.start_spinner(self.input_view)
 		source.get(self.filter, function(item)
 			if item == nil then
 				vim.schedule(function()
 					self:flush_batch()
+					ui.input.stop_spinner(self.input_view)
 				end)
 				return
 			end
@@ -400,6 +405,7 @@ function M:close()
 	if source and source.cancel then
 		source.cancel()
 	end
+	ui.input.stop_spinner(self.input_view)
 	if self.input_view._timer then
 		self.input_view._timer:stop()
 		self.input_view._timer:close()

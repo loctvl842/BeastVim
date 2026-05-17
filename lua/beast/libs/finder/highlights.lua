@@ -9,6 +9,7 @@ Util.colors.set_hl("BeastFinder", {
 	InputNormal = { bg = p.dark1, fg = p.text },
 	InputPromptPrefix = { bg = p.dark1, fg = p.accent2 },
 	InputTitle = { bg = p.dark1, fg = p.accent3, bold = true },
+	Spinner = { bg = p.dark1, fg = p.accent2 },
 	-- List
 	ListCursorLine = { bg = Util.colors.blend(p.dimmed3, 0.3, p.dark1), bold = true },
 	ListSelectionPrefix = { fg = p.accent2 },

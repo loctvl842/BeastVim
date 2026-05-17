@@ -1,12 +1,26 @@
 local View = require("beast.libs.view")
 local config = require("beast.libs.finder.config")
 
+local spinner_sets = {
+	{ "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" },
+	{ "·", "◦", "○", "◎", "⦿", "◎", "○", "◦" },
+	{ "○", "◌", "◎", "◍", "●", "◍", "◎", "◌" },
+	{ "🌑", "🌒", "🌓", "🌔", "🌕", "🌖", "🌗", "🌘" },
+}
+local SPINNER_INTERVAL_MS = 80
+
 ---@class Beast.Finder.InputView : Beast.View
 ---@field ns integer
 ---@field _timer uv.uv_timer_t|nil
+---@field _spinner_timer uv.uv_timer_t|nil
+---@field _spinner_frame integer
+---@field _spinner_extmark integer|nil
 local InputView = View:extend(function(obj, ns)
 	obj.ns = ns
 	obj._timer = nil
+	obj._spinner_timer = nil
+	obj._spinner_frame = 0
+	obj._spinner_extmark = nil
 end)
 
 ---@class Beast.Finder.UI.Input
@@ -93,8 +107,9 @@ function M.create(on_change, total_w, total_h, win_row, win_col, title, debounce
 				view._timer:stop()
 				view._timer:close()
 			end
-
 			view._timer = nil
+
+			M.stop_spinner(view)
 		end,
 	})
 
@@ -118,6 +133,51 @@ function M.get_text(view)
 		text = text:sub(#prefix + 1)
 	end
 	return text
+end
+
+--- Show a spinning indicator right-aligned in the input window
+---@param view Beast.Finder.InputView
+function M.start_spinner(view)
+	-- stylua: ignore
+	if view._spinner_timer and not view._spinner_timer:is_closing() then return end
+
+	local frames = spinner_sets[math.random(#spinner_sets)]
+	view._spinner_frame = 0
+	view._spinner_timer = assert(vim.uv.new_timer(), "failed to create spinner timer")
+
+	local function tick()
+		-- stylua: ignore
+		if not view:is_valid() then return end
+		view._spinner_frame = (view._spinner_frame % #frames) + 1
+		local frame = frames[view._spinner_frame]
+
+		-- Clear previous extmark
+		if view._spinner_extmark then
+			pcall(vim.api.nvim_buf_del_extmark, view.buf, view.ns, view._spinner_extmark)
+		end
+		view._spinner_extmark = vim.api.nvim_buf_set_extmark(view.buf, view.ns, 0, 0, {
+			virt_text = { { frame, "BeastFinderSpinner" } },
+			virt_text_pos = "right_align",
+		})
+	end
+
+	tick()
+	view._spinner_timer:start(SPINNER_INTERVAL_MS, SPINNER_INTERVAL_MS, vim.schedule_wrap(tick))
+end
+
+--- Stop the spinning indicator
+---@param view Beast.Finder.InputView
+function M.stop_spinner(view)
+	if view._spinner_timer and not view._spinner_timer:is_closing() then
+		view._spinner_timer:stop()
+		view._spinner_timer:close()
+	end
+	view._spinner_timer = nil
+
+	if view._spinner_extmark and view:is_valid() then
+		pcall(vim.api.nvim_buf_del_extmark, view.buf, view.ns, view._spinner_extmark)
+		view._spinner_extmark = nil
+	end
 end
 
 return M
