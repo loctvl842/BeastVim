@@ -10,7 +10,7 @@
 ---@field saved_win_opts table<string,any>|nil
 ---@field source_win integer|nil
 ---@field clipboard Beast.Explorer.Clipboard|nil
----@field watchers table<string, uv_fs_event_t>
+---@field watchers table<string, uv.uv_fs_event_t>
 local M = {
 	tree = nil,
 	view = nil,

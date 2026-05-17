@@ -1,4 +1,4 @@
-<!-- Generated: 2026-05-17 | Files scanned: 151 | Token estimate: ~2100 -->
+<!-- Generated: 2026-05-17 | Files scanned: 154 | Token estimate: ~2150 -->
 
 # Libraries
 
@@ -8,14 +8,15 @@
 explorer/
 ├── init.lua       ← open/close/toggle, setup, replace_netrw
 ├── config.lua     ← style, width, side, icons, sticky, mappings
-├── state.lua      ← tree, view, sticky, source_win, augroup
-├── tree.lua       ← filesystem tree with flat cache
+├── state.lua      ← tree, view, sticky, source_win, augroup, watchers
+├── tree.lua       ← filesystem tree with flat cache, unwatch_subtree()
 ├── ui.lua         ← create split window, focus_path, render
 ├── render.lua     ← draw tree nodes to buffer
+├── watch.lua      ← fs_event watchers per expanded dir, 100ms debounce
 ├── sticky.lua     ← floating ancestor headers (cursor-anchored)
 ├── prompt.lua     ← inline input prompt (create/rename)
 ├── keymaps.lua    ← mount action keymaps
-├── autocmds.lua   ← BufEnter/WinClosed/WinScrolled/CursorMoved handlers
+├── autocmds.lua   ← BufEnter/WinClosed/WinScrolled/CursorMoved/BufWritePost/FocusGained
 ├── highlights.lua ← BeastExplorer* groups
 └── actions/       ← one file per action
     ├── open.lua, create.lua, delete.lua, rename.lua

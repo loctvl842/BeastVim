@@ -10,7 +10,7 @@ local M = {}
 local dirty_dirs = {}
 
 -- Single reusable timer for debouncing.
----@type uv_timer_t?
+---@type uv.uv_timer_t?
 local timer = nil
 
 local DEBOUNCE_MS = 100
@@ -41,7 +41,7 @@ function M._schedule_refresh(dir_path)
 	dirty_dirs[dir_path] = true
 
 	if not timer then
-		timer = uv.new_timer()
+		timer = assert(uv.new_timer(), "failed to create timer")
 	end
 
 	timer:stop()

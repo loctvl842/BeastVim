@@ -225,6 +225,35 @@ function M:expand(node)
 	end
 end
 
+--- Recursively clear `expanded` and stop watchers for a node and all its descendants.
+--- Also clears `git_status`. Does NOT touch `open` (that's a UI toggle, not a scan flag).
+---@param node Beast.Explorer.Node
+---@return boolean changed  true if any node was actually expanded
+function M:unwatch_subtree(node)
+	local changed = false
+
+	for _, child_path in pairs(node.children) do
+		local child = self.nodes[child_path]
+		if child then
+			if self:unwatch_subtree(child) then
+				changed = true
+			end
+		end
+	end
+
+	if node.expanded then
+		node.expanded = false
+		watch.unwatch(node.path)
+		changed = true
+	end
+
+	if node.git_status ~= nil then
+		node.git_status = nil
+	end
+
+	return changed
+end
+
 ---@param path string
 function M:refresh(path)
 	path = norm(path)
@@ -234,30 +263,7 @@ function M:refresh(path)
 		return
 	end
 
-	local changed = false
-
-	local function clear(n)
-		if n.expanded then
-			n.expanded = false
-			watch.unwatch(n.path)
-			changed = true
-		end
-
-		if n.git_status ~= nil then
-			n.git_status = nil
-		end
-
-		for _, child_path in pairs(n.children) do
-			local child = self.nodes[child_path]
-			if child then
-				clear(child)
-			end
-		end
-	end
-
-	clear(node)
-
-	if changed then
+	if self:unwatch_subtree(node) then
 		self:_touch()
 	end
 end
@@ -387,22 +393,8 @@ function M:close(path)
 		changed = true
 	end
 
-	-- Recursively unwatch expanded descendants before clearing the node itself.
-	local function unwatch_subtree(n)
-		for _, child_path in pairs(n.children) do
-			local child = self.nodes[child_path]
-			if child and child.expanded then
-				child.expanded = false
-				watch.unwatch(child.path)
-				unwatch_subtree(child)
-			end
-		end
-	end
-
 	if node.expanded then
-		unwatch_subtree(node)
-		node.expanded = false
-		watch.unwatch(node.path)
+		self:unwatch_subtree(node)
 		changed = true
 	end
 
