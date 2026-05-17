@@ -207,6 +207,7 @@ local function reload_live(query)
 	query.items = {}
 	query.matched = {}
 	query._batch_pending = {}
+	render(query)
 
 	ui.input.start_spinner(query.input_view)
 
