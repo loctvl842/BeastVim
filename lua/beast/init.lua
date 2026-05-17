@@ -191,7 +191,7 @@ function M.setup(opts)
 			{
 				"<leader>c",
 				function()
-					local original = vim.g.colors_name
+					local original = vim.g.colors_name or "default"
 					local confirmed = false
 					require("beast.libs.finder").open("colorschemes", {
 						preview = false,
@@ -238,10 +238,21 @@ M.highlight_modules = {
   "beast.libs.treesitter.highlights",
 }
 
+--- Highlight modules that are only needed for builtin colorschemes
+--- (third-party schemes define their own treesitter highlights).
+---@type table<string, boolean>
+local builtin_only_highlights = {
+	["beast.libs.treesitter.highlights"] = true,
+}
+
 --- Reload all Beast lib highlights.
 --- Skips modules whose parent lib hasn't been loaded yet.
+--- Skips treesitter highlights for third-party colorschemes.
 function M.reload_highlights()
+	local is_builtin = Palette.is_builtin_colorscheme()
 	for _, mod_name in ipairs(M.highlight_modules) do
+		-- stylua: ignore
+		if not is_builtin and builtin_only_highlights[mod_name] then goto continue end
 		local parent = mod_name:gsub("%.highlights$", "")
 		-- stylua: ignore
 		if not package.loaded[parent] then goto continue end

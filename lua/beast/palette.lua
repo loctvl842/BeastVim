@@ -65,7 +65,8 @@ local function first_distinct(candidates, attr, exclude, fallback)
 end
 
 ---@return boolean
-local function is_builtin_colorscheme()
+---@return boolean
+function M.is_builtin_colorscheme()
 	local name = vim.g.colors_name or "default"
 	local path = vim.env.VIMRUNTIME .. "/colors/"
 	return vim.uv.fs_stat(path .. name .. ".lua") ~= nil or vim.uv.fs_stat(path .. name .. ".vim") ~= nil
@@ -86,12 +87,12 @@ local function extract_builtin()
 		dark1 = blend(text, 0.10, background),
 		background = background,
 		text = text,
-		accent1 = extract("DiagnosticError", "fg", defaults.accent1),
-		accent2 = extract("DiagnosticWarn", "fg", defaults.accent2),
+		accent1 = first_distinct({ "Constant", "Boolean" }, "fg", text, defaults.accent1),
+		accent2 = first_distinct({ "PreProc", "StorageClass" }, "fg", text, defaults.accent2),
 		accent3 = extract("String", "fg", defaults.accent3),
-		accent4 = extract("@function", "fg", defaults.accent4),
-		accent5 = first_distinct({ "Structure", "Identifier", "Type" }, "fg", text, defaults.accent5),
-		accent6 = first_distinct({ "Boolean", "Constant", "Special", "Keyword" }, "fg", text, defaults.accent6),
+		accent4 = first_distinct({ "Function", "Identifier" }, "fg", text, defaults.accent4),
+		accent5 = first_distinct({ "Structure", "Type", "Keyword" }, "fg", text, defaults.accent5),
+		accent6 = first_distinct({ "Boolean", "Constant", "Special" }, "fg", text, defaults.accent6),
 		dimmed1 = blend(text, 0.75, background),
 		dimmed2 = blend(text, 0.55, background),
 		dimmed3 = blend(text, 0.40, background),
@@ -124,7 +125,7 @@ end
 
 --- Re-extract all palette colors from the current colorscheme.
 function M.refresh()
-	if is_builtin_colorscheme() then
+	if M.is_builtin_colorscheme() then
 		cache = extract_builtin()
 		-- Builtin colorschemes often define StatusLine with reverse or light bg
 		-- which clashes with dark-themed UI. Override with palette-derived colors.
