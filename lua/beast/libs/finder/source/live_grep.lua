@@ -8,6 +8,9 @@ M.live = true
 M.cmd = nil
 M.args = {}
 
+-- Maximum results to collect before stopping the process
+local RESULT_LIMIT = 10000
+
 ---@param text string search query
 ---@param cwd string
 local function ensure_cmd(text, cwd)
@@ -91,17 +94,10 @@ function M.get(filter, cb)
 		return
 	end
 
-	if vim.fn.executable("rg") ~= 1 then
-		vim.schedule(function()
-			vim.notify("beast.finder: rg (ripgrep) is required for live_grep", vim.log.levels.WARN)
-			cb(nil)
-		end)
-		return
-	end
-
 	local cwd = filter.cwd
 	local idx = 0
-	local buf = ""
+	local completed = false
+	local chunks = {} -- collect chunks instead of concatenating strings
 	local stdout = assert(uv.new_pipe(false), "failed to create stdout pipe")
 	current_stdout = stdout
 
@@ -120,18 +116,29 @@ function M.get(filter, cb)
 
 	local handle
 	handle = uv.spawn(M.cmd, spawn_opts, function()
-		stdout:close()
+		if not stdout:is_closing() then
+			stdout:close()
+		end
 		if handle and not handle:is_closing() then
 			handle:close()
 		end
 		current_handle = nil
 		current_stdout = nil
 
-		if buf ~= "" then
-			local line = vim.trim(buf)
+		-- If limit was already reached, don't signal completion again
+		if completed then
+			return
+		end
+		completed = true
+
+		-- Flush remaining data
+		local remaining = table.concat(chunks)
+		chunks = {}
+		if remaining ~= "" then
+			local line = vim.trim(remaining)
 			if line ~= "" then
 				local file, lnum, col, text = parse_line(line)
-				if file then
+				if file and idx < RESULT_LIMIT then
 					idx = idx + 1
 					local abs = make_abs(cwd, file)
 					local rel = make_rel(cwd, abs)
@@ -161,26 +168,39 @@ function M.get(filter, cb)
 		if err or not data then
 			return
 		end
-		buf = buf .. data
+
+		-- Collect chunk and process lines
+		chunks[#chunks + 1] = data
+		local buf = table.concat(chunks)
+		chunks = {}
+
 		local batch = {}
-		local lines = {}
 		local pos = 1
 		while true do
 			local nl = buf:find("\n", pos, true)
 			if not nl then
 				break
 			end
-			lines[#lines + 1] = buf:sub(pos, nl - 1)
+			local line = buf:sub(pos, nl - 1)
 			pos = nl + 1
-		end
-		buf = buf:sub(pos)
 
-		for _, line in ipairs(lines) do
 			line = vim.trim(line)
 			if line ~= "" then
 				local file, lnum, col, text = parse_line(line)
 				if file then
 					idx = idx + 1
+					if idx > RESULT_LIMIT then
+						-- Hit limit — stop reading and kill the process
+						completed = true
+						M.cancel()
+						vim.schedule(function()
+							for _, item in ipairs(batch) do
+								cb(item)
+							end
+							cb(nil)
+						end)
+						return
+					end
 					local abs = make_abs(cwd, file)
 					local rel = make_rel(cwd, abs)
 					batch[#batch + 1] = {
@@ -194,6 +214,10 @@ function M.get(filter, cb)
 					}
 				end
 			end
+		end
+		-- Keep the trailing partial line
+		if pos <= #buf then
+			chunks[1] = buf:sub(pos)
 		end
 
 		if #batch > 0 then
