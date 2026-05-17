@@ -14,7 +14,20 @@ local RESULT_LIMIT = 10000
 ---@param text string search query
 ---@param cwd string
 local function ensure_cmd(text, cwd)
-	if vim.fn.executable("rg") == 1 then
+	if vim.fn.executable("ug") == 1 then
+		M.cmd = "ug"
+		M.args = {
+			"-r",
+			"--format=%f:%n:%k:%O%~",
+			"--color=never",
+			"--smart-case",
+			"--hidden",
+			"--exclude-dir=.git",
+			"--",
+			text,
+			cwd,
+		}
+	elseif vim.fn.executable("rg") == 1 then
 		M.cmd = "rg"
 		M.args = {
 			"--vimgrep",
@@ -88,7 +101,7 @@ function M.get(filter, cb)
 	ensure_cmd(filter.pattern, filter.cwd)
 	if not M.cmd then
 		vim.schedule(function()
-			vim.notify("beast.finder: rg (ripgrep) is required for live_grep", vim.log.levels.WARN)
+			vim.notify("beast.finder: ug (ugrep) or rg (ripgrep) is required for live_grep", vim.log.levels.WARN)
 			cb(nil)
 		end)
 		return
