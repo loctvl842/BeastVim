@@ -20,6 +20,7 @@ local M = setmetatable({}, {
 
 function M.setup(opts)
 	config.setup(opts)
+	require("beast.libs.toast.highlights")
 end
 
 function M.dismiss()
