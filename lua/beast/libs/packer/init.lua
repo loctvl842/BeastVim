@@ -423,7 +423,6 @@ end
 ---@field keys? Beast.KeymapSpec|Beast.KeymapSpec[]|string|string[] Key trigger(s)
 ---@field filetype? string|string[] Filetype trigger(s)
 ---@field setup fun(lib: table) Called after require(mod), receives the module
----@field highlights? string Highlight module to register for ColorScheme reload
 ---@field defer? boolean Wrap load in vim.schedule() to run after startup completes
 
 --- Lazy-load a Beast library using the same trigger infrastructure as plugins.
@@ -441,16 +440,6 @@ function M.lazy(mod, opts)
 		local lib = require(mod)
 		if opts.setup then
 			opts.setup(lib)
-		end
-
-		-- Register highlight module for ColorScheme reload
-		if opts.highlights then
-			local beast = require("beast")
-			if not vim.tbl_contains(beast.highlight_modules, opts.highlights) then
-				table.insert(beast.highlight_modules, opts.highlights)
-			end
-			-- Apply highlights immediately for current colorscheme
-			pcall(require, opts.highlights)
 		end
 	end
 
