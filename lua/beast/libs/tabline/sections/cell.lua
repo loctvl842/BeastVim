@@ -100,14 +100,15 @@ function M.render(bufnr, ctx)
 	end
 
 	-- Min-width padding: center content within min_cell_width
+	local sep_w = displaywidth(config.separator)
 	local pad_left = ""
 	local pad_right = ""
 	if config.min_cell_width > 0 then
 		local icon_w = displaywidth(icon) + 1 -- icon + space
 		local name_w = displaywidth(display_name)
-		local close_w = 3 -- " 󰅖 " or "   "
-		local pads = 1 -- leading space in body
-		local actual_w = pads + icon_w + name_w + status_visible_w + close_w
+		local close_w = 2 -- " 󰅖" or "  "
+		local pads = 2 -- leading spaces in body (gap after right-aligned separator)
+		local actual_w = pads + icon_w + name_w + status_visible_w + close_w + sep_w
 		if actual_w < config.min_cell_width then
 			local total_pad = config.min_cell_width - actual_w
 			local left = math.floor(total_pad / 2)
@@ -126,7 +127,7 @@ function M.render(bufnr, ctx)
 		.. "@v:lua.beast_tabline_buffer_click@"
 		.. hl_open
 		.. pad_left
-		.. " "
+		.. "  "
 		.. icon_part
 		.. hl_open
 		.. display_name
@@ -138,15 +139,18 @@ function M.render(bufnr, ctx)
 	local close_part
 	if is_modified then
 		local mod_hl = "BeastTlModified" .. state_suffix
-		close_part = "%" .. buf_str .. "@v:lua.beast_tabline_buffer_click@%#" .. mod_hl .. "# ●%X "
+		close_part = "%" .. buf_str .. "@v:lua.beast_tabline_buffer_click@%#" .. mod_hl .. "# ●%X"
 	elseif is_selected and config.show_close_button then
-		close_part = "%" .. buf_str .. "@v:lua.beast_tabline_close_click@%#BeastTlCloseButton# 󰅖%X "
+		close_part = "%" .. buf_str .. "@v:lua.beast_tabline_close_click@%#BeastTlCloseButton# 󰅖%X"
 	else
 		-- Placeholder wrapped in buffer click so clicking anywhere on inactive cell switches to it
-		close_part = "%" .. buf_str .. "@v:lua.beast_tabline_buffer_click@" .. hl_open .. "   %X"
+		close_part = "%" .. buf_str .. "@v:lua.beast_tabline_buffer_click@" .. hl_open .. "  %X"
 	end
 
-	return body .. close_part
+	-- Separator
+	local sep_part = "%#BeastTlSeparator" .. state_suffix .. "#" .. config.separator
+
+	return body .. close_part .. sep_part
 end
 
 return M

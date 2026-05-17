@@ -5,6 +5,7 @@ local keymaps = require("beast.libs.explorer.keymaps")
 local state = require("beast.libs.explorer.state")
 local sticky = require("beast.libs.explorer.sticky")
 local ui = require("beast.libs.explorer.ui")
+local watch = require("beast.libs.explorer.watch")
 
 local M = setmetatable({}, {
 	__call = function(self, cwd)
@@ -59,6 +60,7 @@ function M.open(dir)
 end
 
 function M.close()
+	watch.stop_all()
 	sticky.close()
 	ui.close()
 	local prev = vim.fn.win_getid(vim.fn.winnr("#"))

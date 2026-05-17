@@ -3,6 +3,7 @@ local defaults = {
 	-- Buffer cell appearance
 	max_name_width = 24,
 	min_cell_width = 0, -- Minimum width per buffer cell (0 = no minimum)
+	separator = "▕", -- Right separator character between buffer cells
 	show_close_button = true,
 	show_modified = true,
 	show_diagnostics = true,

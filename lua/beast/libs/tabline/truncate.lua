@@ -21,17 +21,15 @@ function M.estimate_cell_width(bufnr, ctx, is_anchor)
 	local display_name = ctx.names_by_buf[bufnr] or "[No Name]"
 	local name_w = math.min(displaywidth(display_name), config.max_name_width)
 	local icon_w = 2 -- icon + space
-	local pads = 2 -- left + right padding
-	local inter = 1 -- inter-buffer space
+	local pads = 2 -- leading spaces in body (gap after right-aligned separator)
+	local close_w = 2 -- " 󰅖" or " ●" or "  " (no trailing space, separator follows)
+	local sep_w = 1 -- right separator
 
 	-- Status: diagnostic or modified indicator (~2 cols if present)
 	local has_diag = ctx.diag_by_buf[bufnr] ~= nil
 	local status_w = (has_diag or ctx.modified_by_buf[bufnr]) and 2 or 0
 
-	-- Close button: only on anchor (active) buffer
-	local close_w = is_anchor and 2 or 0
-
-	return math.max(icon_w + name_w + status_w + close_w + pads + inter, config.min_cell_width)
+	return math.max(pads + icon_w + name_w + status_w + close_w + sep_w, config.min_cell_width)
 end
 
 --- Smart truncation around the anchor buffer.
@@ -116,20 +114,20 @@ function M.fit_around_anchor(before, anchor, after, est_fn, available)
 	return visible, left_hidden, right_hidden
 end
 
---- Get the non-name overhead of a cell (icon + pads + status + close).
+--- Get the non-name overhead of a cell (pads + icon + status + close + separator).
 --- Used by the anchor-overflow fallback to compute how much space the name gets.
 ---@param bufnr integer
 ---@param ctx Beast.Tabline.Context
 ---@param is_anchor boolean
 ---@return integer overhead
 function M.cell_overhead(bufnr, ctx, is_anchor)
-	local icon_w = 2
 	local pads = 2
-	local inter = 1
+	local icon_w = 2
 	local has_diag = ctx.diag_by_buf[bufnr] ~= nil
 	local status_w = (has_diag or ctx.modified_by_buf[bufnr]) and 2 or 0
-	local close_w = is_anchor and 2 or 0
-	return icon_w + status_w + close_w + pads + inter
+	local close_w = 2
+	local sep_w = 1
+	return pads + icon_w + status_w + close_w + sep_w
 end
 
 return M

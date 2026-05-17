@@ -10,6 +10,7 @@
 ---@field saved_win_opts table<string,any>|nil
 ---@field source_win integer|nil
 ---@field clipboard Beast.Explorer.Clipboard|nil
+---@field watchers table<string, uv_fs_event_t>
 local M = {
 	tree = nil,
 	view = nil,
@@ -18,6 +19,7 @@ local M = {
 	saved_win_opts = nil,
 	source_win = nil,
 	clipboard = nil,
+	watchers = {},
 }
 
 -- ================================
@@ -53,6 +55,7 @@ function M.reset()
 	M.view = nil
 	M.sticky = nil
 	M.augroup = nil
+	M.watchers = {}
 end
 
 return M

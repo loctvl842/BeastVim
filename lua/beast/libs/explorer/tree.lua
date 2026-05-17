@@ -79,6 +79,8 @@ local M = setmetatable({}, {
 })
 M.__index = M
 
+local watch = require("beast.libs.explorer.watch")
+
 local uv = vim.uv or vim.loop
 
 -- =============================================================================
@@ -216,6 +218,7 @@ function M:expand(node)
 	end
 
 	node.expanded = true
+	watch.watch(node.path)
 
 	if changed then
 		self:_touch()
@@ -236,6 +239,7 @@ function M:refresh(path)
 	local function clear(n)
 		if n.expanded then
 			n.expanded = false
+			watch.unwatch(n.path)
 			changed = true
 		end
 
@@ -383,8 +387,22 @@ function M:close(path)
 		changed = true
 	end
 
+	-- Recursively unwatch expanded descendants before clearing the node itself.
+	local function unwatch_subtree(n)
+		for _, child_path in pairs(n.children) do
+			local child = self.nodes[child_path]
+			if child and child.expanded then
+				child.expanded = false
+				watch.unwatch(child.path)
+				unwatch_subtree(child)
+			end
+		end
+	end
+
 	if node.expanded then
+		unwatch_subtree(node)
 		node.expanded = false
+		watch.unwatch(node.path)
 		changed = true
 	end
 

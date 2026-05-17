@@ -2,6 +2,7 @@ local config = require("beast.libs.explorer.config")
 local state = require("beast.libs.explorer.state")
 local sticky = require("beast.libs.explorer.sticky")
 local ui = require("beast.libs.explorer.ui")
+local watch = require("beast.libs.explorer.watch")
 
 local M = {}
 
@@ -158,6 +159,7 @@ function M.mount()
 		callback = function()
 			restore_cursor()
 			sticky.close()
+			watch.stop_all()
 			state.augroup = nil
 		end,
 	})
@@ -243,6 +245,38 @@ function M.mount()
 				-- Allow VimLeavePre to run by scheduling the quit
 				vim.cmd("q!")
 			end)
+		end,
+	})
+
+	-- Refresh the tree when a buffer is written — covers same-process writes
+	-- that may not fire fs_event reliably on all platforms.
+	vim.api.nvim_create_autocmd("BufWritePost", {
+		group = state.augroup,
+		callback = function(ev)
+			-- stylua: ignore
+			if not (state.tree and state.view and state.view:is_valid()) then return end
+			local file = ev.file ~= "" and ev.file or vim.api.nvim_buf_get_name(ev.buf)
+			-- stylua: ignore
+			if file == "" then return end
+			local dir = vim.fn.fnamemodify(file, ":p:h")
+			local root = state.tree.root.path
+			if dir ~= root and dir:sub(1, #root + 1) ~= root .. "/" then
+				return
+			end
+			local node = state.tree.nodes[dir]
+			-- stylua: ignore
+			if not node or not node.expanded then return end
+			watch._schedule_refresh(dir)
+		end,
+	})
+
+	-- Full refresh on FocusGained — covers changes made while Neovim was backgrounded.
+	vim.api.nvim_create_autocmd("FocusGained", {
+		group = state.augroup,
+		callback = function()
+			-- stylua: ignore
+			if not (state.tree and state.view and state.view:is_valid()) then return end
+			watch._schedule_refresh(state.tree.root.path)
 		end,
 	})
 

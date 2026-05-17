@@ -25,15 +25,16 @@ function M.ensure(icon_color, is_selected, is_visible)
 	local inactive_bg = Util.colors.lighten(p.background, 15)
 
 	local name = "BeastTlIcon_" .. key:gsub("[^%w_]", "_")
-	local hl = { fg = icon_color }
+	local hl = { fg = icon_color, underline = true }
 	if is_selected then
 		hl.bg = active_bg
-		hl.underline = true
 		hl.sp = p.accent3
 	elseif is_visible then
 		hl.bg = active_bg
+		hl.sp = p.dimmed4
 	else
 		hl.bg = inactive_bg
+		hl.sp = p.dimmed4
 	end
 	vim.api.nvim_set_hl(0, name, hl)
 	cache[key] = name
