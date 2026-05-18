@@ -159,6 +159,7 @@ function M.start_spinner(view)
 			virt_text = { { frame, "BeastFinderSpinner" } },
 			virt_text_pos = "right_align",
 		})
+		vim.cmd("redraw")
 	end
 
 	tick()

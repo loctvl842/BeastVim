@@ -38,7 +38,8 @@ local ui = require("beast.libs.finder.ui")
 ---@field _on_preview? fun(item: Beast.Finder.Item)
 ---@field _on_close? fun()
 ---@field _match_state? Beast.Finder.MatchState
----@field _render_timer? uv.uv_timer_t repeating render tick for live sources
+---@field _render_check? uv.uv_check_t event-loop check for live source rendering
+---@field _last_render_ns number hrtime of last render (nanoseconds)
 local M = setmetatable({}, {
 	__call = function(t, ...)
 		return t:new(...)
@@ -176,8 +177,11 @@ local function render(query)
 	vim.cmd("redraw")
 end
 
---- Throttle interval for live source rendering (ms)
-local LIVE_RENDER_THROTTLE_MS = 50
+local uv = vim.uv or vim.loop
+
+--- Adaptive render budget (nanoseconds)
+local RENDER_FAST_NS = 10e6 -- 10ms — first results appear fast
+local RENDER_SLOW_NS = 30e6 -- 30ms — once viewport filled, reduce redraw cost
 
 --- Re-run a live source (e.g. grep) with the current filter pattern
 ---@param query Beast.Finder.Query
@@ -191,9 +195,9 @@ local function reload_live(query)
 		source.cancel()
 	end
 
-	-- Stop previous render tick
-	if query._render_timer and not query._render_timer:is_closing() then
-		query._render_timer:stop()
+	-- Stop previous render check
+	if query._render_check and query._render_check:is_active() then
+		query._render_check:stop()
 	end
 
 	-- Empty query → clear results
@@ -212,29 +216,41 @@ local function reload_live(query)
 
 	ui.input.start_spinner(query.input_view)
 
-	-- Start a repeating render tick — flush + render whatever has arrived every 50ms
-	if not query._render_timer or query._render_timer:is_closing() then
-		query._render_timer = assert(vim.uv.new_timer(), "failed to create render timer")
+	-- Pause GC during live source run for speed (like snacks.nvim)
+	collectgarbage("stop")
+
+	-- Start a uv_check — fires every event loop iteration (~1ms)
+	-- Only renders when enough time has passed (adaptive budget)
+	query._last_render_ns = uv.hrtime()
+	if not query._render_check then
+		query._render_check = assert(uv.new_check(), "failed to create render check")
 	end
-	query._render_timer:start(
-		LIVE_RENDER_THROTTLE_MS,
-		LIVE_RENDER_THROTTLE_MS,
-		vim.schedule_wrap(function()
-			-- stylua: ignore
-			if not query.list_view:is_valid() then return end
-			query:flush_batch()
-		end)
-	)
+	query._render_check:start(vim.schedule_wrap(function()
+		-- stylua: ignore
+		if not query.list_view:is_valid() then return end
+		-- stylua: ignore
+		if #query._batch_pending == 0 then return end
+
+		local now = uv.hrtime()
+		local win_h = query.list_view._win_height or 50
+		local budget = #query.items > win_h and RENDER_SLOW_NS or RENDER_FAST_NS
+		-- stylua: ignore
+		if now - query._last_render_ns < budget then return end
+
+		query._last_render_ns = now
+		query:flush_batch()
+	end))
 
 	source.get(query.filter, function(item)
 		if item == nil then
-			-- Source completed — stop tick, flush remaining, final render
+			-- Source completed — stop check, flush remaining, final render
 			vim.schedule(function()
-				if query._render_timer and not query._render_timer:is_closing() then
-					query._render_timer:stop()
+				if query._render_check and query._render_check:is_active() then
+					query._render_check:stop()
 				end
 				query:flush_batch()
 				ui.input.stop_spinner(query.input_view)
+				collectgarbage("restart")
 			end)
 			return
 		end
@@ -384,15 +400,21 @@ function M:close()
 		self._preview_timer:close()
 		self._preview_timer = nil
 	end
-	if self._render_timer then
-		self._render_timer:stop()
-		self._render_timer:close()
-		self._render_timer = nil
+	if self._render_check then
+		if self._render_check:is_active() then
+			self._render_check:stop()
+		end
+		if not self._render_check:is_closing() then
+			self._render_check:close()
+		end
+		self._render_check = nil
 	end
 	local source = source_registry[self.source]
 	if source and source.cancel then
 		source.cancel()
 	end
+	-- Ensure GC is restarted if closed mid-search
+	collectgarbage("restart")
 	ui.input.stop_spinner(self.input_view)
 	if self.input_view._timer then
 		self.input_view._timer:stop()
