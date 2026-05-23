@@ -66,12 +66,7 @@ function M.run(cmd, opts, on_done)
 	-- Unset FZF_DEFAULT_OPTS to prevent user's global config from interfering
 	local shell_cmd
 	if opts.cwd then
-		shell_cmd = string.format(
-			"cd %s && FZF_DEFAULT_OPTS='' %s | fzf %s",
-			vim.fn.shellescape(opts.cwd),
-			cmd,
-			fzf_cmd
-		)
+		shell_cmd = string.format("cd %s && FZF_DEFAULT_OPTS='' %s | fzf %s", vim.fn.shellescape(opts.cwd), cmd, fzf_cmd)
 	else
 		shell_cmd = string.format("FZF_DEFAULT_OPTS='' %s | fzf %s", cmd, fzf_cmd)
 	end

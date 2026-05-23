@@ -51,7 +51,6 @@ function M.show(view, item)
 	local ft = ""
 	local title = ""
 	if item.file then
-    print('file')
 		local ok, result = pcall(vim.fn.readfile, item.file, "", MAX_PREVIEW_LINES)
 		if ok then
 			for i, line in ipairs(result) do

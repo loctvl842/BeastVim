@@ -1,26 +1,8 @@
+local Score = require("beast.libs.finder.score")
 local TopK = require("beast.libs.finder.topk")
 local async = require("beast.libs.async")
 
 local M = {}
-
--- Scoring constants (fzf-compatible)
-local SCORE_MATCH = 16
-local SCORE_GAP_START = -3
-local SCORE_GAP_EXTENSION = -1
-local BONUS_FIRST_CHAR = 16 -- applied when match starts at index 1
-local BONUS_BOUNDARY = 8
-local BONUS_CONSECUTIVE = 4
-local BONUS_CAMEL = 7
-
--- Characters that mark a word boundary predecessor
-local BOUNDARY_CHARS = {
-	[string.byte("/")] = true,
-	[string.byte("\\")] = true,
-	[string.byte("_")] = true,
-	[string.byte("-")] = true,
-	[string.byte(".")] = true,
-	[string.byte(" ")] = true,
-}
 
 -- ---------------------------------------------------------------------------
 -- Pattern parsing
@@ -32,11 +14,12 @@ local BOUNDARY_CHARS = {
 ---@field prefix boolean
 ---@field suffix boolean
 ---@field ignorecase boolean
+---@field entropy number selectivity score for ordering
 
 ---@param raw string
 ---@param ignorecase boolean
 ---@param smartcase boolean
----@return Beast.Finder.Term[][]  AND-groups of OR-terms
+---@return Beast.Finder.Term[][]  AND-groups of OR-terms (sorted by max entropy, highest first)
 local function parse_pattern(raw, ignorecase, smartcase)
 	local and_groups = {} ---@type Beast.Finder.Term[][]
 	for _, and_part in ipairs(vim.split(raw, "%s+", { trimempty = true })) do
@@ -44,35 +27,71 @@ local function parse_pattern(raw, ignorecase, smartcase)
 		for _, or_part in ipairs(vim.split(and_part, "|", { plain = true, trimempty = true })) do
 			local text = or_part
 			local inverse, exact, prefix, suffix = false, false, false, false
+			local entropy = 0
 			if text:sub(1, 1) == "!" then
 				inverse = true
 				text = text:sub(2)
+				entropy = entropy - 1
 			end
 			if text:sub(1, 1) == "^" then
 				prefix = true
 				text = text:sub(2)
+				entropy = entropy + 20
 			elseif text:sub(1, 1) == "'" then
 				exact = true
 				text = text:sub(2)
+				entropy = entropy + 10
 			end
 			if text:sub(-1) == "$" then
 				suffix = true
 				text = text:sub(1, -2)
+				entropy = entropy + 20
 			end
 			if text ~= "" then
 				local ic = ignorecase
 				if smartcase and text:match("%u") then
 					ic = false
 				end
+				-- Entropy: length + rare chars + case sensitivity
+				local rare_chars = #text:gsub("[%w%s]", "")
+				entropy = entropy + math.min(#text, 20) + rare_chars * 2
+				if not ic then
+					entropy = entropy * 2
+				end
 				if ic then
 					text = text:lower()
 				end
-				or_terms[#or_terms + 1] = { text = text, inverse = inverse, exact = exact, prefix = prefix, suffix = suffix, ignorecase = ic }
+				or_terms[#or_terms + 1] = {
+					text = text,
+					inverse = inverse,
+					exact = exact,
+					prefix = prefix,
+					suffix = suffix,
+					ignorecase = ic,
+					entropy = entropy,
+				}
 			end
 		end
 		if #or_terms > 0 then
 			and_groups[#and_groups + 1] = or_terms
 		end
+	end
+	-- Sort AND-groups by max entropy (most selective first for faster rejection)
+	if #and_groups > 1 then
+		table.sort(and_groups, function(a, b)
+			local max_a, max_b = 0, 0
+			for _, t in ipairs(a) do
+				if t.entropy > max_a then
+					max_a = t.entropy
+				end
+			end
+			for _, t in ipairs(b) do
+				if t.entropy > max_b then
+					max_b = t.entropy
+				end
+			end
+			return max_a > max_b
+		end)
 	end
 	return and_groups
 end
@@ -81,350 +100,134 @@ end
 -- Scoring
 -- ---------------------------------------------------------------------------
 
----Scores how well a search term (`needle`) matches inside a candidate string (`hay`).
----
----This is a lightweight fuzzy matcher inspired by fzf-style scoring.
----
----Supports:
----  • exact match        : `'abc`
----  • prefix match       : `^abc`
----  • suffix match       : `abc$`
----  • fuzzy match        : `abc`
----
----Fuzzy matching rules:
----  • characters must appear in-order
----  • consecutive matches score higher
----  • word-boundary matches score higher
----  • camelCase matches score higher
----  • shorter/tighter match windows score higher
----  • large gaps reduce score
----
----Examples:
----
----```text
----needle: "bf"
----hay   : "beast_finder.lua"
----
----b east_ f inder.lua
----^       ^
----
----=> valid fuzzy match
----```
----
----```text
----needle: "^src"
----hay   : "src/finder.lua"
----
----=> valid prefix match
----```
----
----```text
----needle: "lua$"
----hay   : "finder.lua"
----
----=> valid suffix match
----```
----
----```text
----needle: "'finder"
----hay   : "beast finder plugin"
----
----=> exact substring match
----```
----
+-- Shared scorer instance (reused across calls to avoid allocations)
+local scorer = Score:new()
+
+--- Forward scan: find all needle chars in order starting from `init_pos`.
+--- Returns (from, to) of the match window, or nil if no match.
 ---@param hay string
----Candidate text to search inside (haystack).
----
----If ignorecase is enabled, this string should already be lowercased.
----
 ---@param needle string
----Search pattern text (needle).
----
----If ignorecase is enabled, this string should already be lowercased.
----
+---@param init_pos? number 1-based start position (default 1)
+---@return number? from, number? to
+local function fuzzy_find(hay, needle, init_pos)
+	local byte = string.byte
+	local hlen = #hay
+	local nlen = #needle
+	local from = nil
+	local ni = 1
+	for hi = init_pos or 1, hlen do
+		if byte(hay, hi) == byte(needle, ni) then
+			if ni == 1 then
+				from = hi
+			end
+			ni = ni + 1
+			if ni > nlen then
+				return from, hi
+			end
+		end
+	end
+	return nil, nil
+end
+
+--- Collect fuzzy match positions for highlighting (forward scan from `from`).
+---@param hay string
+---@param needle string
+---@param from number start position
+---@return integer[] positions
+local function fuzzy_positions(hay, needle, from)
+	local byte = string.byte
+	local nlen = #needle
+	local positions = {}
+	local ni = 1
+	for hi = from, #hay do
+		if byte(hay, hi) == byte(needle, ni) then
+			positions[#positions + 1] = hi
+			ni = ni + 1
+			if ni > nlen then
+				break
+			end
+		end
+	end
+	return positions
+end
+
+---@param hay string lowercased (or original if case-sensitive)
+---@param hay_orig string original case (for score char-class detection)
+---@param needle string lowercased (or original if case-sensitive)
 ---@param prefix boolean
----Require match to begin at index 1.
----
----Example:
----  "^src" matches:
----    "src/main.lua"
----
----  but not:
----    "my/src/main.lua"
----
 ---@param suffix boolean
----Require match to end at final character.
----
----Example:
----  "lua$" matches:
----    "finder.lua"
----
----  but not:
----    "lua/config"
----
 ---@param exact boolean
----Disable fuzzy matching and require plain substring match.
----
----Example:
----  "'finder" matches:
----    "beast finder plugin"
----
----  but not fuzzy-separated chars like:
----    "f_x_i_x_n_x_d_x_e_x_r"
----
 ---@return number score
----Match score.
----
----Higher score = better match.
----
----0 means no valid match.
----
 ---@return integer[]? positions
----1-based byte positions of matched characters inside `hay`.
----
----Used for highlight rendering.
----
----Example:
----
----```text
----hay      = "beastfinder"
----needle   = "bf"
----positions = {1, 6}
----
----b e a s t f i n d e r
----^         ^
----```
-local function score_term(hay, needle, prefix, suffix, exact)
+local function score_term(hay, hay_orig, needle, prefix, suffix, exact)
 	local hlen = #hay
 	local nlen = #needle
 
-	-- Reject impossible matches early.
-	if nlen == 0 or nlen > hlen then
-		return 0, nil
-	end
+	-- stylua: ignore
+	if nlen == 0 or nlen > hlen then return 0, nil end
 
-	-- ---------------------------------------------------------------------
-	-- Exact / prefix / suffix matching
-	-- ---------------------------------------------------------------------
-	--
-	-- These modes bypass fuzzy scoring entirely and use plain substring
-	-- matching instead.
-	--
-	-- Examples:
-	--
-	--   exact:
-	--     "'finder"
-	--
-	--   prefix:
-	--     "^src"
-	--
-	--   suffix:
-	--     "lua$"
-	--
+	-- Exact / prefix / suffix: plain substring match
 	if exact or prefix or suffix then
 		local idx = hay:find(needle, 1, true)
+		-- stylua: ignore
+		if not idx then return 0, nil end
+		-- stylua: ignore
+		if prefix and idx ~= 1 then return 0, nil end
+		-- stylua: ignore
+		if suffix and idx + nlen - 1 ~= hlen then return 0, nil end
 
-		if not idx then
-			return 0, nil
-		end
-
-		-- Prefix mode requires match at first character.
-		if prefix and idx ~= 1 then
-			return 0, nil
-		end
-
-		-- Suffix mode requires match at end of string.
-		if suffix and idx + nlen - 1 ~= hlen then
-			return 0, nil
-		end
-
-		local base = SCORE_MATCH * nlen
-
-		-- Reward matches beginning at first character.
-		if idx == 1 then
-			base = base + BONUS_FIRST_CHAR
-		end
-
-		-- Collect highlight positions.
+		local s = scorer:get(hay_orig, idx, idx + nlen - 1)
 		local pos = {}
-
 		for i = idx, idx + nlen - 1 do
 			pos[#pos + 1] = i
 		end
-
-		return base, pos
+		return s, pos
 	end
 
-	-- ---------------------------------------------------------------------
-	-- Fuzzy matching
-	-- ---------------------------------------------------------------------
-	--
-	-- Convert strings into byte arrays for faster comparisons.
-	--
-	-- Example:
-	--
-	--   "abc"
-	--
-	-- becomes:
-	--
-	--   {97, 98, 99}
-	--
-	local hbytes = hay
-	local nbytes = needle
-	local byte = string.byte
+	-- Fuzzy: multi-start scan — try every valid start position, keep best
+	local from, to = fuzzy_find(hay, needle, 1)
+	-- stylua: ignore
+	if not from then return 0, nil end
 
-	-- ---------------------------------------------------------------------
-	-- Forward scan
-	-- ---------------------------------------------------------------------
-	--
-	-- Find whether all needle characters exist in-order inside haystack.
-	--
-	local first_match = -1
-	local ni = 1
-
-	for hi = 1, hlen do
-		if byte(hbytes, hi) == byte(nbytes, ni) then
-			if ni == 1 then
-				first_match = hi
-			end
-
+	-- Score first window
+	scorer.is_file = true
+	scorer:init(hay_orig, from)
+	local ni = 2
+	for hi = from + 1, to do
+		if string.byte(hay, hi) == string.byte(needle, ni) then
+			scorer:update(hi)
 			ni = ni + 1
-
-			-- Entire needle matched.
-			if ni > nlen then
-				break
-			end
 		end
 	end
+	local best_score = scorer.score
+	local best_from = from
 
-	-- Not all characters matched.
-	if ni <= nlen then
-		return 0, nil
-	end
-
-	-- ---------------------------------------------------------------------
-	-- Backward scan
-	-- ---------------------------------------------------------------------
-	--
-	-- Tighten the fuzzy match window.
-	--
-	-- Forward scan proves:
-	--   "the match exists"
-	--
-	-- Backward scan finds:
-	--   "the smallest useful matching window"
-	--
-	-- Example:
-	--
-	--   hay    = "b____f____i"
-	--   needle = "bfi"
-	--
-	-- Produces a tighter score region.
-	--
-	local last_match = 0
-
-	do
-		local nj = nlen
-
-		for hi = hlen, first_match, -1 do
-			if byte(hbytes, hi) == byte(nbytes, nj) then
-				-- First backward match = end of window.
-				if nj == nlen then
-					last_match = hi
-				end
-
-				nj = nj - 1
-
-				-- Entire needle reconstructed backward.
-				if nj == 0 then
-					first_match = hi
-					break
-				end
+	-- Try subsequent start positions (capped at 10 attempts)
+	local attempts = 1
+	local next_from, next_to = fuzzy_find(hay, needle, from + 1)
+	while next_from and attempts < 10 do
+		attempts = attempts + 1
+		scorer.is_file = true
+		scorer:init(hay_orig, next_from)
+		ni = 2
+		for hi = next_from + 1, next_to do
+			if string.byte(hay, hi) == string.byte(needle, ni) then
+				scorer:update(hi)
+				ni = ni + 1
 			end
 		end
-	end
-
-	-- ---------------------------------------------------------------------
-	-- Score the final match window
-	-- ---------------------------------------------------------------------
-	--
-	-- Rewards:
-	--   • consecutive matches
-	--   • boundary matches
-	--   • camelCase matches
-	--   • first-character matches
-	--
-	-- Penalizes:
-	--   • gaps
-	--
-	local score = 0
-	local positions = {}
-
-	local in_gap = false
-	ni = 1
-
-	for hi = first_match, last_match do
-		local hb = byte(hbytes, hi)
-
-		-- -----------------------------------------------------------------
-		-- Matched next needle character
-		-- -----------------------------------------------------------------
-		if hb == byte(nbytes, ni) then
-			score = score + SCORE_MATCH
-
-			positions[#positions + 1] = hi
-
-			-- Match starts at first character.
-			if hi == 1 then
-				score = score + BONUS_FIRST_CHAR
-
-			-- Match after separators
-			elseif BOUNDARY_CHARS[byte(hbytes, hi - 1)] then
-				score = score + BONUS_BOUNDARY
-
-			-- camelCase boundary
-			elseif hb >= 65 and hb <= 90 and byte(hbytes, hi - 1) >= 97 and byte(hbytes, hi - 1) <= 122 then
-				score = score + BONUS_CAMEL
-
-			-- Consecutive match bonus
-			elseif ni > 1 then
-				score = score + BONUS_CONSECUTIVE
-			end
-
-			in_gap = false
-
-			ni = ni + 1
-
-			if ni > nlen then
-				break
-			end
-
-		-- -----------------------------------------------------------------
-		-- Gap penalty
-		-- -----------------------------------------------------------------
-		--
-		-- Compact matches are better than sparse matches.
-		--
-		-- Example:
-		--
-		--   good:
-		--     "finder"
-		--      ^^^
-		--
-		--   worse:
-		--     "f___i___n"
-		--
-		else
-			if in_gap then
-				score = score + SCORE_GAP_EXTENSION
-			else
-				score = score + SCORE_GAP_START
-				in_gap = true
-			end
+		if scorer.score > best_score then
+			best_score = scorer.score
+			best_from = next_from
 		end
+		next_from, next_to = fuzzy_find(hay, needle, next_from + 1)
 	end
 
-	return math.max(0, score), positions
+	-- stylua: ignore
+	if best_score <= 0 then return 0, nil end
+
+	local positions = fuzzy_positions(hay, needle, best_from)
+	return best_score, positions
 end
 ---@param item Beast.Finder.Item
 ---@param and_groups Beast.Finder.Term[][]
@@ -449,7 +252,7 @@ local function score_item(item, and_groups)
 		local any_match = false
 		for _, term in ipairs(or_terms) do
 			local hay = term.ignorecase and hay_lower or hay_orig
-			local s, pos = score_term(hay, term.text, term.prefix, term.suffix, term.exact)
+			local s, pos = score_term(hay, hay_orig, term.text, term.prefix, term.suffix, term.exact)
 			if term.inverse then
 				if s == 0 then
 					best = math.max(best, 1)
@@ -510,11 +313,11 @@ end
 ---@param items Beast.Finder.Item[]
 ---@param filter Beast.Finder.Filter
 ---@param cfg Beast.Finder.MatcherOpts
----@param on_done fun(matched: Beast.Finder.Item[], state: Beast.Finder.MatchState)
+---@param on_done fun(matched: Beast.Finder.Item[], state?: Beast.Finder.MatchState)
 ---@param prev_state? Beast.Finder.MatchState
 ---@param topk_capacity? integer defaults to 1000
 function M.run(items, filter, cfg, on_done, prev_state, topk_capacity)
-	async.spawn(function()
+	return async.spawn(function()
 		local pattern = filter.pattern
 		local scores = {} ---@type table<integer, number>
 
@@ -544,7 +347,13 @@ function M.run(items, filter, cfg, on_done, prev_state, topk_capacity)
 
 		-- Determine if we can use subset elimination
 		local use_subset = prev_state and is_superset(prev_state.pattern, pattern)
+		---@diagnostic disable-next-line: need-check-nil
 		local prev_scores = use_subset and prev_state.scores or nil
+
+		-- Progressive rendering: show partial results every ~16ms
+		local uv = vim.uv or vim.loop
+		local last_progress = uv.hrtime()
+		local PROGRESS_NS = 16e6 -- 16ms (~60fps)
 
 		for i = 1, #items do
 			local item = items[i]
@@ -563,6 +372,16 @@ function M.run(items, filter, cfg, on_done, prev_state, topk_capacity)
 					topk:push(item)
 				end
 			end
+
+			-- Emit progressive results so the UI feels responsive
+			if uv.hrtime() - last_progress > PROGRESS_NS then
+				last_progress = uv.hrtime()
+				local partial = topk:sorted()
+				vim.schedule(function()
+					on_done(partial, nil)
+				end)
+			end
+
 			yield()
 		end
 

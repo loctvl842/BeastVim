@@ -35,10 +35,28 @@ function M:_swap(i, j)
 	self._data[i], self._data[j] = self._data[j], self._data[i]
 end
 
+--- Compare two items for heap ordering (min-heap: "worse" item is smaller).
+--- Primary: lower score is worse. Tiebreaker: longer text is worse.
+---@private
+---@param a Beast.Finder.Item
+---@param b Beast.Finder.Item
+---@return boolean true if a is worse than b
+function M:_less(a, b)
+	if a.score ~= b.score then
+		return a.score < b.score
+	end
+	local a_len = #(a.text or "")
+	local b_len = #(b.text or "")
+	if a_len ~= b_len then
+		return a_len > b_len -- longer text is worse
+	end
+	return (a.idx or 0) > (b.idx or 0)
+end
+
 ---@private
 function M:_sift_up(i)
 	local parent = math.floor(i / 2)
-	while i > 1 and self._data[i].score < self._data[parent].score do
+	while i > 1 and self:_less(self._data[i], self._data[parent]) do
 		self:_swap(i, parent)
 		i = parent
 		parent = math.floor(i / 2)
@@ -51,10 +69,10 @@ function M:_sift_down(i)
 		local smallest = i
 		local left = 2 * i
 		local right = 2 * i + 1
-		if left <= self._size and self._data[left].score < self._data[smallest].score then
+		if left <= self._size and self:_less(self._data[left], self._data[smallest]) then
 			smallest = left
 		end
-		if right <= self._size and self._data[right].score < self._data[smallest].score then
+		if right <= self._size and self:_less(self._data[right], self._data[smallest]) then
 			smallest = right
 		end
 		if smallest == i then
@@ -81,8 +99,12 @@ function M:push(item)
 		self:_sift_up(self._size)
 		return true
 	end
-	-- At capacity — only insert when item is strictly better than the weakest (root)
-	if self._data[1].score < item.score then
+	-- At capacity — fast path: score alone decides in most cases
+	local root = self._data[1]
+	if root.score > item.score then
+		return false
+	end
+	if root.score < item.score or self:_less(root, item) then
 		self._data[1] = item
 		self:_sift_down(1)
 		return true
@@ -98,7 +120,15 @@ function M:sorted()
 		out[i] = self._data[i]
 	end
 	table.sort(out, function(a, b)
-		return a.score > b.score
+		if a.score ~= b.score then
+			return a.score > b.score
+		end
+		local a_len = #(a.text or "")
+		local b_len = #(b.text or "")
+		if a_len ~= b_len then
+			return a_len < b_len -- shorter text first
+		end
+		return (a.idx or 0) < (b.idx or 0)
 	end)
 	return out
 end
