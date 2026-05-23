@@ -1,4 +1,5 @@
 local uv = vim.uv or vim.loop
+local Queue = require("beast.libs.finder.queue")
 
 ---@class Beast.Finder.Source.Files: Beast.Finder.ASource
 local M = {}
@@ -8,20 +9,61 @@ M.async = true
 M.cmd = nil
 M.args = {}
 
+SUPPORTED = {
+	{
+		cmd = "fd",
+		args = function(cwd)
+      -- stylua: ignore
+			return {
+				"--type", "f",
+				"--type", "l",
+				"--color", "never",
+				"--hidden",
+				"--exclude", ".git",
+				".",
+				cwd,
+			}
+		end,
+	},
+	{
+		cmd = "rg",
+		args = function(cwd)
+      -- stylua: ignore
+			return {
+				"--files",
+				"--color", "never",
+				"--no-messages",
+				"--hidden",
+				"--glob", "!.git",
+				"--glob", "!.git/**",
+				cwd,
+			}
+		end,
+	},
+	{
+		cmd = "find",
+		args = function(cwd)
+      -- stylua: ignore
+			return {
+				cwd,
+				"-type", "f",
+				"-not", "-path", "*/.git/*",
+			}
+		end,
+	},
+}
+
 local function ensure_cmd(cwd)
-	if vim.fn.executable("fd") == 1 then
-		M.cmd = "fd"
-		M.args = { "--type", "f", "--hidden", "--exclude", ".git", ".", cwd }
-	elseif vim.fn.executable("rg") == 1 then
-		M.cmd = "rg"
-		M.args = { "--files", "--hidden", "--glob", "!.git", "--glob", "!.git/**", cwd }
-	elseif vim.fn.executable("find") == 1 then
-		M.cmd = "find"
-		M.args = { cwd, "-type", "f", "-not", "-path", "*/.git/*" }
-	else
-		M.cmd = nil
-		M.args = {}
+	for _, command in ipairs(SUPPORTED) do
+		if vim.fn.executable(command.cmd) == 1 then
+			M.cmd = command.cmd
+			M.args = command.args(cwd)
+			return
+		end
 	end
+
+	M.cmd = nil
+	M.args = {}
 end
 
 --- Build a relative path from an absolute one without vim.fn (safe in libuv callbacks)
@@ -29,7 +71,6 @@ end
 ---@param path string
 ---@return string
 local function make_rel(cwd, path)
-	-- Ensure cwd ends with / for reliable prefix stripping
 	local cwd_prefix = cwd:sub(-1) == "/" and cwd or (cwd .. "/")
 	if path:sub(1, #cwd_prefix) == cwd_prefix then
 		return path:sub(#cwd_prefix + 1)
@@ -42,7 +83,6 @@ end
 ---@param path string
 ---@return string
 local function make_abs(cwd, path)
-	-- Ensure cwd ends with / for reliable prefix stripping
 	local cwd_prefix = cwd:sub(-1) == "/" and cwd or (cwd .. "/")
 	if path:sub(1, 1) == "/" then
 		return path
@@ -64,7 +104,8 @@ function M.get(filter, cb)
 
 	local cwd = filter.cwd
 	local idx = 0
-	local buf = ""
+	local queue = Queue()
+	local done = false
 
 	local stdout = assert(uv.new_pipe(false), "failed to create stdout pipe")
 	local handle
@@ -85,78 +126,66 @@ function M.get(filter, cb)
 	handle = assert(
 		uv.spawn(M.cmd, spawn_opts, function()
 			stdout:close()
-
 			if handle and not handle:is_closing() then
 				handle:close()
 			end
-
-			-- Flush any remaining content without a trailing newline
-			if buf ~= "" then
-				local path = vim.trim(buf)
-
-				if path ~= "" then
-					idx = idx + 1
-
-					local abs = make_abs(cwd, path)
-					local rel = make_rel(cwd, abs)
-					local item = {
-						idx = idx,
-						score = 0,
-						text = rel,
-						file = abs,
-						cwd = cwd,
-					}
-
-					vim.schedule(function()
-						cb(item)
-					end)
-				end
-			end
-
-			vim.schedule(function()
-				cb(nil)
-			end)
+			done = true
 		end),
 		"failed to spawn " .. M.cmd
 	)
+
+	local buf = ""
 
 	stdout:read_start(function(err, data)
 		if err or not data then
 			return
 		end
-		buf = buf .. data
-		local batch = {}
-		-- Split on newlines, keep partial last line in buf
-		local lines = {}
-		local pos = 1
-		while true do
-			local nl = buf:find("\n", pos, true)
-			if not nl then
-				break
-			end
-			lines[#lines + 1] = buf:sub(pos, nl - 1)
-			pos = nl + 1
-		end
-		buf = buf:sub(pos)
+		queue:push(data)
+	end)
 
-		for _, line in ipairs(lines) do
-			local path = vim.trim(line)
-			if path ~= "" then
+	-- Process queue in a tight loop via vim.schedule polling
+	-- This avoids vim.schedule per chunk while still being safe for cb()
+	local function process()
+		while not queue:empty() do
+			local data = queue:pop()
+			buf = buf .. data
+			local pos = 1
+			while true do
+				local nl = buf:find("\n", pos, true)
+				if not nl then
+					break
+				end
+				local line = buf:sub(pos, nl - 1)
+				pos = nl + 1
+				local path = line
+				if path ~= "" then
+					idx = idx + 1
+					local abs = make_abs(cwd, path)
+					local rel = make_rel(cwd, abs)
+					cb({ idx = idx, score = 0, text = rel, file = abs, cwd = cwd })
+				end
+			end
+			buf = buf:sub(pos)
+		end
+
+		if done then
+			-- Flush remaining partial line
+			if buf ~= "" then
+				local path = buf
+				buf = ""
+
 				idx = idx + 1
 				local abs = make_abs(cwd, path)
 				local rel = make_rel(cwd, abs)
-				batch[#batch + 1] = { idx = idx, score = 0, text = rel, file = abs, cwd = cwd }
+				cb({ idx = idx, score = 0, text = rel, file = abs, cwd = cwd })
 			end
+			cb(nil)
+		else
+			vim.defer_fn(process, 1)
 		end
+	end
 
-		if #batch > 0 then
-			vim.schedule(function()
-				for _, item in ipairs(batch) do
-					cb(item)
-				end
-			end)
-		end
-	end)
+	vim.schedule(process)
 end
 
 return M

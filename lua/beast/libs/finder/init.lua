@@ -16,8 +16,8 @@ function M.open(source, opts)
 	if query then
 		query:close()
 	end
+	---@type Beast.Finder.Query
 	query = Query(source, opts)
-	query:load()
 end
 
 return M

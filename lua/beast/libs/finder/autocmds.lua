@@ -1,3 +1,4 @@
+local render = require("beast.libs.finder.render")
 local ui = require("beast.libs.finder.ui")
 
 local M = {}
@@ -59,7 +60,7 @@ function M.mount(query)
 			if item_idx ~= query.list_view.cursor then
 				ui.list.set_cursor(query.list_view, item_idx)
 				vim.cmd("redraw")
-				query:schedule_preview()
+				render.schedule_preview(query)
 			end
 		end,
 	})
