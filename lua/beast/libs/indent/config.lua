@@ -11,6 +11,27 @@ local defaults = {
 		priority = 200,
 		debounce = 30, -- ms
 		underline = true,
+		treesitter = {
+			enabled = true,
+			---@type string[]
+			scope_types = {
+				"function",
+				"function_definition",
+				"function_declaration",
+				"method",
+				"method_definition",
+				"method_declaration",
+				"if_statement",
+				"for_statement",
+				"for_in_statement",
+				"while_statement",
+				"repeat_statement",
+				"do_statement",
+				"class_definition",
+				"class_declaration",
+				"module",
+			},
+		},
 	},
 	exclude_filetypes = {
 		"help",

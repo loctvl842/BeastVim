@@ -87,6 +87,7 @@ end
 -- =========================================================================
 
 local scope = require("beast.libs.indent.scope")
+local find = scope.find_by_indent -- test indent strategy directly
 
 -- =========================================================================
 -- Test: Simple function body
@@ -116,43 +117,43 @@ do
 		"local b = 2",
 	}, 2)
 
-	assert_eq("line 1 (top-level local, next is blank) → nil", strip_buf(scope.find(buf, { 1, 0 })), nil)
+	assert_eq("line 1 (top-level local, next is blank) → nil", strip_buf(find(buf, { 1, 0 })), nil)
 
-	assert_eq("line 2 (blank between top-level) → nil", strip_buf(scope.find(buf, { 2, 0 })), nil)
+	assert_eq("line 2 (blank between top-level) → nil", strip_buf(find(buf, { 2, 0 })), nil)
 
 	assert_eq(
 		"line 3 (function decl, edge into body) → {4,6,2}",
-		strip_buf(scope.find(buf, { 3, 0 })),
+		strip_buf(find(buf, { 3, 0 })),
 		{ { from = 4, to = 6, indent = 2 } }
 	)
 
 	assert_eq(
 		"line 4 (inside function body) → {4,6,2}",
-		strip_buf(scope.find(buf, { 4, 0 })),
+		strip_buf(find(buf, { 4, 0 })),
 		{ { from = 4, to = 6, indent = 2 } }
 	)
 
 	assert_eq(
 		"line 5 (inside function body) → {4,6,2}",
-		strip_buf(scope.find(buf, { 5, 0 })),
+		strip_buf(find(buf, { 5, 0 })),
 		{ { from = 4, to = 6, indent = 2 } }
 	)
 
 	assert_eq(
 		"line 6 (inside function body) → {4,6,2}",
-		strip_buf(scope.find(buf, { 6, 0 })),
+		strip_buf(find(buf, { 6, 0 })),
 		{ { from = 4, to = 6, indent = 2 } }
 	)
 
 	assert_eq(
 		"line 7 (end, closing edge into body) → {4,6,2}",
-		strip_buf(scope.find(buf, { 7, 0 })),
+		strip_buf(find(buf, { 7, 0 })),
 		{ { from = 4, to = 6, indent = 2 } }
 	)
 
-	assert_eq("line 8 (blank between top-level) → nil", strip_buf(scope.find(buf, { 8, 0 })), nil)
+	assert_eq("line 8 (blank between top-level) → nil", strip_buf(find(buf, { 8, 0 })), nil)
 
-	assert_eq("line 9 (top-level local) → nil", strip_buf(scope.find(buf, { 9, 0 })), nil)
+	assert_eq("line 9 (top-level local) → nil", strip_buf(find(buf, { 9, 0 })), nil)
 
 	vim.api.nvim_buf_delete(buf, { force = true })
 end
@@ -181,37 +182,37 @@ do
 
 	assert_eq(
 		"line 1 (function decl, edge into body) → {2,5,2}",
-		strip_buf(scope.find(buf, { 1, 0 })),
+		strip_buf(find(buf, { 1, 0 })),
 		{ { from = 2, to = 5, indent = 2 } }
 	)
 
 	assert_eq(
 		"line 2 (body, indent 2) → {2,5,2}",
-		strip_buf(scope.find(buf, { 2, 0 })),
+		strip_buf(find(buf, { 2, 0 })),
 		{ { from = 2, to = 5, indent = 2 } }
 	)
 
 	assert_eq(
 		"line 3 (if-edge, steps into body) → {4,4,4}",
-		strip_buf(scope.find(buf, { 3, 0 })),
+		strip_buf(find(buf, { 3, 0 })),
 		{ { from = 4, to = 4, indent = 4 } }
 	)
 
 	assert_eq(
 		"line 4 (nested body, indent 4) → {4,4,4}",
-		strip_buf(scope.find(buf, { 4, 0 })),
+		strip_buf(find(buf, { 4, 0 })),
 		{ { from = 4, to = 4, indent = 4 } }
 	)
 
 	assert_eq(
 		"line 5 (end at indent 2, closing edge into body) → {4,4,4}",
-		strip_buf(scope.find(buf, { 5, 0 })),
+		strip_buf(find(buf, { 5, 0 })),
 		{ { from = 4, to = 4, indent = 4 } }
 	)
 
 	assert_eq(
 		"line 6 (end, closing edge into body) → {2,5,2}",
-		strip_buf(scope.find(buf, { 6, 0 })),
+		strip_buf(find(buf, { 6, 0 })),
 		{ { from = 2, to = 5, indent = 2 } }
 	)
 
@@ -240,7 +241,7 @@ do
 
 	assert_eq(
 		"line 3 (blank inside scope) → {2,4,2}",
-		strip_buf(scope.find(buf, { 3, 0 })),
+		strip_buf(find(buf, { 3, 0 })),
 		{ { from = 2, to = 4, indent = 2 } }
 	)
 
@@ -271,19 +272,19 @@ do
 		"end",
 	}, 2)
 
-	assert_eq("line 1 (require, indent 0) → nil", strip_buf(scope.find(buf, { 1, 0 })), nil)
+	assert_eq("line 1 (require, indent 0) → nil", strip_buf(find(buf, { 1, 0 })), nil)
 
-	assert_eq("line 2 (blank between top-level and func) → nil", strip_buf(scope.find(buf, { 2, 0 })), nil)
+	assert_eq("line 2 (blank between top-level and func) → nil", strip_buf(find(buf, { 2, 0 })), nil)
 
 	assert_eq(
 		"line 3 (function decl, edge into body) → {4,6,2}",
-		strip_buf(scope.find(buf, { 3, 0 })),
+		strip_buf(find(buf, { 3, 0 })),
 		{ { from = 4, to = 6, indent = 2 } }
 	)
 
 	assert_eq(
 		"line 4 (body) → {4,6,2}",
-		strip_buf(scope.find(buf, { 4, 0 })),
+		strip_buf(find(buf, { 4, 0 })),
 		{ { from = 4, to = 6, indent = 2 } }
 	)
 
@@ -318,37 +319,37 @@ do
 
 	assert_eq(
 		"line 1 (if, indent 0, edge into body) → {2,5,2}",
-		strip_buf(scope.find(buf, { 1, 0 })),
+		strip_buf(find(buf, { 1, 0 })),
 		{ { from = 2, to = 5, indent = 2 } }
 	)
 
 	assert_eq(
 		"line 2 (pcall edge, steps into body) → {3,4,4}",
-		strip_buf(scope.find(buf, { 2, 0 })),
+		strip_buf(find(buf, { 2, 0 })),
 		{ { from = 3, to = 4, indent = 4 } }
 	)
 
 	assert_eq(
 		"line 3 (inside pcall body) → {3,4,4}",
-		strip_buf(scope.find(buf, { 3, 0 })),
+		strip_buf(find(buf, { 3, 0 })),
 		{ { from = 3, to = 4, indent = 4 } }
 	)
 
 	assert_eq(
 		"line 5 (end), closing edge into body) → {3,4,4}",
-		strip_buf(scope.find(buf, { 5, 0 })),
+		strip_buf(find(buf, { 5, 0 })),
 		{ { from = 3, to = 4, indent = 4 } }
 	)
 
 	assert_eq(
 		"line 6 (end, closing edge into body) → {2,5,2}",
-		strip_buf(scope.find(buf, { 6, 0 })),
+		strip_buf(find(buf, { 6, 0 })),
 		{ { from = 2, to = 5, indent = 2 } }
 	)
 
-	assert_eq("line 7 (blank) → nil", strip_buf(scope.find(buf, { 7, 0 })), nil)
+	assert_eq("line 7 (blank) → nil", strip_buf(find(buf, { 7, 0 })), nil)
 
-	assert_eq("line 8 (require, indent 0) → nil", strip_buf(scope.find(buf, { 8, 0 })), nil)
+	assert_eq("line 8 (require, indent 0) → nil", strip_buf(find(buf, { 8, 0 })), nil)
 
 	vim.api.nvim_buf_delete(buf, { force = true })
 end
@@ -375,31 +376,31 @@ do
 
 	assert_eq(
 		"line 1 (setmetatable, edge into body) → {2,4,2}",
-		strip_buf(scope.find(buf, { 1, 0 })),
+		strip_buf(find(buf, { 1, 0 })),
 		{ { from = 2, to = 4, indent = 2 } }
 	)
 
 	assert_eq(
 		"line 2 (edge, steps into body) → {3,3,4}",
-		strip_buf(scope.find(buf, { 2, 0 })),
+		strip_buf(find(buf, { 2, 0 })),
 		{ { from = 3, to = 3, indent = 4 } }
 	)
 
 	assert_eq(
 		"line 3 (inside nested body) → {3,3,4}",
-		strip_buf(scope.find(buf, { 3, 0 })),
+		strip_buf(find(buf, { 3, 0 })),
 		{ { from = 3, to = 3, indent = 4 } }
 	)
 
 	assert_eq(
 		"line 4 (end at indent 2, closing edge) → {3,3,4}",
-		strip_buf(scope.find(buf, { 4, 0 })),
+		strip_buf(find(buf, { 4, 0 })),
 		{ { from = 3, to = 3, indent = 4 } }
 	)
 
 	assert_eq(
 		"line 5 (closing, edge into body) → {2,4,2}",
-		strip_buf(scope.find(buf, { 5, 0 })),
+		strip_buf(find(buf, { 5, 0 })),
 		{ { from = 2, to = 4, indent = 2 } }
 	)
 
@@ -432,9 +433,9 @@ do
 		"end",
 	}, 2)
 
-	assert_eq("line 4 (blank gap) → nil", strip_buf(scope.find(buf, { 4, 0 })), nil)
+	assert_eq("line 4 (blank gap) → nil", strip_buf(find(buf, { 4, 0 })), nil)
 
-	assert_eq("line 5 (blank gap) → nil", strip_buf(scope.find(buf, { 5, 0 })), nil)
+	assert_eq("line 5 (blank gap) → nil", strip_buf(find(buf, { 5, 0 })), nil)
 
 	vim.api.nvim_buf_delete(buf, { force = true })
 end
@@ -483,7 +484,7 @@ do
 
 	assert_eq(
 		"line 16 (end at indent 2, closing edge into body) → {13,15,4}",
-		strip_buf(scope.find(buf, { 16, 0 })),
+		strip_buf(find(buf, { 16, 0 })),
 		{ { from = 13, to = 15, indent = 4 } }
 	)
 

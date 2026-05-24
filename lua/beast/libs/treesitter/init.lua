@@ -121,18 +121,7 @@ end
 
 function M.setup(opts)
 	config.setup(opts)
-	-- Invalidate scope_types lookup when config changes
-	require("beast.libs.treesitter.scope").invalidate()
 	require("beast.libs.treesitter.highlights")
-end
-
---- Find the innermost scope node at a given position.
---- Delegates to scope.lua — this is the public API other libs call.
----@param bufnr number
----@param pos? {[1]: number, [2]: number} 0-indexed {row, col}; defaults to cursor
----@return Beast.Treesitter.Scope?
-function M.scope(bufnr, pos)
-	return require("beast.libs.treesitter.scope").get(bufnr, pos)
 end
 
 function M.enable()
