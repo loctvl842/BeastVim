@@ -59,7 +59,7 @@ function M.render(ctx)
 	end
 
 	-- Available width for buffer list (no marker reserve — accounted for after truncation)
-	local available = ctx.columns - (ctx.sidebar_width or 0) - ctx.tabpages_width
+	local available = ctx.columns - (ctx.sidebar_width or 0) - ctx.tabpages_width - ctx.toggle_button_width
 
 	-- Width estimator using ctx
 	local function est_fn(bufnr, is_anchor)
