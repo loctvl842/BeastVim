@@ -8,26 +8,6 @@ local defaults = {
 	fold = {
 		enable = false,
 	},
-	-- Node types considered "scope" for scope detection (Phase 2).
-	-- Applies across all languages; per-language overrides may be added later.
-	---@type string[]
-	scope_types = {
-		"function",
-		"function_definition",
-		"function_declaration",
-		"method",
-		"method_definition",
-		"method_declaration",
-		"if_statement",
-		"for_statement",
-		"for_in_statement",
-		"while_statement",
-		"repeat_statement",
-		"do_statement",
-		"class_definition",
-		"class_declaration",
-		"module",
-	},
 }
 
 ---@type Beast.Treesitter.Config
