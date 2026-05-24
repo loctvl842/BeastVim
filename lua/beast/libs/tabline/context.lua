@@ -51,6 +51,7 @@ end
 ---@field tabpages integer[]
 ---@field current_tabnr integer
 ---@field tabpages_width integer
+---@field toggle_button_width integer
 
 --- Build the render context. Called once per render.
 ---@param state table Module-level state from init.lua
@@ -143,6 +144,10 @@ function M.build(state)
 		end
 	end
 
+	-- Toggle button width (always visible on the right)
+	local toggle_button = require("beast.libs.tabline.sections.toggle_button")
+	local toggle_button_width = toggle_button.width()
+
 	return {
 		columns = vim.o.columns,
 		current_buf = current_buf,
@@ -160,6 +165,7 @@ function M.build(state)
 		tabpages = tabpages,
 		current_tabnr = current_tabnr,
 		tabpages_width = tabpages_width,
+		toggle_button_width = toggle_button_width,
 	}
 end
 

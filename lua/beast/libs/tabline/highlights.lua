@@ -95,6 +95,9 @@ Util.colors.set_hl("BeastTl", {
 
 	-- Fill (background)
 	Fill = { bg = p.dark1, underline = true, sp = inactive_border },
+
+	-- Toggle button (right side)
+	ToggleButton = { fg = p.dimmed1, bg = p.dark1, underline = true, sp = inactive_border },
 })
 
 vim.cmd("redrawtabline")

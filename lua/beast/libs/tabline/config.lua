@@ -16,6 +16,10 @@ local defaults = {
 		["beast-explorer"] = "",
 	},
 
+	-- Toggle button (right side — toggles background dark/light)
+	toggle_button_dark_icon = " ", -- shown in dark mode
+	toggle_button_light_icon = " ", -- shown in light mode
+
 	-- Icons shown inside truncation markers
 	-- Left: " N <icon> " (e.g. " 3 … ")   Right: " <icon> N " (e.g. " … 2 ")
 	left_trunc_icon = "",

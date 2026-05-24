@@ -5,6 +5,7 @@ local context = require("beast.libs.tabline.context")
 local icons_mod = require("beast.libs.tabline.icons")
 local offset = require("beast.libs.tabline.sections.offset")
 local tabpages = require("beast.libs.tabline.sections.tabpages")
+local toggle_button = require("beast.libs.tabline.sections.toggle_button")
 
 local M = {}
 
@@ -130,6 +131,9 @@ function M.render()
 	parts[#parts + 1] = "%="
 	parts[#parts + 1] = tabpages.render(ctx)
 
+	-- Toggle button (far right)
+	parts[#parts + 1] = toggle_button.render()
+
 	local output = table.concat(parts)
 
 	-- Cache the result
@@ -162,6 +166,14 @@ function M.setup(opts)
 			vim.schedule(function()
 				pcall(Buffer.delete, { buf = bufnr })
 			end)
+		end
+	end
+
+	function _G.beast_tabline_toggle_bg(_, _, button, _)
+		if button == "l" then
+			vim.o.background = vim.o.background == "dark" and "light" or "dark"
+      local current_colorscheme = vim.g.colors_name or "default"
+			vim.cmd.colorscheme(current_colorscheme)
 		end
 	end
 
