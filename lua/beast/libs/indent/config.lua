@@ -1,10 +1,16 @@
 ---@class Beast.Indent.Config
 local defaults = {
-	draw = { delay = 1, priority = 2 },
 	guide = {
 		enabled = true,
 		symbol = "▏",
 		priority = 1,
+	},
+	scope = {
+		enabled = true,
+		symbol = "▏",
+		priority = 200,
+		debounce = 30, -- ms
+		underline = true,
 	},
 	exclude_filetypes = {
 		"help",
@@ -23,7 +29,6 @@ local defaults = {
 		"beast-packer-actions",
 		"beast-toast",
 	},
-	scope = "▏",
 }
 
 ---@type Beast.Indent.Config
