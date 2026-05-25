@@ -1,4 +1,5 @@
 local config = require("beast.libs.explorer.config")
+local git = require("beast.libs.explorer.git")
 local state = require("beast.libs.explorer.state")
 local sticky = require("beast.libs.explorer.sticky")
 local ui = require("beast.libs.explorer.ui")
@@ -267,6 +268,9 @@ function M.mount()
 			-- stylua: ignore
 			if not node or not node.expanded then return end
 			watch._schedule_refresh(dir)
+			git.schedule_refresh(function()
+				ui.flush()
+			end)
 		end,
 	})
 
@@ -277,6 +281,9 @@ function M.mount()
 			-- stylua: ignore
 			if not (state.tree and state.view and state.view:is_valid()) then return end
 			watch._schedule_refresh(state.tree.root.path)
+			git.schedule_refresh(function()
+				ui.flush()
+			end)
 		end,
 	})
 

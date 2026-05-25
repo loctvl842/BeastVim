@@ -1,6 +1,7 @@
 local Tree = require("beast.libs.explorer.tree")
 local autocmds = require("beast.libs.explorer.autocmds")
 local config = require("beast.libs.explorer.config")
+local git = require("beast.libs.explorer.git")
 local keymaps = require("beast.libs.explorer.keymaps")
 local state = require("beast.libs.explorer.state")
 local sticky = require("beast.libs.explorer.sticky")
@@ -57,9 +58,13 @@ function M.open(dir)
   -- stylua: ignore
   local on_done = has_file and function() ui.focus_path(file) end or nil
 	ui.render(on_done)
+	git.refresh(function()
+		ui.flush()
+	end)
 end
 
 function M.close()
+	git.stop()
 	watch.stop_all()
 	sticky.close()
 	ui.close()
