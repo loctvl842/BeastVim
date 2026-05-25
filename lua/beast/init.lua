@@ -32,6 +32,7 @@ local defaults = {
 	},
 	treesitter = {
 		ensure_installed = { "python", "lua" },
+		fold = { enable = true },
 	},
 }
 
