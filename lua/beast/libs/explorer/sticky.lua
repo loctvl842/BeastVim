@@ -164,6 +164,13 @@ local function build(entries, width)
 				hls[#hls + 1] = { line = line_idx, col_s = 0, col_e = #prefix, group = "BeastExplorerIndent" }
 			end
 			hls[#hls + 1] = { line = line_idx, col_s = #prefix, col_e = #prefix + #icon, group = "BeastExplorerDir" }
+
+			-- Override dir name color with propagated git status
+			local git_hl = render.git_hl(entry.node and entry.node.git_status)
+			if git_hl then
+				local name_s = #prefix + #icon + 1
+				hls[#hls + 1] = { line = line_idx, col_s = name_s, col_e = name_s + #entry.label, group = git_hl }
+			end
 		end
 	end
 
