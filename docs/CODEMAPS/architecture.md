@@ -1,4 +1,4 @@
-<!-- Generated: 2026-05-17 | Files scanned: 151 | Token estimate: ~980 -->
+<!-- Generated: 2025-07-26 | Files scanned: 166 | Token estimate: ~1020 -->
 
 # Architecture
 
@@ -28,8 +28,10 @@ lua/beast/
 │   ├── async.lua         ← cooperative coroutine scheduler (budget-limited)
 │   ├── buf.lua           ← Beast.Buf (buffer delete, scratch buf)
 │   ├── confirm/          ← vim.fn.confirm drop-in UI
-│   ├── explorer/         ← file explorer (split panel + sticky headers)
+│   ├── explorer/         ← file explorer (split panel + sticky headers + git status)
 │   ├── finder/           ← fuzzy finder (files, buffers, grep, help, colorschemes)
+│   ├── indent/           ← indent guides + scope highlighting (decoration provider)
+│   ├── breadcrumb/       ← winbar breadcrumb (filepath + treesitter context)
 │   ├── key/              ← keybinding viewer/manager
 │   ├── notify/           ← floating notification stack
 │   ├── packer/           ← plugin loader with lazy triggers + packer.lazy()
@@ -65,11 +67,13 @@ beast.setup(opts)
   6. confirm.setup()
   7. packer.setup() → git-clone + lazy-load plugins
   8. statusline.setup() → native %! with component specs
-  9. packer.lazy("beast.libs.tabline") → deferred VimEnter
- 10. packer.lazy("beast.libs.explorer") → deferred VimEnter + <leader>e
- 11. packer.lazy("beast.libs.treesitter") → deferred FileType
- 12. packer.lazy("beast.libs.finder") → deferred keys (<leader>f/b/g/c/h)
- 13. Palette.refresh() + reload_highlights()
+  9. packer.lazy("beast.libs.breadcrumb") → deferred VimEnter (winbar)
+ 10. packer.lazy("beast.libs.tabline") → deferred VimEnter
+ 11. packer.lazy("beast.libs.explorer") → deferred VimEnter + <leader>e
+ 12. packer.lazy("beast.libs.indent") → deferred VimEnter (decoration provider)
+ 13. packer.lazy("beast.libs.treesitter") → deferred FileType
+ 14. packer.lazy("beast.libs.finder") → deferred keys (<leader>f/b/g/c/h)
+ 15. Palette.refresh() + reload_highlights()
 ```
 
 ## Lazy Lib Loading (`packer.lazy`)
@@ -113,7 +117,7 @@ Palette.get / Palette.refresh
             require(m)
 ```
 
-`M.highlight_modules` includes: confirm, key, packer, notify, statusline, tabline, explorer, finder.
+`M.highlight_modules` includes: confirm, key, packer, notify, statusline, tabline, explorer, finder, breadcrumb, indent.
 
 ## Patterns
 
