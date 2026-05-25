@@ -149,7 +149,8 @@ function M.draw(buf, ns, win, top, bottom, leftcol, sw)
 		-- Underline only on the first segment's border (the declaration line)
 		if idx == 1 then
 			local underline_line = scope.from - 1
-			if config.scope.underline and underline_line >= top and underline_line <= bottom then
+			local on_closed_fold = vim.fn.foldclosed(underline_line) ~= -1
+			if config.scope.underline and not on_closed_fold and underline_line >= top and underline_line <= bottom then
 				local text = vim.api.nvim_buf_get_lines(buf, underline_line - 1, underline_line, false)[1]
 				if text then
 					local text_start = text:find("%S")
