@@ -161,24 +161,25 @@ function M.build(nodes)
 		end
 
 		-- File name
+		local git_enable = config.git and config.git.enable
 		if not node.dir then
 			local name_s = #prefix + #icon_str + 1 -- +1 for the space after icon
 			local name_hl = "BeastExplorerFile"
 			-- Git status overrides the default file color
-			if node.git_status and GIT_HL[node.git_status] then
+			if git_enable and node.git_status and GIT_HL[node.git_status] then
 				name_hl = GIT_HL[node.git_status]
 			end
 			hls[#hls + 1] = { line = line_idx, col_s = name_s, col_e = name_s + #node.name, group = name_hl }
 		else
 			-- Directory name: override with propagated git status color
-			if node.git_status and GIT_HL[node.git_status] then
+			if git_enable and node.git_status and GIT_HL[node.git_status] then
 				local name_s = #prefix + #icon_str + 1
 				hls[#hls + 1] = { line = line_idx, col_s = name_s, col_e = name_s + #node.name, group = GIT_HL[node.git_status] }
 			end
 		end
 
 		-- Git badge (right-aligned virt_text) — only on files, not directories
-		if node.git_status and GIT_HL[node.git_status] and not node.dir then
+		if git_enable and config.git.badges and node.git_status and GIT_HL[node.git_status] and not node.dir then
 			badges[#badges + 1] = { line = line_idx, text = node.git_status, hl = GIT_HL[node.git_status] }
 		end
 		-- Dim hidden files/dirs
