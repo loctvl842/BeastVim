@@ -47,17 +47,34 @@ end
 -- Autocmd registration (lazy, idempotent)
 -- =========================================================================
 
+local WINBAR_EXPR = "%!v:lua.require'beast.libs.breadcrumb'.render()"
+
+---Check if a buffer should be ignored for winbar display.
+---@param buf integer
+---@return boolean
+local function is_ignored(buf)
+	local ft = vim.bo[buf].filetype
+	local bt = vim.bo[buf].buftype
+	return config.ignored_filetypes[ft] or config.ignored_buftypes[bt] or false
+end
+
 local function ensure_autocmds()
 	-- stylua: ignore
 	if state.augroup then return end
 
 	state.augroup = vim.api.nvim_create_augroup("BeastBreadcrumb", { clear = true })
 
-	-- Buffer enter: invalidate the entering window so new buffer is rendered
+	-- Buffer enter: set/remove winbar per-window and invalidate cache
 	vim.api.nvim_create_autocmd("BufEnter", {
 		group = state.augroup,
 		callback = function()
 			local winid = vim.api.nvim_get_current_win()
+			local buf = vim.api.nvim_win_get_buf(winid)
+			if is_ignored(buf) then
+				vim.wo[winid].winbar = nil
+			else
+				vim.wo[winid].winbar = WINBAR_EXPR
+			end
 			invalidate_win(winid)
 			vim.schedule(function()
 				vim.cmd("redrawstatus")
@@ -145,7 +162,13 @@ function M.setup(opts)
 
 	ensure_autocmds()
 
-	vim.o.winbar = "%!v:lua.require'beast.libs.breadcrumb'.render()"
+	-- Set winbar per-window (not globally) so ignored windows stay clean
+	for _, win in ipairs(vim.api.nvim_list_wins()) do
+		local buf = vim.api.nvim_win_get_buf(win)
+		if not is_ignored(buf) then
+			vim.wo[win].winbar = WINBAR_EXPR
+		end
+	end
 end
 
 ---Mark cache as dirty for all windows (for benchmarking and external invalidation).
