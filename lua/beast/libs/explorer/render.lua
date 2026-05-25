@@ -8,6 +8,27 @@ local styles = {
 	classic = { indent = "  ", vertical = "│ ", branch = "│ ", last_branch = "└╴" },
 }
 
+-- Badge character → highlight group for name coloring and virt_text.
+local GIT_HL = {
+	C = "BeastExplorerGitConflict",
+	M = "BeastExplorerGitModified",
+	R = "BeastExplorerGitRenamed",
+	D = "BeastExplorerGitDeleted",
+	A = "BeastExplorerGitAdded",
+	U = "BeastExplorerGitUntracked",
+	["!"] = "BeastExplorerGitIgnored",
+}
+
+--- Resolve the highlight group for a git badge character.
+--- Returns nil when the badge is nil or unrecognized.
+---@param badge? string
+---@return string?
+function M.git_hl(badge)
+	-- stylua: ignore
+	if not badge then return nil end
+	return GIT_HL[badge]
+end
+
 --- Build the tree-line prefix for `node`.
 ---
 --- Depth-0 nodes (direct children of root) get no connector — they sit
@@ -85,10 +106,11 @@ end
 --- Build the lines and highlight specs for the current tree state.
 --- Line 1 is always the root header; nodes occupy lines 2..N.
 ---@param nodes Beast.Explorer.Node[]
----@return string[], {line:integer,col_s:integer,col_e:integer,group:string}[]
+---@return string[], {line:integer,col_s:integer,col_e:integer,group:string}[], {line:integer,text:string,hl:string}[]
 function M.build(nodes)
 	local lines = {} ---@type string[]
 	local hls = {} ---@type {line:integer,col_s:integer,col_e:integer,group:string}[]
+	local badges = {} ---@type {line:integer,text:string,hl:string}[]
 
 	-- Root header: " UPPERCASE-BASENAME" — no icon, plain text, visually distinct
 	local root_name = string.upper(vim.fn.fnamemodify(state.tree.root.path, ":t"))
@@ -141,7 +163,23 @@ function M.build(nodes)
 		-- File name
 		if not node.dir then
 			local name_s = #prefix + #icon_str + 1 -- +1 for the space after icon
-			hls[#hls + 1] = { line = line_idx, col_s = name_s, col_e = name_s + #node.name, group = "BeastExplorerFile" }
+			local name_hl = "BeastExplorerFile"
+			-- Git status overrides the default file color
+			if node.git_status and GIT_HL[node.git_status] then
+				name_hl = GIT_HL[node.git_status]
+			end
+			hls[#hls + 1] = { line = line_idx, col_s = name_s, col_e = name_s + #node.name, group = name_hl }
+		else
+			-- Directory name: override with propagated git status color
+			if node.git_status and GIT_HL[node.git_status] then
+				local name_s = #prefix + #icon_str + 1
+				hls[#hls + 1] = { line = line_idx, col_s = name_s, col_e = name_s + #node.name, group = GIT_HL[node.git_status] }
+			end
+		end
+
+		-- Git badge (right-aligned virt_text) — only on files, not directories
+		if node.git_status and GIT_HL[node.git_status] and not node.dir then
+			badges[#badges + 1] = { line = line_idx, text = node.git_status, hl = GIT_HL[node.git_status] }
 		end
 		-- Dim hidden files/dirs
 		if node.hidden then
@@ -156,13 +194,14 @@ function M.build(nodes)
 		end
 	end
 
-	return lines, hls
+	return lines, hls, badges
 end
 
 --- Write lines and highlights atomically to the explorer buffer.
 ---@param lines string[]
 ---@param hls {line:integer,col_s:integer,col_e:integer,group:string}[]
-function M.write(lines, hls)
+---@param badges? {line:integer,text:string,hl:string}[]
+function M.write(lines, hls, badges)
 	-- Write lines + highlights atomically; ignore errors from a race-closed window
 	pcall(function()
 		vim.bo[state.view.buf].modifiable = true
@@ -175,6 +214,16 @@ function M.write(lines, hls)
 				end_col = h.col_e,
 				hl_group = h.group,
 			})
+		end
+
+		-- Git status badges as right-aligned virtual text
+		if badges then
+			for _, b in ipairs(badges) do
+				pcall(vim.api.nvim_buf_set_extmark, state.view.buf, state.view.ns, b.line, 0, {
+					virt_text = { { b.text, b.hl } },
+					virt_text_pos = "right_align",
+				})
+			end
 		end
 	end)
 end

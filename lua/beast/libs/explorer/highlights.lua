@@ -24,6 +24,9 @@ Util.colors.set_hl("BeastExplorer", {
 	GitModified = { fg = p.accent2 },
 	GitDeleted = { fg = p.accent1 },
 	GitUntracked = { fg = p.accent6 },
+	GitConflict = { fg = p.accent1, bold = true },
+	GitRenamed = { fg = p.accent2 },
+	GitIgnored = { fg = p.dimmed3 },
 
 	-- Sticky ancestor headers (float overlay)
 	StickyBg = { fg = p.dimmed1, bg = Util.colors.darken(p.dark1, 3) },
