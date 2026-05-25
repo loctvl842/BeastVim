@@ -8,6 +8,8 @@ local M = {}
 ---@field packer? Beast.Packer.Config
 ---@field treesitter? Beast.Treesitter.Config
 ---@field finder? Beast.Finder.Config
+---@field indent? Beast.Indent.Config
+---@field breadcrumb? Beast.Breadcrumb.Config
 local defaults = {
 	key = {},
 	notify = {},
@@ -89,6 +91,15 @@ function M.setup(opts)
 		right = { cpn.git_commit, cpn.position, cpn.filetype, cpn.shiftwidth, cpn.encoding, cpn.mode },
 	})
 
+	-- Breadcrumb / winbar (lazy — deferred past first screen update)
+	packer.lazy("beast.libs.breadcrumb", {
+		event = "BufEnter",
+		defer = true,
+		setup = function(breadcrumb)
+			breadcrumb.setup(cfg.breadcrumb or {})
+		end,
+	})
+
 	-- Tabline (lazy — deferred past first screen update)
 	packer.lazy("beast.libs.tabline", {
 		event = "VimEnter",
@@ -148,6 +159,15 @@ function M.setup(opts)
 			-- if vim.fn.argc() == 0 and vim.api.nvim_buf_get_name(0) == "" then
 			-- 	explorer.open()
 			-- end
+		end,
+	})
+
+	-- Indent scope indicator (lazy — activate on first buffer with content)
+	packer.lazy("beast.libs.indent", {
+		event = "BufReadPost",
+		defer = true,
+		setup = function(indent)
+			indent.setup(cfg.indent or {})
 		end,
 	})
 
@@ -233,9 +253,10 @@ M.highlight_modules = {
 	"beast.libs.notify.highlights",
 	"beast.libs.packer.highlights",
 	"beast.libs.statusline.highlights",
+	"beast.libs.breadcrumb.highlights",
 	"beast.libs.tabline.highlights",
-  "beast.libs.toast.highlights",
-  "beast.libs.treesitter.highlights",
+	"beast.libs.toast.highlights",
+	"beast.libs.indent.highlights",
 }
 
 --- Highlight modules that are only needed for builtin colorschemes
