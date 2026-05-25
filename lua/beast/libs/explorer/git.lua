@@ -205,7 +205,7 @@ local DEBOUNCE_MS = 200
 ---@param on_done? fun()  Called after statuses are applied and propagated
 function M.refresh(on_done)
 	-- Gate: git must be enabled
-	if not config.git or (type(config.git) == "table" and not config.git.enable) then
+	if not config.git or not config.git.enable then
 		-- stylua: ignore
 		if on_done then on_done() end
 		return

@@ -5,7 +5,10 @@ local defaults = {
 	side = "left",
 	show_hidden = false,
 	icons = true,
-	git = true,
+	git = {
+		enable = true, -- Enable git status integration
+		badges = true, -- Show git status badges (right-aligned letters)
+	},
 	padding = 1, -- Left padding for whole explorer (in spaces).
 	-- Sticky ancestor headers: float at the top of the explorer that pins
 	-- the parent directories of the topmost visible node when they scroll
@@ -69,9 +72,19 @@ function methods.file_icon(name)
 	return cfg.icon.file, nil
 end
 
+--- Normalize `git = true/false` (boolean shorthand) into the canonical table form.
+---@param opts table
+local function normalize_git(opts)
+	if type(opts.git) == "boolean" then
+		opts.git = { enable = opts.git, badges = opts.git }
+	end
+end
+
 ---@param opts? Beast.Explorer.Config
 function methods.setup(opts)
-	cfg = vim.tbl_deep_extend("force", vim.deepcopy(defaults), opts or {})
+	opts = opts or {}
+	normalize_git(opts)
+	cfg = vim.tbl_deep_extend("force", vim.deepcopy(defaults), opts)
 end
 
 local M = setmetatable({}, {
