@@ -1,4 +1,4 @@
-<!-- Generated: 2026-05-17 | Files scanned: 154 | Token estimate: ~2150 -->
+<!-- Generated: 2025-07-26 | Files scanned: 166 | Token estimate: ~2500 -->
 
 # Libraries
 
@@ -7,17 +7,18 @@
 ```
 explorer/
 ├── init.lua       ← open/close/toggle, setup, replace_netrw
-├── config.lua     ← style, width, side, icons, sticky, mappings
-├── state.lua      ← tree, view, sticky, source_win, augroup, watchers
+├── config.lua     ← style, width, side, icons, git, sticky, mappings
+├── state.lua      ← tree, view, sticky, source_win, augroup, watchers, git_root/job/timer
 ├── tree.lua       ← filesystem tree with flat cache, unwatch_subtree()
-├── ui.lua         ← create split window, focus_path, render
-├── render.lua     ← draw tree nodes to buffer
+├── git.lua        ← async git status engine (vim.system, porcelain v1, propagation)
+├── ui.lua         ← create split window, focus_path, render, flush
+├── render.lua     ← draw tree nodes to buffer (git name colors + virt_text badges)
 ├── watch.lua      ← fs_event watchers per expanded dir, 100ms debounce
-├── sticky.lua     ← floating ancestor headers (cursor-anchored)
+├── sticky.lua     ← floating ancestor headers (cursor-anchored, git colors)
 ├── prompt.lua     ← inline input prompt (create/rename)
 ├── keymaps.lua    ← mount action keymaps
-├── autocmds.lua   ← BufEnter/WinClosed/WinScrolled/CursorMoved/BufWritePost/FocusGained
-├── highlights.lua ← BeastExplorer* groups
+├── autocmds.lua   ← BufEnter/WinClosed/WinScrolled/CursorMoved/BufWritePost/FocusGained + git refresh
+├── highlights.lua ← BeastExplorer* groups (incl. Git{Added,Modified,Deleted,Untracked,Conflict,Renamed,Ignored})
 └── actions/       ← one file per action
     ├── open.lua, create.lua, delete.lua, rename.lua
     ├── set_root.lua, navigate_up.lua, show_hidden.lua
@@ -26,7 +27,14 @@ explorer/
 ```
 
 API: `explorer.open(dir)`, `explorer.close()`, `explorer.toggle(cwd)`
+Config: `git = { enable = true, badges = true }` (backward-compat: `git = true/false`)
 Loaded via: `packer.lazy()` on VimEnter (deferred) + `<leader>e` keymap
+
+### Git Status Integration (`git.lua`)
+
+Async `git status --porcelain=v1 --ignored` via `vim.system`. Parses output,
+stamps `node.git_status` on tree nodes, propagates to parent dirs (highest-priority
+child wins). Debounced refresh on BufWritePost + FocusGained. Badges: M, A, D, U, R, C, !.
 
 ### Sticky ancestor headers (`sticky.lua`)
 
@@ -45,12 +53,20 @@ finder/
 ├── query.lua      ← Query class: layout, source loading, batch flush, rematch
 ├── filter.lua     ← Filter class: pattern + cwd state
 ├── matcher.lua    ← fuzzy matching (smartcase, scoring, positions)
+├── score.lua      ← scoring algorithm (bonus tables, gap penalties)
+├── topk.lua       ← top-K min-heap for fast ranking
+├── queue.lua      ← priority queue helper
 ├── format.lua     ← per-source display formatters (filename, live_grep, help_tags, …)
 ├── match_hl.lua   ← fuzzy match highlight extmarks (list + preview)
 ├── action.lua     ← open, open_help, open_split, open_vsplit, copy_path
 ├── keymaps.lua    ← input/list/preview pane keymaps + printable-char redirect
 ├── autocmds.lua   ← picker lifetime autocmds (BufEnter, WinClosed)
 ├── highlights.lua ← BeastFinder* groups
+├── layout.lua     ← window layout calculations
+├── fzf.lua        ← external fzf integration
+├── pipeline/
+│   ├── match.lua  ← streaming match pipeline
+│   └── stream.lua ← async stream processing
 ├── source/
 │   ├── init.lua       ← lazy registry (__index → require source.<name>)
 │   ├── files.lua      ← async (fd/rg/find via uv.spawn)
@@ -241,3 +257,38 @@ statusline/
 
 API: `stl.setup({ left = {...}, right = {...} })` — components are tables.
 `util.file_bound(compute)` — caches per real-file buffer, persists on transient UI buffers.
+
+---
+
+## breadcrumb — Winbar Breadcrumb
+
+```
+breadcrumb/
+├── init.lua       ← render(), setup(), _invalidate()
+├── config.lua     ← separator, icons, depth limit
+├── context.lua    ← treesitter-based symbol context extraction
+├── filepath.lua   ← filepath segment builder
+└── highlights.lua ← BeastBreadcrumb* groups
+```
+
+API: `breadcrumb.render()` — returns winbar string (via `%!v:lua`)
+Loaded via: `packer.lazy()` on VimEnter (deferred, winbar)
+
+---
+
+## indent — Indent Guides & Scope Highlighting
+
+```
+indent/
+├── init.lua       ← setup(opts), decoration provider (on_win)
+├── config.lua     ← exclude_filetypes, colors, scope opts
+├── guide.lua      ← indent guide rendering (extmarks)
+├── highlights.lua ← BeastIndent* groups
+└── scope/
+    ├── init.lua       ← scope detection dispatch (treesitter or indent)
+    ├── indent.lua     ← indent-based scope detection
+    └── treesitter.lua ← treesitter-based scope detection
+```
+
+API: `indent.setup(opts)` — registers decoration provider
+Loaded via: `packer.lazy()` on VimEnter (deferred)
