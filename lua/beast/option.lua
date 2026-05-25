@@ -67,6 +67,7 @@ o.foldlevel         = 99
 o.foldmethod        = "indent"
 o.foldenable        = true
 o.foldcolumn        = "1"
+o.foldtext = ""
 o.fillchars = {
   foldopen = "",
   foldclose = "",
