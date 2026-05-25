@@ -11,6 +11,9 @@
 ---@field source_win integer|nil
 ---@field clipboard Beast.Explorer.Clipboard|nil
 ---@field watchers table<string, uv.uv_fs_event_t>
+---@field git_root string|nil
+---@field git_job vim.SystemObj|nil
+---@field git_timer uv.uv_timer_t|nil
 local M = {
 	tree = nil,
 	view = nil,
@@ -20,6 +23,9 @@ local M = {
 	source_win = nil,
 	clipboard = nil,
 	watchers = {},
+	git_root = nil,
+	git_job = nil,
+	git_timer = nil,
 }
 
 -- ================================
@@ -56,6 +62,9 @@ function M.reset()
 	M.sticky = nil
 	M.augroup = nil
 	M.watchers = {}
+	M.git_root = nil
+	M.git_job = nil
+	M.git_timer = nil
 end
 
 return M
