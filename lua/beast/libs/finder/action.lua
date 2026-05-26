@@ -24,7 +24,7 @@ function M.open_help(query, item)
 	if item.is_readme then
 		vim.cmd("botright vsplit " .. vim.fn.fnameescape(item.file))
 	else
-		vim.cmd("botright vertical help " .. vim.fn.fnameescape(item.help_tag))
+		vim.cmd({ cmd = "help", args = { item.help_tag }, mods = { vertical = true, split = "botright" } })
 	end
 	if item.pos then
 		pcall(vim.api.nvim_win_set_cursor, 0, { math.max(1, item.pos[1]), item.pos[2] or 0 })
