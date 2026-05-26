@@ -58,8 +58,13 @@ function M.open(dir)
   -- stylua: ignore
   local on_done = has_file and function() ui.focus_path(file) end or nil
 	ui.render(on_done)
+	-- Force full git refresh on open so badges always appear.
+	-- Without this, a stale cache from a previous close→reopen cycle
+	-- would skip apply/propagate and leave new tree nodes badge-less.
+	state.git_output_cache = nil
 	git.refresh(function()
 		ui.flush()
+		sticky.refresh()
 	end)
 end
 

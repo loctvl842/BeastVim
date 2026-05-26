@@ -14,6 +14,8 @@
 ---@field git_root string|nil
 ---@field git_job vim.SystemObj|nil
 ---@field git_timer uv.uv_timer_t|nil
+---@field git_output_cache string|nil  -- cached porcelain output for change detection
+---@field git_statuses table<string, string>|nil  -- parsed abs_path → badge, kept for re-apply after tree expand
 local M = {
 	tree = nil,
 	view = nil,
@@ -26,6 +28,8 @@ local M = {
 	git_root = nil,
 	git_job = nil,
 	git_timer = nil,
+	git_output_cache = nil,
+	git_statuses = nil,
 }
 
 -- ================================
@@ -65,6 +69,8 @@ function M.reset()
 	M.git_root = nil
 	M.git_job = nil
 	M.git_timer = nil
+	M.git_output_cache = nil
+	M.git_statuses = nil
 end
 
 return M

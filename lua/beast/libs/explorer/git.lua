@@ -114,6 +114,8 @@ function M.clear()
 		node.git_status = nil
 	end
 	state.git_root = nil
+	state.git_output_cache = nil
+	state.git_statuses = nil
 end
 
 --- Clear only the git_status field on every node (without touching git_root).
@@ -127,7 +129,10 @@ local function clear_statuses()
 end
 
 --- Apply parsed git statuses to tree nodes.
---- Only touches nodes that exist in the tree; missing paths are skipped.
+--- When a file's node doesn't exist in the tree (its parent directory is
+--- collapsed), walk up the path components to find the nearest ancestor
+--- node and stamp the badge on it — this makes collapsed directories show
+--- the highest-priority badge of their hidden children, matching VS Code.
 ---@param statuses table<string, string>  abs_path → badge
 function M.apply(statuses)
 	-- stylua: ignore
@@ -139,7 +144,27 @@ function M.apply(statuses)
 		local node = state.tree.nodes[abs_path]
 		if node then
 			node.git_status = badge
+		else
+			-- File not in tree — bubble badge to nearest existing ancestor
+			-- stylua: ignore
+			if not PRIORITY[badge] then goto continue end
+			local dir = vim.fn.fnamemodify(abs_path, ":h")
+			while dir and #dir > 0 do
+				local ancestor = state.tree.nodes[dir]
+				if ancestor then
+					local existing = ancestor.git_status
+					if not existing or not PRIORITY[existing] or PRIORITY[badge] < PRIORITY[existing] then
+						ancestor.git_status = badge
+					end
+					break
+				end
+				local parent = vim.fn.fnamemodify(dir, ":h")
+				-- stylua: ignore
+				if parent == dir then break end
+				dir = parent
+			end
 		end
+		::continue::
 	end
 end
 
@@ -245,12 +270,23 @@ function M.refresh(on_done)
 
 			if result.code ~= 0 then
 				M.clear()
+				state.git_output_cache = nil
 					-- stylua: ignore
 					if on_done then on_done() end
 				return
 			end
 
-			local statuses = M.parse(result.stdout or "", git_root)
+			local output = result.stdout or ""
+			-- Cache: skip parse+apply+propagate when output hasn't changed
+			if output == state.git_output_cache then
+				-- stylua: ignore
+				if on_done then on_done() end
+				return
+			end
+			state.git_output_cache = output
+
+			local statuses = M.parse(output, git_root)
+			state.git_statuses = statuses
 			M.apply(statuses)
 			M.propagate()
 
