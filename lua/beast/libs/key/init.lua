@@ -15,6 +15,9 @@ function M.setup(opts)
 	require("beast.libs.key.builtin")
 	require("beast.libs.key.highlights")
 	config.setup(opts)
+	for _, spec in ipairs(config.mappings or {}) do
+		M.safe_set(spec.mode or "n", spec[1], spec[2], spec)
+	end
 end
 
 return M

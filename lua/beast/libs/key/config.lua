@@ -6,7 +6,9 @@
 ---@field on_press string
 
 ---@class Beast.Key.Config
+---@field mappings? (Beast.KeymapSpec|Beast.KeymapSpec[]|string|string[])[]
 local defaults = {
+	mappings = {},
 	ui = {
 		width = 0.7,
 		height = 0.7,
