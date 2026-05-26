@@ -79,6 +79,7 @@ local M = setmetatable({}, {
 })
 M.__index = M
 
+local state = require("beast.libs.explorer.state")
 local watch = require("beast.libs.explorer.watch")
 
 local uv = vim.uv or vim.loop
@@ -112,6 +113,11 @@ end
 ---@param name string
 ---@param ftype "file"|"directory"|"link"|"unknown"|string
 ---@return Beast.Explorer.Node
+-- Badge priority for git propagation (lower = higher priority).
+local GIT_PRIORITY = {
+	C = 1, M = 2, R = 3, D = 4, A = 5, U = 6,
+}
+
 function M:ensure_child(parent, name, ftype)
 	local existing_path = parent.children[name]
 	if existing_path then
@@ -123,6 +129,28 @@ function M:ensure_child(parent, name, ftype)
 
 	local path = parent.path .. "/" .. name
 	local node = Node(path, name, ftype, parent)
+
+	-- Stamp git status from the cached statuses map (if available)
+	if state.git_statuses then
+		local direct = state.git_statuses[path]
+		if direct then
+			node.git_status = direct
+		elseif node.dir then
+			-- Directory: find the highest-priority badge among descendants
+			local prefix = path .. "/"
+			local best = nil
+			for abs_path, badge in pairs(state.git_statuses) do
+				if abs_path:sub(1, #prefix) == prefix and GIT_PRIORITY[badge] then
+					if not best or GIT_PRIORITY[badge] < GIT_PRIORITY[best] then
+						best = badge
+					end
+				end
+			end
+			if best then
+				node.git_status = best
+			end
+		end
+	end
 
 	parent.children[name] = path
 	self.nodes[path] = node
@@ -245,10 +273,6 @@ function M:unwatch_subtree(node)
 		node.expanded = false
 		watch.unwatch(node.path)
 		changed = true
-	end
-
-	if node.git_status ~= nil then
-		node.git_status = nil
 	end
 
 	return changed
