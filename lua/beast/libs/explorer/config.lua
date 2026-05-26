@@ -10,6 +10,7 @@ local defaults = {
 		badges = true, -- Show git status badges (right-aligned letters)
 	},
 	padding = 1, -- Left padding for whole explorer (in spaces).
+	padding_right = 1, -- Right padding for badges / virtual text (in spaces).
 	-- Sticky ancestor headers: float at the top of the explorer that pins
 	-- the parent directories of the topmost visible node when they scroll
 	-- out of view. Set false to disable entirely.

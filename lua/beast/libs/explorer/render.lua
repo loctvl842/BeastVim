@@ -219,9 +219,10 @@ function M.write(lines, hls, badges)
 
 		-- Git status badges as right-aligned virtual text
 		if badges then
+			local rpad = string.rep(" ", config.padding_right or 0)
 			for _, b in ipairs(badges) do
 				pcall(vim.api.nvim_buf_set_extmark, state.view.buf, state.view.ns, b.line, 0, {
-					virt_text = { { b.text, b.hl } },
+					virt_text = { { b.text .. rpad, b.hl } },
 					virt_text_pos = "right_align",
 				})
 			end
