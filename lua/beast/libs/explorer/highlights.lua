@@ -21,12 +21,12 @@ Util.colors.set_hl("BeastExplorer", {
 
 	-- Git status
 	GitAdded = { fg = p.accent4 },
-	GitModified = { fg = p.accent2 },
+	GitModified = { fg = p.accent3 },
 	GitDeleted = { fg = p.accent1 },
-	GitUntracked = { fg = p.accent6 },
-	GitConflict = { fg = p.accent1, bold = true },
-	GitRenamed = { fg = p.accent2 },
-	GitIgnored = { fg = p.dimmed3 },
+	GitUntracked = { fg = p.dimmed1 },
+	GitConflict = { fg = p.accent2 },
+	GitRenamed = { fg = p.accent3 },
+	GitIgnored = { fg = p.dimmed4 },
 
 	-- Sticky ancestor headers (float overlay)
 	StickyBg = { fg = p.dimmed1, bg = Util.colors.darken(p.dark1, 3) },

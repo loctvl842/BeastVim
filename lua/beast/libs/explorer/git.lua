@@ -7,7 +7,6 @@
 --- Other modules read `node.git_status` during rendering — this module never
 --- touches highlights or extmarks directly.
 
-local config = require("beast.libs.explorer.config")
 local state = require("beast.libs.explorer.state")
 
 local M = {}
@@ -229,16 +228,10 @@ local DEBOUNCE_MS = 200
 --- Cancels any in-flight job, runs `git status`, applies results, then calls on_done.
 ---@param on_done? fun()  Called after statuses are applied and propagated
 function M.refresh(on_done)
-	-- Gate: git must be enabled
-	if not config.git or not config.git.enable then
-		-- stylua: ignore
-		if on_done then on_done() end
-		return
-	end
-
-	-- stylua: ignore
 	if not state.tree or not state.view or not state.view:is_valid() then
-		if on_done then on_done() end
+		if on_done then
+			on_done()
+		end
 		return
 	end
 

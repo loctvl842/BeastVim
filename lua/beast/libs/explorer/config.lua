@@ -5,10 +5,6 @@ local defaults = {
 	side = "left",
 	show_hidden = false,
 	icons = true,
-	git = {
-		enable = true, -- Enable git status integration
-		badges = true, -- Show git status badges (right-aligned letters)
-	},
 	padding = 1, -- Left padding for whole explorer (in spaces).
 	padding_right = 1, -- Right padding for badges / virtual text (in spaces).
 	-- Sticky ancestor headers: float at the top of the explorer that pins
@@ -19,16 +15,20 @@ local defaults = {
 		dir_open = "", --  "󰝰", -- nf-md-folder_open
 		dir_closed = "", -- "󰉋", -- nf-md-folder
 		file = "󰈙", -- fallback when devicons has no match
-	},
-	icon_git = {
-		["M "] = { "●", "DiagnosticOk" }, -- staged
-		[" M"] = { "●", "DiagnosticWarn" }, -- unstaged
-		["MM"] = { "●", "DiagnosticWarn" }, -- staged + unstaged
-		["A "] = { "●", "DiagnosticOk" }, -- added
-		["??"] = { "?", "DiagnosticHint" }, -- untracked
-		["!!"] = { "", "Comment" }, -- ignored
-		[" D"] = { "✗", "DiagnosticError" }, -- deleted (unstaged)
-		["D "] = { "✗", "DiagnosticError" }, -- deleted (staged)
+		-- Per-status glyph for the right-aligned git badge.
+		-- Behavior:
+		--   * Empty string ("") hides the badge for that status; name coloring still applies.
+		--   * Unset keys fall through to defaults via tbl_deep_extend.
+		--   * Highlight groups (BeastExplorerGit*) are unchanged; only the glyph is configurable.
+		git = {
+			conflict = "C",
+			modified = "M",
+			renamed = "R",
+			deleted = "D",
+			added = "A",
+			untracked = "U",
+			ignored = "!",
+		},
 	},
 	mappings = {
 		["<CR>"] = "open",
@@ -73,18 +73,9 @@ function methods.file_icon(name)
 	return cfg.icon.file, nil
 end
 
---- Normalize `git = true/false` (boolean shorthand) into the canonical table form.
----@param opts table
-local function normalize_git(opts)
-	if type(opts.git) == "boolean" then
-		opts.git = { enable = opts.git, badges = opts.git }
-	end
-end
-
 ---@param opts? Beast.Explorer.Config
 function methods.setup(opts)
 	opts = opts or {}
-	normalize_git(opts)
 	cfg = vim.tbl_deep_extend("force", vim.deepcopy(defaults), opts)
 end
 

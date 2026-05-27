@@ -109,15 +109,21 @@ local function remove_subtree(tree, path)
 	tree.nodes[path] = nil
 end
 
+-- Badge priority for git propagation (lower = higher priority).
+local GIT_PRIORITY = {
+	C = 1, -- conflict
+	M = 2, -- modified
+	R = 3, -- renamed
+	D = 4, -- deleted
+	A = 5, -- added
+	U = 6, -- untracked
+	-- "!" (ignored) intentionally omitted — it does NOT propagate
+}
+
 ---@param parent Beast.Explorer.Node
 ---@param name string
 ---@param ftype "file"|"directory"|"link"|"unknown"|string
 ---@return Beast.Explorer.Node
--- Badge priority for git propagation (lower = higher priority).
-local GIT_PRIORITY = {
-	C = 1, M = 2, R = 3, D = 4, A = 5, U = 6,
-}
-
 function M:ensure_child(parent, name, ftype)
 	local existing_path = parent.children[name]
 	if existing_path then
