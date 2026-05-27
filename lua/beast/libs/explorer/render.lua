@@ -19,6 +19,36 @@ local GIT_HL = {
 	["!"] = "BeastExplorerGitIgnored",
 }
 
+-- Badge character → semantic key for looking up the user-configurable glyph.
+local GIT_ICON_KEY = {
+	C = "conflict",
+	M = "modified",
+	R = "renamed",
+	D = "deleted",
+	A = "added",
+	U = "untracked",
+	["!"] = "ignored",
+}
+
+--- Resolve the user-configured icon for a git badge.
+--- Returns nil when the badge is nil/unknown or the user mapped it to an
+--- empty string (= "hide this badge").
+---@param badge? string
+---@return string?
+local function git_icon(badge)
+	-- stylua: ignore
+	if not badge then return nil end
+	local key = GIT_ICON_KEY[badge]
+	-- stylua: ignore
+	if not key then return nil end
+	local icons = config.icon and config.icon.git
+	local glyph = icons and icons[key]
+	if glyph == nil or glyph == "" then
+		return nil
+	end
+	return glyph
+end
+
 --- Resolve the highlight group for a git badge character.
 --- Returns nil when the badge is nil or unrecognized.
 ---@param badge? string
@@ -161,26 +191,28 @@ function M.build(nodes)
 		end
 
 		-- File name
-		local git_enable = config.git and config.git.enable
 		if not node.dir then
 			local name_s = #prefix + #icon_str + 1 -- +1 for the space after icon
 			local name_hl = "BeastExplorerFile"
 			-- Git status overrides the default file color
-			if git_enable and node.git_status and GIT_HL[node.git_status] then
+			if node.git_status and GIT_HL[node.git_status] then
 				name_hl = GIT_HL[node.git_status]
 			end
 			hls[#hls + 1] = { line = line_idx, col_s = name_s, col_e = name_s + #node.name, group = name_hl }
 		else
 			-- Directory name: override with propagated git status color
-			if git_enable and node.git_status and GIT_HL[node.git_status] then
+			if node.git_status and GIT_HL[node.git_status] then
 				local name_s = #prefix + #icon_str + 1
 				hls[#hls + 1] = { line = line_idx, col_s = name_s, col_e = name_s + #node.name, group = GIT_HL[node.git_status] }
 			end
 		end
 
 		-- Git badge (right-aligned virt_text) — only on files, not directories
-		if git_enable and config.git.badges and node.git_status and GIT_HL[node.git_status] and not node.dir then
-			badges[#badges + 1] = { line = line_idx, text = node.git_status, hl = GIT_HL[node.git_status] }
+		if node.git_status and GIT_HL[node.git_status] and not node.dir then
+			local glyph = git_icon(node.git_status)
+			if glyph then
+				badges[#badges + 1] = { line = line_idx, text = glyph, hl = GIT_HL[node.git_status] }
+			end
 		end
 		-- Dim hidden files/dirs
 		if node.hidden then
