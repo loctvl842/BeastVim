@@ -134,9 +134,16 @@ function M.check(win)
 	local profile = is_repeat and config.animate_repeat or config.animate
 	local easing = EASINGS[profile.easing] or EASINGS.linear
 
-	-- snap back to `current` so the user sees the animation play out from there
+	-- snap back to `current` so the user sees the animation play out from there.
+	-- Capture cursor screen rows at target (pre-snap) and current (post-snap) so the
+	-- tick can tween cursor screen position alongside topline — without this, <C-e>
+	-- shifts topline but the cursor's screen row drifts upward each step, making
+	-- <C-d>/<C-u> look like the cursor scrolls along with the content.
+	local move_to, move_from
 	vim.api.nvim_win_call(state.win, function()
+		move_to = vim.fn.winline()
 		vim.fn.winrestview(state.current)
+		move_from = vim.fn.winline()
 	end)
 
 	local scrolls = scroll_lines(state.win, state.current, state.target)
@@ -160,11 +167,19 @@ function M.check(win)
 		key = key,
 		easing = easing,
 		scrolled = 0,
+		move_from = move_from,
+		move_to = move_to,
 	}
 	local step_ms = math.max(1, profile.step_ms)
 
 	state.timer = assert(uv.new_timer())
-	state.timer:start(step_ms, step_ms, vim.schedule_wrap(function() M._tick(ctx) end))
+	state.timer:start(
+		step_ms,
+		step_ms,
+		vim.schedule_wrap(function()
+			M._tick(ctx)
+		end)
+	)
 end
 
 --- One animation tick. Extracted from M.check so the timer body stays small.
@@ -178,12 +193,24 @@ function M._tick(ctx)
 
 	local elapsed_ms = (uv.hrtime() - ctx.start_ns) / 1e6
 	local t = math.min(1, elapsed_ms / ctx.total_ms)
-	local target_scrolled = math.floor(ctx.scrolls * ctx.easing(t))
-	local delta = target_scrolled - ctx.scrolled
-	if delta > 0 then
+	local eased = ctx.easing(t)
+
+	local target_scrolled = math.floor(ctx.scrolls * eased)
+	local scroll_delta = target_scrolled - ctx.scrolled
+
+	-- tween cursor screen row alongside topline; `%dH` moves cursor to screen row N
+	local move_step = math.floor(math.abs(ctx.move_to - ctx.move_from) * eased)
+	local move_row = ctx.move_from + (ctx.move_to < ctx.move_from and -1 or 1) * move_step
+
+	if scroll_delta > 0 or move_step > 0 then
 		ctx.scrolled = target_scrolled
 		vim.api.nvim_win_call(state.win, function()
-			vim.cmd(("keepjumps normal! %d%s"):format(delta, ctx.key))
+			local parts = {}
+			if scroll_delta > 0 then
+				parts[#parts + 1] = ("%d%s"):format(scroll_delta, ctx.key)
+			end
+			parts[#parts + 1] = ("%dH"):format(math.max(1, move_row))
+			vim.cmd(("keepjumps normal! %s"):format(table.concat(parts)))
 		end)
 	end
 

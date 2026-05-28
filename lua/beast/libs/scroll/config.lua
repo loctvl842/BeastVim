@@ -21,7 +21,7 @@ local defaults = {
 		easing = "linear",
 	},
 	animate_repeat = {
-		delay_ms = 100,
+		delay_ms = 300,
 		step_ms = 5,
 		total_ms = 50,
 		easing = "linear",

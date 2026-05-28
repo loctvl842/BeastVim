@@ -69,19 +69,6 @@ map("n", "<A-o>", "<C-w>r", { desc = "Rotate windows", group = "Windows" })
 ------------------- Select all ---------------------------------
 map("n", "<C-a>", "gg<S-v>G", { desc = "Select all", group = "Edit" })
 
-------------------- Faster scrolling ---------------------------
-map(
-	{ "n", "i", "v" },
-	"<C-U>",
-	"<C-Y><C-Y><C-Y><C-Y><C-Y><C-Y><C-Y><C-Y><C-Y><C-Y><C-Y><C-Y><C-Y><C-Y><C-Y><C-Y>",
-	{ desc = "Scroll up (fast)", group = "Scroll" }
-)
-map(
-	{ "n", "i", "v" },
-	"<C-D>",
-	"<C-E><C-E><C-E><C-E><C-E><C-E><C-E><C-E><C-E><C-E><C-E><C-E><C-E><C-E><C-E><C-E>",
-	{ desc = "Scroll down (fast)", group = "Scroll" }
-)
 ----------------- HACK: Toggle pin scrolloff -------------------
 -- stylua: ignore
 map("n", "<leader>to", function() vim.opt.scrolloff = 999 - vim.o.scrolloff end, { desc = "Toggle pinned scrolloff", group = "Scroll" })
