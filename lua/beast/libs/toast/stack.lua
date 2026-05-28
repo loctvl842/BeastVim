@@ -24,9 +24,10 @@ end
 local function calc_rows(views)
 	local rows = {}
 	local cursor = base_row()
+	local height = 1 -- currently, all toasts are the same height (1)
 	for i = #views, 1, -1 do
 		rows[i] = cursor
-		cursor = cursor - (views[i].height or 1) - config.gap
+		cursor = cursor - height - config.gap
 	end
 	return rows
 end
@@ -94,7 +95,7 @@ end
 function M.remove(state, id)
 	local idx, view = state:find(id)
 	-- stylua: ignore
-	if not idx then return end
+	if not idx or not view then return end
 
 	ui.fade_out(view, function()
 		local cur_idx = state:find(id)
