@@ -1,12 +1,19 @@
 local p = Palette.get()
 
 -- Palette mapping (modeled after tokyonight):
---   accent1 (pink)  → magenta/red role: variable.builtin, constructor, string.escape
+--   accent1 (pink)   → magenta/red role: variable.builtin, constructor, string.escape, tags
 --   accent2 (yellow) → yellow role: variable.parameter, string.documentation, type
 --   accent3 (green)  → string role
---   accent4 (cyan)   → teal/green1 role: property, variable.member, markup.link
---   accent5 (blue)   → purple role: keywords
+--   accent4 (cyan)   → teal/green1 role: function, property, variable.member, markup.link
+--   accent5 (blue)   → purple/blue role: keywords, labels, modules, headings
 --   accent6 (cyan)   → constant/number role
+--
+-- NOTE: We intentionally avoid `link = "Constant"`, `link = "Boolean"`,
+-- `link = "Macro"`, `link = "Title"`, etc. Those base groups are unstyled
+-- (plain foreground) under Neovim's builtin `default` colorscheme, which would
+-- collapse most treesitter captures back to white text. Setting fg explicitly
+-- keeps highlights consistent across colorschemes (tokyonight-derived palette,
+-- monokai-pro, builtin default).
 
 Util.colors.set_hl("", {
 	-- Identifiers
@@ -17,46 +24,49 @@ Util.colors.set_hl("", {
 	["@variable.parameter.builtin"] = { fg = p.accent2, italic = true },
 
 	-- Constants
-	["@constant"] = { link = "Constant" },
-	["@constant.builtin"] = { link = "Special" },
-	["@constant.macro"] = { link = "Define" },
+	["@constant"] = { fg = p.accent6 },
+	["@constant.builtin"] = { fg = p.accent6, italic = true },
+	["@constant.macro"] = { fg = p.accent5 },
 
 	-- Modules & Labels
-	["@module"] = { link = "Include" },
+	["@module"] = { fg = p.accent5 },
 	["@module.builtin"] = { fg = p.accent1 },
 	["@namespace.builtin"] = { link = "@variable.builtin" },
 	["@label"] = { fg = p.accent5 },
 
 	-- Literals
-	["@string"] = { link = "String" },
+	["@string"] = { fg = p.accent3 },
 	["@string.documentation"] = { fg = p.accent2 },
 	["@string.escape"] = { fg = p.accent1 },
 	["@string.regexp"] = { fg = p.accent6 },
-	["@string.special"] = { link = "Special" },
-	["@character"] = { link = "Character" },
-	["@character.printf"] = { link = "SpecialChar" },
-	["@character.special"] = { link = "SpecialChar" },
-	["@boolean"] = { link = "Boolean" },
-	["@number"] = { link = "Number" },
-	["@number.float"] = { link = "Float" },
+	["@string.special"] = { fg = p.accent1 },
+	["@string.special.symbol"] = { fg = p.accent6 },
+	["@string.special.url"] = { fg = p.accent4, underline = true },
+	["@character"] = { fg = p.accent3 },
+	["@character.printf"] = { fg = p.accent1 },
+	["@character.special"] = { fg = p.accent1 },
+	["@boolean"] = { fg = p.accent6 },
+	["@number"] = { fg = p.accent6 },
+	["@number.float"] = { fg = p.accent6 },
 
 	-- Types
-	["@type"] = { link = "Type" },
-	["@type.builtin"] = { fg = p.accent5, italic = true },
-	["@type.definition"] = { link = "Typedef" },
+	["@type"] = { fg = p.accent2 },
+	["@type.builtin"] = { fg = p.accent2, italic = true },
+	["@type.definition"] = { fg = p.accent2 },
 	["@type.qualifier"] = { link = "@keyword" },
 
 	-- Attributes & Annotations
-	["@attribute"] = { link = "PreProc" },
-	["@annotation"] = { link = "PreProc" },
+	["@attribute"] = { fg = p.accent5, italic = true },
+	["@attribute.builtin"] = { fg = p.accent5, italic = true },
+	["@annotation"] = { fg = p.accent5, italic = true },
 	["@property"] = { fg = p.accent4 },
 
 	-- Functions
-	["@function"] = { link = "Function" },
-	["@function.builtin"] = { link = "Special" },
+	["@function"] = { fg = p.accent4 },
+	["@function.builtin"] = { fg = p.accent4, italic = true },
 	["@function.call"] = { link = "@function" },
-	["@function.macro"] = { link = "Macro" },
-	["@function.method"] = { link = "Function" },
+	["@function.macro"] = { fg = p.accent5 },
+	["@function.method"] = { link = "@function" },
 	["@function.method.call"] = { link = "@function.method" },
 	["@constructor"] = { fg = p.accent1 },
 
@@ -70,16 +80,16 @@ Util.colors.set_hl("", {
 	["@keyword.coroutine"] = { link = "@keyword" },
 	["@keyword.function"] = { fg = p.accent1, italic = true },
 	["@keyword.operator"] = { link = "@operator" },
-	["@keyword.import"] = { link = "Include" },
-	["@keyword.repeat"] = { link = "Repeat" },
+	["@keyword.import"] = { fg = p.accent5, italic = true },
+	["@keyword.repeat"] = { link = "@keyword" },
 	["@keyword.return"] = { link = "@keyword" },
-	["@keyword.debug"] = { link = "Debug" },
-	["@keyword.exception"] = { link = "Exception" },
-	["@keyword.conditional"] = { link = "Conditional" },
+	["@keyword.debug"] = { fg = p.accent1 },
+	["@keyword.exception"] = { link = "@keyword" },
+	["@keyword.conditional"] = { link = "@keyword" },
 	["@keyword.conditional.ternary"] = { link = "@operator" },
-	["@keyword.directive"] = { link = "PreProc" },
-	["@keyword.directive.define"] = { link = "Define" },
-	["@keyword.storage"] = { link = "StorageClass" },
+	["@keyword.directive"] = { fg = p.accent5, italic = true },
+	["@keyword.directive.define"] = { fg = p.accent5, italic = true },
+	["@keyword.storage"] = { fg = p.accent5, italic = true },
 	["@keyword.export"] = { link = "@keyword" },
 
 	-- Punctuation
@@ -104,16 +114,16 @@ Util.colors.set_hl("", {
 	["@markup.emphasis"] = { italic = true },
 	["@markup.strikethrough"] = { strikethrough = true },
 	["@markup.underline"] = { underline = true },
-	["@markup.heading"] = { link = "Title" },
+	["@markup.heading"] = { fg = p.accent5, bold = true },
 	["@markup.quote"] = { fg = p.text, italic = true },
-	["@markup.math"] = { link = "Special" },
-	["@markup.environment"] = { link = "Macro" },
-	["@markup.environment.name"] = { link = "Type" },
+	["@markup.math"] = { fg = p.accent1 },
+	["@markup.environment"] = { fg = p.accent5 },
+	["@markup.environment.name"] = { fg = p.accent2 },
 	["@markup.link"] = { fg = p.accent4 },
-	["@markup.link.label"] = { link = "SpecialChar" },
-	["@markup.link.label.symbol"] = { link = "Identifier" },
-	["@markup.link.url"] = { link = "Underlined" },
-	["@markup.raw"] = { link = "String" },
+	["@markup.link.label"] = { fg = p.accent1 },
+	["@markup.link.label.symbol"] = { fg = p.accent1 },
+	["@markup.link.url"] = { fg = p.accent4, underline = true },
+	["@markup.raw"] = { fg = p.accent3 },
 	["@markup.raw.markdown_inline"] = { fg = p.accent5, bg = p.dark1 },
 	["@markup.list"] = { fg = p.accent5 },
 	["@markup.list.checked"] = { fg = p.accent3 },
@@ -127,10 +137,10 @@ Util.colors.set_hl("", {
 	["@diff.delta"] = { link = "DiffChange" },
 
 	-- Tags (HTML/JSX)
-	["@tag"] = { link = "Label" },
-	["@tag.builtin"] = { link = "Label" },
+	["@tag"] = { fg = p.accent1 },
+	["@tag.builtin"] = { fg = p.accent1 },
 	["@tag.attribute"] = { link = "@property" },
-	["@tag.delimiter"] = { link = "Delimiter" },
+	["@tag.delimiter"] = { fg = p.dimmed2 },
 
 	-- Misc
 	["@conceal"] = { link = "Conceal" },
@@ -152,6 +162,11 @@ Util.colors.set_hl("", {
 
 	-- Language specific: Lua
 	["@constructor.lua"] = { link = "@punctuation.bracket" },
+
+	-- Language specific: TSX/JSX (mirror tokyonight: tag/constructor lean blue)
+	["@constructor.tsx"] = { fg = p.accent5 },
+	["@tag.tsx"] = { fg = p.accent1 },
+	["@tag.javascript"] = { fg = p.accent1 },
 
 	-- Language specific: Markdown
 	["@conceal.markdown"] = { fg = p.dimmed2 },
