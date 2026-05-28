@@ -13,6 +13,7 @@ local ui = require("beast.libs.confirm.ui")
 ---@field max_width? integer
 ---@field button_width? integer
 ---@field align? BeastConfirmAlign
+---@field description? string
 
 ---@type Beast.Confirm.Opts
 local global_opts = { min_width = 50, max_width = 60, button_width = 12, align = "center" }
@@ -76,7 +77,11 @@ local function run(msg, choices, default, type)
 
 	-- Headless/no-UI fallback: delegate to native vim.fn.confirm
 	if not vim.api.nvim_list_uis()[1] then
-		return vim.fn.confirm(parsed.msg, choices or "&OK", parsed.default, type)
+		local fallback_msg = parsed.msg
+		if parsed.opts.description and parsed.opts.description ~= "" then
+			fallback_msg = fallback_msg .. "\n\n" .. parsed.opts.description
+		end
+		return vim.fn.confirm(fallback_msg, choices or "&OK", parsed.default, type)
 	end
 
 	local view = ui.create(parsed)

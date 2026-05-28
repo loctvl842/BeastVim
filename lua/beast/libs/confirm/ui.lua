@@ -135,7 +135,8 @@ local function calc_main_geometry(parsed)
 	local max_width = opts.max_width or math.min(80, vim.o.columns - 4)
 
 	local title_width = display_width(parsed.msg)
-	local content_width = math.max(display_width(buttons_str), title_width)
+	local desc_width = parsed.opts.description and display_width(parsed.opts.description) or 0
+	local content_width = math.max(display_width(buttons_str), title_width, desc_width)
 	local width = math.min(math.max(content_width + 4, min_width), max_width)
 	local inner_width = width - 2
 
@@ -145,7 +146,12 @@ local function calc_main_geometry(parsed)
 	end
 
 	local msg_lines = wrap_text(parsed.msg, width - 2)
-	local height = #msg_lines + 2 -- message lines + blank + buttons
+	local desc_lines = {}
+	if parsed.opts.description and parsed.opts.description ~= "" then
+		desc_lines = wrap_text(parsed.opts.description, width - 2)
+	end
+	local total_msg_lines = #msg_lines + #desc_lines
+	local height = total_msg_lines + 2 -- message + blank + buttons
 
 	local row = math.floor((vim.o.lines - height) / 2)
 	local col = math.floor((vim.o.columns - width) / 2)
@@ -238,9 +244,20 @@ function M.render(main, selected)
 
 	local lines = {}
 	local msg_lines = wrap_text(parsed.msg, inner_width)
+	local desc_lines = {}
+	if opts.description and opts.description ~= "" then
+		desc_lines = wrap_text(opts.description, inner_width)
+	end
 
 	for _, text in ipairs(msg_lines) do
 		lines[#lines + 1] = align_line(text, inner_width, align)
+	end
+	local desc_start_row = nil
+	if #desc_lines > 0 then
+		desc_start_row = #lines -- 0-based row for first desc line
+		for _, text in ipairs(desc_lines) do
+			lines[#lines + 1] = align_line(text, inner_width, align)
+		end
 	end
 
 	lines[#lines + 1] = string.rep(" ", inner_width)
@@ -258,8 +275,20 @@ function M.render(main, selected)
 
 	vim.api.nvim_buf_clear_namespace(main.buf, main.ns, 0, -1)
 
+	-- Dim description lines
+	if desc_start_row then
+		for i = 0, #desc_lines - 1 do
+			local row = desc_start_row + i
+			vim.api.nvim_buf_set_extmark(main.buf, main.ns, row, 0, {
+				end_row = row,
+				end_col = #lines[row + 1],
+				hl_group = "BeastConfirmDescription",
+			})
+		end
+	end
+
 	-- Highlight each button
-	local btn_row = #msg_lines + 1
+	local btn_row = #msg_lines + #desc_lines + 1
 	local col_offset = button_col
 
 	for i, label in ipairs(labels) do
