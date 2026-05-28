@@ -33,6 +33,7 @@ local defaults = {
 	},
 	mappings = {
 		["<CR>"] = "open",
+		["<2-LeftMouse>"] = "open",
 		["s"] = "split_open",
 		["a"] = "create",
 		["d"] = "delete",
