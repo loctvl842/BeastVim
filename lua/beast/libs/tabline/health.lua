@@ -66,7 +66,15 @@ function M.check()
 		end
 
 		-- Test 3: public API helpers exist
-		local helpers = { "goto_buffer", "cycle_next", "cycle_prev", "move_next", "move_prev", "get_visible_buffers", "get_truncation_counts" }
+		local helpers = {
+			"goto_buffer",
+			"cycle_next",
+			"cycle_prev",
+			"move_next",
+			"move_prev",
+			"get_visible_buffers",
+			"get_truncation_counts",
+		}
 		local missing_helpers = {}
 		for _, name in ipairs(helpers) do
 			if type(tabline[name]) ~= "function" then
@@ -176,17 +184,21 @@ function M.check()
 			health.info(string.format("Cold bench: %.2f µs/render (mean of %d renders, invalidated each time)", cold_us, BENCH_RENDERS))
 
 			if cold_us > FAIL_THRESHOLD_US then
-				health.error(string.format(
-					"FAIL: %.2f µs/render exceeds hard threshold (%d µs). Run `nvim --headless -l scripts/bench-tabline.lua` for details.",
-					cold_us,
-					FAIL_THRESHOLD_US
-				))
+				health.error(
+					string.format(
+						"FAIL: %.2f µs/render exceeds hard threshold (%d µs). Run `nvim --headless -l scripts/bench-tabline.lua` for details.",
+						cold_us,
+						FAIL_THRESHOLD_US
+					)
+				)
 			elseif cold_us > WARN_THRESHOLD_US then
-				health.warn(string.format(
-					"%.2f µs/render exceeds soft target (%d µs) — investigate with `nvim --headless -l scripts/bench-tabline.lua`",
-					cold_us,
-					WARN_THRESHOLD_US
-				))
+				health.warn(
+					string.format(
+						"%.2f µs/render exceeds soft target (%d µs) — investigate with `nvim --headless -l scripts/bench-tabline.lua`",
+						cold_us,
+						WARN_THRESHOLD_US
+					)
+				)
 			else
 				health.ok(string.format("Cold render: %.2f µs — within budget", cold_us))
 			end

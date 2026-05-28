@@ -173,7 +173,12 @@ function M.run_visual()
 			title = title .. "\n   " .. node.name
 		end
 	end
-	confirm.set_opts({ align = #nodes_to_delete > 1 and "left" or "center", min_width = 50, max_width = 60, button_width = 12 })
+	confirm.set_opts({
+		align = #nodes_to_delete > 1 and "left" or "center",
+		min_width = 50,
+		max_width = 60,
+		button_width = 12,
+	})
 	local choice = confirm(title, "&Remove\n&Cancel", 2)
 	for _, node in ipairs(nodes_to_delete) do
 		on_confirm(choice, node)

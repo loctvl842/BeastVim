@@ -172,7 +172,7 @@ function M.setup(opts)
 	function _G.beast_tabline_toggle_bg(_, _, button, _)
 		if button == "l" then
 			vim.o.background = vim.o.background == "dark" and "light" or "dark"
-      local current_colorscheme = vim.g.colors_name or "default"
+			local current_colorscheme = vim.g.colors_name or "default"
 			vim.cmd.colorscheme(current_colorscheme)
 		end
 	end

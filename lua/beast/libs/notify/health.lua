@@ -155,11 +155,7 @@ function M.check()
 
 	-- Check terminal width is sufficient
 	if vim.o.columns < config.width + 4 then
-		health.warn(string.format(
-			"Terminal width (%d) < notify width (%d + borders) — notifications may clip",
-			vim.o.columns,
-			config.width
-		))
+		health.warn(string.format("Terminal width (%d) < notify width (%d + borders) — notifications may clip", vim.o.columns, config.width))
 	else
 		health.ok(string.format("Terminal width (%d) sufficient for notifications", vim.o.columns))
 	end

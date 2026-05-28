@@ -158,17 +158,21 @@ function M.check()
 		health.info(string.format("Thresholds: warn > %d µs, fail > %d µs", WARN_THRESHOLD_US, FAIL_THRESHOLD_US))
 
 		if us_per_render > FAIL_THRESHOLD_US then
-			health.error(string.format(
-				"FAIL: %.2f µs/render exceeds hard threshold (%d µs). Run `nvim --headless -l scripts/bench-statusline.lua` for details.",
-				us_per_render,
-				FAIL_THRESHOLD_US
-			))
+			health.error(
+				string.format(
+					"FAIL: %.2f µs/render exceeds hard threshold (%d µs). Run `nvim --headless -l scripts/bench-statusline.lua` for details.",
+					us_per_render,
+					FAIL_THRESHOLD_US
+				)
+			)
 		elseif us_per_render > WARN_THRESHOLD_US then
-			health.warn(string.format(
-				"%.2f µs/render exceeds soft target (%d µs) — investigate with `nvim --headless -l scripts/bench-statusline.lua`",
-				us_per_render,
-				WARN_THRESHOLD_US
-			))
+			health.warn(
+				string.format(
+					"%.2f µs/render exceeds soft target (%d µs) — investigate with `nvim --headless -l scripts/bench-statusline.lua`",
+					us_per_render,
+					WARN_THRESHOLD_US
+				)
+			)
 		else
 			health.ok(string.format("%.2f µs/render — within budget", us_per_render))
 		end

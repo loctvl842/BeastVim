@@ -314,7 +314,10 @@ local function format_reason(reason)
 	elseif t == "keys" then
 		return { text = prefix .. config.ui.icons.keys .. (d or "keys"), hl = "BeastPackerTriggerKeys" }
 	elseif t == "module" then
-		return { text = prefix .. config.ui.icons.module .. "require('" .. (d or "?") .. "')", hl = "BeastPackerTriggerModule" }
+		return {
+			text = prefix .. config.ui.icons.module .. "require('" .. (d or "?") .. "')",
+			hl = "BeastPackerTriggerModule",
+		}
 	elseif t == "filetype" then
 		return { text = prefix .. config.ui.icons.filetype .. (d or "filetype"), hl = "BeastPackerTriggerFiletype" }
 	elseif t == "path" then
@@ -356,7 +359,12 @@ function Main._render_main(main)
 				done_count = done_count + 1
 			end
 		end
-		table.insert(lines_segments, { { text = string.format("  Installing (%d/%d)   Sort: %s", done_count, #ops_list, sort_text), hl = "BeastPackerComment" } })
+		table.insert(lines_segments, {
+			{
+				text = string.format("  Installing (%d/%d)   Sort: %s", done_count, #ops_list, sort_text),
+				hl = "BeastPackerComment",
+			},
+		})
 		table.insert(lines_segments, { new_line })
 
 		-- Operations section
@@ -668,7 +676,10 @@ local function render_table_header(compact)
 	if compact then
 		return {
 			{ text = "    ", hl = nil },
-			{ text = string.format("%-26s%9s%9s%9s  %s", "NAME", "TOTAL", "PACKADD", "CONFIG", "REASON"), hl = "BeastPackerTableHeader" },
+			{
+				text = string.format("%-26s%9s%9s%9s  %s", "NAME", "TOTAL", "PACKADD", "CONFIG", "REASON"),
+				hl = "BeastPackerTableHeader",
+			},
 		}
 	end
 	return {
@@ -849,7 +860,10 @@ local function render_not_loaded(body_width)
 			elseif lazy.module then
 				trigger = { text = "  " .. config.ui.icons.module .. (first_of(lazy.module) or "?"), hl = "BeastPackerTriggerModule" }
 			elseif lazy.filetype then
-				trigger = { text = "  " .. config.ui.icons.filetype .. (first_of(lazy.filetype) or "ft"), hl = "BeastPackerTriggerFiletype" }
+				trigger = {
+					text = "  " .. config.ui.icons.filetype .. (first_of(lazy.filetype) or "ft"),
+					hl = "BeastPackerTriggerFiletype",
+				}
 			elseif lazy.path then
 				trigger = { text = "  " .. config.ui.icons.path .. (first_of(lazy.path) or "path"), hl = "BeastPackerTriggerPath" }
 			end
