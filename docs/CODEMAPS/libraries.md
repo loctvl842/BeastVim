@@ -1,4 +1,4 @@
-<!-- Generated: 2025-07-26 | Files scanned: 166 | Token estimate: ~2500 -->
+<!-- Generated: 2026-05-28 | Files scanned: 169 | Token estimate: ~2620 -->
 
 # Libraries
 
@@ -292,3 +292,29 @@ indent/
 
 API: `indent.setup(opts)` — registers decoration provider
 Loaded via: `packer.lazy()` on VimEnter (deferred)
+
+---
+
+## scroll — Smooth Viewport Scrolling
+
+```
+scroll/
+├── init.lua    ← setup/enable/disable/toggle, autocmds, M.check (hot path), M._tick (timer)
+├── config.lua  ← animate + animate_repeat profiles, filter
+└── state.lua   ← Beast.Scroll.State class (per-window: view/current/target, timer, _wo)
+```
+
+API: `scroll.setup(opts)`, `scroll.enable()`, `scroll.disable()`, `scroll.toggle()`,
+`scroll.is_enabled()`. Per-buffer opt-out: `vim.b[buf].beast_scroll_disabled = true`.
+Per-session opt-out: `vim.g.beast_scroll_disabled = true`.
+
+### Algorithm
+
+`WinScrolled` → per-winid `State.get` → snap view back to `current` via `winrestview`
+→ tween toward `target` with `vim.uv.new_timer()` issuing micro `<C-e>` / `<C-y>`
+batches. Two profiles: `animate` (200 ms total, 10 ms step) and `animate_repeat`
+(50 ms total, 5 ms step, used when a new scroll starts within 100 ms of the previous
+— keeps held `j`/`k` smooth without backlog). Mouse wheel detected via `vim.on_key`
+and skipped (terminal handles it). Folds accounted for via `nvim_win_text_height`.
+
+Ports the design of `snacks.nvim`'s `snacks.scroll` natively — no plugin dependency.
