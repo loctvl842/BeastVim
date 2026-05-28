@@ -10,6 +10,7 @@ local M = {}
 ---@field finder? Beast.Finder.Config
 ---@field indent? Beast.Indent.Config
 ---@field breadcrumb? Beast.Breadcrumb.Config
+---@field scroll? Beast.Scroll.Config
 local defaults = {
 	key = {},
 	notify = {},
@@ -223,7 +224,14 @@ function M.setup(opts)
 		},
 	})
 
-	require("beast.libs.scroll").setup()
+	-- Smooth viewport scrolling (lazy — activate after first buffer read)
+	packer.lazy("beast.libs.scroll", {
+		event = "BufReadPost",
+		defer = true,
+		setup = function(scroll)
+			scroll.setup(cfg.scroll or {})
+		end,
+	})
 
 	-- Initial palette extraction (colorscheme should be loaded by packer)
 	Palette.refresh()
