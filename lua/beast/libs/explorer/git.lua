@@ -27,6 +27,17 @@ function M.invalidate_cache()
 	git_output_cache = nil
 end
 
+---@alias Beast.Explorer.GitStatusKind
+---              ┌ When                                          ┌ Source
+---| "conflict"  │ Merge in progress, this path needs resolution │ v2 record type u (any XY: UU/AA/DU/UD/…)
+---| "deleted"   │ File removed                                  │ XY contains D (D., .D, MD, AD)
+---| "added"     │ New file tracked by git                       │ XY contains A (A., AM, AD)
+---| "renamed"   │ Path moved via git mv or detected rename      │ v2 type 2 with R
+---| "copied"    │ New file detected as copy of another          │ v2 type 2 with C
+---| "modified"  │ Content changed                               │ XY contains M (M., .M, MM)
+---| "untracked" │ File not in index                             │ v2 record type ?
+---| "ignored"   │ Excluded by .gitignore/exclude rules          │ v2 record type !
+
 -- Kind priority (lower = higher priority).
 -- Used by build_dir_status() to pick the "most urgent" descendant kind.
 local KIND_PRIORITY = {
@@ -39,6 +50,15 @@ local KIND_PRIORITY = {
 	untracked = 7,
 	-- "ignored" intentionally omitted — it does NOT propagate
 }
+
+---@alias Beast.Explorer.GitStatusPhase
+---              ┌ Meaning                             ┌ XY Pattern
+---| "conflict"  │ Any 'u' record                      │ Unresolved merge
+---| "both"      │ X≠. AND Y≠. (MM, AM, MD, AD, RM, …) │ Staged and further-changed in worktree
+---| "unstaged"  │ Worktree differs from index         │ Worktree differs from index
+---| "staged"    │ X≠., Y=. (M., A., D., R., C.)       │ Index differs from HEAD, worktree matches index
+---| "untracked" │ ? record                            │ Not in index
+---| "ignored"   │ ! record                            │ Excluded by gitignore
 
 -- Phase priority (lower = higher priority). Used when aggregating dir phase
 -- via merge_phase() — pure pairwise max, with one special rule: staged +
@@ -73,8 +93,8 @@ end
 --- `kind` = highest-priority of the two columns' implied kinds.
 --- `phase` = staged (only x non-dot) | unstaged (only y non-dot) | both.
 ---@param xy string
----@return string? kind
----@return string? phase
+---@return Beast.Explorer.GitStatusKind?
+---@return Beast.Explorer.GitStatusPhase?
 local function xy_to_kind_phase(xy)
 	-- stylua: ignore
 	if #xy < 2 then return nil end
@@ -102,8 +122,8 @@ local function xy_to_kind_phase(xy)
 end
 
 ---@class Beast.Explorer.GitStatus
----@field kind string   one of: conflict, deleted, added, renamed, copied, modified, untracked, ignored
----@field phase string  one of: conflict, both, unstaged, staged, untracked, ignored
+---@field kind Beast.Explorer.GitStatusKind
+---@field phase? Beast.Explorer.GitStatusPhase
 
 --- Merge two phase values. Pairwise max-by-priority, with a special rule:
 --- staged + unstaged → both. Used when aggregating directory phase from
@@ -154,6 +174,7 @@ function M.parse(output, git_root)
 		if tok == "" then goto continue end
 
 		local kind_char = tok:sub(1, 1)
+		---@type string, Beast.Explorer.GitStatusKind?, Beast.Explorer.GitStatusPhase?
 		local path, kind, phase
 
 		if kind_char == "1" then
@@ -380,16 +401,16 @@ end
 ---@param opts? Beast.Explorer.GitRefreshOpts|fun()  function form is shorthand for { on_done = fn }
 function M.refresh(opts)
 	opts = normalize_opts(opts)
+	local on_done = opts.on_done or function() end
 
 	if opts.file and not affects_other_files(opts.file) then
-		refresh_file(opts.file, opts.on_done)
+		refresh_file(opts.file, on_done)
 		return
 	end
 
 	-- Full refresh path
-	-- stylua: ignore
 	if not state.tree or not state.view or not state.view:is_valid() then
-		if opts.on_done then opts.on_done() end
+		on_done()
 		return
 	end
 
@@ -404,44 +425,43 @@ function M.refresh(opts)
 	local root = resolve_git_root()
 	if not root then
 		M.clear()
-		-- stylua: ignore
-		if opts.on_done then opts.on_done() end
+		on_done()
 		return
 	end
-	git_job = vim.system({ "git", "-C", root, "status", "--porcelain=v2", "--ignored", "-z" }, { text = true }, function(result)
-		git_job = nil
-		vim.schedule(function()
-			-- stylua: ignore
-			if not state.tree or not state.view or not state.view:is_valid() then
-				if opts.on_done then opts.on_done() end
-				return
-			end
+	git_job = vim.system(
+		{ "git", "-C", root, "status", "--porcelain=v2", "--ignored", "-z" },
+		{ text = true },
+		function(result)
+			git_job = nil
+			vim.schedule(function()
+				if not state.tree or not state.view or not state.view:is_valid() then
+					on_done()
+					return
+				end
 
-			if result.code ~= 0 then
-				M.clear()
-				git_output_cache = nil
-				-- stylua: ignore
-				if opts.on_done then opts.on_done() end
-				return
-			end
+				if result.code ~= 0 then
+					M.clear()
+					git_output_cache = nil
+					on_done()
+					return
+				end
 
-			local output = result.stdout or ""
-			-- Cache: skip parse+apply when output hasn't changed
-			if output == git_output_cache then
-				-- stylua: ignore
-				if opts.on_done then opts.on_done() end
-				return
-			end
-			git_output_cache = output
+				local output = result.stdout or ""
+				-- Cache: skip parse+apply when output hasn't changed
+				if output == git_output_cache then
+					on_done()
+					return
+				end
+				git_output_cache = output
 
-			local status = M.parse(output, root)
-			state.git.status = status
-			M.apply(status)
+				local status = M.parse(output, root)
+				state.git.status = status
+				M.apply(status)
 
-			-- stylua: ignore
-			if opts.on_done then opts.on_done() end
-		end)
-	end)
+				on_done()
+			end)
+		end
+	)
 end
 
 --- Debounced refresh — collapses rapid triggers into one effective run.
