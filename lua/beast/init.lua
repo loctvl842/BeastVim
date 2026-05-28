@@ -223,6 +223,8 @@ function M.setup(opts)
 		},
 	})
 
+	require("beast.libs.scroll").setup()
+
 	-- Initial palette extraction (colorscheme should be loaded by packer)
 	Palette.refresh()
 	M.reload_highlights()

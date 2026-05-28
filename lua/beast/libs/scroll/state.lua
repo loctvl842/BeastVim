@@ -6,7 +6,7 @@
 ---@field current vim.fn.winsaveview.ret view the animation currently sits at
 ---@field target vim.fn.winsaveview.ret  view the animation is heading toward
 ---@field last_ns integer                vim.uv.hrtime of last animation start
----@field timer? uv_timer_t              active animation timer, nil if idle
+---@field timer? uv.uv_timer_t           active animation timer, nil if idle
 ---@field _wo table<string, any>         backup of window options modified during animation
 local State = setmetatable({}, {
 	__call = function(t, ...)
