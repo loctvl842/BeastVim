@@ -268,10 +268,13 @@ function M.mount()
 			-- stylua: ignore
 			if not node or not node.expanded then return end
 			watch._schedule_refresh(dir)
-			git.schedule_refresh(function()
-				ui.flush()
-				sticky.refresh()
-			end)
+			git.schedule_refresh({
+				file = file,
+				on_done = function()
+					ui.flush()
+					sticky.refresh()
+				end,
+			})
 		end,
 	})
 

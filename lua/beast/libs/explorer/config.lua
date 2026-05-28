@@ -24,6 +24,7 @@ local defaults = {
 			conflict = "C",
 			modified = "M",
 			renamed = "R",
+			copied = "C",
 			deleted = "D",
 			added = "A",
 			untracked = "U",

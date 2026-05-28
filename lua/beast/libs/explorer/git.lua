@@ -1,8 +1,9 @@
 --- Git status decorations for the explorer.
 ---
---- Runs `git status --porcelain=v1 --ignored` asynchronously via `vim.system`,
---- parses output into per-file badges, stamps `node.git_status` on tree nodes,
---- and propagates status upward to parent directories.
+--- Runs `git status --porcelain=v2 --ignored -z` asynchronously via `vim.system`,
+--- parses output into per-file badges, then stamps every tree node with either
+--- the direct file status or a per-directory aggregate (highest-priority badge
+--- among any descendant). Single linear pass — no sort, no propagate stage.
 ---
 --- Other modules read `node.git_status` during rendering — this module never
 --- touches highlights or extmarks directly.
@@ -11,91 +12,178 @@ local state = require("beast.libs.explorer.state")
 
 local M = {}
 
--- Badge priority (lower = higher priority).
--- Used by propagate() to pick the "most urgent" child status for a directory.
-local PRIORITY = {
-	C = 1, -- conflict
-	M = 2, -- modified
-	R = 3, -- renamed
-	D = 4, -- deleted
-	A = 5, -- added
-	U = 6, -- untracked
-	-- "!" (ignored) intentionally omitted — it does NOT propagate
+-- Internal state (was on state.lua; private to this module now).
+---@type vim.SystemObj|nil
+local git_job = nil
+---@type uv.uv_timer_t|nil
+local git_timer = nil
+---@type string|nil  cached porcelain output for change detection
+local git_output_cache = nil
+
+--- Invalidate the porcelain output cache so the next refresh re-applies
+--- status even if git's output hasn't changed. Used on explorer reopen
+--- when the tree was rebuilt and nodes lost their badges.
+function M.invalidate_cache()
+	git_output_cache = nil
+end
+
+-- Kind priority (lower = higher priority).
+-- Used by build_dir_status() to pick the "most urgent" descendant kind.
+local KIND_PRIORITY = {
+	conflict = 1,
+	deleted = 2,
+	added = 3,
+	renamed = 4,
+	copied = 5,
+	modified = 6,
+	untracked = 7,
+	-- "ignored" intentionally omitted — it does NOT propagate
 }
 
---- Map git porcelain XY codes to a single-character badge.
----@param xy string  Two-character status from `git status --porcelain`
----@return string? badge  Single char: M, A, D, R, U, C, !, or nil
-local function xy_to_badge(xy)
+-- Phase priority (lower = higher priority). Used when aggregating dir phase
+-- via merge_phase() — pure pairwise max, with one special rule: staged +
+-- unstaged → both (regardless of priority).
+local PHASE_PRIORITY = {
+	conflict = 1,
+	both = 2,
+	unstaged = 3,
+	staged = 4,
+	untracked = 5,
+	ignored = 6,
+}
+
+--- Map a single porcelain XY column letter to a `kind`.
+---@param c string
+---@return string?
+local function letter_to_kind(c)
 	-- stylua: ignore
-	if #xy < 2 then return nil end
-
-	local x, y = xy:sub(1, 1), xy:sub(2, 2)
-
-	-- Conflicts (both sides changed)
-	if (x == "U" or y == "U") or (x == "A" and y == "A") or (x == "D" and y == "D") then
-		return "C"
-	end
-
-	-- Untracked / ignored
+	if c == "M" or c == "T" then return "modified" end
 	-- stylua: ignore
-	if xy == "??" then return "U" end
+	if c == "A" then return "added" end
 	-- stylua: ignore
-	if xy == "!!" then return "!" end
-
-	-- Renamed (index)
+	if c == "D" then return "deleted" end
 	-- stylua: ignore
-	if x == "R" then return "R" end
-
-	-- Deleted
+	if c == "R" then return "renamed" end
 	-- stylua: ignore
-	if x == "D" or y == "D" then return "D" end
-
-	-- Added (new file in index)
-	-- stylua: ignore
-	if x == "A" then return "A" end
-
-	-- Modified (index or worktree)
-	if x == "M" or y == "M" or x == "T" or y == "T" then
-		return "M"
-	end
-
+	if c == "C" then return "copied" end
 	return nil
 end
 
---- Parse `git status --porcelain=v1` output into a path→badge table.
----@param output string  Raw stdout from git status
+--- Decode an XY pair (from a v2 type-1 or type-2 record) into a kind+phase.
+--- `kind` = highest-priority of the two columns' implied kinds.
+--- `phase` = staged (only x non-dot) | unstaged (only y non-dot) | both.
+---@param xy string
+---@return string? kind
+---@return string? phase
+local function xy_to_kind_phase(xy)
+	-- stylua: ignore
+	if #xy < 2 then return nil end
+	local kx = letter_to_kind(xy:sub(1, 1))
+	local ky = letter_to_kind(xy:sub(2, 2))
+
+	local kind
+	if kx and ky then
+		kind = (KIND_PRIORITY[kx] <= KIND_PRIORITY[ky]) and kx or ky
+	else
+		kind = kx or ky
+	end
+	-- stylua: ignore
+	if not kind then return nil end
+
+	local phase
+	if kx and ky then
+		phase = "both"
+	elseif kx then
+		phase = "staged"
+	else
+		phase = "unstaged"
+	end
+	return kind, phase
+end
+
+---@class Beast.Explorer.GitStatus
+---@field kind string   one of: conflict, deleted, added, renamed, copied, modified, untracked, ignored
+---@field phase string  one of: conflict, both, unstaged, staged, untracked, ignored
+
+--- Merge two phase values. Pairwise max-by-priority, with a special rule:
+--- staged + unstaged → both. Used when aggregating directory phase from
+--- multiple descendants.
+---@param a string?
+---@param b string?
+---@return string?
+local function merge_phase(a, b)
+	-- stylua: ignore
+	if not a then return b end
+	-- stylua: ignore
+	if not b then return a end
+	if (a == "staged" and b == "unstaged") or (a == "unstaged" and b == "staged") then
+		return "both"
+	end
+	return (PHASE_PRIORITY[a] <= PHASE_PRIORITY[b]) and a or b
+end
+
+--- Merge two `{kind, phase}` records (commutative, associative). Higher-priority
+--- kind wins; phase merges via merge_phase. Used both by the parser (when the
+--- same path appears in multiple porcelain records) and by build_dir_status.
+---@param cur Beast.Explorer.GitStatus?
+---@param new Beast.Explorer.GitStatus
+---@return Beast.Explorer.GitStatus
+local function merge_status(cur, new)
+	-- stylua: ignore
+	if not cur then return new end
+	local kind = (KIND_PRIORITY[new.kind] < KIND_PRIORITY[cur.kind]) and new.kind or cur.kind
+	return { kind = kind, phase = merge_phase(cur.phase, new.phase) }
+end
+
+--- Parse `git status --porcelain=v2 --ignored -z` output into a path → {kind, phase} table.
+--- The `-z` flag makes records NUL-terminated and disables path quoting.
+--- Rename/copy records (type `2`) consume two NUL-terminated tokens (new + orig path).
+---@param output string  Raw stdout from git status (NUL-separated)
 ---@param git_root string  Absolute path to the git repository root
----@return table<string, string>  abs_path → badge
+---@return table<string, Beast.Explorer.GitStatus>
 function M.parse(output, git_root)
-	local result = {} ---@type table<string, string>
+	local result = {} ---@type table<string, Beast.Explorer.GitStatus>
+	local tokens = vim.split(output, "\0", { plain = true })
 
-	for line in output:gmatch("[^\n]+") do
+	local i = 1
+	while i <= #tokens do
+		local tok = tokens[i]
+		i = i + 1
+
 		-- stylua: ignore
-		if #line < 4 then goto continue end
+		if tok == "" then goto continue end
 
-		local xy = line:sub(1, 2)
-		local path_part = line:sub(4)
+		local kind_char = tok:sub(1, 1)
+		local path, kind, phase
 
-		-- Renames: "R  old -> new" — use the new path
-		if xy:sub(1, 1) == "R" then
-			local arrow = path_part:find(" %-> ")
-			if arrow then
-				path_part = path_part:sub(arrow + 4)
-			end
+		if kind_char == "1" then
+			-- "1 XY sub mH mI mW hH hI <path>"
+			local xy = tok:sub(3, 4)
+			path = tok:match("^1 %S+ %S+ %S+ %S+ %S+ %S+ %S+ (.+)$")
+			kind, phase = xy_to_kind_phase(xy)
+		elseif kind_char == "2" then
+			-- "2 XY sub mH mI mW hH hI Xscore <path>" + separate <origPath> token
+			local xy = tok:sub(3, 4)
+			path = tok:match("^2 %S+ %S+ %S+ %S+ %S+ %S+ %S+ %S+ (.+)$")
+			kind, phase = xy_to_kind_phase(xy)
+			i = i + 1 -- consume origPath token
+		elseif kind_char == "u" then
+			-- "u XY sub m1 m2 m3 mW h1 h2 h3 <path>"
+			path = tok:match("^u %S+ %S+ %S+ %S+ %S+ %S+ %S+ %S+ %S+ (.+)$")
+			kind, phase = "conflict", "conflict"
+		elseif kind_char == "?" then
+			path = tok:sub(3)
+			kind, phase = "untracked", "untracked"
+		elseif kind_char == "!" then
+			path = tok:sub(3)
+			kind, phase = "ignored", "ignored"
 		end
+		-- "#" branch headers and any other kinds: silently skipped
 
-		-- Strip trailing slash from directories
-		path_part = path_part:gsub("/$", "")
-
-		local badge = xy_to_badge(xy)
-		if badge then
-			local abs_path = git_root .. "/" .. path_part
-			-- If a file already has a higher-priority badge, keep it
-			local existing = result[abs_path]
-			if not existing or (PRIORITY[badge] and (not PRIORITY[existing] or PRIORITY[badge] < PRIORITY[existing])) then
-				result[abs_path] = badge
-			end
+		if path and kind then
+			path = path:gsub("/$", "") -- strip trailing slash from untracked dirs
+			local abs_path = git_root .. "/" .. path
+			result[abs_path] = merge_status(result[abs_path], { kind = kind, phase = phase })
 		end
 
 		::continue::
@@ -112,99 +200,57 @@ function M.clear()
 	for _, node in pairs(state.tree.nodes) do
 		node.git_status = nil
 	end
-	state.git_root = nil
-	state.git_output_cache = nil
-	state.git_statuses = nil
+	git_output_cache = nil
+	state.git.status = nil
+	state.git.dir_status = nil
 end
 
---- Clear only the git_status field on every node (without touching git_root).
-local function clear_statuses()
-	-- stylua: ignore
-	if not state.tree then return end
-
-	for _, node in pairs(state.tree.nodes) do
-		node.git_status = nil
-	end
-end
-
---- Apply parsed git statuses to tree nodes.
---- When a file's node doesn't exist in the tree (its parent directory is
---- collapsed), walk up the path components to find the nearest ancestor
---- node and stamp the badge on it — this makes collapsed directories show
---- the highest-priority badge of their hidden children, matching VS Code.
----@param statuses table<string, string>  abs_path → badge
-function M.apply(statuses)
-	-- stylua: ignore
-	if not state.tree then return end
-
-	clear_statuses()
-
-	for abs_path, badge in pairs(statuses) do
-		local node = state.tree.nodes[abs_path]
-		if node then
-			node.git_status = badge
-		else
-			-- File not in tree — bubble badge to nearest existing ancestor
-			-- stylua: ignore
-			if not PRIORITY[badge] then goto continue end
-			local dir = vim.fn.fnamemodify(abs_path, ":h")
-			while dir and #dir > 0 do
-				local ancestor = state.tree.nodes[dir]
-				if ancestor then
-					local existing = ancestor.git_status
-					if not existing or not PRIORITY[existing] or PRIORITY[badge] < PRIORITY[existing] then
-						ancestor.git_status = badge
-					end
-					break
-				end
-				local parent = vim.fn.fnamemodify(dir, ":h")
-				-- stylua: ignore
-				if parent == dir then break end
-				dir = parent
-			end
-		end
-		::continue::
-	end
-end
-
---- Propagate git status from files upward to parent directories.
---- Walks ALL nodes (not just visible/expanded ones) so collapsed directories
---- with dirty children still propagate status to their ancestors.
---- Ignored status does NOT propagate (VS Code behavior).
-function M.propagate()
-	-- stylua: ignore
-	if not state.tree then return end
-
-	-- Collect all non-root nodes and sort by depth descending (deepest first)
-	local all_nodes = {} ---@type Beast.Explorer.Node[]
-	for _, node in pairs(state.tree.nodes) do
-		if node.depth >= 0 then
-			all_nodes[#all_nodes + 1] = node
-		end
-	end
-	table.sort(all_nodes, function(a, b)
-		return a.depth > b.depth
-	end)
-
-	for _, node in ipairs(all_nodes) do
-		local badge = node.git_status
-
-		-- Skip if no status or ignored (ignored doesn't propagate)
+--- Build the directory-aggregate map: for every ancestor of every file in
+--- `status`, record the merged {kind, phase} of all descendants. Kind takes
+--- the highest-priority of any descendant; phase merges (staged + unstaged →
+--- both, conflict beats all). Ignored does NOT propagate; untracked does.
+--- Each ancestor walk short-circuits as soon as the current dir already
+--- absorbs the new contribution (no kind upgrade AND no phase change).
+---@param status table<string, Beast.Explorer.GitStatus>
+---@return table<string, Beast.Explorer.GitStatus>
+local function build_dir_status(status)
+	local dir_status = {} ---@type table<string, Beast.Explorer.GitStatus>
+	for abs_path, st in pairs(status) do
 		-- stylua: ignore
-		if not badge or badge == "!" or not PRIORITY[badge] then goto continue end
+		if not KIND_PRIORITY[st.kind] then goto continue end -- ignored doesn't propagate
 
-		-- Walk up the parent chain
-		local parent = state.tree.nodes[node.parent]
-		while parent do
-			local parent_badge = parent.git_status
-			if parent_badge and PRIORITY[parent_badge] and PRIORITY[parent_badge] <= PRIORITY[badge] then
-				break -- parent already has equal or higher priority
+		local dir = vim.fn.fnamemodify(abs_path, ":h")
+		while dir and #dir > 0 do
+			local cur = dir_status[dir]
+			local merged = merge_status(cur, st)
+			if cur and cur.kind == merged.kind and cur.phase == merged.phase then
+				break -- this dir (and its ancestors) already absorb our contribution
 			end
-			parent.git_status = badge
-			parent = state.tree.nodes[parent.parent]
-		end
+			dir_status[dir] = merged
 
+			local parent = vim.fn.fnamemodify(dir, ":h")
+			-- stylua: ignore
+			if parent == dir then break end
+			dir = parent
+		end
 		::continue::
+	end
+	return dir_status
+end
+
+--- Stamp `node.git_status` on every tree node from a direct status lookup,
+--- falling back to the directory-aggregate map for ancestors of dirty files.
+--- No sort, no per-node parent walk, no separate clear pass.
+---@param status table<string, Beast.Explorer.GitStatus>
+function M.apply(status)
+	-- stylua: ignore
+	if not state.tree then return end
+
+	local dir_status = build_dir_status(status)
+	state.git.dir_status = dir_status
+
+	for path, node in pairs(state.tree.nodes) do
+		node.git_status = status[path] or dir_status[path]
 	end
 end
 
@@ -224,101 +270,256 @@ end
 
 local DEBOUNCE_MS = 200
 
---- Refresh git statuses asynchronously.
---- Cancels any in-flight job, runs `git status`, applies results, then calls on_done.
----@param on_done? fun()  Called after statuses are applied and propagated
-function M.refresh(on_done)
+-- Pending hints accumulated across the debounce window. When schedule_refresh
+-- is called multiple times before the timer fires:
+--   * if any caller requested a full refresh (no `file` opt, or a gitignore/
+--     gitattributes save) → pending_full wins and we do a full refresh.
+--   * if exactly one unique file accumulated → partial refresh for that file.
+--   * if >1 unique files → escalate to full refresh.
+local pending_full = false
+local pending_files = {} ---@type table<string, true>
+local pending_on_done = nil ---@type fun()|nil
+
+--- Refresh a single file's git status (much cheaper than a full repo scan).
+--- Used by BufWritePost where only the saved file's status can have changed.
+---@param file string  absolute path of the saved file
+---@param on_done? fun()
+local function refresh_file(file, on_done)
+	-- stylua: ignore
 	if not state.tree or not state.view or not state.view:is_valid() then
-		if on_done then
-			on_done()
-		end
+		if on_done then on_done() end
 		return
 	end
 
-	-- Cancel in-flight job
-	if state.git_job then
-		pcall(function()
-			state.git_job:kill("sigterm")
-		end)
-		state.git_job = nil
-	end
-
-	local git_root = resolve_git_root()
-	if not git_root then
-		M.clear()
+	local root = resolve_git_root()
+	if not root then
 		-- stylua: ignore
 		if on_done then on_done() end
 		return
 	end
-	state.git_root = git_root
 
-	state.git_job = vim.system({ "git", "-C", git_root, "status", "--porcelain=v1", "--ignored" }, { text = true }, function(result)
-		state.git_job = nil
-		vim.schedule(function()
+	-- File must live inside the repo
+	if file:sub(1, #root + 1) ~= root .. "/" then
+		-- stylua: ignore
+		if on_done then on_done() end
+		return
+	end
+
+	vim.system(
+		{ "git", "-C", root, "status", "--porcelain=v2", "--ignored", "-z", "--", file },
+		{ text = true },
+		function(result)
+			vim.schedule(function()
 				-- stylua: ignore
 				if not state.tree or not state.view or not state.view:is_valid() then
 					if on_done then on_done() end
 					return
 				end
+				-- stylua: ignore
+				if result.code ~= 0 then
+					if on_done then on_done() end
+					return
+				end
+
+				local single = M.parse(result.stdout or "", root)
+				local new_st = single[file] -- nil if file is now clean
+				local old_st = state.git.status and state.git.status[file]
+
+				-- Fast path: no change → nothing to do.
+				local same = (new_st == nil and old_st == nil)
+					or (new_st and old_st and new_st.kind == old_st.kind and new_st.phase == old_st.phase)
+				if same then
+					-- stylua: ignore
+					if on_done then on_done() end
+					return
+				end
+
+				-- Merge the single-file delta into the persisted status map,
+				-- then re-stamp the tree. apply() rebuilds dir_status from
+				-- the merged map, so ancestor decorations stay consistent.
+				state.git.status = state.git.status or {}
+				state.git.status[file] = new_st
+				M.apply(state.git.status)
+
+				-- Invalidate full-output cache so the next full refresh can't
+				-- short-circuit and miss this single-file change.
+				git_output_cache = nil
+
+				-- stylua: ignore
+				if on_done then on_done() end
+			end)
+		end
+	)
+end
+
+--- Normalize the polymorphic refresh argument.
+---@param opts? Beast.Explorer.GitRefreshOpts|fun()
+---@return Beast.Explorer.GitRefreshOpts
+local function normalize_opts(opts)
+	if type(opts) == "function" then
+		return { on_done = opts }
+	end
+	return opts or {}
+end
+
+--- Return true if the saved file requires a full refresh (its content affects
+--- the git status of other files in the repo).
+---@param file string  absolute path
+---@return boolean
+local function affects_other_files(file)
+	local name = vim.fn.fnamemodify(file, ":t")
+	return name == ".gitignore" or name == ".gitattributes"
+end
+
+---@class Beast.Explorer.GitRefreshOpts
+---@field file? string   when set (and not .gitignore/.gitattributes), refresh only this path
+---@field on_done? fun()
+
+--- Refresh git status asynchronously. Cancels any in-flight full-refresh job.
+--- Single-file refreshes do NOT cancel each other (they're independent).
+---@param opts? Beast.Explorer.GitRefreshOpts|fun()  function form is shorthand for { on_done = fn }
+function M.refresh(opts)
+	opts = normalize_opts(opts)
+
+	if opts.file and not affects_other_files(opts.file) then
+		refresh_file(opts.file, opts.on_done)
+		return
+	end
+
+	-- Full refresh path
+	-- stylua: ignore
+	if not state.tree or not state.view or not state.view:is_valid() then
+		if opts.on_done then opts.on_done() end
+		return
+	end
+
+	-- Cancel in-flight full-refresh job
+	if git_job then
+		pcall(function()
+			git_job:kill("sigterm")
+		end)
+		git_job = nil
+	end
+
+	local root = resolve_git_root()
+	if not root then
+		M.clear()
+		-- stylua: ignore
+		if opts.on_done then opts.on_done() end
+		return
+	end
+	git_job = vim.system({ "git", "-C", root, "status", "--porcelain=v2", "--ignored", "-z" }, { text = true }, function(result)
+		git_job = nil
+		vim.schedule(function()
+			-- stylua: ignore
+			if not state.tree or not state.view or not state.view:is_valid() then
+				if opts.on_done then opts.on_done() end
+				return
+			end
 
 			if result.code ~= 0 then
 				M.clear()
-				state.git_output_cache = nil
-					-- stylua: ignore
-					if on_done then on_done() end
+				git_output_cache = nil
+				-- stylua: ignore
+				if opts.on_done then opts.on_done() end
 				return
 			end
 
 			local output = result.stdout or ""
-			-- Cache: skip parse+apply+propagate when output hasn't changed
-			if output == state.git_output_cache then
+			-- Cache: skip parse+apply when output hasn't changed
+			if output == git_output_cache then
 				-- stylua: ignore
-				if on_done then on_done() end
+				if opts.on_done then opts.on_done() end
 				return
 			end
-			state.git_output_cache = output
+			git_output_cache = output
 
-			local statuses = M.parse(output, git_root)
-			state.git_statuses = statuses
-			M.apply(statuses)
-			M.propagate()
+			local status = M.parse(output, root)
+			state.git.status = status
+			M.apply(status)
 
-				-- stylua: ignore
-				if on_done then on_done() end
+			-- stylua: ignore
+			if opts.on_done then opts.on_done() end
 		end)
 	end)
 end
 
---- Debounced refresh — collapses rapid triggers into one git status run.
----@param on_done? fun()
-function M.schedule_refresh(on_done)
-	if not state.git_timer then
-		state.git_timer = assert((vim.uv or vim.loop).new_timer(), "failed to create timer")
+--- Debounced refresh — collapses rapid triggers into one effective run.
+--- Multiple distinct files saved within the debounce window escalate to a
+--- full refresh; a single file stays partial.
+---@param opts? Beast.Explorer.GitRefreshOpts|fun()
+function M.schedule_refresh(opts)
+	opts = normalize_opts(opts)
+
+	if opts.file and not affects_other_files(opts.file) then
+		pending_files[opts.file] = true
+	else
+		pending_full = true
+	end
+	if opts.on_done then
+		pending_on_done = opts.on_done
 	end
 
-	state.git_timer:stop()
-	state.git_timer:start(
+	if not git_timer then
+		git_timer = assert((vim.uv or vim.loop).new_timer(), "failed to create timer")
+	end
+
+	git_timer:stop()
+	git_timer:start(
 		DEBOUNCE_MS,
 		0,
 		vim.schedule_wrap(function()
-			M.refresh(on_done)
+			local full = pending_full
+			local files = pending_files
+			local on_done = pending_on_done
+			pending_full = false
+			pending_files = {}
+			pending_on_done = nil
+
+			if full then
+				M.refresh({ on_done = on_done })
+				return
+			end
+
+			local only_file = nil
+			local count = 0
+			for f in pairs(files) do
+				count = count + 1
+				only_file = f
+				if count > 1 then
+					break
+				end
+			end
+
+			if count == 1 then
+				M.refresh({ file = only_file, on_done = on_done })
+			elseif count > 1 then
+				-- Multiple files saved in the debounce window — escalate to full
+				M.refresh({ on_done = on_done })
+			else
+				-- No hints accumulated (shouldn't really happen) — full refresh
+				M.refresh({ on_done = on_done })
+			end
 		end)
 	)
 end
 
 --- Stop debounce timer and cancel in-flight job. Called on explorer close.
 function M.stop()
-	if state.git_timer then
-		state.git_timer:stop()
-		state.git_timer:close()
-		state.git_timer = nil
+	if git_timer then
+		git_timer:stop()
+		git_timer:close()
+		git_timer = nil
 	end
-	if state.git_job then
+	if git_job then
 		pcall(function()
-			state.git_job:kill("sigterm")
+			git_job:kill("sigterm")
 		end)
-		state.git_job = nil
+		git_job = nil
 	end
+	pending_full = false
+	pending_files = {}
+	pending_on_done = nil
 end
 
 return M
