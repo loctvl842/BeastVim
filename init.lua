@@ -34,4 +34,29 @@ require("beast").setup({
 			{ "fL", "zL", desc = "Half screen to the right" },
 		},
 	},
+	explorer = {
+		icon = {
+			dir_open = "󰝰", -- nf-md-folder_open
+			dir_closed = "󰉋", -- nf-md-folder
+			git = {
+				conflict = "",
+				deleted = "",
+				added = "",
+				renamed = "➜",
+				modified = "●",
+				untracked = "",
+				ignored = "󱈸",
+			},
+		},
+		mappings = {
+			["l"] = "open",
+		},
+	},
+	packer = {
+		spec = { { import = "beast.plugins" } },
+	},
+	treesitter = {
+		ensure_installed = { "python", "lua" },
+		fold = { enable = true },
+	},
 })

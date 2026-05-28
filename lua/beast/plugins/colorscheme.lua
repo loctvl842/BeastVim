@@ -4,7 +4,8 @@ return {
 		name = "monokai-pro.nvim",
 		src = gh("loctvl842/monokai-pro.nvim"),
 		-- Defer full theme initialization until UI is ready to reduce startup cost
-		lazy = { event = "UIEnter" },
+		-- lazy = { event = "UIEnter" },
+		lazy = nil,
 		config = function()
 			local mp = require("monokai-pro")
 			mp.setup({
