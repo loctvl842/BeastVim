@@ -4,6 +4,10 @@
       "rev": "426dbebe06b5c69fd846ceb17b42e12f890aedf1",
       "src": "https://github.com/catppuccin/nvim"
     },
+    "mini.icons": {
+      "rev": "520995f1d75da0e4cc901ee95080b1ff2bc46b94",
+      "src": "https://github.com/nvim-mini/mini.icons"
+    },
     "monokai-pro.nvim": {
       "rev": "dfe37919bf2427d306cdc68e6d1857ab7e762e8d",
       "src": "https://github.com/loctvl842/monokai-pro.nvim.git"

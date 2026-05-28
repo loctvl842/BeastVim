@@ -153,8 +153,10 @@ function M.build(nodes)
 
 		if config.icons then
 			if node.dir then
-				icon_str = node.open and config.icon.dir_open or config.icon.dir_closed
-				icon_hl = "BeastExplorerDir"
+				icon_str, icon_hl = config.dir_icon(node.name, node.open)
+				if not icon_hl then
+					icon_hl = "BeastExplorerDir"
+				end
 			else
 				icon_str, icon_hl = config.file_icon(node.name)
 			end
