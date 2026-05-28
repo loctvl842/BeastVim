@@ -12,7 +12,7 @@
 ---@field expanded   boolean
 ---@field depth      integer
 ---@field last       boolean
----@field git_status? string
+---@field git_status? Beast.Explorer.GitStatus
 ---@field children   table<string, string>
 ---@field parent?    string
 local Node = setmetatable({}, {
@@ -27,7 +27,7 @@ Node.__index = Node
 ---@field expanded? boolean
 ---@field depth? integer
 ---@field last? boolean
----@field git_status? string
+---@field git_status? Beast.Explorer.GitStatus
 
 ---@param path string
 ---@param name string
@@ -109,17 +109,6 @@ local function remove_subtree(tree, path)
 	tree.nodes[path] = nil
 end
 
--- Badge priority for git propagation (lower = higher priority).
-local GIT_PRIORITY = {
-	C = 1, -- conflict
-	M = 2, -- modified
-	R = 3, -- renamed
-	D = 4, -- deleted
-	A = 5, -- added
-	U = 6, -- untracked
-	-- "!" (ignored) intentionally omitted — it does NOT propagate
-}
-
 ---@param parent Beast.Explorer.Node
 ---@param name string
 ---@param ftype "file"|"directory"|"link"|"unknown"|string
@@ -136,26 +125,10 @@ function M:ensure_child(parent, name, ftype)
 	local path = parent.path .. "/" .. name
 	local node = Node(path, name, ftype, parent)
 
-	-- Stamp git status from the cached statuses map (if available)
-	if state.git_statuses then
-		local direct = state.git_statuses[path]
-		if direct then
-			node.git_status = direct
-		elseif node.dir then
-			-- Directory: find the highest-priority badge among descendants
-			local prefix = path .. "/"
-			local best = nil
-			for abs_path, badge in pairs(state.git_statuses) do
-				if abs_path:sub(1, #prefix) == prefix and GIT_PRIORITY[badge] then
-					if not best or GIT_PRIORITY[badge] < GIT_PRIORITY[best] then
-						best = badge
-					end
-				end
-			end
-			if best then
-				node.git_status = best
-			end
-		end
+	-- Stamp git status from the cached maps (if available). Two O(1) lookups:
+	-- direct status for files, dir_status aggregate for directories.
+	if state.git.status then
+		node.git_status = state.git.status[path] or (state.git.dir_status and state.git.dir_status[path])
 	end
 
 	parent.children[name] = path

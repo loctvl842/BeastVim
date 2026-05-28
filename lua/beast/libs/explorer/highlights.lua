@@ -19,13 +19,12 @@ Util.colors.set_hl("BeastExplorer", {
 	Clip = { fg = p.accent5 },
 	Cursor = { blend = 100, nocombine = true },
 
-	-- Git status
-	GitAdded = { fg = p.accent4 },
-	GitModified = { fg = p.accent3 },
-	GitDeleted = { fg = p.accent1 },
+	-- Git status (by phase: glyph kind is independent, color is by phase).
+	GitUnstaged = { fg = p.accent3 },      -- yellow/orange: unstaged only
+  GitStaged = { fg = p.accent4 },        -- green-ish: staged only
+	GitBoth = { fg = p.accent5 },          -- red-ish: both staged & unstaged
+	GitConflict = { fg = p.accent2 },      -- attention: merge conflict
 	GitUntracked = { fg = p.dimmed1 },
-	GitConflict = { fg = p.accent2 },
-	GitRenamed = { fg = p.accent3 },
 	GitIgnored = { fg = p.dimmed4 },
 
 	-- Sticky ancestor headers (float overlay)

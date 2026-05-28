@@ -61,7 +61,7 @@ function M.open(dir)
 	-- Force full git refresh on open so badges always appear.
 	-- Without this, a stale cache from a previous close→reopen cycle
 	-- would skip apply/propagate and leave new tree nodes badge-less.
-	state.git_output_cache = nil
+	git.invalidate_cache()
 	git.refresh(function()
 		ui.flush()
 		sticky.refresh()

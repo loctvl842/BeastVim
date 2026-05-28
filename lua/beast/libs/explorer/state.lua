@@ -2,6 +2,10 @@
 ---@field paths string[]
 ---@field mode "copy"|"cut"
 
+---@class Beast.Explorer.GitState
+---@field status table<string, Beast.Explorer.GitStatus>|nil      -- abs_path → {kind, phase} for files/dirs git reported directly
+---@field dir_status table<string, Beast.Explorer.GitStatus>|nil  -- abs_dir → merged {kind, phase} aggregated from descendants in `status`
+
 ---@class Beast.Explorer.State
 ---@field tree Beast.Explorer.Tree|nil
 ---@field view Beast.Explorer.View|nil
@@ -11,11 +15,7 @@
 ---@field source_win integer|nil
 ---@field clipboard Beast.Explorer.Clipboard|nil
 ---@field watchers table<string, uv.uv_fs_event_t>
----@field git_root string|nil
----@field git_job vim.SystemObj|nil
----@field git_timer uv.uv_timer_t|nil
----@field git_output_cache string|nil  -- cached porcelain output for change detection
----@field git_statuses table<string, string>|nil  -- parsed abs_path → badge, kept for re-apply after tree expand
+---@field git Beast.Explorer.GitState
 local M = {
 	tree = nil,
 	view = nil,
@@ -25,11 +25,7 @@ local M = {
 	source_win = nil,
 	clipboard = nil,
 	watchers = {},
-	git_root = nil,
-	git_job = nil,
-	git_timer = nil,
-	git_output_cache = nil,
-	git_statuses = nil,
+	git = { status = nil, dir_status = nil },
 }
 
 -- ================================
@@ -66,11 +62,7 @@ function M.reset()
 	M.sticky = nil
 	M.augroup = nil
 	M.watchers = {}
-	M.git_root = nil
-	M.git_job = nil
-	M.git_timer = nil
-	M.git_output_cache = nil
-	M.git_statuses = nil
+	M.git = { status = nil, dir_status = nil }
 end
 
 return M

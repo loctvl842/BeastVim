@@ -8,55 +8,41 @@ local styles = {
 	classic = { indent = "  ", vertical = "│ ", branch = "│ ", last_branch = "└╴" },
 }
 
--- Badge character → highlight group for name coloring and virt_text.
+-- Phase → highlight group for name coloring and virt_text.
+-- Glyph selection uses `kind` (see git_icon below); color uses `phase`.
 local GIT_HL = {
-	C = "BeastExplorerGitConflict",
-	M = "BeastExplorerGitModified",
-	R = "BeastExplorerGitRenamed",
-	D = "BeastExplorerGitDeleted",
-	A = "BeastExplorerGitAdded",
-	U = "BeastExplorerGitUntracked",
-	["!"] = "BeastExplorerGitIgnored",
+	conflict = "BeastExplorerGitConflict",
+	both = "BeastExplorerGitBoth",
+	unstaged = "BeastExplorerGitUnstaged",
+	staged = "BeastExplorerGitStaged",
+	untracked = "BeastExplorerGitUntracked",
+	ignored = "BeastExplorerGitIgnored",
 }
 
--- Badge character → semantic key for looking up the user-configurable glyph.
-local GIT_ICON_KEY = {
-	C = "conflict",
-	M = "modified",
-	R = "renamed",
-	D = "deleted",
-	A = "added",
-	U = "untracked",
-	["!"] = "ignored",
-}
-
---- Resolve the user-configured icon for a git badge.
---- Returns nil when the badge is nil/unknown or the user mapped it to an
---- empty string (= "hide this badge").
----@param badge? string
+--- Resolve the user-configured icon for a git status.
+--- The glyph is selected by `kind`. Returns nil when status is nil/unknown
+--- or the user mapped it to an empty string (= "hide this badge").
+---@param status? Beast.Explorer.GitStatus
 ---@return string?
-local function git_icon(badge)
+local function git_icon(status)
 	-- stylua: ignore
-	if not badge then return nil end
-	local key = GIT_ICON_KEY[badge]
-	-- stylua: ignore
-	if not key then return nil end
+	if not status then return nil end
 	local icons = config.icon and config.icon.git
-	local glyph = icons and icons[key]
+	local glyph = icons and icons[status.kind]
 	if glyph == nil or glyph == "" then
 		return nil
 	end
 	return glyph
 end
 
---- Resolve the highlight group for a git badge character.
---- Returns nil when the badge is nil or unrecognized.
----@param badge? string
+--- Resolve the highlight group for a git status. Selected by `phase`.
+--- Returns nil when status is nil or its phase is unrecognized.
+---@param status? Beast.Explorer.GitStatus
 ---@return string?
-function M.git_hl(badge)
+function M.git_hl(status)
 	-- stylua: ignore
-	if not badge then return nil end
-	return GIT_HL[badge]
+	if not status then return nil end
+	return GIT_HL[status.phase]
 end
 
 --- Build the tree-line prefix for `node`.
@@ -195,23 +181,28 @@ function M.build(nodes)
 			local name_s = #prefix + #icon_str + 1 -- +1 for the space after icon
 			local name_hl = "BeastExplorerFile"
 			-- Git status overrides the default file color
-			if node.git_status and GIT_HL[node.git_status] then
-				name_hl = GIT_HL[node.git_status]
+			local git_hl = M.git_hl(node.git_status)
+			if git_hl then
+				name_hl = git_hl
 			end
 			hls[#hls + 1] = { line = line_idx, col_s = name_s, col_e = name_s + #node.name, group = name_hl }
 		else
 			-- Directory name: override with propagated git status color
-			if node.git_status and GIT_HL[node.git_status] then
+			local git_hl = M.git_hl(node.git_status)
+			if git_hl then
 				local name_s = #prefix + #icon_str + 1
-				hls[#hls + 1] = { line = line_idx, col_s = name_s, col_e = name_s + #node.name, group = GIT_HL[node.git_status] }
+				hls[#hls + 1] = { line = line_idx, col_s = name_s, col_e = name_s + #node.name, group = git_hl }
 			end
 		end
 
-		-- Git badge (right-aligned virt_text) — only on files, not directories
-		if node.git_status and GIT_HL[node.git_status] and not node.dir then
-			local glyph = git_icon(node.git_status)
-			if glyph then
-				badges[#badges + 1] = { line = line_idx, text = glyph, hl = GIT_HL[node.git_status] }
+		-- Git badge (right-aligned virt_text)
+		do
+			local git_hl = M.git_hl(node.git_status)
+			if git_hl then
+				local glyph = git_icon(node.git_status)
+				if glyph then
+					badges[#badges + 1] = { line = line_idx, text = glyph, hl = git_hl }
+				end
 			end
 		end
 		-- Dim hidden files/dirs
