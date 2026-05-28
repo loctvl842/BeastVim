@@ -58,6 +58,27 @@ function methods.toggle_hidden()
 	cfg.show_hidden = not cfg.show_hidden
 end
 
+--- Resolve a directory-name to its glyph and highlight group via mini.icons
+--- (an optional plugin). Falls back to `cfg.icon.dir_open`/`dir_closed` and
+--- the `BeastExplorerDir` highlight when mini.icons isn't installed.
+---@param name string
+---@param open boolean
+---@return string icon, string? hl
+function methods.dir_icon(name, open)
+	if methods._mini_icons == nil then
+		local ok, mod = pcall(require, "mini.icons")
+		methods._mini_icons = ok and mod or false
+	end
+
+	if methods._mini_icons then
+		local icon, hl, is_default = methods._mini_icons.get("directory", name)
+		if icon and not is_default then
+			return icon, hl
+		end
+	end
+	return open and cfg.icon.dir_open or cfg.icon.dir_closed, nil
+end
+
 --- Resolve a file-name to its devicons glyph and highlight group, falling
 --- back to `cfg.icon.file` when nvim-web-devicons isn't available or has no
 --- match for the name.
