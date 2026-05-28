@@ -19,3 +19,4 @@
 | [015](015-native-tabline-replaces-heirline.md) | Native `%!` Tabline Replaces Heirline | Accepted | 2026-05-11 |
 | [016](016-tabline-3-state-highlights-event-cache.md) | Tabline 3-State Highlights with Event Cache | Accepted | 2026-05-11 |
 | [017](017-pure-lua-finder-modular-query.md) | Pure-Lua Finder with Modular Query Architecture | Accepted | 2026-05-17 |
+| [018](018-native-scroll-library-viewport-animation.md) | Native Smooth Scroll Library (Viewport Animation) | Accepted | 2026-05-28 |
