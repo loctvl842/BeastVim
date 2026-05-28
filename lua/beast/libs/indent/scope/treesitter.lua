@@ -9,7 +9,9 @@ local scope_set
 
 ---@return table<string, boolean>
 local function get_scope_set()
-	if scope_set then return scope_set end
+	if scope_set then
+		return scope_set
+	end
 	scope_set = {}
 	for _, t in ipairs(config.scope.treesitter.scope_types) do
 		scope_set[t] = true
@@ -125,7 +127,9 @@ function M.find(buf, pos)
 	else
 		-- Blank line: resolve to nearest non-blank (2 vim.fn calls worst case)
 		resolved = vim.fn.nextnonblank(line)
-		if resolved == 0 then resolved = vim.fn.prevnonblank(line) end
+		if resolved == 0 then
+			resolved = vim.fn.prevnonblank(line)
+		end
 		-- stylua: ignore
 		if resolved == 0 then return nil end
 		resolved_text = vim.api.nvim_buf_get_lines(buf, resolved - 1, resolved, false)[1]
@@ -163,7 +167,9 @@ function M.find(buf, pos)
 	local body_lines = vim.api.nvim_buf_get_lines(buf, body_from - 1, body_to, false)
 
 	local sw = vim.bo[buf].shiftwidth
-	if sw == 0 then sw = vim.bo[buf].tabstop end
+	if sw == 0 then
+		sw = vim.bo[buf].tabstop
+	end
 
 	-- Find first non-blank body line indent (pure Lua)
 	local first_body_indent = nil

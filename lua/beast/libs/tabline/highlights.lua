@@ -57,16 +57,46 @@ Util.colors.set_hl("BeastTl", {
 
 	-- Diagnostic count indicators
 	DiagErrorSelected = { fg = error_count_active_fg, bg = active_bg, bold = true, underline = true, sp = active_border },
-	DiagErrorVisible = { fg = error_count_visible_fg, bg = active_bg, bold = true, underline = true, sp = inactive_border },
+	DiagErrorVisible = {
+		fg = error_count_visible_fg,
+		bg = active_bg,
+		bold = true,
+		underline = true,
+		sp = inactive_border,
+	},
 	DiagError = { fg = error_count_normal_fg, bg = inactive_bg, bold = true, underline = true, sp = inactive_border },
 	DiagWarnSelected = { fg = warn_count_active_fg, bg = active_bg, bold = true, underline = true, sp = active_border },
 	DiagWarnVisible = { fg = warn_count_visible_fg, bg = active_bg, bold = true, underline = true, sp = inactive_border },
 	DiagWarn = { fg = warn_count_normal_fg, bg = inactive_bg, bold = true, underline = true, sp = inactive_border },
-	DiagInfoSelected = { fg = info_hint_count_active_fg, bg = active_bg, bold = true, underline = true, sp = active_border },
-	DiagInfoVisible = { fg = info_hint_count_visible_fg, bg = active_bg, bold = true, underline = true, sp = inactive_border },
+	DiagInfoSelected = {
+		fg = info_hint_count_active_fg,
+		bg = active_bg,
+		bold = true,
+		underline = true,
+		sp = active_border,
+	},
+	DiagInfoVisible = {
+		fg = info_hint_count_visible_fg,
+		bg = active_bg,
+		bold = true,
+		underline = true,
+		sp = inactive_border,
+	},
 	DiagInfo = { fg = info_hint_count_normal_fg, bg = inactive_bg, bold = true, underline = true, sp = inactive_border },
-	DiagHintSelected = { fg = info_hint_count_active_fg, bg = active_bg, bold = true, underline = true, sp = active_border },
-	DiagHintVisible = { fg = info_hint_count_visible_fg, bg = active_bg, bold = true, underline = true, sp = inactive_border },
+	DiagHintSelected = {
+		fg = info_hint_count_active_fg,
+		bg = active_bg,
+		bold = true,
+		underline = true,
+		sp = active_border,
+	},
+	DiagHintVisible = {
+		fg = info_hint_count_visible_fg,
+		bg = active_bg,
+		bold = true,
+		underline = true,
+		sp = inactive_border,
+	},
 	DiagHint = { fg = info_hint_count_normal_fg, bg = inactive_bg, bold = true, underline = true, sp = inactive_border },
 
 	-- Modified dot

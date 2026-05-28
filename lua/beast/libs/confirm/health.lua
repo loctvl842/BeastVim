@@ -125,11 +125,7 @@ function M.check()
 
 	-- Check terminal size is sufficient for dialog
 	if vim.o.columns < 40 or vim.o.lines < 8 then
-		health.warn(string.format(
-			"Terminal size (%dx%d) may be too small for confirm dialogs",
-			vim.o.columns,
-			vim.o.lines
-		))
+		health.warn(string.format("Terminal size (%dx%d) may be too small for confirm dialogs", vim.o.columns, vim.o.lines))
 	else
 		health.ok(string.format("Terminal size (%dx%d) sufficient for confirm dialogs", vim.o.columns, vim.o.lines))
 	end

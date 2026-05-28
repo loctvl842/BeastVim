@@ -180,11 +180,7 @@ function M.check()
 
 	-- Check terminal width vs max_width
 	if vim.o.columns < max_w then
-		health.warn(string.format(
-			"Terminal width (%d) < max_width (%d) — toasts may clip",
-			vim.o.columns,
-			max_w
-		))
+		health.warn(string.format("Terminal width (%d) < max_width (%d) — toasts may clip", vim.o.columns, max_w))
 	else
 		health.ok(string.format("Terminal width (%d) sufficient for toasts", vim.o.columns))
 	end

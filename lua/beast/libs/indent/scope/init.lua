@@ -28,7 +28,9 @@ local M = {}
 function M.find(buf, pos)
 	if config.scope.treesitter.enabled then
 		local result = find_by_treesitter(buf, pos)
-		if result then return result end
+		if result then
+			return result
+		end
 	end
 	return find_by_indent(buf, pos)
 end
@@ -55,8 +57,12 @@ end
 ---@param b Beast.Indent.Scope[]?
 ---@return boolean
 local function scopes_eq(a, b)
-	if not a or not b then return a == b end
-	if #a ~= #b then return false end
+	if not a or not b then
+		return a == b
+	end
+	if #a ~= #b then
+		return false
+	end
 	for i = 1, #a do
 		if a[i].from ~= b[i].from or a[i].to ~= b[i].to or a[i].indent ~= b[i].indent then
 			return false

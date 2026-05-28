@@ -326,11 +326,8 @@ local function refresh_file(file, on_done)
 		return
 	end
 
-	vim.system(
-		{ "git", "-C", root, "status", "--porcelain=v2", "--ignored", "-z", "--", file },
-		{ text = true },
-		function(result)
-			vim.schedule(function()
+	vim.system({ "git", "-C", root, "status", "--porcelain=v2", "--ignored", "-z", "--", file }, { text = true }, function(result)
+		vim.schedule(function()
 				-- stylua: ignore
 				if not state.tree or not state.view or not state.view:is_valid() then
 					if on_done then on_done() end
@@ -342,35 +339,33 @@ local function refresh_file(file, on_done)
 					return
 				end
 
-				local single = M.parse(result.stdout or "", root)
-				local new_st = single[file] -- nil if file is now clean
-				local old_st = state.git.status and state.git.status[file]
+			local single = M.parse(result.stdout or "", root)
+			local new_st = single[file] -- nil if file is now clean
+			local old_st = state.git.status and state.git.status[file]
 
-				-- Fast path: no change → nothing to do.
-				local same = (new_st == nil and old_st == nil)
-					or (new_st and old_st and new_st.kind == old_st.kind and new_st.phase == old_st.phase)
-				if same then
+			-- Fast path: no change → nothing to do.
+			local same = (new_st == nil and old_st == nil) or (new_st and old_st and new_st.kind == old_st.kind and new_st.phase == old_st.phase)
+			if same then
 					-- stylua: ignore
 					if on_done then on_done() end
-					return
-				end
+				return
+			end
 
-				-- Merge the single-file delta into the persisted status map,
-				-- then re-stamp the tree. apply() rebuilds dir_status from
-				-- the merged map, so ancestor decorations stay consistent.
-				state.git.status = state.git.status or {}
-				state.git.status[file] = new_st
-				M.apply(state.git.status)
+			-- Merge the single-file delta into the persisted status map,
+			-- then re-stamp the tree. apply() rebuilds dir_status from
+			-- the merged map, so ancestor decorations stay consistent.
+			state.git.status = state.git.status or {}
+			state.git.status[file] = new_st
+			M.apply(state.git.status)
 
-				-- Invalidate full-output cache so the next full refresh can't
-				-- short-circuit and miss this single-file change.
-				git_output_cache = nil
+			-- Invalidate full-output cache so the next full refresh can't
+			-- short-circuit and miss this single-file change.
+			git_output_cache = nil
 
 				-- stylua: ignore
 				if on_done then on_done() end
-			end)
-		end
-	)
+		end)
+	end)
 end
 
 --- Normalize the polymorphic refresh argument.
@@ -428,40 +423,36 @@ function M.refresh(opts)
 		on_done()
 		return
 	end
-	git_job = vim.system(
-		{ "git", "-C", root, "status", "--porcelain=v2", "--ignored", "-z" },
-		{ text = true },
-		function(result)
-			git_job = nil
-			vim.schedule(function()
-				if not state.tree or not state.view or not state.view:is_valid() then
-					on_done()
-					return
-				end
-
-				if result.code ~= 0 then
-					M.clear()
-					git_output_cache = nil
-					on_done()
-					return
-				end
-
-				local output = result.stdout or ""
-				-- Cache: skip parse+apply when output hasn't changed
-				if output == git_output_cache then
-					on_done()
-					return
-				end
-				git_output_cache = output
-
-				local status = M.parse(output, root)
-				state.git.status = status
-				M.apply(status)
-
+	git_job = vim.system({ "git", "-C", root, "status", "--porcelain=v2", "--ignored", "-z" }, { text = true }, function(result)
+		git_job = nil
+		vim.schedule(function()
+			if not state.tree or not state.view or not state.view:is_valid() then
 				on_done()
-			end)
-		end
-	)
+				return
+			end
+
+			if result.code ~= 0 then
+				M.clear()
+				git_output_cache = nil
+				on_done()
+				return
+			end
+
+			local output = result.stdout or ""
+			-- Cache: skip parse+apply when output hasn't changed
+			if output == git_output_cache then
+				on_done()
+				return
+			end
+			git_output_cache = output
+
+			local status = M.parse(output, root)
+			state.git.status = status
+			M.apply(status)
+
+			on_done()
+		end)
+	end)
 end
 
 --- Debounced refresh — collapses rapid triggers into one effective run.

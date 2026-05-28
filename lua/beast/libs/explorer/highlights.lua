@@ -20,10 +20,10 @@ Util.colors.set_hl("BeastExplorer", {
 	Cursor = { blend = 100, nocombine = true },
 
 	-- Git status (by phase: glyph kind is independent, color is by phase).
-	GitUnstaged = { fg = p.accent3 },      -- yellow/orange: unstaged only
-  GitStaged = { fg = p.accent4 },        -- green-ish: staged only
-	GitBoth = { fg = p.accent5 },          -- red-ish: both staged & unstaged
-	GitConflict = { fg = p.accent2 },      -- attention: merge conflict
+	GitUnstaged = { fg = p.accent3 }, -- yellow/orange: unstaged only
+	GitStaged = { fg = p.accent4 }, -- green-ish: staged only
+	GitBoth = { fg = p.accent5 }, -- red-ish: both staged & unstaged
+	GitConflict = { fg = p.accent2 }, -- attention: merge conflict
 	GitUntracked = { fg = p.dimmed1 },
 	GitIgnored = { fg = p.dimmed4 },
 
