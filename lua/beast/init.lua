@@ -13,27 +13,10 @@ local M = {}
 local defaults = {
 	key = {},
 	notify = {},
-	toast = { disabled = false },
-	explorer = {
-		icon = {
-			dir_open = "󰝰", -- nf-md-folder_open
-			dir_closed = "󰉋", -- nf-md-folder
-		},
-		mappings = {
-			["l"] = "open",
-		},
-	},
-	packer = {
-		-- colorscheme = { name = "monokai-pro", plugin = "monokai-pro.nvim" },
-		spec = {
-			{ import = "beast.plugins" },
-		},
-		ui = {},
-	},
-	treesitter = {
-		ensure_installed = { "python", "lua" },
-		fold = { enable = true },
-	},
+	toast = {},
+	explorer = {},
+	packer = {},
+	treesitter = {},
 }
 
 ---@param opts? Beast.Config
@@ -133,14 +116,16 @@ function M.setup(opts)
 	vim.g.loaded_netrwPlugin = 1
 	-- Explorer (lazy — deferred to first <leader>e press or VimEnter with no file)
 	packer.lazy("beast.libs.explorer", {
-		keys = { {
-			"<leader>e",
-			function()
-				require("beast.libs.explorer").toggle()
-			end,
-			desc = "Toggle explorer panel",
-			group = "Explorer",
-		} },
+		keys = {
+			{
+				"<leader>e",
+				function()
+					require("beast.libs.explorer").toggle()
+				end,
+				desc = "Toggle explorer panel",
+				group = "Explorer",
+			},
+		},
 		event = "VimEnter",
 		defer = true,
 		setup = function(explorer)
