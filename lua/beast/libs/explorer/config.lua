@@ -33,6 +33,7 @@ local defaults = {
 	},
 	mappings = {
 		["<CR>"] = "open",
+		["s"] = "split_open",
 		["a"] = "create",
 		["d"] = "delete",
 		["r"] = "rename",
