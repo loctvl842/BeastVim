@@ -54,7 +54,7 @@ function M.create(on_change, total_w, total_h, win_row, win_col, title, debounce
 		border = border or { "╭", "─", "┬", "│", "┤", "─", "├", "│" },
 		title = display_title,
 		title_pos = "left",
-		zindex = 101,
+		zindex = 103,
 	})
 
 	Util.wo(win, "cursorline", false)

@@ -30,7 +30,7 @@ function M.create(win_row, win_col, win_w, win_h)
 		col = win_col,
 		style = "minimal",
 		border = { "┬", "─", "╮", "│", "╯", "─", "┴", "│" },
-		zindex = 101,
+		zindex = 102,
 	})
 
 	Util.wo(win, "winhl", "Normal:BeastFinderNormal,FloatBorder:BeastFinderBorder,FloatTitle:BeastFinderPreviewTitle")
