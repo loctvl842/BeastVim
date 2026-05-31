@@ -1,8 +1,33 @@
 local buffers_mod = require("beast.libs.tabline.buffers")
-local config = require("beast.libs.tabline.config")
 local name_mod = require("beast.libs.tabline.name")
 
 local ok_devicons, devicons = pcall(require, "nvim-web-devicons")
+
+--- Custom icons for buffers that nvim-web-devicons doesn't know about
+--- (URI-style names like `health://`). Registered once on module load so
+--- the side-effect stays scoped to the tabline lib.
+---@type table<string, { icon: string, color: string, cterm_color: string, name: string }>
+local custom_icons = {
+	checkhealth = {
+		icon = "󰓙",
+		color = "#a3be8c",
+		cterm_color = "108",
+		name = "Checkhealth",
+	},
+}
+
+if ok_devicons then
+	if devicons.set_icon_by_filetype then
+		local ft_map = {}
+		for ft in pairs(custom_icons) do
+			ft_map[ft] = ft
+		end
+		devicons.set_icon_by_filetype(ft_map)
+	end
+	if devicons.set_icon then
+		devicons.set_icon(custom_icons)
+	end
+end
 
 local M = {}
 
@@ -74,7 +99,21 @@ function M.build(state)
 			local fullname = raw_names[bufnr]
 			local filename = fullname:match("[^/]+$") or ""
 			local ext = filename:match("%.([^%.]+)$") or ""
-			local icon, color = devicons.get_icon_color(filename, ext, { default = true })
+			local icon, color
+			if filename ~= "" then
+				icon, color = devicons.get_icon_color(filename, ext, { default = false })
+			end
+			if not icon then
+				local ok_ft, ft = pcall(function()
+					return vim.bo[bufnr].filetype
+				end)
+				if ok_ft and ft and ft ~= "" and devicons.get_icon_color_by_filetype then
+					icon, color = devicons.get_icon_color_by_filetype(ft, { default = false })
+				end
+			end
+			if not icon then
+				icon, color = devicons.get_icon_color(filename, ext, { default = true })
+			end
 			icons_by_buf[bufnr] = { icon = icon or "", color = color }
 		end
 	end
