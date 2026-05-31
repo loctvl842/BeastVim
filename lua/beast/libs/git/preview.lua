@@ -101,18 +101,23 @@ end
 -- View helpers
 -- =========================================================================
 
----@param body string[]
----@param hls table<integer, string>
+---@class Beast.Git.PreviewRow
+---@field lnum integer? Source-buffer line number (nil for removed-only lines)
+---@field marker string "- " | "+ " | "  "
+---@field text string
+---@field hl string?
+
+---@param rows Beast.Git.PreviewRow[]
 ---@param buf integer
 ---@param from integer
 ---@param to integer
-local function emit_context(body, _hls, buf, from, to)
+local function emit_context(rows, buf, from, to)
 	if to < from then
 		return
 	end
 	local lines = api.nvim_buf_get_lines(buf, from - 1, to, false)
-	for _, l in ipairs(lines) do
-		body[#body + 1] = "  " .. l
+	for i, l in ipairs(lines) do
+		rows[#rows + 1] = { lnum = from + i - 1, marker = "  ", text = l }
 	end
 end
 
@@ -131,9 +136,9 @@ end
 ---@param st { base: string }
 ---@param hunks Beast.Git.RawHunk[]
 ---@param ctx_n integer
----@return string[] body, table<integer, string> hls
-local function build_timeline(buf, st, hunks, ctx_n)
-	local body, hls = {}, {}
+---@return Beast.Git.PreviewRow[]
+local function build_rows(buf, st, hunks, ctx_n)
+	local rows = {}
 	local total = api.nvim_buf_line_count(buf)
 	local prev_emit = 0
 
@@ -141,35 +146,68 @@ local function build_timeline(buf, st, hunks, ctx_n)
 		local before_end, after_start = hunk_context_bounds(hunk)
 
 		-- Context before this hunk, clamped so we never re-emit a buf line.
-		local before_start = math.max(prev_emit + 1, before_end - ctx_n + 1)
-		before_start = math.max(before_start, 1)
-		emit_context(body, hls, buf, before_start, before_end)
+		local before_start = math.max(prev_emit + 1, before_end - ctx_n + 1, 1)
+		emit_context(rows, buf, before_start, before_end)
 		if before_end >= before_start then
 			prev_emit = before_end
 		end
 
-		for _, l in ipairs(slice_base(st.base, hunk)) do
-			body[#body + 1] = "- " .. l
-			hls[#body] = "BeastGitPreviewDelete"
+		-- Removed lines show the current-buffer line number where they would
+		-- sit (b_start for change/delete; clamped to 1 for topdelete).
+		local removed = slice_base(st.base, hunk)
+		local removed_anchor = math.max(1, hunk.b_start)
+		for j, l in ipairs(removed) do
+			rows[#rows + 1] = {
+				lnum = removed_anchor + j - 1,
+				marker = "- ",
+				text = l,
+				hl = "BeastGitPreviewDelete",
+			}
 		end
-		for _, l in ipairs(slice_current(buf, hunk)) do
-			body[#body + 1] = "+ " .. l
-			hls[#body] = "BeastGitPreviewAdd"
+		-- Added lines map to b_start .. b_start+b_count-1 in the current buffer.
+		local added = slice_current(buf, hunk)
+		for j, l in ipairs(added) do
+			rows[#rows + 1] = {
+				lnum = hunk.b_start + j - 1,
+				marker = "+ ",
+				text = l,
+				hl = "BeastGitPreviewAdd",
+			}
 		end
 		if hunk.b_count > 0 then
 			prev_emit = hunk.b_start + hunk.b_count - 1
 		end
 
-		-- Trailing context: only after the LAST hunk. Between hunks, the next
-		-- hunk's before-context picks up where this one's added lines ended,
-		-- which naturally merges adjacent / overlapping context regions.
 		if i == #hunks then
 			local after_end = math.min(total, after_start + ctx_n - 1)
-			emit_context(body, hls, buf, after_start, after_end)
+			emit_context(rows, buf, after_start, after_end)
 		end
 	end
 
-	return body, hls
+	return rows
+end
+
+---@param rows Beast.Git.PreviewRow[]
+---@return string[] body, table<integer, string> hls, integer gutter_width
+local function render_rows(rows)
+	local max_lnum = 0
+	for _, r in ipairs(rows) do
+		if r.lnum and r.lnum > max_lnum then
+			max_lnum = r.lnum
+		end
+	end
+	local lnum_w = math.max(2, #tostring(max_lnum))
+
+	local body, hls = {}, {}
+	for i, r in ipairs(rows) do
+		local lnum_str = r.lnum and tostring(r.lnum) or ""
+		local gutter = string.rep(" ", lnum_w - #lnum_str) .. lnum_str .. " "
+		body[i] = gutter .. r.marker .. r.text
+		if r.hl then
+			hls[i] = r.hl
+		end
+	end
+	return body, hls, lnum_w + 1
 end
 
 ---@param lines string[]
@@ -287,16 +325,25 @@ function M.open_for_range(range_start, range_end)
 	local config = require("beast.libs.git.config")
 	local ctx_n = config.preview and config.preview.context_size or 0
 
-	local body, hls = build_timeline(source_buf, st, matched, ctx_n)
-	if #body == 0 then
+	local rows = build_rows(source_buf, st, matched, ctx_n)
+	if #rows == 0 then
 		return
 	end
+	local body, hls, gutter_w = render_rows(rows)
 
 	local width = math.min(max_width(body) + 2, math.floor(vim.o.columns * 0.8))
 	M.close()
 	local buf, win = open_float(body, hls, width)
+	-- Tint the gutter region so source line numbers read as LineNr.
+	local ns_g = api.nvim_create_namespace("beast_git_preview_gutter")
+	for i = 1, #body do
+		api.nvim_buf_set_extmark(buf, ns_g, i - 1, 0, { end_col = gutter_w, hl_group = "LineNr" })
+	end
 	current = PreviewView(buf, win)
 	wire_close(buf, source_buf)
 end
+
+-- Test-only seam — exposes pure helpers for unit tests.
+M._test = { build_rows = build_rows, render_rows = render_rows }
 
 return M
