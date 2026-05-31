@@ -12,7 +12,14 @@
 --- Each entry in `segments` is one slot (one rendered cell). A slot is an
 --- ordered list of producer names; the first producer with output for the
 --- current line wins. Producers: "number" | "diagnostic" | "git" | "fold".
----@alias Beast.Statuscolumn.Slot string[]
+---
+--- Two forms:
+---   shorthand: `{ "git", "fold" }` — 1-cell sign slot, priority order
+---   full:      `{ producers = { "git", "fold" }, width = 2 }`
+--- `width` (full form only) reserves N cells; the matched glyph is padded
+--- on the right with spaces to that width. Only meaningful for sign-style
+--- slots; ignored for slots that don't include diagnostic/git/fold.
+---@alias Beast.Statuscolumn.Slot string[] | { producers: string[], width?: integer }
 
 ---@class Beast.Statuscolumn.Config
 local defaults = {
@@ -20,14 +27,14 @@ local defaults = {
 	git = { enabled = true },
 
 	---@type Beast.Statuscolumn.FoldConfig
-	fold = { open = false, icons = { open = "", close = "" } },
+	fold = { open = true, icons = { open = "", close = "" } },
 
 	---@type Beast.Statuscolumn.Slot[]
 	segments = {
 		{ "diagnostic" },
 		{ "number" },
 		{ "git" },
-		{ "fold" },
+		{ producers = { "fold" }, width = 2 },
 	},
 
 	---@type string[]
