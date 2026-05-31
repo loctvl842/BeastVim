@@ -214,6 +214,24 @@ do
 	assert_eq("gap 7 with ctx=3 does NOT merge (palette regression)", #r_palette, 1)
 end
 
+-- =========================================================================
+-- Test: trim leading/trailing blank context rows
+-- =========================================================================
+io.write("\n== trim blank edge context ==\n")
+do
+	local cur = { "", "", "MIDDLE", "", "" }
+	local buf = make_buf(cur)
+	local base = "x\n\nMIDDLE\n\nx\n"
+	local hunk = { a_start = 3, a_count = 1, b_start = 3, b_count = 1 }
+	local rows = build_rows(buf, { base = base }, { hunk }, 2)
+
+	for _, r in ipairs(rows) do
+		if r.marker == "  " then
+			assert_eq("no blank trailing/leading ctx", r.text ~= "", true)
+		end
+	end
+end
+
 io.write("\n== Summary ==\n")
 io.write(("  Passed: %d\n  Failed: %d\n"):format(passed, failed))
 os.exit(failed == 0 and 0 or 1)
