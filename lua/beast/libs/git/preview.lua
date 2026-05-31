@@ -187,8 +187,16 @@ local function build_rows(buf, st, hunks, ctx_n)
 	return rows
 end
 
+---@class Beast.Git.PreviewGutter
+---@field lnum_text string  Padded line-number string + trailing space
+---@field marker string     "- " | "+ " | "  "
+---@field marker_hl string  Highlight group for the marker (and line bg)
+
 ---@param rows Beast.Git.PreviewRow[]
----@return string[] body, table<integer, string> hls, integer gutter_width
+---@return string[] body  pure code lines (no gutter), one per row
+---@return table<integer, string> hls  row → line_hl_group
+---@return Beast.Git.PreviewGutter[] gutters  one per row
+---@return integer gutter_width  display width of the prefix column
 local function render_rows(rows)
 	local max_lnum = 0
 	for _, r in ipairs(rows) do
@@ -198,16 +206,30 @@ local function render_rows(rows)
 	end
 	local lnum_w = math.max(2, #tostring(max_lnum))
 
-	local body, hls = {}, {}
+	local body, hls, gutters = {}, {}, {}
 	for i, r in ipairs(rows) do
 		local lnum_str = r.lnum and tostring(r.lnum) or ""
-		local gutter = string.rep(" ", lnum_w - #lnum_str) .. lnum_str .. " "
-		body[i] = gutter .. r.marker .. r.text
+		local lnum_text = string.rep(" ", lnum_w - #lnum_str) .. lnum_str .. " "
+		local marker_hl
+		if r.marker == "- " then
+			marker_hl = "BeastGitPreviewDeleteSign"
+		elseif r.marker == "+ " then
+			marker_hl = "BeastGitPreviewAddSign"
+		else
+			marker_hl = "LineNr"
+		end
+		gutters[i] = {
+			lnum_text = lnum_text,
+			lnum_hl = marker_hl,
+			marker = r.marker,
+			marker_hl = marker_hl,
+		}
+		body[i] = r.text
 		if r.hl then
 			hls[i] = r.hl
 		end
 	end
-	return body, hls, lnum_w + 1
+	return body, hls, gutters, lnum_w + 1 + 2
 end
 
 ---@param lines string[]
@@ -225,16 +247,39 @@ end
 
 ---@param body string[]
 ---@param hls table<integer, string>
+---@param body string[]
+---@param hls table<integer, string>
+---@param gutters string[]
 ---@param width integer
+---@param source_ft string
 ---@return integer buf, integer win
-local function open_float(body, hls, width)
+local function open_float(body, hls, gutters, width, source_ft)
 	local buf = api.nvim_create_buf(false, true)
 	api.nvim_buf_set_lines(buf, 0, -1, false, body)
 	vim.bo[buf].bufhidden = "wipe"
 
+	-- Start treesitter for the source filetype FIRST so syntax decorations
+	-- are in place before our extmarks. Code rows are plain source so the
+	-- parse tree is clean.
+	if source_ft and source_ft ~= "" then
+		vim.bo[buf].filetype = source_ft
+		local lang = vim.treesitter.language.get_lang(source_ft) or source_ft
+		pcall(vim.treesitter.start, buf, lang)
+	end
+
 	local ns = api.nvim_create_namespace("beast_git_preview")
-	for row, hl in pairs(hls) do
-		api.nvim_buf_set_extmark(buf, ns, row - 1, 0, { line_hl_group = hl })
+	for i = 1, #body do
+		local g = gutters[i]
+		api.nvim_buf_set_extmark(buf, ns, i - 1, 0, {
+			virt_text = {
+				{ g.lnum_text, g.lnum_hl },
+				{ g.marker, g.marker_hl },
+			},
+			virt_text_pos = "inline",
+		})
+		if hls[i] then
+			api.nvim_buf_set_extmark(buf, ns, i - 1, 0, { line_hl_group = hls[i] })
+		end
 	end
 
 	local height = math.min(#body, math.floor(vim.o.lines * 0.4))
@@ -329,16 +374,13 @@ function M.open_for_range(range_start, range_end)
 	if #rows == 0 then
 		return
 	end
-	local body, hls, gutter_w = render_rows(rows)
+	local body, hls, gutters, gutter_w = render_rows(rows)
 
-	local width = math.min(max_width(body) + 2, math.floor(vim.o.columns * 0.8))
+	local source_ft = vim.bo[source_buf].filetype
+	-- max_width counts code only; gutter is virt_text so add gutter_w.
+	local width = math.min(max_width(body) + gutter_w + 2, math.floor(vim.o.columns * 0.8))
 	M.close()
-	local buf, win = open_float(body, hls, width)
-	-- Tint the gutter region so source line numbers read as LineNr.
-	local ns_g = api.nvim_create_namespace("beast_git_preview_gutter")
-	for i = 1, #body do
-		api.nvim_buf_set_extmark(buf, ns_g, i - 1, 0, { end_col = gutter_w, hl_group = "LineNr" })
-	end
+	local buf, win = open_float(body, hls, gutters, width, source_ft)
 	current = PreviewView(buf, win)
 	wire_close(buf, source_buf)
 end

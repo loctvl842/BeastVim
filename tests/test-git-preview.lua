@@ -106,8 +106,8 @@ do
 	assert_eq("added line uses b_start", plus and plus.lnum, 4)
 
 	local body = render_rows(rows)
-	-- Context: lines 2,3,4 before; 5,6,7 after (in current buffer).
-	assert_eq("body[1]", body[1], " 1   line 02 — baseline") -- current line 1 = baseline 02
+	-- Context: lines 1,2,3 before; 5,6,7 after (in current buffer).
+	assert_eq("body[1]", body[1], "line 02 — baseline") -- current line 1 = baseline 02
 end
 
 -- =========================================================================
@@ -165,11 +165,19 @@ do
 		{ lnum = 4, marker = "+ ", text = "new", hl = "BeastGitPreviewAdd" },
 		{ lnum = 100, marker = "  ", text = "ctx" },
 	}
-	local body, _, gw = render_rows(rows)
-	assert_eq("gutter width fits max lnum", gw, 4) -- "100" + " " = 4
-	assert_eq("removed body row", body[1], "  4 - old")
-	assert_eq("added body row", body[2], "  4 + new")
-	assert_eq("context body row", body[3], "100   ctx")
+	local body, _, gutters, gw = render_rows(rows)
+	assert_eq("gutter prefix width fits max lnum", gw, 6)
+	assert_eq("removed gutter lnum", gutters[1].lnum_text, "  4 ")
+	assert_eq("removed gutter marker", gutters[1].marker, "- ")
+	assert_eq("removed gutter marker_hl", gutters[1].marker_hl, "BeastGitPreviewDelete")
+	assert_eq("added gutter marker", gutters[2].marker, "+ ")
+	assert_eq("added gutter marker_hl", gutters[2].marker_hl, "BeastGitPreviewAdd")
+	assert_eq("removed gutter lnum_hl", gutters[1].lnum_hl, "BeastGitPreviewDelete")
+	assert_eq("added gutter lnum_hl", gutters[2].lnum_hl, "BeastGitPreviewAdd")
+	assert_eq("context gutter lnum_hl", gutters[3].lnum_hl, "LineNr")
+	assert_eq("removed body row", body[1], "old")
+	assert_eq("added body row", body[2], "new")
+	assert_eq("context body row", body[3], "ctx")
 end
 
 -- =========================================================================
