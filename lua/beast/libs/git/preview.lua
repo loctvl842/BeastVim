@@ -230,6 +230,15 @@ local function build_rows(buf, st, hunks, ctx_n)
 		end
 	end
 
+	-- Trim leading + trailing blank context rows so the float doesn't show
+	-- empty source lines at its edges (they add no signal).
+	while #rows > 0 and rows[#rows].marker == "  " and rows[#rows].text == "" do
+		rows[#rows] = nil
+	end
+	while #rows > 0 and rows[1].marker == "  " and rows[1].text == "" do
+		table.remove(rows, 1)
+	end
+
 	return rows
 end
 
