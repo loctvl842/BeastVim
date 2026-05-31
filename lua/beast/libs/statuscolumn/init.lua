@@ -1,6 +1,7 @@
 local cache = require("beast.libs.statuscolumn.cache")
 local config = require("beast.libs.statuscolumn.config")
 local ffi = require("beast.libs.statuscolumn.ffi")
+local fold = require("beast.libs.statuscolumn.fold")
 local number = require("beast.libs.statuscolumn.number")
 local signs = require("beast.libs.statuscolumn.signs")
 
@@ -88,7 +89,9 @@ local producers = {
 		end
 		return sign_in_class(ws, "git", lnum)
 	end,
-	-- fold producer lands in Phase 3.
+	fold = function(win, _, lnum, _, virtnum)
+		return fold.icon(win, lnum, virtnum, config.fold.open)
+	end,
 }
 
 ---@param slot string[]
@@ -230,12 +233,21 @@ local function ensure_autocmds()
 			cache.drop_buf(args.buf)
 		end,
 	})
+
+	api.nvim_create_autocmd("OptionSet", {
+		group = state.augroup,
+		pattern = "fillchars",
+		callback = function()
+			fold.refresh_glyphs(config.fold and config.fold.icons or nil)
+		end,
+	})
 end
 
 ---@param opts? Beast.Statuscolumn.Config
 function M.setup(opts)
 	config.setup(opts)
 	rebuild_ignore_sets()
+	fold.refresh_glyphs(config.fold and config.fold.icons or nil)
 	ensure_autocmds()
 	vim.o.statuscolumn = STC_EXPR
 	state.installed = true

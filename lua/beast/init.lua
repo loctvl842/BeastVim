@@ -105,18 +105,27 @@ function M.setup(opts)
 			})
 		end,
 	})
-	Key.safe_set("n", "[b", function()
-		require("beast.libs.tabline").cycle_prev()
-	end, { desc = "Prev Buffer", group = "Tabline" })
-	Key.safe_set("n", "]b", function()
-		require("beast.libs.tabline").cycle_next()
-	end, { desc = "Next Buffer", group = "Tabline" })
-	Key.safe_set("n", "[B", function()
-		require("beast.libs.tabline").move_prev()
-	end, { desc = "Move buffer prev", group = "Tabline" })
-	Key.safe_set("n", "]B", function()
-		require("beast.libs.tabline").move_next()
-	end, { desc = "Move buffer next", group = "Tabline" })
+	-- Key.safe_set("n", "[b", function()
+	-- 	require("beast.libs.tabline").cycle_prev()
+	-- end, { desc = "Prev Buffer", group = "Tabline" })
+	-- Key.safe_set("n", "]b", function()
+	-- 	require("beast.libs.tabline").cycle_next()
+	-- end, { desc = "Next Buffer", group = "Tabline" })
+	-- Key.safe_set("n", "[B", function()
+	-- 	require("beast.libs.tabline").move_prev()
+	-- end, { desc = "Move buffer prev", group = "Tabline" })
+	-- Key.safe_set("n", "]B", function()
+	-- 	require("beast.libs.tabline").move_next()
+	-- end, { desc = "Move buffer next", group = "Tabline" })
+
+	-- Statuscolumn (lazy — deferred past first screen update)
+	packer.lazy("beast.libs.statuscolumn", {
+		event = "VimEnter",
+		defer = true,
+		setup = function(stc)
+			stc.setup({})
+		end,
+	})
 
 	vim.g.loaded_netrw = 1
 	vim.g.loaded_netrwPlugin = 1
