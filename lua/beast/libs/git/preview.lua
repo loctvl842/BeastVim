@@ -77,8 +77,9 @@ end
 ---@param hunks Beast.Git.RawHunk[]  ordered by b_start
 ---@param seed Beast.Git.RawHunk[]   contiguous slice already picked
 ---@param ctx_n integer
+---@param adj_gap integer  max unchanged lines between hunks for auto-merge (0 = touching)
 ---@return Beast.Git.RawHunk[]
-local function expand_adjacent(hunks, seed, ctx_n)
+local function expand_adjacent(hunks, seed, ctx_n, adj_gap)
 	if #seed == 0 then
 		return seed
 	end
@@ -88,9 +89,8 @@ local function expand_adjacent(hunks, seed, ctx_n)
 	end
 	local lo = index_of[seed[1]]
 	local hi = index_of[seed[#seed]]
-	-- Merge only truly touching hunks (no unchanged lines between them).
-	-- gap = un-changed lines BETWEEN the hunks; merge iff gap == 0.
-	local gap_threshold = 1
+	-- Merge when gap (unchanged lines between hunks) <= adj_gap.
+	local gap_threshold = math.max(0, adj_gap or 0) + 1
 
 	while lo > 1 do
 		local _, prev_last = hunk_b_span(hunks[lo - 1])
@@ -478,8 +478,9 @@ function M.open_for_range(range_start, range_end)
 
 	local config = require("beast.libs.git.config")
 	local ctx_n = config.preview and config.preview.context_size or 0
+	local adj_gap = (config.preview and config.preview.adjacent_gap) or 0
 	-- Auto-cluster adjacent hunks so back-to-back changes preview together.
-	matched = expand_adjacent(hunks, matched, ctx_n)
+	matched = expand_adjacent(hunks, matched, ctx_n, adj_gap)
 
 	local rows = build_rows(source_buf, st, matched, ctx_n)
 	if #rows == 0 then
