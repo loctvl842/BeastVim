@@ -307,7 +307,7 @@ local function wire_close(buf, source_buf)
 	vim.keymap.set("n", "<Esc>", M.close, { buffer = buf, nowait = true, silent = true })
 
 	local group = api.nvim_create_augroup("BeastGitPreview", { clear = true })
-	api.nvim_create_autocmd({ "CursorMoved", "CursorMovedI", "BufLeave", "WinScrolled" }, {
+	api.nvim_create_autocmd({ "CursorMoved", "CursorMovedI", "BufLeave" }, {
 		group = group,
 		buffer = source_buf,
 		once = true,
