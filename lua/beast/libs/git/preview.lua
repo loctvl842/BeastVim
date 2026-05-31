@@ -72,6 +72,52 @@ local function hunks_in_range(hunks, range_start, range_end)
 	return out
 end
 
+---Expand `seed` to include every neighbouring hunk whose context window
+---would touch or overlap the cluster (gap ≤ 2 * ctx_n).
+---@param hunks Beast.Git.RawHunk[]  ordered by b_start
+---@param seed Beast.Git.RawHunk[]   contiguous slice already picked
+---@param ctx_n integer
+---@return Beast.Git.RawHunk[]
+local function expand_adjacent(hunks, seed, ctx_n)
+	if #seed == 0 then
+		return seed
+	end
+	local index_of = {}
+	for i, h in ipairs(hunks) do
+		index_of[h] = i
+	end
+	local lo = index_of[seed[1]]
+	local hi = index_of[seed[#seed]]
+	-- Merge only when the two hunks' context windows would actually overlap.
+	-- gap = un-changed lines BETWEEN the hunks; combined context lookahead is
+	-- ctx_n from each side, so they overlap iff gap < 2*ctx_n.
+	-- ctx_n == 0 falls back to gap < 1 (only truly back-to-back hunks merge).
+	local gap_threshold = math.max(1, 2 * ctx_n)
+
+	while lo > 1 do
+		local _, prev_last = hunk_b_span(hunks[lo - 1])
+		local curr_first = hunk_b_span(hunks[lo])
+		if curr_first - prev_last - 1 >= gap_threshold then
+			break
+		end
+		lo = lo - 1
+	end
+	while hi < #hunks do
+		local _, curr_last = hunk_b_span(hunks[hi])
+		local next_first = hunk_b_span(hunks[hi + 1])
+		if next_first - curr_last - 1 >= gap_threshold then
+			break
+		end
+		hi = hi + 1
+	end
+
+	local out = {}
+	for i = lo, hi do
+		out[#out + 1] = hunks[i]
+	end
+	return out
+end
+
 ---@param base string
 ---@param hunk Beast.Git.RawHunk
 ---@return string[]
@@ -383,6 +429,8 @@ function M.open_for_range(range_start, range_end)
 
 	local config = require("beast.libs.git.config")
 	local ctx_n = config.preview and config.preview.context_size or 0
+	-- Auto-cluster adjacent hunks so back-to-back changes preview together.
+	matched = expand_adjacent(hunks, matched, ctx_n)
 
 	local rows = build_rows(source_buf, st, matched, ctx_n)
 	if #rows == 0 then
@@ -400,6 +448,6 @@ function M.open_for_range(range_start, range_end)
 end
 
 -- Test-only seam — exposes pure helpers for unit tests.
-M._test = { build_rows = build_rows, render_rows = render_rows }
+M._test = { build_rows = build_rows, render_rows = render_rows, expand_adjacent = expand_adjacent }
 
 return M

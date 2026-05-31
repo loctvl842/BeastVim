@@ -181,8 +181,39 @@ do
 end
 
 -- =========================================================================
--- Summary
+-- Test: expand_adjacent clusters nearby hunks
 -- =========================================================================
+io.write("\n== expand_adjacent ==\n")
+do
+	package.loaded["beast.libs.git.preview"] = nil
+	local preview2 = require("beast.libs.git.preview")
+	local expand = preview2._test.expand_adjacent
+	local h1 = { a_start = 1, a_count = 1, b_start = 1, b_count = 1 }
+	local h2 = { a_start = 5, a_count = 1, b_start = 5, b_count = 1 }
+	local h3 = { a_start = 50, a_count = 1, b_start = 50, b_count = 1 }
+	local all = { h1, h2, h3 }
+
+	-- ctx=0: only back-to-back hunks merge (gap=3 here, so h1 and h2 NOT adjacent).
+	local r0 = expand(all, { h2 }, 0)
+	assert_eq("ctx=0 keeps single hunk", #r0, 1)
+
+	-- ctx=3: gap=3 between h1 (line 1) and h2 (line 5) is < 2*3=6 → merge.
+	local r3 = expand(all, { h2 }, 3)
+	assert_eq("ctx=3 expands to include h1", #r3, 2)
+	assert_eq("ctx=3 first is h1", r3[1], h1)
+
+	-- h3 at line 50 — gap of 44 from h2 — never merges.
+	local r_big = expand(all, { h2 }, 10)
+	assert_eq("ctx=10 still skips far hunk", #r_big, 2)
+
+	-- Critical regression: gap exactly == 2*ctx_n must NOT merge
+	-- (palette case: hunk@76 → hunk@84 = gap 7, ctx=3 → threshold 6, 7>=6 → break).
+	local h_at_76 = { a_start = 76, a_count = 1, b_start = 76, b_count = 1 }
+	local h_at_84 = { a_start = 84, a_count = 1, b_start = 84, b_count = 1 }
+	local r_palette = expand({ h_at_76, h_at_84 }, { h_at_76 }, 3)
+	assert_eq("gap 7 with ctx=3 does NOT merge (palette regression)", #r_palette, 1)
+end
+
 io.write("\n== Summary ==\n")
 io.write(("  Passed: %d\n  Failed: %d\n"):format(passed, failed))
 os.exit(failed == 0 and 0 or 1)
