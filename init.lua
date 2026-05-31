@@ -39,13 +39,14 @@ require("beast").setup({
 			dir_open = "󰝰", -- nf-md-folder_open
 			dir_closed = "󰉋", -- nf-md-folder
 			git = {
-				conflict = "",
-				deleted = "",
-				added = "",
-				renamed = "➜",
+				conflict = "󰞇",
 				modified = "●",
-				untracked = "",
-				ignored = "󱈸",
+				renamed = "󰁕",
+				copied = "⧉",
+				deleted = "󰍵",
+				added = "󰐕",
+				untracked = "󰞋",
+				ignored = "󰈉",
 			},
 		},
 		mappings = {
