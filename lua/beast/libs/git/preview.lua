@@ -366,7 +366,8 @@ end
 ---@param source_buf integer  buffer whose cursor opened the preview
 ---@param source_win integer
 ---@param anchor_lnum integer
-local function wire_close(buf, source_buf, source_win, anchor_lnum)
+---@param hunk_lines table<integer, boolean>  set of buffer lines covered by matched hunks
+local function wire_close(buf, source_buf, source_win, anchor_lnum, hunk_lines)
 	vim.keymap.set("n", "q", M.close, { buffer = buf, nowait = true, silent = true })
 	vim.keymap.set("n", "<Esc>", M.close, { buffer = buf, nowait = true, silent = true })
 
@@ -377,16 +378,13 @@ local function wire_close(buf, source_buf, source_win, anchor_lnum)
 		once = true,
 		callback = M.close,
 	})
-	-- Close when focus moves to any window other than the source window or
-	-- the preview float itself (e.g. clicking another split with the mouse).
-	api.nvim_create_autocmd("WinEnter", {
+	-- Close when the cursor moves off the matched hunk lines.
+	api.nvim_create_autocmd({ "CursorMoved", "CursorMovedI" }, {
 		group = group,
+		buffer = source_buf,
 		callback = function()
-			local w = api.nvim_get_current_win()
-			if not current or not current.win then
-				return
-			end
-			if w ~= source_win and w ~= current.win then
+			local lnum = api.nvim_win_get_cursor(source_win)[1]
+			if not hunk_lines[lnum] then
 				M.close()
 			end
 		end,
@@ -491,12 +489,21 @@ function M.open_for_range(range_start, range_end)
 	-- (its position in the current buffer).
 	local first = matched[1]
 	local anchor_lnum = math.max(1, first.b_start or 1)
+	-- Lines covered by matched hunks — cursor moving off these closes preview.
+	local hunk_lines = {}
+	for _, h in ipairs(matched) do
+		local s = math.max(1, h.b_start or 1)
+		local n = math.max(h.b_count or 0, 1)
+		for l = s, s + n - 1 do
+			hunk_lines[l] = true
+		end
+	end
 	-- max_width counts code only; gutter is virt_text so add gutter_w.
 	local width = math.min(max_width(body) + gutter_w + 2, math.floor(vim.o.columns * 0.8))
 	M.close()
 	local buf, win = open_float(body, hls, gutters, width, source_ft, source_win, anchor_lnum)
 	current = PreviewView(buf, win)
-	wire_close(buf, source_buf, source_win, anchor_lnum)
+	wire_close(buf, source_buf, source_win, anchor_lnum, hunk_lines)
 end
 
 -- Test-only seam — exposes pure helpers for unit tests.
