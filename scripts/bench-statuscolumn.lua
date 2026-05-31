@@ -56,6 +56,28 @@ local function eval_line(lnum)
 	})
 end
 
+-- Seed realistic sign load: 10 diagnostic + 20 git extmarks scattered through
+-- the buffer so the diagnostic/git producers have work on cache miss.
+local function seed_signs()
+	local diag_ns = vim.api.nvim_create_namespace("vim.diagnostic.bench")
+	local git_ns = vim.api.nvim_create_namespace("gitsigns_extmark_signs_bench")
+	for i = 1, 10 do
+		vim.api.nvim_buf_set_extmark(buf, diag_ns, (i * 17) % LINES, 0, {
+			sign_text = "E ",
+			sign_hl_group = "DiagnosticSignError",
+			priority = 20,
+		})
+	end
+	for i = 1, 20 do
+		vim.api.nvim_buf_set_extmark(buf, git_ns, (i * 7) % LINES, 0, {
+			sign_text = "▎",
+			sign_hl_group = "GitSignsAdd",
+			priority = 6,
+		})
+	end
+end
+seed_signs()
+
 -- Pre-warm: hit the cache once per line.
 for i = 1, LINES do
 	eval_line(i)
@@ -95,39 +117,103 @@ local function bench(fn)
 end
 
 -- =========================================================================
--- Scenario 1: cache hits (same line every call)
+-- Scenario 1: cache hits, number-only (same line every call)
 -- =========================================================================
+
+stc.setup({ segments = { { "number" } } })
+require("beast.libs.statuscolumn.cache").drop_win(winid)
+eval_line(1) -- warm
 
 local hit_us = bench(function()
 	eval_line(1)
 end)
-print(string.format("CacheHit  %.3f µs/render (median of %d×%d)", hit_us, RUNS, RENDERS_PER_RUN))
+print(string.format("CacheHit       %.3f µs/render (median of %d×%d)", hit_us, RUNS, RENDERS_PER_RUN))
 
 -- =========================================================================
--- Scenario 2: cache misses (sweep through all lines, bumping tick each time)
+-- Scenario 2: cache misses, number-only (sweep lines on same tick)
 -- =========================================================================
+--
+-- Models the realistic flow: signs.collect runs once per redraw, then all
+-- visible lines reuse it. Per-line cost should be just slot dispatch.
 
 local cache = require("beast.libs.statuscolumn.cache")
 local sweep_us = bench(function(i)
 	local lnum = ((i - 1) % LINES) + 1
-	cache.drop_win(winid)
+	cache.drop_lines(winid)
 	eval_line(lnum)
 end)
-print(string.format("CacheMiss %.3f µs/render (median of %d×%d)", sweep_us, RUNS, RENDERS_PER_RUN))
+print(string.format("CacheMiss      %.3f µs/render (median of %d×%d)", sweep_us, RUNS, RENDERS_PER_RUN))
+
+-- =========================================================================
+-- Scenario 3: 3-slot layout {number, git, diagnostic} (sweep, same tick)
+-- =========================================================================
+
+stc.setup({
+	segments = { { "number" }, { "git" }, { "diagnostic" } },
+})
+cache.drop_win(winid)
+eval_line(1) -- warm signs.collect once for this layout
+
+local full_us = bench(function(i)
+	local lnum = ((i - 1) % LINES) + 1
+	cache.drop_lines(winid)
+	eval_line(lnum)
+end)
+print(string.format("3Slot+Signs    %.3f µs/render (median of %d×%d)", full_us, RUNS, RENDERS_PER_RUN))
+
+-- =========================================================================
+-- Scenario 4: full redraw = signs.collect + LINES line renders, amortised
+-- =========================================================================
+--
+-- Models a buffer redraw: drop the whole per-window state, render all lines
+-- once, divide by LINES. This is what the "<500 µs / 80-line window" budget
+-- in the spec measures.
+
+local function full_redraw()
+	cache.drop_win(winid)
+	for lnum = 1, LINES do
+		eval_line(lnum)
+	end
+end
+
+local samples = {}
+for _ = 1, RUNS do
+	collectgarbage("collect")
+	local t0 = vim.uv.hrtime()
+	for _ = 1, 10 do
+		full_redraw()
+	end
+	local elapsed_ns = vim.uv.hrtime() - t0
+	samples[#samples + 1] = elapsed_ns / 1e3 / 10 -- µs per full redraw
+end
+table.sort(samples)
+local redraw_us = samples[math.ceil(#samples / 2)]
+print(string.format("FullRedraw     %.1f µs/redraw (%d lines, median of %d×10)", redraw_us, LINES, RUNS))
 
 -- =========================================================================
 -- Summary line + exit code
 -- =========================================================================
 
-print(string.format("BENCH name=statuscolumn hit=%.3fus miss=%.3fus threshold=%dus", hit_us, sweep_us, FAIL_THRESHOLD_US))
+print(
+	string.format(
+		"BENCH name=statuscolumn hit=%.3fus miss=%.3fus full=%.3fus redraw%d=%.1fus threshold=%dus",
+		hit_us,
+		sweep_us,
+		full_us,
+		LINES,
+		redraw_us,
+		FAIL_THRESHOLD_US
+	)
+)
 
-if sweep_us > FAIL_THRESHOLD_US then
-	io.stderr:write(string.format("FAIL: %.3f µs (miss) > %d µs threshold\n", sweep_us, FAIL_THRESHOLD_US))
+local worst = math.max(sweep_us, full_us)
+if worst > FAIL_THRESHOLD_US then
+	io.stderr:write(string.format("FAIL: %.3f µs > %d µs threshold\n", worst, FAIL_THRESHOLD_US))
 	os.exit(1)
 end
 
-if sweep_us > WARN_THRESHOLD_US then
-	io.stderr:write(string.format("WARN: %.3f µs (miss) > %d µs soft target — investigate before adding segments\n", sweep_us, WARN_THRESHOLD_US))
+if worst > WARN_THRESHOLD_US then
+	io.stderr:write(string.format("WARN: %.3f µs > %d µs soft target — investigate before adding segments\n", worst, WARN_THRESHOLD_US))
 end
 
 os.exit(0)

@@ -81,6 +81,19 @@ function M.drop_win(win)
 	line_cache[win] = nil
 end
 
+--- Drop ONLY the per-line interned strings for `win`. Per-window state
+--- (tick / sign map) is preserved so callers can force a line-level
+--- re-render without re-walking extmarks.
+---@param win integer
+function M.drop_lines(win)
+	local ws = per_win[win]
+	if ws then
+		line_cache[win] = { [ws.buf] = {} }
+	else
+		line_cache[win] = nil
+	end
+end
+
 ---@param buf integer
 function M.drop_buf(buf)
 	for win, wc in pairs(line_cache) do
