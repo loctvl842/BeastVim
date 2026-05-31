@@ -23,3 +23,6 @@
 | [019](019-statuscolumn-fixed-producer-enum.md) | Fixed Producer Enum for Statuscolumn (over Generic Segment Engine) | Accepted | 2026-05-31 |
 | [020](020-statuscolumn-namespace-classification-no-plugin-deps.md) | Statuscolumn Detects Signs by Namespace, No Plugin Dependencies | Accepted | 2026-05-31 |
 | [021](021-statuscolumn-display-tick-cache-invalidation.md) | `display_tick` (FFI) Drives Statuscolumn Cache Invalidation | Accepted | 2026-05-31 |
+| [022](022-native-git-library-replaces-gitsigns.md) | Native Git Library Replaces gitsigns.nvim | Accepted | 2026-06-01 |
+| [023](023-vim-text-diff-backend.md) | `vim.text.diff` (with `vim.diff` fallback) as Diff Backend | Accepted | 2026-06-01 |
+| [024](024-beast-git-signs-namespace.md) | Distinct `beast_git_signs` Namespace for Coexistence | Accepted | 2026-06-01 |

@@ -292,6 +292,35 @@ Loaded via: `packer.lazy()` on VimEnter (deferred)
 
 ---
 
+## git — Native Git Hunk Signs / Navigation / Preview
+
+```
+git/
+├── init.lua       ← state, attach/detach, debounced recompute, single-flight, autocmds
+├── config.lua     ← debounce_ms, keymaps, icons, ft_ignore, bt_ignore (frozen, ADR-003)
+├── repo.lua       ← resolve(buf) + get_base(ctx) via `git rev-parse` / `git show HEAD:<path>`
+├── diff.lua       ← compute_hunks(base, current) via vim.text.diff (fallback vim.diff), histogram + linematch
+├── hunks.lua      ← expand_signs(hunks, n_lines) → per-line {add|change|delete|topdelete|changedelete}
+├── signs.lua      ← namespace `beast_git_signs`; place() sets extmarks with sign_text + sign_hl_group
+├── nav.lua        ← nav_hunk("next"|"prev", { wrap, foldopen }) — `''` mark + `zv`
+├── preview.lua    ← Beast.View subclass; <leader>gp opens diff float, auto-close on CursorMoved
+├── highlights.lua ← BeastGit{Add,Change,Delete,TopDelete,Changedelete} link to GitSigns* defaults
+└── health.lua     ← :checkhealth — git bin, diff backend, attached count, mean last_diff_ms
+```
+
+API: `git.setup(opts)`, `git.attach(buf)`, `git.get_hunks(buf)`, `git.nav_hunk(dir, opts)`, `git.preview_hunk()`.
+Default buffer-local keymaps (when `config.keymaps=true`): `]c` / `[c` next/prev, `<leader>gp` preview.
+Statuscolumn integration: extmarks classified by namespace pattern `^beast_git_signs` (ADR-020).
+Loaded via: `packer.lazy()` on `BufReadPost` (deferred).
+
+### Performance
+- 200ms debounce on TextChanged/I; single-flight per buffer (running/dirty flags).
+- Bench `scripts/bench-git.lua`: 1k=0.3ms, 5k=2.6ms, 20k=19ms — threshold 10ms @ 5k PASS.
+- Pure-Lua diff via `vim.text.diff` — no subprocess per recompute; only `git show HEAD:<path>` once per BufWritePost.
+- ADRs: 022 (native lib vs gitsigns.nvim), 023 (vim.text.diff backend), 024 (distinct namespace for coexistence).
+
+---
+
 
 
 ```
