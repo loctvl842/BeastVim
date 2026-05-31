@@ -117,11 +117,11 @@ local function build_body(removed, added, before, after)
 	end
 	for _, l in ipairs(removed) do
 		body[#body + 1] = "- " .. l
-		hls[#body] = "DiffDelete"
+		hls[#body] = "BeastGitPreviewDelete"
 	end
 	for _, l in ipairs(added) do
 		body[#body + 1] = "+ " .. l
-		hls[#body] = "DiffAdd"
+		hls[#body] = "BeastGitPreviewAdd"
 	end
 	for _, l in ipairs(after) do
 		body[#body + 1] = "  " .. l
@@ -169,7 +169,7 @@ local function open_float(body, hls)
 		focusable = true,
 		noautocmd = true,
 	})
-	vim.api.nvim_set_option_value("winhighlight", "Normal:NormalFloat,FloatBorder:FloatBorder", { win = win })
+	vim.api.nvim_set_option_value("winhighlight", "Normal:BeastGitPreviewNormal,FloatBorder:BeastGitPreviewBorder", { win = win })
 	vim.api.nvim_set_option_value("wrap", false, { win = win })
 	return buf, win
 end

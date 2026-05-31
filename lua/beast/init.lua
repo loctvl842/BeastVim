@@ -105,12 +105,10 @@ function M.setup(opts)
 			})
 		end,
 	})
-	Key.safe_set("n", "[B", function()
-		require("beast.libs.tabline").move_prev()
-	end, { desc = "Move buffer prev", group = "Tabline" })
-	Key.safe_set("n", "]B", function()
-		require("beast.libs.tabline").move_next()
-	end, { desc = "Move buffer next", group = "Tabline" })
+  -- stylua: ignore start
+	Key.safe_set("n", "[B", function() require("beast.libs.tabline").move_prev() end, { desc = "Move buffer prev", group = "Tabline" })
+	Key.safe_set("n", "]B", function() require("beast.libs.tabline").move_next() end, { desc = "Move buffer next", group = "Tabline" })
+	-- stylua: ignore end
 
 	-- Statuscolumn (lazy — deferred past first screen update)
 	packer.lazy("beast.libs.statuscolumn", {
@@ -120,7 +118,6 @@ function M.setup(opts)
 			stc.setup({})
 		end,
 	})
-
 	-- Git (lazy — attaches per buffer on BufReadPost)
 	packer.lazy("beast.libs.git", {
 		event = "BufReadPost",
@@ -129,6 +126,9 @@ function M.setup(opts)
 			g.setup({})
 		end,
 	})
+  -- stylua: ignore start
+  Key.safe_set("n", "<leader>gp", function() require("beast.libs.git").preview_hunk() end, {desc = "Preview current hunk changes", group = "Statuscolumn"})
+	-- stylua: ignore end
 
 	vim.g.loaded_netrw = 1
 	vim.g.loaded_netrwPlugin = 1
@@ -190,28 +190,12 @@ function M.setup(opts)
 		setup = function(finder)
 			finder.setup(cfg.finder or {})
 		end,
+    -- stylua: ignore
 		keys = {
-			{
-				"<leader>f",
-				function()
-					require("beast.libs.finder").open("files")
-				end,
-				desc = "Find files",
-			},
-			{
-				"<leader>b",
-				function()
-					require("beast.libs.finder").open("buffers")
-				end,
-				desc = "Find buffers",
-			},
-			{
-				"<leader>g",
-				function()
-					require("beast.libs.finder").open("live_grep")
-				end,
-				desc = "Live grep",
-			},
+			{ "<leader>f", function() require("beast.libs.finder").open("files") end, desc = "Find files" },
+			{ "<leader>b", function() require("beast.libs.finder").open("buffers") end, desc = "Find buffers" },
+			{ "<leader>/", function() require("beast.libs.finder").open("live_grep") end, desc = "Live grep" },
+			{ "<leader>h", function() require("beast.libs.finder").open("help_tags") end, desc = "Help tags" },
 			{
 				"<leader>c",
 				function()
@@ -230,13 +214,6 @@ function M.setup(opts)
 					})
 				end,
 				desc = "Colorschemes",
-			},
-			{
-				"<leader>h",
-				function()
-					require("beast.libs.finder").open("help_tags")
-				end,
-				desc = "Help tags",
 			},
 		},
 	})
@@ -268,6 +245,7 @@ M.highlight_modules = {
 	"beast.libs.packer.highlights",
 	"beast.libs.statusline.highlights",
 	"beast.libs.statuscolumn.highlights",
+	"beast.libs.git.highlights",
 	"beast.libs.breadcrumb.highlights",
 	"beast.libs.tabline.highlights",
 	"beast.libs.toast.highlights",
