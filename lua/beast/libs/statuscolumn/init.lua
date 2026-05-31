@@ -1,0 +1,190 @@
+local cache = require("beast.libs.statuscolumn.cache")
+local config = require("beast.libs.statuscolumn.config")
+local ffi = require("beast.libs.statuscolumn.ffi")
+local number = require("beast.libs.statuscolumn.number")
+
+local v, g = vim.v, vim.g
+local api, bo = vim.api, vim.bo
+
+---@class Beast.Statuscolumn.State
+---@field augroup? integer
+---@field installed boolean
+
+---@type Beast.Statuscolumn.State
+local state = {
+	augroup = nil,
+	installed = false,
+}
+
+local M = {}
+
+-- =========================================================================
+-- Producer dispatch
+-- =========================================================================
+--
+-- Each producer is called with `(win, buf, lnum, relnum, virtnum, win_state)`
+-- and returns either a string (renders into the slot) or nil/"" (slot tries
+-- the next producer in its priority list).
+
+---@alias Beast.Statuscolumn.Producer fun(win: integer, buf: integer, lnum: integer, relnum: integer, virtnum: integer, win_state: Beast.Statuscolumn.WinState): string?
+
+---@type table<string, Beast.Statuscolumn.Producer>
+local producers = {
+	number = function(win, _, lnum, relnum, virtnum)
+		return number.format(win, lnum, relnum, virtnum)
+	end,
+	-- diagnostic / git / fold are added in later phases.
+}
+
+---@param slot string[]
+local function render_slot(slot, win, buf, lnum, relnum, virtnum, ws)
+	for i = 1, #slot do
+		local p = producers[slot[i]]
+		if p then
+			local out = p(win, buf, lnum, relnum, virtnum, ws)
+			if out and out ~= "" then
+				return out
+			end
+		end
+	end
+	return ""
+end
+
+-- =========================================================================
+-- Opt-out checks
+-- =========================================================================
+
+---@type table<string, true>
+local ft_ignore_set = {}
+---@type table<string, true>
+local bt_ignore_set = {}
+
+local function rebuild_ignore_sets()
+	ft_ignore_set = {}
+	for _, ft in ipairs(config.ft_ignore or {}) do
+		ft_ignore_set[ft] = true
+	end
+	bt_ignore_set = {}
+	for _, bt in ipairs(config.bt_ignore or {}) do
+		bt_ignore_set[bt] = true
+	end
+end
+
+---@param buf integer
+---@return boolean
+local function buffer_disabled(buf)
+	if vim.b[buf].beast_statuscolumn_disabled then
+		return true
+	end
+	local b = bo[buf]
+	if bt_ignore_set[b.buftype] then
+		return true
+	end
+	if ft_ignore_set[b.filetype] then
+		return true
+	end
+	return false
+end
+
+-- =========================================================================
+-- Render (hot path)
+-- =========================================================================
+
+---@return string
+local function render_inner()
+	local win = g.statusline_winid
+	if not win or not api.nvim_win_is_valid(win) then
+		return ""
+	end
+	local buf = api.nvim_win_get_buf(win)
+	if buffer_disabled(buf) then
+		return ""
+	end
+
+	local lnum, relnum, virtnum = v.lnum, v.relnum, v.virtnum
+	local tick = ffi.tick()
+
+	local ws = cache.bump_window(win, tick, buf)
+
+	local key = lnum .. ":" .. virtnum .. ":" .. relnum
+	local cached = cache.get_line(win, buf, key)
+	if cached ~= nil then
+		return cached
+	end
+
+	local segments = config.segments
+	local n = #segments
+	if n == 0 then
+		cache.set_line(win, buf, key, "")
+		return ""
+	end
+
+	-- Avoid table.concat allocation for the common single-slot case.
+	local out
+	if n == 1 then
+		out = render_slot(segments[1], win, buf, lnum, relnum, virtnum, ws)
+	else
+		local parts = {}
+		for i = 1, n do
+			parts[i] = render_slot(segments[i], win, buf, lnum, relnum, virtnum, ws)
+		end
+		out = table.concat(parts)
+	end
+
+	cache.set_line(win, buf, key, out)
+	return out
+end
+
+---@return string
+function M.render()
+	local ok, out = pcall(render_inner)
+	if not ok then
+		return ""
+	end
+	return out
+end
+
+-- =========================================================================
+-- Setup
+-- =========================================================================
+
+local STC_EXPR = "%!v:lua.require'beast.libs.statuscolumn'.render()"
+
+local function ensure_autocmds()
+	if state.augroup then
+		return
+	end
+	state.augroup = api.nvim_create_augroup("BeastStatuscolumn", { clear = true })
+
+	api.nvim_create_autocmd("WinClosed", {
+		group = state.augroup,
+		callback = function(args)
+			local win = tonumber(args.match)
+			if win then
+				cache.drop_win(win)
+			end
+		end,
+	})
+
+	api.nvim_create_autocmd({ "BufWipeout", "BufDelete" }, {
+		group = state.augroup,
+		callback = function(args)
+			cache.drop_buf(args.buf)
+		end,
+	})
+end
+
+---@param opts? Beast.Statuscolumn.Config
+function M.setup(opts)
+	config.setup(opts)
+	rebuild_ignore_sets()
+	ensure_autocmds()
+	vim.o.statuscolumn = STC_EXPR
+	state.installed = true
+end
+
+--- Inspection helpers (for tests + :checkhealth).
+M._state = state
+M._producers = producers
+
+return M
