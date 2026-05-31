@@ -73,6 +73,17 @@ function M.check()
 		end
 		health.info(string.format("last-diff mean: %.2f ms across %d buffer(s)", total / #samples, #samples))
 	end
+	-- Preview availability
+	health.start("beast.libs.git — preview")
+	local ok_view, _ = pcall(require, "beast.libs.view")
+	if ok_view then
+		health.ok("Beast.View base class loadable")
+	else
+		health.error("Beast.View base class missing — preview cannot open")
+	end
+	if require("beast.libs.git.config").keymaps then
+		health.info("default keymaps enabled: ]c, [c, <leader>gp (buffer-local on attach)")
+	else
+		health.info("default keymaps disabled — bind nav_hunk / preview_hunk manually")
+	end
 end
-
-return M

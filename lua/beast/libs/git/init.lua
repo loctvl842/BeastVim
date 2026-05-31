@@ -141,6 +141,9 @@ local function register_buf_keymaps(buf)
 	vim.keymap.set("n", "[c", function()
 		require("beast.libs.git.nav").nav_hunk("prev", { wrap = true })
 	end, vim.tbl_extend("force", opts, { desc = "Previous hunk" }))
+	vim.keymap.set("n", "<leader>gp", function()
+		require("beast.libs.git.preview").open_for_current_line()
+	end, vim.tbl_extend("force", opts, { desc = "Preview hunk" }))
 end
 
 ---@param buf integer?
@@ -211,6 +214,10 @@ end
 ---@param opts? Beast.Git.NavOpts
 function M.nav_hunk(direction, opts)
 	require("beast.libs.git.nav").nav_hunk(direction, opts)
+end
+
+function M.preview_hunk()
+	require("beast.libs.git.preview").open_for_current_line()
 end
 
 M._namespace = signs.namespace
