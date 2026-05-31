@@ -307,8 +307,10 @@ end
 ---@param gutters string[]
 ---@param width integer
 ---@param source_ft string
+---@param source_win integer
+---@param anchor_lnum integer  1-indexed buffer line to anchor the float below
 ---@return integer buf, integer win
-local function open_float(body, hls, gutters, width, source_ft)
+local function open_float(body, hls, gutters, width, source_ft, source_win, anchor_lnum)
 	local buf = api.nvim_create_buf(false, true)
 	api.nvim_buf_set_lines(buf, 0, -1, false, body)
 	vim.bo[buf].bufhidden = "wipe"
@@ -343,7 +345,9 @@ local function open_float(body, hls, gutters, width, source_ft)
 	local height = math.min(#body, math.floor(vim.o.lines * 0.4))
 
 	local win = api.nvim_open_win(buf, false, {
-		relative = "cursor",
+		relative = "win",
+		win = source_win,
+		bufpos = { anchor_lnum - 1, 0 },
 		row = 1,
 		col = 0,
 		width = width,
@@ -360,7 +364,9 @@ end
 
 ---@param buf integer  preview buffer
 ---@param source_buf integer  buffer whose cursor opened the preview
-local function wire_close(buf, source_buf)
+---@param source_win integer
+---@param anchor_lnum integer
+local function wire_close(buf, source_buf, source_win, anchor_lnum)
 	vim.keymap.set("n", "q", M.close, { buffer = buf, nowait = true, silent = true })
 	vim.keymap.set("n", "<Esc>", M.close, { buffer = buf, nowait = true, silent = true })
 
@@ -371,15 +377,21 @@ local function wire_close(buf, source_buf)
 		once = true,
 		callback = M.close,
 	})
-	-- Keep the float anchored under the cursor while the source window scrolls.
+	-- Re-anchor the float to the hunk position when the source window scrolls
+	-- so the float tracks the hunk on screen instead of the cursor.
 	api.nvim_create_autocmd("WinScrolled", {
 		group = group,
 		callback = function()
 			if not current or not current.win or not api.nvim_win_is_valid(current.win) then
 				return
 			end
+			if not api.nvim_win_is_valid(source_win) then
+				return
+			end
 			pcall(api.nvim_win_set_config, current.win, {
-				relative = "cursor",
+				relative = "win",
+				win = source_win,
+				bufpos = { anchor_lnum - 1, 0 },
 				row = 1,
 				col = 0,
 			})
@@ -451,12 +463,17 @@ function M.open_for_range(range_start, range_end)
 	local body, hls, gutters, gutter_w = render_rows(rows)
 
 	local source_ft = vim.bo[source_buf].filetype
+	local source_win = api.nvim_get_current_win()
+	-- Anchor the float just below the first line of the first matched hunk
+	-- (its position in the current buffer).
+	local first = matched[1]
+	local anchor_lnum = math.max(1, first.b_start or 1)
 	-- max_width counts code only; gutter is virt_text so add gutter_w.
 	local width = math.min(max_width(body) + gutter_w + 2, math.floor(vim.o.columns * 0.8))
 	M.close()
-	local buf, win = open_float(body, hls, gutters, width, source_ft)
+	local buf, win = open_float(body, hls, gutters, width, source_ft, source_win, anchor_lnum)
 	current = PreviewView(buf, win)
-	wire_close(buf, source_buf)
+	wire_close(buf, source_buf, source_win, anchor_lnum)
 end
 
 -- Test-only seam — exposes pure helpers for unit tests.
