@@ -69,6 +69,9 @@ function M.setup(opts)
 	_G.gh = function(x) return "https://github.com/" .. x end
 	---@type Beast.Packer.Config
 	packer.setup(cfg.packer)
+	Key.safe_set("n", "<leader>p", function()
+		require("beast.libs.packer.ui").open()
+	end)
 
 	-- Statusline (declarative components, native %! evaluation)
 	local stl = require("beast.libs.statusline")
@@ -252,6 +255,7 @@ M.highlight_modules = {
 	"beast.libs.notify.highlights",
 	"beast.libs.packer.highlights",
 	"beast.libs.statusline.highlights",
+	"beast.libs.statuscolumn.highlights",
 	"beast.libs.breadcrumb.highlights",
 	"beast.libs.tabline.highlights",
 	"beast.libs.toast.highlights",

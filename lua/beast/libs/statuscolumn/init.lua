@@ -2,6 +2,7 @@ local cache = require("beast.libs.statuscolumn.cache")
 local config = require("beast.libs.statuscolumn.config")
 local ffi = require("beast.libs.statuscolumn.ffi")
 local number = require("beast.libs.statuscolumn.number")
+local signs = require("beast.libs.statuscolumn.signs")
 
 local v, g = vim.v, vim.g
 local api, bo = vim.api, vim.bo
@@ -28,12 +29,66 @@ local M = {}
 
 ---@alias Beast.Statuscolumn.Producer fun(win: integer, buf: integer, lnum: integer, relnum: integer, virtnum: integer, win_state: Beast.Statuscolumn.WinState): string?
 
+-- Highlight name fallback: when an extmark sign has no sign_hl_group we still
+-- need *some* group so the wrapper format below is well-formed.
+local FALLBACK_HL = "SignColumn"
+
+-- Per-(text, hl) interned `%#hl#text%*` fragments. Sign vocab is small
+-- (E/W/I/H glyphs × diag groups + a few git glyphs) so the cache stays tiny.
+---@type table<string, string>
+local sign_fmt_cache = {}
+
+---@param text string
+---@param hl string
+---@return string
+local function format_sign(text, hl)
+	if hl == "" then
+		hl = FALLBACK_HL
+	end
+	local key = hl .. "\0" .. text
+	local cached = sign_fmt_cache[key]
+	if cached ~= nil then
+		return cached
+	end
+	cached = "%#" .. hl .. "#" .. text .. "%*"
+	sign_fmt_cache[key] = cached
+	return cached
+end
+
+---@param ws Beast.Statuscolumn.WinState
+---@param class string
+---@param lnum integer
+---@return string?
+local function sign_in_class(ws, class, lnum)
+	local cls = ws.signs_by_lnum_by_class[class]
+	if not cls then
+		return nil
+	end
+	local s = cls[lnum]
+	if not s then
+		return nil
+	end
+	return format_sign(s.text, s.hl)
+end
+
 ---@type table<string, Beast.Statuscolumn.Producer>
 local producers = {
 	number = function(win, _, lnum, relnum, virtnum)
 		return number.format(win, lnum, relnum, virtnum)
 	end,
-	-- diagnostic / git / fold are added in later phases.
+	diagnostic = function(_, _, lnum, _, virtnum, ws)
+		if virtnum ~= 0 then
+			return nil
+		end
+		return sign_in_class(ws, "diagnostic", lnum)
+	end,
+	git = function(_, _, lnum, _, virtnum, ws)
+		if virtnum ~= 0 or not config.git.enabled then
+			return nil
+		end
+		return sign_in_class(ws, "git", lnum)
+	end,
+	-- fold producer lands in Phase 3.
 }
 
 ---@param slot string[]
@@ -104,7 +159,10 @@ local function render_inner()
 	local lnum, relnum, virtnum = v.lnum, v.relnum, v.virtnum
 	local tick = ffi.tick()
 
-	local ws = cache.bump_window(win, tick, buf)
+	local ws, invalidated = cache.bump_window(win, tick, buf)
+	if invalidated then
+		ws.signs_by_lnum_by_class = signs.collect(buf)
+	end
 
 	local key = lnum .. ":" .. virtnum .. ":" .. relnum
 	local cached = cache.get_line(win, buf, key)

@@ -1,3 +1,6 @@
+---@class Beast.Statuscolumn.GitConfig
+---@field enabled? boolean Silently no-op when false; gitsigns/mini.diff still auto-detected when true
+
 --- Each entry in `segments` is one slot (one rendered cell). A slot is an
 --- ordered list of producer names; the first producer with output for the
 --- current line wins. Producers: "number" | "diagnostic" | "git" | "fold".
@@ -5,6 +8,9 @@
 
 ---@class Beast.Statuscolumn.Config
 local defaults = {
+	---@type Beast.Statuscolumn.GitConfig
+	git = { enabled = true },
+
 	---@type Beast.Statuscolumn.Slot[]
 	segments = {
 		{ "number" },
