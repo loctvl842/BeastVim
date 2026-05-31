@@ -377,6 +377,20 @@ local function wire_close(buf, source_buf, source_win, anchor_lnum)
 		once = true,
 		callback = M.close,
 	})
+	-- Close when focus moves to any window other than the source window or
+	-- the preview float itself (e.g. clicking another split with the mouse).
+	api.nvim_create_autocmd("WinEnter", {
+		group = group,
+		callback = function()
+			local w = api.nvim_get_current_win()
+			if not current or not current.win then
+				return
+			end
+			if w ~= source_win and w ~= current.win then
+				M.close()
+			end
+		end,
+	})
 	-- Re-anchor the float to the hunk position when the source window scrolls
 	-- so the float tracks the hunk on screen instead of the cursor. Close if
 	-- the anchor line has scrolled out of view.
