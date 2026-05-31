@@ -88,11 +88,9 @@ local function expand_adjacent(hunks, seed, ctx_n)
 	end
 	local lo = index_of[seed[1]]
 	local hi = index_of[seed[#seed]]
-	-- Merge only when the two hunks' context windows would actually overlap.
-	-- gap = un-changed lines BETWEEN the hunks; combined context lookahead is
-	-- ctx_n from each side, so they overlap iff gap < 2*ctx_n.
-	-- ctx_n == 0 falls back to gap < 1 (only truly back-to-back hunks merge).
-	local gap_threshold = math.max(1, 2 * ctx_n)
+	-- Merge only truly touching hunks (no unchanged lines between them).
+	-- gap = un-changed lines BETWEEN the hunks; merge iff gap == 0.
+	local gap_threshold = 1
 
 	while lo > 1 do
 		local _, prev_last = hunk_b_span(hunks[lo - 1])
