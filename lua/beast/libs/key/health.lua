@@ -64,6 +64,42 @@ function M.check()
 	-- Reset filters back to defaults
 	pcall(api_mod.toggle_beast_only)
 	pcall(api_mod.cycle_mode)
+
+	-- =========================================================================
+	-- Duplication: managed lhs colliding with other registrations
+	-- =========================================================================
+	health.start("beast.libs.key — duplication")
+
+	local modes = { "n", "i", "v", "x", "s", "o", "t", "c" }
+	local collisions = {}
+
+	for _, mode in ipairs(modes) do
+		-- Group all keymaps in this mode by lhs (termcode-normalized)
+		local by_lhs = {}
+		for _, km in ipairs(vim.api.nvim_get_keymap(mode)) do
+			local norm = vim.api.nvim_replace_termcodes(km.lhs, true, true, true)
+			by_lhs[norm] = (by_lhs[norm] or 0) + 1
+		end
+
+		-- For each managed key in this mode, check global count
+		for id, km in pairs(core.managed) do
+			if km.mode == mode then
+				local norm = vim.api.nvim_replace_termcodes(km.lhs, true, true, true)
+				if (by_lhs[norm] or 0) > 1 then
+					collisions[#collisions + 1] = string.format("%s in mode '%s'", km.lhs, mode)
+				end
+			end
+		end
+	end
+
+	if #collisions == 0 then
+		health.ok(string.format("No duplicate lhs across %d managed keymaps", vim.tbl_count(core.managed)))
+	else
+		health.warn(string.format("%d managed lhs collide with other registrations:", #collisions))
+		for _, msg in ipairs(collisions) do
+			health.warn("  • " .. msg)
+		end
+	end
 end
 
 return M
