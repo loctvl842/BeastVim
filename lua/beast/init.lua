@@ -105,18 +105,12 @@ function M.setup(opts)
 			})
 		end,
 	})
-	-- Key.safe_set("n", "[b", function()
-	-- 	require("beast.libs.tabline").cycle_prev()
-	-- end, { desc = "Prev Buffer", group = "Tabline" })
-	-- Key.safe_set("n", "]b", function()
-	-- 	require("beast.libs.tabline").cycle_next()
-	-- end, { desc = "Next Buffer", group = "Tabline" })
-	-- Key.safe_set("n", "[B", function()
-	-- 	require("beast.libs.tabline").move_prev()
-	-- end, { desc = "Move buffer prev", group = "Tabline" })
-	-- Key.safe_set("n", "]B", function()
-	-- 	require("beast.libs.tabline").move_next()
-	-- end, { desc = "Move buffer next", group = "Tabline" })
+	Key.safe_set("n", "[B", function()
+		require("beast.libs.tabline").move_prev()
+	end, { desc = "Move buffer prev", group = "Tabline" })
+	Key.safe_set("n", "]B", function()
+		require("beast.libs.tabline").move_next()
+	end, { desc = "Move buffer next", group = "Tabline" })
 
 	-- Statuscolumn (lazy — deferred past first screen update)
 	packer.lazy("beast.libs.statuscolumn", {
@@ -124,6 +118,15 @@ function M.setup(opts)
 		defer = true,
 		setup = function(stc)
 			stc.setup({})
+		end,
+	})
+
+	-- Git (lazy — attaches per buffer on BufReadPost)
+	packer.lazy("beast.libs.git", {
+		event = "BufReadPost",
+		defer = true,
+		setup = function(g)
+			g.setup({})
 		end,
 	})
 
@@ -265,6 +268,7 @@ M.highlight_modules = {
 	"beast.libs.packer.highlights",
 	"beast.libs.statusline.highlights",
 	"beast.libs.statuscolumn.highlights",
+	"beast.libs.git.highlights",
 	"beast.libs.breadcrumb.highlights",
 	"beast.libs.tabline.highlights",
 	"beast.libs.toast.highlights",

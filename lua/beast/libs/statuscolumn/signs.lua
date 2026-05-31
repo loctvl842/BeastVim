@@ -29,6 +29,7 @@ local M = {}
 -- Namespace patterns (matched with `string.find`, pattern-aware).
 local NS_PATTERNS = {
 	{ class = "diagnostic", pattern = "^vim%.diagnostic" },
+	{ class = "git", pattern = "^beast_git_signs" },
 	{ class = "git", pattern = "^gitsigns" },
 }
 
