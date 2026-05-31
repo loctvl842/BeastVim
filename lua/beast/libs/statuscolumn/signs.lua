@@ -100,6 +100,41 @@ end
 -- Collection (one extmark walk per redraw)
 -- =========================================================================
 
+-- =========================================================================
+-- beast.libs.git marker remap
+-- =========================================================================
+--
+-- Our git lib places extmarks with `sign_text = "•"` (placeholder) and
+-- `sign_hl_group = "BeastGit<Type>"` (routing tag, never themed). When
+-- we see such an extmark, we replace both fields with this lib's owned
+-- glyph (config.git.icons) and colour (BeastStcGit*). See the contract
+-- in lua/beast/libs/git/signs.lua's header.
+
+---@type table<string, { hl: string, icon_key: string }>
+local BEAST_GIT_MAP = {
+	BeastGitAdd = { hl = "BeastStcGitAdd", icon_key = "add" },
+	BeastGitChange = { hl = "BeastStcGitChange", icon_key = "change" },
+	BeastGitDelete = { hl = "BeastStcGitDelete", icon_key = "delete" },
+	BeastGitTopDelete = { hl = "BeastStcGitDelete", icon_key = "topdelete" },
+	BeastGitChangedelete = { hl = "BeastStcGitChange", icon_key = "changedelete" },
+}
+
+---@param sign_hl_group string
+---@return string? text, string? hl
+local function resolve_beast_git(sign_hl_group)
+	local entry = BEAST_GIT_MAP[sign_hl_group]
+	if not entry then
+		return nil, nil
+	end
+	local config = require("beast.libs.statuscolumn.config")
+	local icons = config.git and config.git.icons or nil
+	local glyph = icons and icons[entry.icon_key]
+	if not glyph then
+		return nil, nil
+	end
+	return glyph, entry.hl
+end
+
 ---@param buf integer
 ---@return table<Beast.Statuscolumn.SignClass, table<integer, Beast.Statuscolumn.Sign>>
 function M.collect(buf)
@@ -116,8 +151,18 @@ function M.collect(buf)
 		local lnum = em[2] + 1
 		local d = em[4]
 		local text = d.sign_text
+		local hl = d.sign_hl_group or ""
+
+		-- Remap our own markers: text+hl come from this lib, not the extmark.
+		if BEAST_GIT_MAP[hl] then
+			local rt, rh = resolve_beast_git(hl)
+			if rt then
+				text, hl = rt, rh
+			end
+		end
+
 		if text and text ~= "" then
-			local name = d.sign_hl_group or d.sign_name or ""
+			local name = hl ~= "" and hl or (d.sign_name or "")
 			local class = M.classify(d.ns_id or 0, name)
 			local prio = d.priority or 0
 			local bucket = out[class]
@@ -125,7 +170,7 @@ function M.collect(buf)
 			if not existing or prio > existing.priority then
 				bucket[lnum] = {
 					text = text,
-					hl = d.sign_hl_group or "",
+					hl = hl,
 					priority = prio,
 				}
 			end
