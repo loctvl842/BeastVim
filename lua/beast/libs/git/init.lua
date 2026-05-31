@@ -79,7 +79,9 @@ local function recompute(buf, st)
 		return
 	end
 	local current_lines = api.nvim_buf_get_lines(buf, 0, -1, false)
-	local current = table.concat(current_lines, "\n")
+	-- Append trailing newline to match `git show` output, otherwise a
+	-- phantom EOF hunk appears on every diff.
+	local current = table.concat(current_lines, "\n") .. "\n"
 	local t0 = uv.hrtime()
 	st.hunks = diff.compute_hunks(st.base, current)
 	st.line_signs = hunks_mod.expand_signs(st.hunks, #current_lines)
@@ -127,6 +129,20 @@ end
 -- Attach / detach
 -- =========================================================================
 
+---@param buf integer
+local function register_buf_keymaps(buf)
+	if not config.keymaps then
+		return
+	end
+	local opts = { buffer = buf, silent = true }
+	vim.keymap.set("n", "]c", function()
+		require("beast.libs.git.nav").nav_hunk("next", { wrap = true })
+	end, vim.tbl_extend("force", opts, { desc = "Next hunk" }))
+	vim.keymap.set("n", "[c", function()
+		require("beast.libs.git.nav").nav_hunk("prev", { wrap = true })
+	end, vim.tbl_extend("force", opts, { desc = "Previous hunk" }))
+end
+
 ---@param buf integer?
 function M.attach(buf)
 	buf = buf or api.nvim_get_current_buf()
@@ -150,6 +166,7 @@ function M.attach(buf)
 				running = false,
 				dirty = false,
 			}
+			register_buf_keymaps(buf)
 			schedule_diff(buf, false)
 		end)
 	end)
@@ -188,6 +205,12 @@ end
 function M._get_state(buf)
 	buf = buf or api.nvim_get_current_buf()
 	return state[buf]
+end
+
+---@param direction "next" | "prev"
+---@param opts? Beast.Git.NavOpts
+function M.nav_hunk(direction, opts)
+	require("beast.libs.git.nav").nav_hunk(direction, opts)
 end
 
 M._namespace = signs.namespace
