@@ -378,7 +378,8 @@ local function wire_close(buf, source_buf, source_win, anchor_lnum)
 		callback = M.close,
 	})
 	-- Re-anchor the float to the hunk position when the source window scrolls
-	-- so the float tracks the hunk on screen instead of the cursor.
+	-- so the float tracks the hunk on screen instead of the cursor. Close if
+	-- the anchor line has scrolled out of view.
 	api.nvim_create_autocmd("WinScrolled", {
 		group = group,
 		callback = function()
@@ -386,6 +387,12 @@ local function wire_close(buf, source_buf, source_win, anchor_lnum)
 				return
 			end
 			if not api.nvim_win_is_valid(source_win) then
+				return
+			end
+			local top = vim.fn.line("w0", source_win)
+			local bot = vim.fn.line("w$", source_win)
+			if anchor_lnum < top or anchor_lnum > bot then
+				M.close()
 				return
 			end
 			pcall(api.nvim_win_set_config, current.win, {
