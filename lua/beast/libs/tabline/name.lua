@@ -1,5 +1,29 @@
 local M = {}
 
+--- Compute a display tail for a buffer name, with smart handling for
+--- URI-style names (e.g. "health://", "term://...", "fugitive://...").
+---@param fullname string
+---@return string
+local function compute_tail(fullname)
+	local tail = fullname:match("[^/]+$")
+	if tail and tail ~= "" then
+		return tail
+	end
+
+	if fullname ~= "" then
+		local scheme, rest = fullname:match("^([%w%-_]+)://(.*)$")
+		if scheme then
+			if rest and rest ~= "" then
+				local sub = rest:match("[^/]+$") or rest
+				return scheme .. "://" .. sub
+			end
+			return scheme
+		end
+	end
+
+	return "[No Name]"
+end
+
 --- Build unique display names for all buffers in a single O(N) pass.
 --- Returns a table mapping bufnr → disambiguated name string.
 ---@param buffers integer[] List of buffer numbers
@@ -11,10 +35,7 @@ function M.build_names(buffers, raw_names)
 	local tails = {}
 	for _, bufnr in ipairs(buffers) do
 		local fullname = raw_names and raw_names[bufnr] or vim.api.nvim_buf_get_name(bufnr)
-		local tail = fullname:match("[^/]+$") or ""
-		if tail == "" then
-			tail = "[No Name]"
-		end
+		local tail = compute_tail(fullname)
 		tails[bufnr] = tail
 		if not by_tail[tail] then
 			by_tail[tail] = {}
