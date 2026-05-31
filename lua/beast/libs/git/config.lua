@@ -1,3 +1,6 @@
+---@class Beast.Git.PreviewConfig
+---@field context_size? integer Lines of unchanged context shown around the hunk in the preview float (default 0)
+
 ---@class Beast.Git.Config
 local defaults = {
 	---@type integer Debounce window (ms) for TextChanged / TextChangedI re-diffs.
@@ -5,6 +8,11 @@ local defaults = {
 
 	---@type boolean Register default `]c` / `[c` / `<leader>gp` keymaps on attach (Phase 2/3 features).
 	keymaps = true,
+
+	---@type Beast.Git.PreviewConfig
+	preview = {
+		context_size = 0,
+	},
 
 	---@type string[] Filetypes that never attach.
 	ft_ignore = {

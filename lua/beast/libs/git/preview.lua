@@ -69,15 +69,52 @@ local function slice_current(buf, hunk)
 	return api.nvim_buf_get_lines(buf, hunk.b_start - 1, hunk.b_start + hunk.b_count - 1, false)
 end
 
+---@param buf integer
+---@param hunk Beast.Git.RawHunk
+---@param context_size integer
+---@return string[] before, string[] after
+local function context_lines(buf, hunk, context_size)
+	if context_size <= 0 then
+		return {}, {}
+	end
+	local total = api.nvim_buf_line_count(buf)
+
+	-- For pure-delete hunks, anchor context around b_start (line above deletion);
+	-- otherwise around the added/changed range [b_start, b_start + b_count - 1].
+	local anchor_start, anchor_end
+	if hunk.b_count == 0 then
+		anchor_start = math.max(1, hunk.b_start)
+		anchor_end = anchor_start - 1
+	else
+		anchor_start = hunk.b_start
+		anchor_end = hunk.b_start + hunk.b_count - 1
+	end
+
+	local before_start = math.max(1, anchor_start - context_size)
+	local before_end = anchor_start - 1
+	local before = before_end >= before_start and api.nvim_buf_get_lines(buf, before_start - 1, before_end, false) or {}
+
+	local after_start = anchor_end + 1
+	local after_end = math.min(total, after_start + context_size - 1)
+	local after = after_end >= after_start and api.nvim_buf_get_lines(buf, after_start - 1, after_end, false) or {}
+
+	return before, after
+end
+
 -- =========================================================================
 -- View helpers
 -- =========================================================================
 
 ---@param removed string[]
 ---@param added string[]
+---@param before string[]
+---@param after string[]
 ---@return string[] body, table<integer, string> hls
-local function build_body(removed, added)
+local function build_body(removed, added, before, after)
 	local body, hls = {}, {}
+	for _, l in ipairs(before) do
+		body[#body + 1] = "  " .. l
+	end
 	for _, l in ipairs(removed) do
 		body[#body + 1] = "- " .. l
 		hls[#body] = "DiffDelete"
@@ -85,6 +122,9 @@ local function build_body(removed, added)
 	for _, l in ipairs(added) do
 		body[#body + 1] = "+ " .. l
 		hls[#body] = "DiffAdd"
+	end
+	for _, l in ipairs(after) do
+		body[#body + 1] = "  " .. l
 	end
 	return body, hls
 end
@@ -181,7 +221,11 @@ function M.open_for_current_line()
 		return
 	end
 
-	local body, hls = build_body(slice_base(st.base, hunk), slice_current(source_buf, hunk))
+	local config = require("beast.libs.git.config")
+	local ctx_n = config.preview and config.preview.context_size or 0
+	local before, after = context_lines(source_buf, hunk, ctx_n)
+
+	local body, hls = build_body(slice_base(st.base, hunk), slice_current(source_buf, hunk), before, after)
 	if #body == 0 then
 		return
 	end
