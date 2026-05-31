@@ -11,7 +11,7 @@ local defaults = {
 
 	---@type Beast.Git.PreviewConfig
 	preview = {
-		context_size = 0,
+		context_size = 3,
 	},
 
 	---@type string[] Filetypes that never attach.

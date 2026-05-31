@@ -144,6 +144,12 @@ local function register_buf_keymaps(buf)
 	vim.keymap.set("n", "<leader>gp", function()
 		require("beast.libs.git.preview").open_for_current_line()
 	end, vim.tbl_extend("force", opts, { desc = "Preview hunk" }))
+	vim.keymap.set("x", "<leader>gp", function()
+		local s = vim.fn.line("v")
+		local e = vim.fn.line(".")
+		vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<Esc>", true, false, true), "nx", false)
+		require("beast.libs.git.preview").open_for_range(s, e)
+	end, vim.tbl_extend("force", opts, { desc = "Preview hunks in selection" }))
 end
 
 ---@param buf integer?
@@ -218,6 +224,12 @@ end
 
 function M.preview_hunk()
 	require("beast.libs.git.preview").open_for_current_line()
+end
+
+---@param range_start integer
+---@param range_end integer
+function M.preview_hunk_range(range_start, range_end)
+	require("beast.libs.git.preview").open_for_range(range_start, range_end)
 end
 
 M._namespace = signs.namespace
@@ -301,6 +313,7 @@ end
 ---@param opts? Beast.Git.Config
 function M.setup(opts)
 	config.setup(opts)
+	require("beast.libs.git.highlights")
 	rebuild_ignore_sets()
 	ensure_autocmds()
 	-- Attach existing loaded buffers (lazy-load case).
