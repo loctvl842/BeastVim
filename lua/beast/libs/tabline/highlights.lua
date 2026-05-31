@@ -1,133 +1,142 @@
 -- Beast.Tabline highlight refresh hook.
 -- Re-executed on every ColorScheme change via M.highlight_modules.
 
+local config = require("beast.libs.tabline.config")
 local icons = require("beast.libs.tabline.icons")
 local p = Palette.get()
 
 icons.clear_cache()
 
+-- Palette-derived defaults
 local active_bg = p.background
 local inactive_bg = Util.colors.lighten(p.background, 15)
 local inactive_fg = Util.colors.blend(p.text, 0.6, active_bg)
 local normal_fg = Util.colors.blend(p.text, 0.4, inactive_bg)
-local active_border = p.accent3
-local inactive_border = p.dimmed4
+local fill_bg_default = p.dark1
+local sep_fg_default = p.dimmed3
+local sep_alt_default = Util.colors.blend(p.text, 0.4, active_bg) -- inactive_border
 
--- Diagnostic foreground colors (Selected: full, Visible: blended on active_bg, Normal: blended on inactive_bg)
-local error_active_fg = p.accent1
-local error_visible_fg = Util.colors.blend(p.accent1, 0.6, active_bg)
-local error_normal_fg = Util.colors.blend(p.accent1, 0.4, inactive_bg)
-local warn_active_fg = p.accent2
-local warn_visible_fg = Util.colors.blend(p.accent2, 0.6, active_bg)
-local warn_normal_fg = Util.colors.blend(p.accent2, 0.4, inactive_bg)
-local info_hint_active_fg = p.accent5
-local info_hint_visible_fg = Util.colors.blend(p.accent5, 0.6, active_bg)
-local info_hint_normal_fg = Util.colors.blend(p.accent5, 0.4, inactive_bg)
+-- Resolve per-state style: user override > palette default
+local a = config.appearance
 
--- Diagnostic count foreground colors (slightly blended)
-local error_count_active_fg = Util.colors.blend(p.accent1, 0.75, active_bg)
-local error_count_visible_fg = Util.colors.blend(p.accent1, 0.75 * 0.6, active_bg)
-local error_count_normal_fg = Util.colors.blend(p.accent1, 0.75 * 0.4, inactive_bg)
-local warn_count_active_fg = Util.colors.blend(p.accent2, 0.75, active_bg)
-local warn_count_visible_fg = Util.colors.blend(p.accent2, 0.75 * 0.6, active_bg)
-local warn_count_normal_fg = Util.colors.blend(p.accent2, 0.75 * 0.4, inactive_bg)
-local info_hint_count_active_fg = Util.colors.blend(p.accent5, 0.75, active_bg)
-local info_hint_count_visible_fg = Util.colors.blend(p.accent5, 0.75 * 0.6, active_bg)
-local info_hint_count_normal_fg = Util.colors.blend(p.accent5, 0.75 * 0.4, inactive_bg)
+---@param style table       The user-configured state style (selected/visible/normal)
+---@param defaults table    Palette-derived fallbacks { fg, bg, sp }
+---@return table            Resolved style usable in nvim_set_hl
+local function resolve(style, defaults)
+	local fg = style.fg or defaults.fg
+	return {
+		fg = fg,
+		bg = style.bg or defaults.bg,
+		sp = style.sp or fg or defaults.sp or fg,
+		underline = style.underline,
+		bold = style.bold or nil,
+	}
+end
 
-Util.colors.set_hl("BeastTl", {
-	-- Buffer cell: plain (no diagnostics)
-	BufferSelected = { fg = p.accent3, bg = active_bg, underline = true, sp = active_border },
-	BufferVisible = { fg = inactive_fg, bg = active_bg, underline = true, sp = inactive_border },
-	Buffer = { fg = normal_fg, bg = inactive_bg, underline = true, sp = inactive_border },
+local sel = resolve(a.selected, { fg = p.accent3, bg = active_bg, sp = p.accent3 })
+local vis = resolve(a.visible, { fg = inactive_fg, bg = active_bg, sp = sep_alt_default })
+local nor = resolve(a.normal, { fg = normal_fg, bg = inactive_bg, sp = sep_alt_default })
 
-	-- Buffer cell: diagnostic severity variants
-	BufferSelectedError = { fg = error_active_fg, bg = active_bg, underline = true, sp = active_border },
-	BufferVisibleError = { fg = error_visible_fg, bg = active_bg, underline = true, sp = inactive_border },
-	BufferError = { fg = error_normal_fg, bg = inactive_bg, underline = true, sp = inactive_border },
-	BufferSelectedWarn = { fg = warn_active_fg, bg = active_bg, underline = true, sp = active_border },
-	BufferVisibleWarn = { fg = warn_visible_fg, bg = active_bg, underline = true, sp = inactive_border },
-	BufferWarn = { fg = warn_normal_fg, bg = inactive_bg, underline = true, sp = inactive_border },
-	BufferSelectedInfo = { fg = info_hint_active_fg, bg = active_bg, underline = true, sp = active_border },
-	BufferVisibleInfo = { fg = info_hint_visible_fg, bg = active_bg, underline = true, sp = inactive_border },
-	BufferInfo = { fg = info_hint_normal_fg, bg = inactive_bg, underline = true, sp = inactive_border },
-	BufferSelectedHint = { fg = info_hint_active_fg, bg = active_bg, underline = true, sp = active_border },
-	BufferVisibleHint = { fg = info_hint_visible_fg, bg = active_bg, underline = true, sp = inactive_border },
-	BufferHint = { fg = info_hint_normal_fg, bg = inactive_bg, underline = true, sp = inactive_border },
+-- Fill / right gap. ToggleButton and TruncMarker also follow the fill rule.
+local fill = {
+	bg = a.fill.bg or fill_bg_default,
+	underline = a.fill.underline,
+	sp = a.fill.sp or sep_alt_default,
+}
 
-	-- Diagnostic count indicators
-	DiagErrorSelected = { fg = error_count_active_fg, bg = active_bg, bold = true, underline = true, sp = active_border },
-	DiagErrorVisible = {
-		fg = error_count_visible_fg,
-		bg = active_bg,
-		bold = true,
-		underline = true,
-		sp = inactive_border,
-	},
-	DiagError = { fg = error_count_normal_fg, bg = inactive_bg, bold = true, underline = true, sp = inactive_border },
-	DiagWarnSelected = { fg = warn_count_active_fg, bg = active_bg, bold = true, underline = true, sp = active_border },
-	DiagWarnVisible = { fg = warn_count_visible_fg, bg = active_bg, bold = true, underline = true, sp = inactive_border },
-	DiagWarn = { fg = warn_count_normal_fg, bg = inactive_bg, bold = true, underline = true, sp = inactive_border },
-	DiagInfoSelected = {
-		fg = info_hint_count_active_fg,
-		bg = active_bg,
-		bold = true,
-		underline = true,
-		sp = active_border,
-	},
-	DiagInfoVisible = {
-		fg = info_hint_count_visible_fg,
-		bg = active_bg,
-		bold = true,
-		underline = true,
-		sp = inactive_border,
-	},
-	DiagInfo = { fg = info_hint_count_normal_fg, bg = inactive_bg, bold = true, underline = true, sp = inactive_border },
-	DiagHintSelected = {
-		fg = info_hint_count_active_fg,
-		bg = active_bg,
-		bold = true,
-		underline = true,
-		sp = active_border,
-	},
-	DiagHintVisible = {
-		fg = info_hint_count_visible_fg,
-		bg = active_bg,
-		bold = true,
-		underline = true,
-		sp = inactive_border,
-	},
-	DiagHint = { fg = info_hint_count_normal_fg, bg = inactive_bg, bold = true, underline = true, sp = inactive_border },
+-- Separator glyph colors (state-aware fg, sp inherits from the adjacent cell)
+local sep_fg = a.separator.fg or sep_fg_default
+local sep_fg_vis = a.separator.fg_visible or sep_alt_default
+local sep_fg_sel = a.separator.fg_selected or sep_alt_default
 
-	-- Modified dot
-	ModifiedSelected = { fg = p.accent3, bg = active_bg, underline = true, sp = active_border },
-	ModifiedVisible = { fg = p.accent3, bg = active_bg, underline = true, sp = inactive_border },
-	Modified = { fg = p.accent3, bg = inactive_bg, underline = true, sp = inactive_border },
+-- Expose resolved styles for icons.lua so it can mirror underline/sp per state
+icons.set_state_styles({ selected = sel, visible = vis, normal = nor })
 
-	-- Close button
-	CloseButton = { fg = p.accent3, bg = active_bg, underline = true, sp = active_border },
+-- Helpers to build state-variant groups with one source of truth
+---@param base table  Resolved state style
+---@param overrides? table  Extra fields (e.g., custom fg for severity, bold for diagnostics)
+local function with(base, overrides)
+	local hl = vim.tbl_extend("force", {}, base)
+	if overrides then
+		for k, v in pairs(overrides) do
+			hl[k] = v
+		end
+	end
+	return hl
+end
 
-	-- Separator between buffer cells
-	Separator = { fg = p.dimmed3, bg = inactive_bg, underline = true, sp = inactive_border },
-	SeparatorVisible = { fg = inactive_border, bg = active_bg, underline = true, sp = inactive_border },
-	SeparatorSelected = { fg = inactive_border, bg = active_bg, underline = true, sp = active_border },
+-- Diagnostic severity foregrounds (blended by state for visible/normal)
+local function diag_text(severity_color, state)
+	if state == "selected" then
+		return severity_color
+	elseif state == "visible" then
+		return Util.colors.blend(severity_color, 0.6, active_bg)
+	else
+		return Util.colors.blend(severity_color, 0.4, inactive_bg)
+	end
+end
+
+local function diag_count(severity_color, state)
+	if state == "selected" then
+		return Util.colors.blend(severity_color, 0.75, active_bg)
+	elseif state == "visible" then
+		return Util.colors.blend(severity_color, 0.75 * 0.6, active_bg)
+	else
+		return Util.colors.blend(severity_color, 0.75 * 0.4, inactive_bg)
+	end
+end
+
+local sev = {
+	Error = p.accent1,
+	Warn = p.accent2,
+	Info = p.accent5,
+	Hint = p.accent5,
+}
+
+local groups = {
+	-- Plain buffer cell (no diagnostics)
+	BufferSelected = with(sel),
+	BufferVisible = with(vis),
+	Buffer = with(nor),
+
+	-- Modified dot — follows selected accent across all states
+	ModifiedSelected = with(sel),
+	ModifiedVisible = with(vis, { fg = sel.fg }),
+	Modified = with(nor, { fg = sel.fg }),
+
+	-- Close button (only rendered on selected cell)
+	CloseButton = with(sel),
+
+	-- Separator between buffer cells. sp inherits from the adjacent cell state.
+	Separator = with(nor, { fg = sep_fg }),
+	SeparatorVisible = with(vis, { fg = sep_fg_vis }),
+	SeparatorSelected = with(sel, { fg = sep_fg_sel }),
 
 	-- Tabpages
-	TabSelected = { fg = p.accent3, bg = active_bg },
+	TabSelected = { fg = sel.fg, bg = sel.bg, bold = sel.bold or nil },
 	TabVisible = { fg = inactive_fg, bg = inactive_bg, bold = true },
 
-	-- Offset (sidebar title)
+	-- Offset (sidebar title) — kept as-is, not part of the cell row
 	Offset = { fg = p.dimmed1, bg = Util.colors.darken(p.dark1, 3) },
 	OffsetSeparator = { fg = p.background, bg = p.background },
 
-	-- Truncation markers
-	TruncMarker = { fg = p.dimmed3, bg = active_bg, underline = true, sp = inactive_border },
+	-- Truncation markers + fill + toggle (the bottom rule across the right gap)
+	TruncMarker = { fg = sep_fg_default, bg = active_bg, underline = fill.underline, sp = fill.sp },
+	Fill = { bg = fill.bg, underline = fill.underline, sp = fill.sp },
+	ToggleButton = { fg = p.dimmed1, bg = fill.bg, underline = fill.underline, sp = fill.sp },
+}
 
-	-- Fill (background)
-	Fill = { bg = p.dark1, underline = true, sp = inactive_border },
+-- Generate diagnostic variants (Buffer*<Sev> + Diag<Sev>*)
+for sev_name, sev_color in pairs(sev) do
+	groups["BufferSelected" .. sev_name] = with(sel, { fg = diag_text(sev_color, "selected") })
+	groups["BufferVisible" .. sev_name] = with(vis, { fg = diag_text(sev_color, "visible") })
+	groups["Buffer" .. sev_name] = with(nor, { fg = diag_text(sev_color, "normal") })
 
-	-- Toggle button (right side)
-	ToggleButton = { fg = p.dimmed1, bg = p.dark1, underline = true, sp = inactive_border },
-})
+	groups["Diag" .. sev_name .. "Selected"] = with(sel, { fg = diag_count(sev_color, "selected"), bold = true })
+	groups["Diag" .. sev_name .. "Visible"] = with(vis, { fg = diag_count(sev_color, "visible"), bold = true })
+	groups["Diag" .. sev_name] = with(nor, { fg = diag_count(sev_color, "normal"), bold = true })
+end
+
+Util.colors.set_hl("BeastTl", groups)
 
 vim.cmd("redrawtabline")
