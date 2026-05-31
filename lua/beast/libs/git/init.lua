@@ -302,7 +302,6 @@ end
 function M.setup(opts)
 	config.setup(opts)
 	rebuild_ignore_sets()
-	signs.set_icons(config.icons)
 	ensure_autocmds()
 	-- Attach existing loaded buffers (lazy-load case).
 	for _, buf in ipairs(api.nvim_list_bufs()) do

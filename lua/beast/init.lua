@@ -268,7 +268,6 @@ M.highlight_modules = {
 	"beast.libs.packer.highlights",
 	"beast.libs.statusline.highlights",
 	"beast.libs.statuscolumn.highlights",
-	"beast.libs.git.highlights",
 	"beast.libs.breadcrumb.highlights",
 	"beast.libs.tabline.highlights",
 	"beast.libs.toast.highlights",

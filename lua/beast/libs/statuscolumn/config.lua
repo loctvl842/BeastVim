@@ -1,5 +1,13 @@
+---@class Beast.Statuscolumn.GitIcons
+---@field add? string
+---@field change? string
+---@field delete? string
+---@field topdelete? string
+---@field changedelete? string
+
 ---@class Beast.Statuscolumn.GitConfig
 ---@field enabled? boolean Silently no-op when false; gitsigns/mini.diff still auto-detected when true
+---@field icons? Beast.Statuscolumn.GitIcons Glyphs rendered for `beast.libs.git` markers (foreign plugins keep their own glyphs)
 
 ---@class Beast.Statuscolumn.FoldIcons
 ---@field open? string Glyph shown on the first line of an open fold (only when fold.open=true)
@@ -24,7 +32,19 @@
 ---@class Beast.Statuscolumn.Config
 local defaults = {
 	---@type Beast.Statuscolumn.GitConfig
-	git = { enabled = true },
+	git = {
+		enabled = true,
+		-- Default glyphs (1-cell). Source of truth for the gutter; `beast.libs.git`
+		-- writes only a typed marker (sign_name="beast_git_<type>") and this lib
+		-- decides what to render.
+		icons = {
+			add = "│",
+			change = "┊",
+			delete = "",
+			topdelete = "",
+			changedelete = "│",
+		},
+	},
 
 	---@type Beast.Statuscolumn.FoldConfig
 	fold = { open = true, icons = { open = "", close = "" } },

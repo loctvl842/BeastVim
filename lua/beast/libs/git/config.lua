@@ -1,10 +1,3 @@
----@class Beast.Git.Icons
----@field add? string
----@field change? string
----@field delete? string
----@field topdelete? string
----@field changedelete? string
-
 ---@class Beast.Git.Config
 local defaults = {
 	---@type integer Debounce window (ms) for TextChanged / TextChangedI re-diffs.
@@ -12,9 +5,6 @@ local defaults = {
 
 	---@type boolean Register default `]c` / `[c` / `<leader>gp` keymaps on attach (Phase 2/3 features).
 	keymaps = true,
-
-	---@type Beast.Git.Icons? Override the icons sourced from `beast.icon.gitsigns`.
-	icons = nil,
 
 	---@type string[] Filetypes that never attach.
 	ft_ignore = {
