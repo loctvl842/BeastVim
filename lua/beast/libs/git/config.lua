@@ -2,6 +2,7 @@
 ---@field context_size? integer Lines of unchanged context shown around the hunk in the preview float (default 3)
 ---@field width? "full"|"fit" Float sizing: "full" (full editor width) or "fit" (snug around content). Default "full".
 ---@field max_height? number Max float height. Integer = absolute rows, float in (0,1] = fraction of `vim.o.lines`. Default 0.4.
+---@field adjacent_gap? integer Max unchanged lines between two hunks for them to be auto-merged in the preview. 0 = only touching hunks merge. Default 0.
 
 ---@class Beast.Git.Config
 local defaults = {
@@ -16,6 +17,7 @@ local defaults = {
 		context_size = 3,
 		width = "full",
 		max_height = 0.4,
+		adjacent_gap = 0,
 	},
 
 	---@type string[] Filetypes that never attach.

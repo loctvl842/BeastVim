@@ -193,34 +193,38 @@ do
 	local h3 = { a_start = 50, a_count = 1, b_start = 50, b_count = 1 }
 	local all = { h1, h2, h3 }
 
-	-- ctx=0: only touching hunks merge (gap=3 here, so h1 and h2 NOT adjacent).
-	local r0 = expand(all, { h2 }, 0)
-	assert_eq("ctx=0 keeps single hunk", #r0, 1)
+	-- adj_gap=0 (default): only touching hunks merge (gap=3 here, so h1 and h2 NOT adjacent).
+	local r0 = expand(all, { h2 }, 0, 0)
+	assert_eq("adj_gap=0 keeps single hunk", #r0, 1)
 
-	-- Strict adjacency: gap=3 must NOT merge regardless of ctx.
-	local r3 = expand(all, { h2 }, 3)
-	assert_eq("gap 3 does NOT merge even with ctx=3", #r3, 1)
+	-- adj_gap=0 with ctx=3: gap=3 still must NOT merge.
+	local r3 = expand(all, { h2 }, 3, 0)
+	assert_eq("gap 3 does NOT merge with adj_gap=0", #r3, 1)
 
-	-- h3 at line 50 — gap of 44 from h2 — never merges.
-	local r_big = expand(all, { h2 }, 10)
-	assert_eq("ctx=10 still skips far hunk", #r_big, 1)
+	-- adj_gap=5: gap=3 now merges.
+	local r3_loose = expand(all, { h2 }, 3, 5)
+	assert_eq("gap 3 merges with adj_gap=5", #r3_loose, 2)
 
-	-- Touching hunks (gap=0) DO merge.
+	-- h3 at line 50 — gap of 44 — never merges.
+	local r_big = expand(all, { h2 }, 10, 0)
+	assert_eq("far hunk still skipped", #r_big, 1)
+
+	-- Touching hunks (gap=0) DO merge with default adj_gap=0.
 	local h_touch_a = { a_start = 10, a_count = 1, b_start = 10, b_count = 1 }
 	local h_touch_b = { a_start = 11, a_count = 2, b_start = 11, b_count = 2 }
-	local r_touch = expand({ h_touch_a, h_touch_b }, { h_touch_a }, 3)
+	local r_touch = expand({ h_touch_a, h_touch_b }, { h_touch_a }, 3, 0)
 	assert_eq("gap 0 (touching) merges", #r_touch, 2)
 
 	-- Palette regression: gap 7 must NOT merge.
 	local h_at_76 = { a_start = 76, a_count = 1, b_start = 76, b_count = 1 }
 	local h_at_84 = { a_start = 84, a_count = 1, b_start = 84, b_count = 1 }
-	local r_palette = expand({ h_at_76, h_at_84 }, { h_at_76 }, 3)
+	local r_palette = expand({ h_at_76, h_at_84 }, { h_at_76 }, 3, 0)
 	assert_eq("gap 7 with ctx=3 does NOT merge", #r_palette, 1)
 
 	-- New palette regression: hunk@84-85 + hunk@88-98 (gap 2) must NOT merge.
 	local h_84_85 = { a_start = 84, a_count = 2, b_start = 84, b_count = 2 }
 	local h_88_98 = { a_start = 88, a_count = 11, b_start = 88, b_count = 11 }
-	local r_p2 = expand({ h_84_85, h_88_98 }, { h_84_85 }, 3)
+	local r_p2 = expand({ h_84_85, h_88_98 }, { h_84_85 }, 3, 0)
 	assert_eq("gap 2 with ctx=3 does NOT merge", #r_p2, 1)
 end
 
