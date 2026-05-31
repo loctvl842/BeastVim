@@ -32,6 +32,8 @@ function M.setup(opts)
 	_G.Buffer = require("beast.libs.buf")
 	_G.Icon = require("beast.icon")
 
+	Palette.setup()
+
 	-- Refresh palette + reload all Beast highlights on colorscheme change
 	vim.api.nvim_create_autocmd("ColorScheme", {
 		group = vim.api.nvim_create_augroup("BeastPalette", { clear = true }),
@@ -242,6 +244,7 @@ end
 --- Lazy-loaded libs register their highlights dynamically via packer.lazy().
 ---@type string[]
 M.highlight_modules = {
+	"beast.palette.highlights",
 	"beast.libs.confirm.highlights",
 	"beast.libs.explorer.highlights",
 	"beast.libs.finder.highlights",

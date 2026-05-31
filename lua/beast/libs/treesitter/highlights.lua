@@ -1,113 +1,144 @@
 local p = Palette.get()
 
--- Palette mapping (modeled after tokyonight):
---   accent1 (pink)   → magenta/red role: variable.builtin, constructor, string.escape, tags
---   accent2 (yellow) → yellow role: variable.parameter, string.documentation, type
---   accent3 (green)  → string role
---   accent4 (cyan)   → teal/green1 role: function, property, variable.member, markup.link
---   accent5 (blue)   → purple/blue role: keywords, labels, modules, headings
---   accent6 (cyan)   → constant/number role
+-- BeastVim treesitter highlights — diversified, role-based.
 --
--- NOTE: We intentionally avoid `link = "Constant"`, `link = "Boolean"`,
--- `link = "Macro"`, `link = "Title"`, etc. Those base groups are unstyled
--- (plain foreground) under Neovim's builtin `default` colorscheme, which would
--- collapse most treesitter captures back to white text. Setting fg explicitly
--- keeps highlights consistent across colorschemes (tokyonight-derived palette,
--- monokai-pro, builtin default).
+-- READABILITY RULES (enforced uniformly):
+--   1. Members recede, calls pop. @property / @variable.member render as plain
+--      text so `foo.bar()` reads as text.text-cyan(): the call jumps out.
+--   2. Parameters use italic alone, not yellow. Yellow is reserved for the
+--      Type family so `def f(x: Type)` doesn't paint x and Type the same hue.
+--   3. Italic is meaningful: keyword OR meta-marker (builtin / parameter /
+--      comment / annotation). Never decorative.
+--   4. Same role across nesting levels = same color (e.g. all @function.*
+--      cyan); the only modifier is italic for builtin/special variants.
+--
+-- ROLE → COLOR:
+--   text  (plain)     → noise: @variable, @variable.member, @property
+--   text  (italic)    → params: @variable.parameter*
+--   cyan  (accent4)   → callables: @function*, link targets
+--   sky   (accent5)   → structure: @keyword* (decl/import), @module,
+--                       @function.macro, @constant.macro
+--   yellow (accent2)  → shape: @type*, @constructor, @attribute*,
+--                       @annotation, @tag.attribute
+--   coral (accent1)   → values + flow break + builtin markers:
+--                       @constant*, @number, @boolean, @string.escape,
+--                       @keyword.return/conditional/repeat/exception/function,
+--                       @label, @tag, @variable.builtin
+--   mint  (accent3)   → content: @string, @character
+--   dimmed            → scaffold: @operator, @punctuation.*, @comment
+--
+-- We avoid `link = "Constant"` / "Boolean" / etc. — those are unstyled under
+-- `default`, so linking collapses captures to plain text.
 
 Util.colors.set_hl("", {
-	-- Identifiers
+	-- Identifiers ---------------------------------------------------------
+	-- Plain text for variables and members keeps focus on calls and values.
 	["@variable"] = { fg = p.text },
-	["@variable.builtin"] = { fg = p.accent1 },
-	["@variable.member"] = { fg = p.accent4 },
-	["@variable.parameter"] = { fg = p.accent2, italic = true },
-	["@variable.parameter.builtin"] = { fg = p.accent2, italic = true },
+	["@variable.member"] = { fg = p.text },
+	["@variable.parameter"] = { fg = p.text, italic = true },
+	["@variable.parameter.builtin"] = { fg = p.text, italic = true },
+	["@variable.builtin"] = { fg = p.accent1, italic = true },
+	["@property"] = { fg = p.text },
+	["@field"] = { fg = p.text },
 
-	-- Constants
-	["@constant"] = { fg = p.accent6 },
-	["@constant.builtin"] = { fg = p.accent6, italic = true },
+	-- Values --------------------------------------------------------------
+	-- Coral so numerics/constants pop against cyan callables. Italic on
+	-- builtin variants marks "language-defined".
+	["@constant"] = { fg = p.accent1 },
+	["@constant.builtin"] = { fg = p.accent1, italic = true },
 	["@constant.macro"] = { fg = p.accent5 },
+	["@boolean"] = { fg = p.accent1 },
+	["@number"] = { fg = p.accent1 },
+	["@number.float"] = { fg = p.accent1 },
 
-	-- Modules & Labels
-	["@module"] = { fg = p.accent5 },
-	["@module.builtin"] = { fg = p.accent1 },
-	["@namespace.builtin"] = { link = "@variable.builtin" },
-	["@label"] = { fg = p.accent5 },
-
-	-- Literals
+	-- Strings -------------------------------------------------------------
 	["@string"] = { fg = p.accent3 },
-	["@string.documentation"] = { fg = p.accent2 },
+	["@string.documentation"] = { fg = p.dimmed3, italic = true },
 	["@string.escape"] = { fg = p.accent1 },
-	["@string.regexp"] = { fg = p.accent6 },
+	["@string.regexp"] = { fg = p.accent3, italic = true },
 	["@string.special"] = { fg = p.accent1 },
-	["@string.special.symbol"] = { fg = p.accent6 },
+	["@string.special.symbol"] = { fg = p.accent1 },
 	["@string.special.url"] = { fg = p.accent4, underline = true },
 	["@character"] = { fg = p.accent3 },
 	["@character.printf"] = { fg = p.accent1 },
 	["@character.special"] = { fg = p.accent1 },
-	["@boolean"] = { fg = p.accent6 },
-	["@number"] = { fg = p.accent6 },
-	["@number.float"] = { fg = p.accent6 },
 
-	-- Types
+	-- Types & shape -------------------------------------------------------
+	-- Yellow forms a coherent "shape" family: types, constructors,
+	-- decorators, attributes — everything that describes/annotates a value.
 	["@type"] = { fg = p.accent2 },
 	["@type.builtin"] = { fg = p.accent2, italic = true },
 	["@type.definition"] = { fg = p.accent2 },
-	["@type.qualifier"] = { link = "@keyword" },
+	["@type.qualifier"] = { fg = p.accent2, italic = true },
+	["@constructor"] = { fg = p.accent2 },
+	["@attribute"] = { fg = p.accent2, italic = true },
+	["@attribute.builtin"] = { fg = p.accent2, italic = true },
+	["@annotation"] = { fg = p.accent2, italic = true },
 
-	-- Attributes & Annotations
-	["@attribute"] = { fg = p.accent5, italic = true },
-	["@attribute.builtin"] = { fg = p.accent5, italic = true },
-	["@annotation"] = { fg = p.accent5, italic = true },
-	["@property"] = { fg = p.accent4 },
-
-	-- Functions
+	-- Functions -----------------------------------------------------------
+	-- Cyan is the workhorse callable color. Macros go to sky because they
+	-- behave more like keywords / preprocessor than runtime calls.
 	["@function"] = { fg = p.accent4 },
 	["@function.builtin"] = { fg = p.accent4, italic = true },
 	["@function.call"] = { link = "@function" },
-	["@function.macro"] = { fg = p.accent5 },
 	["@function.method"] = { link = "@function" },
-	["@function.method.call"] = { link = "@function.method" },
-	["@constructor"] = { fg = p.accent1 },
+	["@function.method.call"] = { link = "@function" },
+	["@function.macro"] = { fg = p.accent5 },
 
-	-- Operators
+	-- Modules & labels ----------------------------------------------------
+	-- Modules share sky with import keywords but stay plain (vs italic) so
+	-- `import os` reads as keyword-italic + module-plain.
+	["@module"] = { fg = p.accent5 },
+	["@module.builtin"] = { fg = p.accent5, italic = true },
+	["@namespace.builtin"] = { fg = p.accent1, italic = true },
+	["@label"] = { fg = p.accent1 },
+
+	-- Operators & punctuation ---------------------------------------------
+	-- Quiet. They are scaffolding; never compete with identifiers.
 	["@operator"] = { fg = p.dimmed1 },
-
-	-- Keywords
-	["@keyword"] = { fg = p.accent5, italic = true },
-	["@keyword.modifier"] = { link = "@keyword" },
-	["@keyword.type"] = { link = "@keyword" },
-	["@keyword.coroutine"] = { link = "@keyword" },
-	["@keyword.function"] = { fg = p.accent1, italic = true },
-	["@keyword.operator"] = { link = "@operator" },
-	["@keyword.import"] = { fg = p.accent5, italic = true },
-	["@keyword.repeat"] = { link = "@keyword" },
-	["@keyword.return"] = { link = "@keyword" },
-	["@keyword.debug"] = { fg = p.accent1 },
-	["@keyword.exception"] = { link = "@keyword" },
-	["@keyword.conditional"] = { link = "@keyword" },
-	["@keyword.conditional.ternary"] = { link = "@operator" },
-	["@keyword.directive"] = { fg = p.accent5, italic = true },
-	["@keyword.directive.define"] = { fg = p.accent5, italic = true },
-	["@keyword.storage"] = { fg = p.accent5, italic = true },
-	["@keyword.export"] = { link = "@keyword" },
-
-	-- Punctuation
 	["@punctuation.bracket"] = { fg = p.dimmed1 },
 	["@punctuation.delimiter"] = { fg = p.dimmed2 },
 	["@punctuation.special"] = { fg = p.dimmed2 },
 
-	-- Comments
+	-- Keywords ------------------------------------------------------------
+	-- Structure (sky italic) — declarations, scope, imports, modifiers.
+	["@keyword"] = { fg = p.accent5, italic = true },
+	["@keyword.modifier"] = { link = "@keyword" },
+	["@keyword.coroutine"] = { link = "@keyword" },
+	["@keyword.import"] = { link = "@keyword" },
+	["@keyword.export"] = { link = "@keyword" },
+	["@keyword.directive"] = { link = "@keyword" },
+	["@keyword.directive.define"] = { link = "@keyword" },
+	["@keyword.operator"] = { link = "@operator" },
+
+	-- Shape keywords (yellow italic) — `static`, `const`, type-position.
+	-- Italic keeps them in the keyword visual family.
+	["@keyword.storage"] = { fg = p.accent2, italic = true },
+	["@keyword.type"] = { fg = p.accent2, italic = true },
+
+	-- Flow break (coral italic) — `return`, `if`, `for`, `raise`, `break`,
+	-- and `def`/`function` (introduces a new callable, also a flow pivot).
+	["@keyword.return"] = { fg = p.accent1, italic = true },
+	["@keyword.conditional"] = { fg = p.accent1, italic = true },
+	["@keyword.repeat"] = { fg = p.accent1, italic = true },
+	["@keyword.exception"] = { fg = p.accent1, italic = true },
+	["@keyword.function"] = { fg = p.accent1, italic = true },
+	["@keyword.debug"] = { fg = p.accent1, italic = true },
+	["@keyword.conditional.ternary"] = { link = "@operator" },
+
+	-- Comments ------------------------------------------------------------
 	["@comment"] = { link = "Comment" },
 	["@comment.documentation"] = { link = "Comment" },
+	-- Diagnostic-coded comment markers: red=err, yellow=warn, blue=info,
+	-- green=hint. todo stays cyan (action item, not severity).
 	["@comment.error"] = { fg = p.accent1 },
 	["@comment.warning"] = { fg = p.accent2 },
 	["@comment.todo"] = { fg = p.accent4 },
-	["@comment.hint"] = { fg = p.accent5 },
+	["@comment.hint"] = { fg = p.accent3 },
 	["@comment.info"] = { fg = p.accent5 },
 	["@comment.note"] = { fg = p.accent5 },
 
-	-- Markup
+	-- Markup --------------------------------------------------------------
 	["@markup"] = { link = "@none" },
 	["@markup.strong"] = { bold = true },
 	["@markup.italic"] = { italic = true },
@@ -131,21 +162,23 @@ Util.colors.set_hl("", {
 	["@markup.list.markdown"] = { fg = p.accent6, bold = true },
 	["@none"] = {},
 
-	-- Diff
+	-- Diff ----------------------------------------------------------------
 	["@diff.plus"] = { link = "DiffAdd" },
 	["@diff.minus"] = { link = "DiffDelete" },
 	["@diff.delta"] = { link = "DiffChange" },
 
-	-- Tags (HTML/JSX)
+	-- Tags (HTML/JSX) -----------------------------------------------------
+	-- Tag names coral (they're values-in-markup-territory), attributes
+	-- yellow (they're shape — describing the tag).
 	["@tag"] = { fg = p.accent1 },
-	["@tag.builtin"] = { fg = p.accent1 },
-	["@tag.attribute"] = { link = "@property" },
+	["@tag.builtin"] = { fg = p.accent1, italic = true },
+	["@tag.attribute"] = { fg = p.accent2 },
 	["@tag.delimiter"] = { fg = p.dimmed2 },
 
-	-- Misc
+	-- Misc ----------------------------------------------------------------
 	["@conceal"] = { link = "Conceal" },
 
-	-- LSP semantic tokens
+	-- LSP semantic tokens -------------------------------------------------
 	["@lsp.type.comment"] = {},
 	["@lsp.type.enum"] = { link = "@type" },
 	["@lsp.type.interface"] = { link = "@type" },
@@ -160,15 +193,14 @@ Util.colors.set_hl("", {
 	["@lsp.typemod.variable.defaultLibrary"] = { link = "@variable.builtin" },
 	["@lsp.typemod.variable.injected"] = { link = "@variable" },
 
-	-- Language specific: Lua
+	-- Language-specific ---------------------------------------------------
+	-- Lua: `{ }` table constructor should read as bracket, not value.
 	["@constructor.lua"] = { link = "@punctuation.bracket" },
-
-	-- Language specific: TSX/JSX (mirror tokyonight: tag/constructor lean blue)
+	-- TSX/JSX: keep components (sky/structural) vs DOM tags (coral) distinct.
 	["@constructor.tsx"] = { fg = p.accent5 },
 	["@tag.tsx"] = { fg = p.accent1 },
 	["@tag.javascript"] = { fg = p.accent1 },
-
-	-- Language specific: Markdown
+	-- Markdown
 	["@conceal.markdown"] = { fg = p.dimmed2 },
 	["@markup.raw.block.markdown"] = { bg = p.dark1 },
 	["@markup.raw.delimiter.markdown"] = { fg = p.dimmed2 },

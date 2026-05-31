@@ -12,7 +12,7 @@ return {
 		local icons = (Icon and Icon.diagnostics) or { error = "E", warn = "W", info = "I", hint = "H" }
 		return {
 			{ text = icons.error .. " " .. counts[sev.ERROR] .. " ", hl = { fg = "accent1" } },
-			{ text = icons.warn .. " " .. counts[sev.WARN] .. " ", hl = { fg = "accent3" } },
+			{ text = icons.warn .. " " .. counts[sev.WARN] .. " ", hl = { fg = "accent2" } },
 			{ text = icons.info .. " " .. counts[sev.INFO] .. " ", hl = { fg = "accent5" } },
 			{ text = icons.hint .. " " .. counts[sev.HINT], hl = { fg = "accent4" } },
 		}

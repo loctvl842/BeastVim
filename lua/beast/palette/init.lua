@@ -72,27 +72,40 @@ function M.is_builtin_colorscheme()
 	return vim.uv.fs_stat(path .. name .. ".lua") ~= nil or vim.uv.fs_stat(path .. name .. ".vim") ~= nil
 end
 
---- Derive palette from Normal bg/fg for builtin colorschemes.
---- Scale colors (darks, dimmeds) are computed via blend so they work
---- regardless of how the colorscheme styles StatusLine, NormalFloat, etc.
---- Accents use a fallback chain that skips groups equal to Normal fg.
+--- Derive palette from Neovim's named color palette (NvimLight*/NvimDark*).
+--- The builtin `default` colorscheme exposes a stable, role-aware palette via
+--- these names — use them as the source of truth instead of extracting from
+--- syntax groups (which may be unstyled, linked, or re-styled by our own
+--- highlight modules, creating feedback loops on refresh).
 ---@return Beast.Palette
 local function extract_builtin()
 	local background = extract("Normal", "bg", defaults.background)
 	local text = extract("Normal", "fg", defaults.text)
 	local blend = Util.colors.blend
 
+	---@param name string
+	---@param fallback string
+	---@return string
+	local function named(name, fallback)
+		local rgb = vim.api.nvim_get_color_by_name(name)
+		if rgb < 0 then return fallback end
+		return string.format("#%06x", rgb)
+	end
+
+	local is_dark = vim.o.background == "dark"
+	local light = is_dark and "NvimLight" or "NvimDark"
+
 	return {
 		dark2 = blend(text, 0.20, background),
 		dark1 = blend(text, 0.10, background),
 		background = background,
 		text = text,
-		accent1 = first_distinct({ "Constant", "Boolean" }, "fg", text, defaults.accent1),
-		accent2 = first_distinct({ "PreProc", "StorageClass" }, "fg", text, defaults.accent2),
-		accent3 = extract("String", "fg", defaults.accent3),
-		accent4 = first_distinct({ "Function", "Identifier" }, "fg", text, defaults.accent4),
-		accent5 = first_distinct({ "Structure", "Type", "Keyword" }, "fg", text, defaults.accent5),
-		accent6 = first_distinct({ "Boolean", "Constant", "Special" }, "fg", text, defaults.accent6),
+		accent1 = named(light .. "Red", defaults.accent1),
+		accent2 = named(light .. "Yellow", defaults.accent2),
+		accent3 = named(light .. "Green", defaults.accent3),
+		accent4 = named(light .. "Cyan", defaults.accent4),
+		accent5 = named(light .. "Blue", defaults.accent5),
+		accent6 = named(light .. "Cyan", defaults.accent6),
 		dimmed1 = blend(text, 0.75, background),
 		dimmed2 = blend(text, 0.55, background),
 		dimmed3 = blend(text, 0.40, background),
@@ -140,6 +153,10 @@ end
 ---@return Beast.Palette
 function M.get()
 	return cache
+end
+
+function M.setup()
+	require("beast.palette.highlights")
 end
 
 return M
