@@ -28,30 +28,62 @@ local M = {}
 -- and returns either a string (renders into the slot) or nil/"" (slot tries
 -- the next producer in its priority list).
 
----@alias Beast.Statuscolumn.Producer fun(win: integer, buf: integer, lnum: integer, relnum: integer, virtnum: integer, win_state: Beast.Statuscolumn.WinState): string?
+---@alias Beast.Statuscolumn.Producer fun(win: integer, buf: integer, lnum: integer, relnum: integer, virtnum: integer, win_state: Beast.Statuscolumn.WinState, width: integer): string?
 
 -- Highlight name fallback: when an extmark sign has no sign_hl_group we still
 -- need *some* group so the wrapper format below is well-formed.
 local FALLBACK_HL = "SignColumn"
 
--- Per-(text, hl) interned `%#hl#text%*` fragments. Sign vocab is small
+-- Per-(text, hl, width) interned `%#hl#text%*` fragments. Sign vocab is small
 -- (E/W/I/H glyphs × diag groups + a few git glyphs) so the cache stays tiny.
 ---@type table<string, string>
 local sign_fmt_cache = {}
 
 ---@param text string
----@param hl string
+---@param width integer
 ---@return string
-local function format_sign(text, hl)
+local function fit_to_width(text, width)
+	local dw = vim.fn.strdisplaywidth(text)
+	if dw == width then
+		return text
+	end
+	if dw < width then
+		return text .. (" "):rep(width - dw)
+	end
+	-- Neovim normalises 1-cell sign_text to 2 cells by appending a space.
+	-- Strip trailing whitespace first; only truncate codepoints if that's
+	-- still too wide.
+	local stripped = text:gsub("%s+$", "")
+	dw = vim.fn.strdisplaywidth(stripped)
+	if dw <= width then
+		return stripped .. (" "):rep(width - dw)
+	end
+	local out, ow = "", 0
+	for c in stripped:gmatch("[%z\1-\127\194-\244][\128-\191]*") do
+		local cw = vim.fn.strdisplaywidth(c)
+		if ow + cw > width then
+			break
+		end
+		out, ow = out .. c, ow + cw
+	end
+	return out .. (" "):rep(width - ow)
+end
+
+---@param text string
+---@param hl string
+---@param width integer
+---@return string
+local function format_sign(text, hl, width)
 	if hl == "" then
 		hl = FALLBACK_HL
 	end
-	local key = hl .. "\0" .. text
+	local fitted = fit_to_width(text, width)
+	local key = hl .. "\0" .. fitted
 	local cached = sign_fmt_cache[key]
 	if cached ~= nil then
 		return cached
 	end
-	cached = "%#" .. hl .. "#" .. text .. "%*"
+	cached = "%#" .. hl .. "#" .. fitted .. "%*"
 	sign_fmt_cache[key] = cached
 	return cached
 end
@@ -59,8 +91,9 @@ end
 ---@param ws Beast.Statuscolumn.WinState
 ---@param class string
 ---@param lnum integer
+---@param width integer
 ---@return string?
-local function sign_in_class(ws, class, lnum)
+local function sign_in_class(ws, class, lnum, width)
 	local cls = ws.signs_by_lnum_by_class[class]
 	if not cls then
 		return nil
@@ -69,7 +102,7 @@ local function sign_in_class(ws, class, lnum)
 	if not s then
 		return nil
 	end
-	return format_sign(s.text, s.hl)
+	return format_sign(s.text, s.hl, width)
 end
 
 ---@type table<string, Beast.Statuscolumn.Producer>
@@ -77,17 +110,17 @@ local producers = {
 	number = function(win, _, lnum, relnum, virtnum)
 		return number.format(win, lnum, relnum, virtnum)
 	end,
-	diagnostic = function(_, _, lnum, _, virtnum, ws)
+	diagnostic = function(_, _, lnum, _, virtnum, ws, width)
 		if virtnum ~= 0 then
 			return nil
 		end
-		return sign_in_class(ws, "diagnostic", lnum)
+		return sign_in_class(ws, "diagnostic", lnum, width)
 	end,
-	git = function(_, _, lnum, _, virtnum, ws)
+	git = function(_, _, lnum, _, virtnum, ws, width)
 		if virtnum ~= 0 or not config.git.enabled then
 			return nil
 		end
-		return sign_in_class(ws, "git", lnum)
+		return sign_in_class(ws, "git", lnum, width)
 	end,
 	fold = function(win, _, lnum, _, virtnum)
 		return fold.icon(win, lnum, virtnum, config.fold.open)
@@ -142,13 +175,8 @@ local function render_slot(slot, win, buf, lnum, relnum, virtnum, ws)
 	for i = 1, #list do
 		local p = producers[list[i]]
 		if p then
-			local out = p(win, buf, lnum, relnum, virtnum, ws)
+			local out = p(win, buf, lnum, relnum, virtnum, ws, slot.width)
 			if out and out ~= "" then
-				-- Sign-style slots pad the right edge to keep cell width
-				-- stable across lines (sign producers render exactly 1 cell).
-				if slot.has_sign and slot.width > 1 then
-					return out .. (" "):rep(slot.width - 1)
-				end
 				return out
 			end
 		end
