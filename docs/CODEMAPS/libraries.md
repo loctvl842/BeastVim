@@ -262,7 +262,37 @@ API: `stl.setup({ left = {...}, right = {...} })` — components are tables.
 
 ---
 
-## breadcrumb — Winbar Breadcrumb
+## statuscolumn — Native `%!` Statuscolumn
+
+```
+statuscolumn/
+├── init.lua       ← setup(), render() (hot path, pcall-wrapped), producer dispatch, autocmds
+├── config.lua     ← segments (slot lists), git, fold, ft_ignore, bt_ignore
+├── ffi.lua        ← cdef for display_tick, fold_info, find_window_by_handle (pcall-guarded)
+├── cache.lua      ← per-(win,tick,buf) sign-map + per-line interned strings
+├── number.lua     ← format(win,lnum,relnum,virtnum) — hybrid &nu/&rnu support
+├── signs.lua      ← collect(buf) once per (win,tick); classify by namespace then name pattern
+├── fold.lua       ← icon(win,lnum,virtnum,show_open) via FFI fold_info; fillchars glyphs
+├── highlights.lua ← BeastStc* groups (Number/Diag*/Git*/Fold) link to existing defaults
+└── health.lua     ← :checkhealth — modules, FFI, wiring, segments, highlights, inline bench
+```
+
+API: `statuscolumn.setup(opts)`, `statuscolumn.render()` (via `%!v:lua`)
+Slot syntax: `segments = { {"diagnostic"}, {"number"}, {"git"}, {"fold"} }`
+  — each entry is a slot; each slot is a producer priority list.
+  Producers: `number | diagnostic | git | fold` (fixed enum, ADR-019).
+Per-buffer opt-out: `vim.b[buf].beast_statuscolumn_disabled = true`.
+Loaded via: `packer.lazy()` on VimEnter (deferred)
+
+### Performance
+- Cache key: `(win, display_tick, buf)` → sign map; `(lnum, virtnum, relnum)` → string.
+- `display_tick` from FFI bumps once per redraw; one extmark walk per tick.
+- Bench `scripts/bench-statuscolumn.lua`: hit ~1.7 µs, miss ~1.8 µs, 200-line redraw ~330 µs.
+- Zero plugin dependencies (ADR-020): gitsigns/mini.diff/vim.diagnostic detected by extmark namespace + name patterns.
+
+---
+
+
 
 ```
 breadcrumb/

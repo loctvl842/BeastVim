@@ -12,6 +12,6 @@ Quick-reference architecture documentation. Regenerate with `/tec-update-codemap
 - Language: Lua
 - Platform: Neovim plugin (config-as-plugin)
 - Lines of code: ~22,500
-- Libraries: 14 (explorer, finder, tabline, notify, toast, key, confirm, packer, buf, statusline, treesitter, breadcrumb, indent, scroll) + shared: view.lua, animate.lua
+- Libraries: 15 (explorer, finder, tabline, notify, toast, key, confirm, packer, buf, statusline, statuscolumn, treesitter, breadcrumb, indent, scroll) + shared: view.lua, animate.lua
 - Shared modules: view.lua, animate.lua, util/, palette/
 - Last updated: 2026-05-31

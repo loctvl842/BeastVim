@@ -20,3 +20,6 @@
 | [016](016-tabline-3-state-highlights-event-cache.md) | Tabline 3-State Highlights with Event Cache | Accepted | 2026-05-11 |
 | [017](017-pure-lua-finder-modular-query.md) | Pure-Lua Finder with Modular Query Architecture | Accepted | 2026-05-17 |
 | [018](018-native-scroll-library-viewport-animation.md) | Native Smooth Scroll Library (Viewport Animation) | Accepted | 2026-05-28 |
+| [019](019-statuscolumn-fixed-producer-enum.md) | Fixed Producer Enum for Statuscolumn (over Generic Segment Engine) | Accepted | 2026-05-31 |
+| [020](020-statuscolumn-namespace-classification-no-plugin-deps.md) | Statuscolumn Detects Signs by Namespace, No Plugin Dependencies | Accepted | 2026-05-31 |
+| [021](021-statuscolumn-display-tick-cache-invalidation.md) | `display_tick` (FFI) Drives Statuscolumn Cache Invalidation | Accepted | 2026-05-31 |
