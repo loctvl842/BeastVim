@@ -40,8 +40,8 @@ local defaults = {
 		icons = {
 			add = "│",
 			change = "┊",
-			delete = "",
-			topdelete = "",
+			delete = "",
+			topdelete = "",
 			changedelete = "│",
 		},
 	},
