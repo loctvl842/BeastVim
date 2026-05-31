@@ -365,7 +365,9 @@ end
 ---@param source_win integer
 ---@param anchor_lnum integer
 ---@param hunk_lines table<integer, boolean>  set of buffer lines covered by matched hunks
-local function wire_close(buf, source_buf, source_win, anchor_lnum, hunk_lines)
+---@param hunk_min integer  smallest line covered by matched hunks
+---@param hunk_max integer  largest line covered by matched hunks
+local function wire_close(buf, source_buf, source_win, anchor_lnum, hunk_lines, hunk_min, hunk_max)
 	vim.keymap.set("n", "q", M.close, { buffer = buf, nowait = true, silent = true })
 	vim.keymap.set("n", "<Esc>", M.close, { buffer = buf, nowait = true, silent = true })
 
@@ -393,9 +395,8 @@ local function wire_close(buf, source_buf, source_win, anchor_lnum, hunk_lines)
 			end
 		end,
 	})
-	-- Re-anchor the float to the hunk position when the source window scrolls
-	-- so the float tracks the hunk on screen instead of the cursor. Close if
-	-- the anchor line has scrolled out of view.
+	-- Re-anchor the float when the source window scrolls. Close only when the
+	-- entire hunk range has scrolled out of view (no overlap with [top, bot]).
 	api.nvim_create_autocmd("WinScrolled", {
 		group = group,
 		callback = function()
@@ -407,16 +408,18 @@ local function wire_close(buf, source_buf, source_win, anchor_lnum, hunk_lines)
 			end
 			local top = vim.fn.line("w0", source_win)
 			local bot = vim.fn.line("w$", source_win)
-			print(anchor_lnum, top, bot)
-			if anchor_lnum < top or anchor_lnum > bot then
-				print("anchor closed")
+			if hunk_max < top or hunk_min > bot then
 				M.close()
 				return
 			end
+			-- Re-anchor to the first hunk line still visible so the float
+			-- tracks something on screen.
+			local visible_anchor = math.max(anchor_lnum, top)
+			visible_anchor = math.min(visible_anchor, hunk_max, bot)
 			pcall(api.nvim_win_set_config, current.win, {
 				relative = "win",
 				win = source_win,
-				bufpos = { anchor_lnum - 1, 0 },
+				bufpos = { visible_anchor - 1, 0 },
 				row = 1,
 				col = 0,
 			})
@@ -496,11 +499,18 @@ function M.open_for_range(range_start, range_end)
 	local anchor_lnum = math.max(1, first.b_start or 1)
 	-- Lines covered by matched hunks — cursor moving off these closes preview.
 	local hunk_lines = {}
+	local hunk_min, hunk_max = math.huge, -math.huge
 	for _, h in ipairs(matched) do
 		local s = math.max(1, h.b_start or 1)
 		local n = math.max(h.b_count or 0, 1)
 		for l = s, s + n - 1 do
 			hunk_lines[l] = true
+			if l < hunk_min then
+				hunk_min = l
+			end
+			if l > hunk_max then
+				hunk_max = l
+			end
 		end
 	end
 	local width
@@ -513,7 +523,7 @@ function M.open_for_range(range_start, range_end)
 	M.close()
 	local buf, win = open_float(body, hls, gutters, width, source_ft, source_win, anchor_lnum)
 	current = PreviewView(buf, win)
-	wire_close(buf, source_buf, source_win, anchor_lnum, hunk_lines)
+	wire_close(buf, source_buf, source_win, anchor_lnum, hunk_lines, hunk_min, hunk_max)
 end
 
 -- Test-only seam — exposes pure helpers for unit tests.
