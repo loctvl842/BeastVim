@@ -371,7 +371,7 @@ local function wire_close(buf, source_buf, source_win, anchor_lnum)
 	vim.keymap.set("n", "<Esc>", M.close, { buffer = buf, nowait = true, silent = true })
 
 	local group = api.nvim_create_augroup("BeastGitPreview", { clear = true })
-	api.nvim_create_autocmd({ "CursorMoved", "CursorMovedI", "BufLeave" }, {
+	api.nvim_create_autocmd("BufLeave", {
 		group = group,
 		buffer = source_buf,
 		once = true,
@@ -391,7 +391,9 @@ local function wire_close(buf, source_buf, source_win, anchor_lnum)
 			end
 			local top = vim.fn.line("w0", source_win)
 			local bot = vim.fn.line("w$", source_win)
+			print(anchor_lnum, top, bot)
 			if anchor_lnum < top or anchor_lnum > bot then
+				print("anchor closed")
 				M.close()
 				return
 			end
