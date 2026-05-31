@@ -111,4 +111,9 @@ Util.colors.set_hl("", {
 	DiffChange = { bg = blend(p.accent5, 0.18, p.background) },
 	DiffDelete = { bg = blend(p.accent1, 0.18, p.background) },
 	DiffText = { bg = blend(p.accent5, 0.32, p.background) },
+
+	-- Folds — collapsed ranges: quiet dimmed fg + faint sky tint so the
+	-- fold line reads as "present but inactive" without competing with code.
+	Folded = { bg = blend(p.accent5, 0.10, p.background) },
+	FoldColumn = { fg = p.dimmed1, bg = p.background },
 })
