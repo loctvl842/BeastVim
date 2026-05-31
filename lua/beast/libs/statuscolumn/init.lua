@@ -97,25 +97,65 @@ local producers = {
 ---@type table<string, true>
 local SIGN_PRODUCERS = { diagnostic = true, git = true, fold = true }
 
----@param slot string[]
-local function render_slot(slot, win, buf, lnum, relnum, virtnum, ws)
-	local has_sign = false
-	for i = 1, #slot do
-		local name = slot[i]
-		if SIGN_PRODUCERS[name] then
-			has_sign = true
+---@class Beast.Statuscolumn.NormalizedSlot
+---@field producers string[]
+---@field width integer
+---@field has_sign boolean
+---@field pad string Pre-built `(" "):rep(width)` for the empty/sign-pad case
+
+---@type Beast.Statuscolumn.NormalizedSlot[]
+local slots_cache = {}
+
+--- Normalise `config.segments` into a flat list of `{producers, width, has_sign, pad}`
+--- tables. Done once at setup / re-setup; the render hot path indexes this
+--- by integer without re-parsing the user's mixed shorthand/full syntax.
+local function rebuild_slots()
+	slots_cache = {}
+	for i, raw in ipairs(config.segments or {}) do
+		local producers_list, width
+		if raw.producers then
+			producers_list = raw.producers
+			width = raw.width or 1
+		else
+			producers_list = raw
+			width = 1
 		end
-		local p = producers[name]
+		local has_sign = false
+		for _, name in ipairs(producers_list) do
+			if SIGN_PRODUCERS[name] then
+				has_sign = true
+				break
+			end
+		end
+		slots_cache[i] = {
+			producers = producers_list,
+			width = width,
+			has_sign = has_sign,
+			pad = (" "):rep(width),
+		}
+	end
+end
+
+---@param slot Beast.Statuscolumn.NormalizedSlot
+local function render_slot(slot, win, buf, lnum, relnum, virtnum, ws)
+	local list = slot.producers
+	for i = 1, #list do
+		local p = producers[list[i]]
 		if p then
 			local out = p(win, buf, lnum, relnum, virtnum, ws)
 			if out and out ~= "" then
+				-- Sign-style slots pad the right edge to keep cell width
+				-- stable across lines (sign producers render exactly 1 cell).
+				if slot.has_sign and slot.width > 1 then
+					return out .. (" "):rep(slot.width - 1)
+				end
 				return out
 			end
 		end
 	end
-	-- Sign-style slots pad to a fixed 1-cell width when empty so the column
-	-- doesn't shift when a glyph appears on one line but not the next.
-	return has_sign and " " or ""
+	-- Sign-style slots pad to `width` cells when empty so the column doesn't
+	-- shift when a glyph appears on one line but not the next.
+	return slot.has_sign and slot.pad or ""
 end
 
 -- =========================================================================
@@ -183,7 +223,7 @@ local function render_inner()
 		return cached
 	end
 
-	local segments = config.segments
+	local segments = slots_cache
 	local n = #segments
 	if n == 0 then
 		cache.set_line(win, buf, key, "")
@@ -257,6 +297,7 @@ end
 function M.setup(opts)
 	config.setup(opts)
 	rebuild_ignore_sets()
+	rebuild_slots()
 	fold.refresh_glyphs(config.fold and config.fold.icons or nil)
 	ensure_autocmds()
 	vim.o.statuscolumn = STC_EXPR

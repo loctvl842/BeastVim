@@ -98,17 +98,25 @@ function M.check()
 	else
 		health.ok(string.format("%d slot(s) configured", #segments))
 		local bad = {}
+		local bad_width = {}
 		for i, slot in ipairs(segments) do
-			for _, p in ipairs(slot) do
+			local list = slot.producers or slot
+			for _, p in ipairs(list) do
 				if not VALID_PRODUCERS[p] then
 					bad[#bad + 1] = string.format("slot %d: %q", i, p)
 				end
+			end
+			if slot.width ~= nil and (type(slot.width) ~= "number" or slot.width < 1) then
+				bad_width[#bad_width + 1] = string.format("slot %d: width=%s", i, tostring(slot.width))
 			end
 		end
 		if #bad > 0 then
 			health.error("Unknown producer(s): " .. table.concat(bad, ", "))
 		else
 			health.ok("All producers valid")
+		end
+		if #bad_width > 0 then
+			health.error("Invalid width(s): " .. table.concat(bad_width, ", "))
 		end
 	end
 
