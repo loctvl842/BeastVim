@@ -312,6 +312,9 @@ local function open_float(body, hls, gutters, width, source_ft)
 	local buf = api.nvim_create_buf(false, true)
 	api.nvim_buf_set_lines(buf, 0, -1, false, body)
 	vim.bo[buf].bufhidden = "wipe"
+	vim.bo[buf].modifiable = false
+	vim.bo[buf].readonly = true
+	vim.bo[buf].buftype = "nofile"
 
 	-- Start treesitter for the source filetype FIRST so syntax decorations
 	-- are in place before our extmarks. Code rows are plain source so the
