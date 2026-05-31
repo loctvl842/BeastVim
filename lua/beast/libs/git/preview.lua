@@ -313,6 +313,20 @@ local function wire_close(buf, source_buf)
 		once = true,
 		callback = M.close,
 	})
+	-- Keep the float anchored under the cursor while the source window scrolls.
+	api.nvim_create_autocmd("WinScrolled", {
+		group = group,
+		callback = function()
+			if not current or not current.win or not api.nvim_win_is_valid(current.win) then
+				return
+			end
+			pcall(api.nvim_win_set_config, current.win, {
+				relative = "cursor",
+				row = 1,
+				col = 0,
+			})
+		end,
+	})
 end
 
 -- =========================================================================
