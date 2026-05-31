@@ -340,7 +340,9 @@ local function open_float(body, hls, gutters, width, source_ft, source_win, anch
 		end
 	end
 
-	local height = math.min(#body, math.floor(vim.o.lines * 0.4))
+	local max_h_cfg = (require("beast.libs.git.config").preview or {}).max_height or 0.4
+	local max_h = max_h_cfg > 0 and max_h_cfg < 1 and math.floor(vim.o.lines * max_h_cfg) or math.floor(max_h_cfg)
+	local height = math.min(#body, math.max(1, max_h))
 
 	local win = api.nvim_open_win(buf, false, {
 		relative = "win",
