@@ -1,5 +1,6 @@
 ---@class Beast.Git.PreviewConfig
----@field context_size? integer Lines of unchanged context shown around the hunk in the preview float (default 0)
+---@field context_size? integer Lines of unchanged context shown around the hunk in the preview float (default 3)
+---@field width? "full"|"fit" Float sizing: "full" (full editor width) or "fit" (snug around content). Default "full".
 
 ---@class Beast.Git.Config
 local defaults = {
@@ -12,6 +13,7 @@ local defaults = {
 	---@type Beast.Git.PreviewConfig
 	preview = {
 		context_size = 3,
+		width = "full",
 	},
 
 	---@type string[] Filetypes that never attach.

@@ -302,8 +302,6 @@ end
 
 ---@param body string[]
 ---@param hls table<integer, string>
----@param body string[]
----@param hls table<integer, string>
 ---@param gutters string[]
 ---@param width integer
 ---@param source_ft string
@@ -498,8 +496,13 @@ function M.open_for_range(range_start, range_end)
 			hunk_lines[l] = true
 		end
 	end
-	-- max_width counts code only; gutter is virt_text so add gutter_w.
-	local width = math.min(max_width(body) + gutter_w + 2, math.floor(vim.o.columns * 0.8))
+	local width
+	if config.preview and config.preview.width == "fit" then
+		-- max_width counts code only; gutter is virt_text so add gutter_w.
+		width = math.min(max_width(body) + gutter_w + 2, math.floor(vim.o.columns * 0.8))
+	else
+		width = math.max(1, vim.o.columns - 2)
+	end
 	M.close()
 	local buf, win = open_float(body, hls, gutters, width, source_ft, source_win, anchor_lnum)
 	current = PreviewView(buf, win)
