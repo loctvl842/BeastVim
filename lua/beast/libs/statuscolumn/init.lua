@@ -94,10 +94,18 @@ local producers = {
 	end,
 }
 
+---@type table<string, true>
+local SIGN_PRODUCERS = { diagnostic = true, git = true, fold = true }
+
 ---@param slot string[]
 local function render_slot(slot, win, buf, lnum, relnum, virtnum, ws)
+	local has_sign = false
 	for i = 1, #slot do
-		local p = producers[slot[i]]
+		local name = slot[i]
+		if SIGN_PRODUCERS[name] then
+			has_sign = true
+		end
+		local p = producers[name]
 		if p then
 			local out = p(win, buf, lnum, relnum, virtnum, ws)
 			if out and out ~= "" then
@@ -105,7 +113,9 @@ local function render_slot(slot, win, buf, lnum, relnum, virtnum, ws)
 			end
 		end
 	end
-	return ""
+	-- Sign-style slots pad to a fixed 1-cell width when empty so the column
+	-- doesn't shift when a glyph appears on one line but not the next.
+	return has_sign and " " or ""
 end
 
 -- =========================================================================
