@@ -375,8 +375,14 @@ local function wire_close(buf, source_buf, source_win, anchor_lnum, hunk_lines)
 	api.nvim_create_autocmd("BufLeave", {
 		group = group,
 		buffer = source_buf,
-		once = true,
-		callback = M.close,
+		callback = function()
+			vim.schedule(function()
+				if current and current.win and api.nvim_get_current_win() == current.win then
+					return
+				end
+				M.close()
+			end)
+		end,
 	})
 	-- Close when the cursor moves off the matched hunk lines.
 	api.nvim_create_autocmd({ "CursorMoved", "CursorMovedI" }, {
