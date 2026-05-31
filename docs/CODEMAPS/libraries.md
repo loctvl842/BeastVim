@@ -1,4 +1,4 @@
-<!-- Generated: 2026-05-28 | Files scanned: 169 | Token estimate: ~2620 -->
+<!-- Generated: 2026-05-31 | Files scanned: 173 | Token estimate: ~2680 -->
 
 # Libraries
 
@@ -20,7 +20,9 @@ explorer/
 ├── autocmds.lua   ← BufEnter/WinClosed/WinScrolled/CursorMoved/BufWritePost/FocusGained + git refresh
 ├── highlights.lua ← BeastExplorer* groups (incl. Git{Added,Modified,Deleted,Untracked,Conflict,Renamed,Ignored})
 └── actions/       ← one file per action
-    ├── open.lua, create.lua, delete.lua, rename.lua
+    ├── open.lua, split_open.lua, system_open.lua
+    ├── create.lua, delete.lua, rename.lua
+    ├── trash.lua, _trash_cmd.lua (OS-specific trash command resolver)
     ├── set_root.lua, navigate_up.lua, show_hidden.lua
     ├── copy_to_clipboard.lua, cut_to_clipboard.lua
     └── paste_from_clipboard.lua

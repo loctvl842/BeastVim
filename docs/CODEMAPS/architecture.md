@@ -1,4 +1,4 @@
-<!-- Generated: 2025-07-26 | Files scanned: 166 | Token estimate: ~1020 -->
+<!-- Generated: 2026-05-31 | Files scanned: 173 | Token estimate: ~1020 -->
 
 # Architecture
 
@@ -16,8 +16,10 @@ lua/beast/
 │                           registers M.highlight_modules for ColorScheme refresh
 ├── option.lua            ← vim options
 ├── icon.lua              ← icon definitions
-├── palette.lua           ← theme palette (resolves accent1, …)
 ├── profile.lua           ← startup profiling
+├── palette/
+│   ├── init.lua          ← theme palette (resolves accent1, …), is_builtin_colorscheme()
+│   └── highlights.lua    ← BeastPalette* base groups
 ├── util/
 │   ├── init.lua          ← Util.wo, Util.create_scratch_buf, Util.hrtime
 │   ├── colors.lua        ← Util.colors.set_hl
@@ -25,7 +27,6 @@ lua/beast/
 ├── libs/
 │   ├── view.lua          ← Beast.View base class (buf+win pair)
 │   ├── animate.lua       ← shared animation engine (pure math)
-│   ├── async.lua         ← cooperative coroutine scheduler (budget-limited)
 │   ├── buf.lua           ← Beast.Buf (buffer delete, scratch buf)
 │   ├── confirm/          ← vim.fn.confirm drop-in UI
 │   ├── explorer/         ← file explorer (split panel + sticky headers + git status)
@@ -35,7 +36,7 @@ lua/beast/
 │   ├── key/              ← keybinding viewer/manager
 │   ├── notify/           ← floating notification stack
 │   ├── packer/           ← plugin loader with lazy triggers + packer.lazy()
-│   ├── statusline/       ← native %! statusline
+│   ├── statusline/       ← native %! statusline (+ per-lib health.lua for :checkhealth)
 │   ├── tabline/          ← native %! tabline
 │   ├── toast/            ← toast notification stack
 │   └── treesitter/       ← treesitter setup, parser install, scope queries
@@ -89,10 +90,7 @@ Beast.View (view.lua)
   └── extended by: notify, toast, explorer, key, finder (InputView, ListView, PreviewView)
 
 animate.lua
-  └── used by: notify/ui.lua, toast/ui.lua
-
-async.lua
-  └── cooperative coroutine scheduler, budget-limited (10ms per frame)
+  └── used by: notify/ui.lua, toast/ui.lua, scroll (easings inline)
 
 Util.create_scratch_buf
   └── used by: confirm, explorer, key, notify, toast
@@ -113,11 +111,14 @@ Palette.get / Palette.refresh
       → M.reload_highlights()
         → for each module in M.highlight_modules:
             skip if parent lib not loaded
+            skip builtin-only highlights (treesitter) when colorscheme is third-party
             package.loaded[m] = nil
             require(m)
 ```
 
-`M.highlight_modules` includes: confirm, key, packer, notify, statusline, tabline, explorer, finder, breadcrumb, indent.
+`M.highlight_modules` includes: palette, confirm, explorer, finder, key, notify,
+packer, statusline, breadcrumb, tabline, toast, indent.
+Builtin-only (gated by `Palette.is_builtin_colorscheme()`): treesitter.
 
 ## Patterns
 
@@ -130,3 +131,4 @@ Palette.get / Palette.refresh
 - **Tabline = `%!`**: event-driven cache, 3-state highlights, anchor-based truncation
 - **Transient UI buffers**: `IGNORED_FILETYPES` table (beast-* only)
 - **Secure-mode safety**: statusline defers `redrawstatus` via `vim.schedule` (avoids E12)
+- **Per-lib health checks**: `<lib>/health.lua` exposes `M.check()` for `:checkhealth beast.libs.<lib>`
