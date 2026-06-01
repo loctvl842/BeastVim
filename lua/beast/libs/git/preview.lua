@@ -1,14 +1,16 @@
 -- Hunk preview float.
 --
 -- open_for_current_line() finds the hunk under the cursor and opens a
--- floating window showing the diff for that hunk: deleted lines in
--- BeastGitPreviewDelete, added lines in BeastGitPreviewAdd.
+-- floating window showing the diff: deleted lines in BeastGitPreviewDelete,
+-- added lines in BeastGitPreviewAdd.
 --
--- open_for_range(s, e) stitches every hunk overlapping the visual
--- selection [s, e] into a single float, separated by a thin divider.
+-- open_for_range(s, e) stitches every hunk overlapping [s, e] (plus any
+-- neighbouring hunks within preview.adjacent_gap unchanged lines) into a
+-- single unified timeline.
 --
--- Auto-closes on source-buffer CursorMoved / BufLeave / WinScrolled.
--- Inside the float, `q` and `<Esc>` close manually.
+-- Auto-closes on source-buffer CursorMoved (off hunk lines), BufLeave,
+-- and when the hunk scrolls fully off-screen. Inside the float, `q` and
+-- `<Esc>` close manually.
 
 local api = vim.api
 local View = require("beast.libs.view")
@@ -24,28 +26,6 @@ local current
 -- =========================================================================
 -- Hunk helpers
 -- =========================================================================
-
----@param hunk Beast.Git.RawHunk
----@param cursor_line integer
----@return boolean
-local function hunk_contains(hunk, cursor_line)
-	if hunk.b_count == 0 then
-		local anchor = hunk.b_start == 0 and 1 or hunk.b_start
-		return cursor_line == anchor
-	end
-	return cursor_line >= hunk.b_start and cursor_line <= hunk.b_start + hunk.b_count - 1
-end
-
----@param hunks Beast.Git.RawHunk[]
----@param cursor_line integer
----@return Beast.Git.RawHunk?
-local function find_hunk(hunks, cursor_line)
-	for _, h in ipairs(hunks) do
-		if hunk_contains(h, cursor_line) then
-			return h
-		end
-	end
-end
 
 ---@param hunk Beast.Git.RawHunk
 ---@return integer first, integer last
@@ -72,14 +52,13 @@ local function hunks_in_range(hunks, range_start, range_end)
 	return out
 end
 
----Expand `seed` to include every neighbouring hunk whose context window
----would touch or overlap the cluster (gap ≤ 2 * ctx_n).
+---Expand `seed` to include neighbouring hunks whose gap (unchanged lines
+---between them) is ≤ adj_gap.
 ---@param hunks Beast.Git.RawHunk[]  ordered by b_start
 ---@param seed Beast.Git.RawHunk[]   contiguous slice already picked
----@param ctx_n integer
 ---@param adj_gap integer  max unchanged lines between hunks for auto-merge (0 = touching)
 ---@return Beast.Git.RawHunk[]
-local function expand_adjacent(hunks, seed, ctx_n, adj_gap)
+local function expand_adjacent(hunks, seed, adj_gap)
 	if #seed == 0 then
 		return seed
 	end
@@ -89,7 +68,6 @@ local function expand_adjacent(hunks, seed, ctx_n, adj_gap)
 	end
 	local lo = index_of[seed[1]]
 	local hi = index_of[seed[#seed]]
-	-- Merge when gap (unchanged lines between hunks) <= adj_gap.
 	local gap_threshold = math.max(0, adj_gap or 0) + 1
 
 	while lo > 1 do
@@ -298,50 +276,62 @@ local function max_width(lines)
 	return w
 end
 
+---@param buf integer
+---@param source_ft string
+local function maybe_start_treesitter(buf, source_ft)
+	if not source_ft or source_ft == "" then
+		return
+	end
+	vim.bo[buf].filetype = source_ft
+	local lang = vim.treesitter.language.get_lang(source_ft) or source_ft
+	pcall(vim.treesitter.start, buf, lang)
+end
+
+---@param buf integer
 ---@param body string[]
 ---@param hls table<integer, string>
----@param gutters string[]
----@param width integer
----@param source_ft string
----@param source_win integer
----@param anchor_lnum integer  1-indexed buffer line to anchor the float below
----@return integer buf, integer win
-local function open_float(body, hls, gutters, width, source_ft, source_win, anchor_lnum)
-	local buf = api.nvim_create_buf(false, true)
-	api.nvim_buf_set_lines(buf, 0, -1, false, body)
-	vim.bo[buf].bufhidden = "wipe"
-	vim.bo[buf].modifiable = false
-	vim.bo[buf].readonly = true
-	vim.bo[buf].buftype = "nofile"
-
-	-- Start treesitter for the source filetype FIRST so syntax decorations
-	-- are in place before our extmarks. Code rows are plain source so the
-	-- parse tree is clean.
-	if source_ft and source_ft ~= "" then
-		vim.bo[buf].filetype = source_ft
-		local lang = vim.treesitter.language.get_lang(source_ft) or source_ft
-		pcall(vim.treesitter.start, buf, lang)
-	end
-
+---@param gutters Beast.Git.PreviewGutter[]
+local function apply_decorations(buf, body, hls, gutters)
 	local ns = api.nvim_create_namespace("beast_git_preview")
 	for i = 1, #body do
 		local g = gutters[i]
 		api.nvim_buf_set_extmark(buf, ns, i - 1, 0, {
-			virt_text = {
-				{ g.lnum_text, g.lnum_hl },
-				{ g.marker, g.marker_hl },
-			},
+			virt_text = { { g.lnum_text, g.lnum_hl }, { g.marker, g.marker_hl } },
 			virt_text_pos = "inline",
 		})
 		if hls[i] then
 			api.nvim_buf_set_extmark(buf, ns, i - 1, 0, { line_hl_group = hls[i] })
 		end
 	end
+end
 
-	local max_h_cfg = (require("beast.libs.git.config").preview or {}).max_height or 0.4
-	local max_h = max_h_cfg > 0 and max_h_cfg < 1 and math.floor(vim.o.lines * max_h_cfg) or math.floor(max_h_cfg)
-	local height = math.min(#body, math.max(1, max_h))
+---@return integer
+local function resolve_max_height()
+	local cfg = (require("beast.libs.git.config").preview or {}).max_height or 0.4
+	if cfg > 0 and cfg < 1 then
+		return math.floor(vim.o.lines * cfg)
+	end
+	return math.floor(cfg)
+end
 
+---@param body string[]
+---@param hls table<integer, string>
+---@param gutters Beast.Git.PreviewGutter[]
+---@param width integer
+---@param source_ft string
+---@param source_win integer
+---@param anchor_lnum integer  1-indexed buffer line to anchor the float below
+---@return integer buf, integer win
+local function open_float(body, hls, gutters, width, source_ft, source_win, anchor_lnum)
+	local buf = Buffer.new("")
+	api.nvim_buf_set_lines(buf, 0, -1, false, body)
+	vim.bo[buf].modifiable = false
+	vim.bo[buf].readonly = true
+
+	maybe_start_treesitter(buf, source_ft)
+	apply_decorations(buf, body, hls, gutters)
+
+	local height = math.min(#body, math.max(1, resolve_max_height()))
 	local win = api.nvim_open_win(buf, false, {
 		relative = "win",
 		win = source_win,
@@ -363,11 +353,10 @@ end
 ---@param buf integer  preview buffer
 ---@param source_buf integer  buffer whose cursor opened the preview
 ---@param source_win integer
----@param anchor_lnum integer
 ---@param hunk_lines table<integer, boolean>  set of buffer lines covered by matched hunks
 ---@param hunk_min integer  smallest line covered by matched hunks
 ---@param hunk_max integer  largest line covered by matched hunks
-local function wire_close(buf, source_buf, source_win, anchor_lnum, hunk_lines, hunk_min, hunk_max)
+local function wire_close(buf, source_buf, source_win, hunk_lines, hunk_min, hunk_max)
 	vim.keymap.set("n", "q", M.close, { buffer = buf, nowait = true, silent = true })
 	vim.keymap.set("n", "<Esc>", M.close, { buffer = buf, nowait = true, silent = true })
 
@@ -384,7 +373,6 @@ local function wire_close(buf, source_buf, source_win, anchor_lnum, hunk_lines, 
 			end)
 		end,
 	})
-	-- Close when the cursor moves off the matched hunk lines.
 	api.nvim_create_autocmd({ "CursorMoved", "CursorMovedI" }, {
 		group = group,
 		buffer = source_buf,
@@ -395,12 +383,11 @@ local function wire_close(buf, source_buf, source_win, anchor_lnum, hunk_lines, 
 			end
 		end,
 	})
-	-- Re-anchor the float when the source window scrolls. Close only when the
-	-- entire hunk range has scrolled out of view (no overlap with [top, bot]).
+	-- Re-anchor float on scroll; close only when whole hunk range is off-screen.
 	api.nvim_create_autocmd("WinScrolled", {
 		group = group,
 		callback = function()
-			if not current or not current.win or not api.nvim_win_is_valid(current.win) then
+			if not (current and current.win and api.nvim_win_is_valid(current.win)) then
 				return
 			end
 			if not api.nvim_win_is_valid(source_win) then
@@ -412,14 +399,11 @@ local function wire_close(buf, source_buf, source_win, anchor_lnum, hunk_lines, 
 				M.close()
 				return
 			end
-			-- Re-anchor to the first hunk line still visible so the float
-			-- tracks something on screen.
-			local visible_anchor = math.max(anchor_lnum, top)
-			visible_anchor = math.min(visible_anchor, hunk_max, bot)
+			local visible = math.min(math.max(hunk_min, top), hunk_max, bot)
 			pcall(api.nvim_win_set_config, current.win, {
 				relative = "win",
 				win = source_win,
-				bufpos = { visible_anchor - 1, 0 },
+				bufpos = { visible - 1, 0 },
 				row = 1,
 				col = 0,
 			})
@@ -438,10 +422,50 @@ function M.close()
 	end
 end
 
-function M.open_for_current_line()
+---@return boolean focused  true if an existing float was focused
+local function focus_if_open()
 	if current and current.win and api.nvim_win_is_valid(current.win) then
 		pcall(api.nvim_del_augroup_by_name, "BeastGitPreview")
 		api.nvim_set_current_win(current.win)
+		return true
+	end
+	return false
+end
+
+---@param matched Beast.Git.RawHunk[]
+---@return table<integer, boolean> hunk_lines, integer hunk_min, integer hunk_max
+local function compute_hunk_extent(matched)
+	local hunk_lines = {}
+	local hunk_min, hunk_max = math.huge, -math.huge
+	for _, h in ipairs(matched) do
+		local s = math.max(1, h.b_start or 1)
+		local n = math.max(h.b_count or 0, 1)
+		for l = s, s + n - 1 do
+			hunk_lines[l] = true
+			if l < hunk_min then
+				hunk_min = l
+			end
+			if l > hunk_max then
+				hunk_max = l
+			end
+		end
+	end
+	return hunk_lines, hunk_min, hunk_max
+end
+
+---@param mode string?  "full" | "fit"
+---@param body string[]
+---@param gutter_w integer
+---@return integer
+local function compute_width(mode, body, gutter_w)
+	if mode == "fit" then
+		return math.min(max_width(body) + gutter_w + 2, math.floor(vim.o.columns * 0.8))
+	end
+	return math.max(1, vim.o.columns - 2)
+end
+
+function M.open_for_current_line()
+	if focus_if_open() then
 		return
 	end
 	local cursor = api.nvim_win_get_cursor(0)[1]
@@ -451,9 +475,7 @@ end
 ---@param range_start integer
 ---@param range_end integer
 function M.open_for_range(range_start, range_end)
-	if current and current.win and api.nvim_win_is_valid(current.win) then
-		pcall(api.nvim_del_augroup_by_name, "BeastGitPreview")
-		api.nvim_set_current_win(current.win)
+	if focus_if_open() then
 		return
 	end
 	if range_start > range_end then
@@ -480,10 +502,10 @@ function M.open_for_range(range_start, range_end)
 	end
 
 	local config = require("beast.libs.git.config")
-	local ctx_n = config.preview and config.preview.context_size or 0
-	local adj_gap = (config.preview and config.preview.adjacent_gap) or 0
+	local preview_cfg = config.preview or {}
+	local ctx_n = preview_cfg.context_size or 0
 	-- Auto-cluster adjacent hunks so back-to-back changes preview together.
-	matched = expand_adjacent(hunks, matched, ctx_n, adj_gap)
+	matched = expand_adjacent(hunks, matched, preview_cfg.adjacent_gap or 0)
 
 	local rows = build_rows(source_buf, st, matched, ctx_n)
 	if #rows == 0 then
@@ -493,37 +515,13 @@ function M.open_for_range(range_start, range_end)
 
 	local source_ft = vim.bo[source_buf].filetype
 	local source_win = api.nvim_get_current_win()
-	-- Anchor the float just below the first line of the first matched hunk
-	-- (its position in the current buffer).
-	local first = matched[1]
-	local anchor_lnum = math.max(1, first.b_start or 1)
-	-- Lines covered by matched hunks — cursor moving off these closes preview.
-	local hunk_lines = {}
-	local hunk_min, hunk_max = math.huge, -math.huge
-	for _, h in ipairs(matched) do
-		local s = math.max(1, h.b_start or 1)
-		local n = math.max(h.b_count or 0, 1)
-		for l = s, s + n - 1 do
-			hunk_lines[l] = true
-			if l < hunk_min then
-				hunk_min = l
-			end
-			if l > hunk_max then
-				hunk_max = l
-			end
-		end
-	end
-	local width
-	if config.preview and config.preview.width == "fit" then
-		-- max_width counts code only; gutter is virt_text so add gutter_w.
-		width = math.min(max_width(body) + gutter_w + 2, math.floor(vim.o.columns * 0.8))
-	else
-		width = math.max(1, vim.o.columns - 2)
-	end
+	local hunk_lines, hunk_min, hunk_max = compute_hunk_extent(matched)
+	local width = compute_width(preview_cfg.width, body, gutter_w)
+
 	M.close()
-	local buf, win = open_float(body, hls, gutters, width, source_ft, source_win, anchor_lnum)
+	local buf, win = open_float(body, hls, gutters, width, source_ft, source_win, hunk_min)
 	current = PreviewView(buf, win)
-	wire_close(buf, source_buf, source_win, anchor_lnum, hunk_lines, hunk_min, hunk_max)
+	wire_close(buf, source_buf, source_win, hunk_lines, hunk_min, hunk_max)
 end
 
 -- Test-only seam — exposes pure helpers for unit tests.
