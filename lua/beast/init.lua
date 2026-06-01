@@ -127,7 +127,15 @@ function M.setup(opts)
 		end,
 	})
   -- stylua: ignore start
-  Key.safe_set("n", "<leader>gp", function() require("beast.libs.git").preview_hunk() end, {desc = "Preview current hunk changes", group = "Statuscolumn"})
+  Key.safe_set("n", "<leader>gp", function() require("beast.libs.git").preview_hunk() end, {desc = "Preview current hunk", group = "Git"})
+  Key.safe_set("x", "<leader>gp", function()
+    local s = vim.fn.line("v")
+    local e = vim.fn.line(".")
+    vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<Esc>", true, false, true), "nx", false)
+    require("beast.libs.git").preview_hunk_range(s, e)
+  end, {desc = "Preview hunks in selection", group = "Git"})
+  Key.safe_set("n", "]c", function() require("beast.libs.git").next_hunk() end, {desc = "Next hunk", group = "Git"})
+  Key.safe_set("n", "[c", function() require("beast.libs.git").prev_hunk() end, {desc = "Previous hunk", group = "Git"})
 	-- stylua: ignore end
 
 	vim.g.loaded_netrw = 1

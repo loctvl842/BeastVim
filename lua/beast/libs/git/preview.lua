@@ -220,6 +220,7 @@ end
 
 ---@class Beast.Git.PreviewGutter
 ---@field lnum_text string  Padded line-number string + trailing space
+---@field lnum_hl string    Highlight group for the line number
 ---@field marker string     "- " | "+ " | "  "
 ---@field marker_hl string  Highlight group for the marker (and line bg)
 

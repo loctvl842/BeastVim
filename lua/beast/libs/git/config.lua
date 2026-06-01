@@ -9,9 +9,6 @@ local defaults = {
 	---@type integer Debounce window (ms) for TextChanged / TextChangedI re-diffs.
 	debounce_ms = 200,
 
-	---@type boolean Register default `]c` / `[c` / `<leader>gp` keymaps on attach (Phase 2/3 features).
-	keymaps = true,
-
 	---@type Beast.Git.PreviewConfig
 	preview = {
 		context_size = 3,
