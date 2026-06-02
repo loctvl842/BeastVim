@@ -1,22 +1,14 @@
--- Beast.Statuscolumn highlight definitions.
--- Re-executed on every ColorScheme change via M.highlight_modules.
---
--- All groups link to existing colorscheme groups by default — no palette
--- dependency. Users can override post-setup via vim.api.nvim_set_hl().
+local p = Palette.get()
 
 Util.colors.set_hl("BeastStc", {
-	Number = { link = "LineNr" },
-	NumberCurrent = { link = "CursorLineNr" },
-
 	DiagError = { link = "DiagnosticSignError" },
 	DiagWarn = { link = "DiagnosticSignWarn" },
 	DiagInfo = { link = "DiagnosticSignInfo" },
 	DiagHint = { link = "DiagnosticSignHint" },
 
-	GitAdd = { link = "GitSignsAdd" },
-	GitChange = { link = "GitSignsChange" },
-	GitDelete = { link = "GitSignsDelete" },
+	GitAdd = { fg = p.accent3 },
+	GitChange = { fg = p.accent2 },
+	GitDelete = { fg = p.accent1 },
 
-	Fold = { link = "FoldColumn" },
-	FoldCurrent = { link = "CursorLineFold" },
+	Fold = { fg = p.dimmed1 },
 })
