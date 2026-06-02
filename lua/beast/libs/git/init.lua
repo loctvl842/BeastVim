@@ -407,6 +407,23 @@ M.reset_hunk = wrap_repeatable(function(buf, lnum)
 	require("beast.libs.git.actions").reset_hunk(buf, lnum)
 end)
 
+--- Stage every unstaged hunk whose buffer footprint intersects `[s, e]`.
+--- Whole-hunk inclusion (gitsigns/mini.diff parity). Intended for visual
+--- range mappings — see init.lua for the `<leader>gs` example.
+---@param buf integer?
+---@param s integer 1-based start line (inclusive)
+---@param e integer 1-based end line (inclusive)
+function M.stage_hunk_range(buf, s, e)
+	require("beast.libs.git.actions").stage_hunk_range(buf, s, e)
+end
+
+---@param buf integer?
+---@param s integer
+---@param e integer
+function M.reset_hunk_range(buf, s, e)
+	require("beast.libs.git.actions").reset_hunk_range(buf, s, e)
+end
+
 --- Trigger a re-diff for `buf`. Actions call this after mutating the index
 --- so the gutter reflects the new state without waiting for the next
 --- on_lines event.

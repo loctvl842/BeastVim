@@ -83,14 +83,44 @@ local function get_state(buf)
 	return require("beast.libs.git")._get_state(buf)
 end
 
+--- Return `(start, end)` line numbers if invoked from a visual-mode mapping,
+--- else `nil`. Reads the live selection via `line("v")` / `line(".")` — these
+--- stay valid during the keymap's :lua callback because we haven't left
+--- visual mode yet. Charwise / linewise / blockwise all collapse to "the
+--- buffer-line span the selection touches", which is what hunks care about.
+---@return integer?, integer?
+local function visual_range()
+	local mode = vim.fn.mode()
+	if mode ~= "v" and mode ~= "V" and mode ~= "\22" then
+		return nil, nil
+	end
+	local s = vim.fn.line("v")
+	local e = vim.fn.line(".")
+	if s > e then
+		s, e = e, s
+	end
+	-- Drop back to normal so subsequent commands (eg cursor moves from a
+	-- post-action `vim.cmd`) don't run inside visual.
+	vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<Esc>", true, false, true), "nx", false)
+	return s, e
+end
+
 -- =========================================================================
 -- stage_hunk — toggle (unstaged → stage; staged → unstage)
 -- =========================================================================
 
+--- Stage the hunk under cursor (toggle: a second call on a staged hunk
+--- unstages). When invoked from a visual-mode mapping, stages every
+--- unstaged hunk whose buffer footprint intersects the selection (toggle
+--- does not apply in range mode — gitsigns parity).
 ---@param buf integer?
 ---@param lnum integer?
 function M.stage_hunk(buf, lnum)
 	buf = buf or api.nvim_get_current_buf()
+	local vs, ve = visual_range()
+	if vs then
+		return M.stage_hunk_range(buf, vs, ve)
+	end
 	lnum = lnum or api.nvim_win_get_cursor(0)[1]
 	local st = get_state(buf)
 	if not st then
@@ -164,10 +194,17 @@ end
 -- reset_hunk — rewrite buffer lines from index
 -- =========================================================================
 
+--- Reset the unstaged hunk under cursor (rewrites buffer lines from index).
+--- When invoked from a visual-mode mapping, resets every unstaged hunk
+--- whose buffer footprint intersects the selection.
 ---@param buf integer?
 ---@param lnum integer?
 function M.reset_hunk(buf, lnum)
 	buf = buf or api.nvim_get_current_buf()
+	local vs, ve = visual_range()
+	if vs then
+		return M.reset_hunk_range(buf, vs, ve)
+	end
 	lnum = lnum or api.nvim_win_get_cursor(0)[1]
 	local st = get_state(buf)
 	if not st then
@@ -200,6 +237,81 @@ function M.reset_hunk(buf, lnum)
 	end
 
 	api.nvim_buf_set_lines(buf, start_row, end_row, false, replacement)
+end
+
+-- =========================================================================
+-- Range variants — operate on every hunk intersecting [s, e]
+-- =========================================================================
+--
+-- Whole-hunk inclusion: any unstaged hunk whose buffer footprint touches
+-- the range gets staged/reset in full. Matches gitsigns default. Partial-
+-- line staging within a single hunk is a follow-up.
+
+---@param buf integer?
+---@param s integer
+---@param e integer
+function M.stage_hunk_range(buf, s, e)
+	buf = buf or api.nvim_get_current_buf()
+	local st = get_state(buf)
+	if not st then
+		return notify("buffer not attached", vim.log.levels.WARN)
+	end
+	local selected = hunks_mod.find_in_range(st.hunks, s, e)
+	if #selected == 0 then
+		return notify("no hunks in selection", vim.log.levels.INFO)
+	end
+	with_path_data(buf, st, function(state_with_pd)
+		local buf_lines = api.nvim_buf_get_lines(buf, 0, -1, false)
+		local ref_lines = split_lines(state_with_pd.base)
+		local lines = patch.format(ref_lines, buf_lines, selected, state_with_pd.path_data)
+		apply_mod.apply(state_with_pd.ctx, lines, false, function(ok, err)
+			if not ok then
+				return notify("stage range failed: " .. err, vim.log.levels.ERROR)
+			end
+			refresh_base_after_apply(buf)
+		end)
+	end)
+end
+
+---@param buf integer?
+---@param s integer
+---@param e integer
+function M.reset_hunk_range(buf, s, e)
+	buf = buf or api.nvim_get_current_buf()
+	local st = get_state(buf)
+	if not st then
+		return notify("buffer not attached", vim.log.levels.WARN)
+	end
+	local selected = hunks_mod.find_in_range(st.hunks, s, e)
+	if #selected == 0 then
+		return notify("no hunks in selection", vim.log.levels.INFO)
+	end
+
+	-- Sort by b_start descending so the buffer rewrites later in the file
+	-- happen first; earlier rewrites then can't invalidate later indices.
+	table.sort(selected, function(a, b)
+		return a.b_start > b.b_start
+	end)
+
+	local base_lines = split_lines(st.base)
+	for _, hunk in ipairs(selected) do
+		local replacement = {}
+		for i = hunk.a_start, hunk.a_start + hunk.a_count - 1 do
+			replacement[#replacement + 1] = base_lines[i] or ""
+		end
+		local start_row, end_row
+		if hunk.type == "add" then
+			start_row = hunk.b_start - 1
+			end_row = hunk.b_start - 1 + hunk.b_count
+		elseif hunk.type == "delete" then
+			start_row = hunk.b_start
+			end_row = hunk.b_start
+		else
+			start_row = hunk.b_start - 1
+			end_row = hunk.b_start - 1 + hunk.b_count
+		end
+		api.nvim_buf_set_lines(buf, start_row, end_row, false, replacement)
+	end
 end
 
 return M

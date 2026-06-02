@@ -48,6 +48,7 @@ local defaults = {
 		"beast-notify",
 		"beast-packer",
 		"beast-packer-actions",
+		"beast-starter",
 		"beast-toast",
 	},
 }
