@@ -147,4 +147,17 @@ function M.get_path_data(ctx, cb)
 	end)
 end
 
+--- Mark an untracked file as intent-to-add so it shows up in the index with
+--- the empty blob. Required before staging a hunk on a new file, because
+--- `git apply --cached` needs an index entry to patch against.
+---@param ctx Beast.Git.RepoCtx
+---@param cb fun(ok: boolean, stderr: string)
+function M.intent_to_add(ctx, cb)
+	vim.system({ "git", "-C", ctx.toplevel, "add", "--intent-to-add", "--", ctx.relpath }, { text = true }, function(result)
+		vim.schedule(function()
+			cb(result.code == 0, result.stderr or "")
+		end)
+	end)
+end
+
 return M
