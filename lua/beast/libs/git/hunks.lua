@@ -196,4 +196,33 @@ function M.find_staged_at_buffer_line(staged, unstaged, lnum)
 	return nil
 end
 
+--- Find all hunks whose BUFFER-side footprint intersects `[s, e]` inclusive.
+--- Whole-hunk inclusion (matches gitsigns / mini.diff default range behaviour);
+--- callers wanting partial-line stage must re-diff the clipped region.
+---@param hunks Beast.Git.RawHunk[]
+---@param s integer 1-based start line (inclusive)
+---@param e integer 1-based end line (inclusive)
+---@return Beast.Git.RawHunk[]
+function M.find_in_range(hunks, s, e)
+	if s > e then
+		s, e = e, s
+	end
+	local out = {}
+	for i = 1, #hunks do
+		local h = hunks[i]
+		local lo, hi
+		if h.type == "delete" then
+			lo = h.b_start == 0 and 1 or h.b_start
+			hi = lo
+		else
+			lo = h.b_start
+			hi = h.b_start + h.b_count - 1
+		end
+		if hi >= s and lo <= e then
+			out[#out + 1] = h
+		end
+	end
+	return out
+end
+
 return M

@@ -11,6 +11,7 @@ local M = {}
 ---@field indent? Beast.Indent.Config
 ---@field breadcrumb? Beast.Breadcrumb.Config
 ---@field scroll? Beast.Scroll.Config
+---@field starter? Beast.Starter.Config
 local defaults = {
 	key = {},
 	notify = {},
@@ -18,11 +19,18 @@ local defaults = {
 	explorer = {},
 	packer = {},
 	treesitter = {},
+	starter = {},
 }
 
 ---@param opts? Beast.Config
 function M.setup(opts)
+	local user_starter_keys = opts and opts.starter and opts.starter.keys
 	local cfg = vim.tbl_deep_extend("force", vim.deepcopy(defaults), opts or {})
+	-- Opt-in: only render the BeastVim key rows when the user explicitly
+	-- provided `starter.keys`. Otherwise fall through to the bare native intro.
+	if user_starter_keys == nil then
+		cfg.starter.keys = {}
+	end
 
 	require("beast.option")
 
@@ -69,9 +77,9 @@ function M.setup(opts)
 	_G.gh = function(x) return "https://github.com/" .. x end
 	---@type Beast.Packer.Config
 	packer.setup(cfg.packer)
-	Key.safe_set("n", "<leader>p", function()
-		require("beast.libs.packer.ui").open()
-	end)
+  -- stylua: ignore
+	Key.safe_set("n", "<leader>p", function() require("beast.libs.packer.ui").open() end)
+	cfg.starter.keys[#cfg.starter.keys + 1] = { verb = "press", key = "<leader>p", desc = "to manage plugins" }
 
 	-- Statusline (declarative components, native %! evaluation)
 	local stl = require("beast.libs.statusline")
@@ -127,7 +135,7 @@ function M.setup(opts)
 		end,
 	})
   -- stylua: ignore start
-  Key.safe_set("n", "<leader>gp", function() require("beast.libs.git").preview_hunk() end, {desc = "Preview current hunk", group = "Git"})
+  Key.safe_set("n", "<leader>gp", function() require("beast.libs.git").preview_hunk() end, {desc = "Preview hunk", group = "Git"})
   Key.safe_set("x", "<leader>gp", function()
     local s = vim.fn.line("v")
     local e = vim.fn.line(".")
@@ -136,6 +144,10 @@ function M.setup(opts)
   end, {desc = "Preview hunks in selection", group = "Git"})
   Key.safe_set("n", "]c", function() require("beast.libs.git").next_hunk() end, {desc = "Next hunk", group = "Git"})
   Key.safe_set("n", "[c", function() require("beast.libs.git").prev_hunk() end, {desc = "Previous hunk", group = "Git"})
+  Key.safe_set({ "n", "x" }, "<leader>gs", function() require("beast.libs.git").stage_hunk() end, {desc = "Stage hunk (toggle)", group = "Git"})
+  Key.safe_set("n", "<leader>gu", function() require("beast.libs.git").unstage_hunk() end, {desc = "Unstage hunk (explicit)", group = "Git"})
+  Key.safe_set({ "n", "x" }, "<leader>gr", function() require("beast.libs.git").reset_hunk() end, {desc = "Reset hunk", group = "Git"})
+  Key.safe_set("n", "<leader>g.", function() require("beast.libs.git").repeat_action() end, {desc = "Repeat last git action", group = "Git"})
 	-- stylua: ignore end
 
 	vim.g.loaded_netrw = 1
@@ -225,6 +237,10 @@ function M.setup(opts)
 			},
 		},
 	})
+	cfg.starter.keys[#cfg.starter.keys + 1] = { verb = "press", key = "<leader>f", desc = "to find files" }
+
+	-- Starter screen (eager — must register VimEnter autocmd before VimEnter fires)
+	require("beast.libs.starter").setup(cfg.starter)
 
 	-- Smooth viewport scrolling (lazy — activate after first buffer read)
 	packer.lazy("beast.libs.scroll", {
