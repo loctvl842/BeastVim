@@ -248,6 +248,8 @@ function M.setup(opts)
 			eager_specs[spec.name] = spec
 		elseif type(spec.lazy) == "table" then
 			lazy_specs[spec.name] = spec
+		elseif spec.lazy == nil then -- lazy is nil - manual loading only
+      -- Do nothing
 		else
 			error("Invalid lazy value: " .. tostring(spec.lazy))
 		end
