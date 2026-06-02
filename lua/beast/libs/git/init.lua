@@ -176,9 +176,12 @@ end
 -- =========================================================================
 
 ---@param buf integer
-local function on_lines_change(buf)
+---@param session table The state table we were attached against
+local function on_lines_change(buf, session)
 	local st = state[buf]
-	if not st then
+	-- Self-prune if the buffer was detached, or if a fresh attach swapped
+	-- in a new session (the new subscription handles future events).
+	if not st or st ~= session then
 		return true -- detach
 	end
 	if st.timer then
@@ -202,8 +205,8 @@ end
 ---@param ctx Beast.Git.RepoCtx
 ---@param done fun()
 local function bootstrap_state(buf, ctx, done)
-	local pending = 3
 	local base, head, path_data = "", "", nil
+	local pending = 0
 
 	local function maybe_done()
 		if pending > 0 then
@@ -228,16 +231,19 @@ local function bootstrap_state(buf, ctx, done)
 		done()
 	end
 
+	pending = pending + 1
 	repo.get_base(ctx, function(text)
 		base = text
 		pending = pending - 1
 		maybe_done()
 	end)
+	pending = pending + 1
 	repo.get_head(ctx, function(text)
 		head = text
 		pending = pending - 1
 		maybe_done()
 	end)
+	pending = pending + 1
 	repo.get_path_data(ctx, function(data)
 		path_data = data
 		pending = pending - 1
@@ -245,31 +251,48 @@ local function bootstrap_state(buf, ctx, done)
 	end)
 end
 
+-- Buffers with an attach in flight (repo.resolve / bootstrap_state pending).
+-- Guards against parallel bootstraps if M.attach is called twice on the same
+-- buf before the first finishes (e.g. BufReadPost firing during BufFilePost's
+-- scheduled re-attach).
+---@type table<integer, boolean>
+local attaching = {}
+
+---@param buf integer
+local function abort_attach(buf)
+	attaching[buf] = nil
+	repo.invalidate(buf)
+end
+
 ---@param buf integer?
 function M.attach(buf)
 	buf = buf or api.nvim_get_current_buf()
-	if state[buf] or not buffer_eligible(buf) then
+	if state[buf] or attaching[buf] or not buffer_eligible(buf) then
 		return
 	end
+	attaching[buf] = true
 	repo.resolve(buf, function(ctx)
 		if not ctx or not api.nvim_buf_is_valid(buf) then
+			abort_attach(buf)
 			return
 		end
 		bootstrap_state(buf, ctx, function()
-			-- Capture this attach session so a stale on_detach (e.g. queued
-			-- by `:edit`) can't wipe a freshly re-attached state. See
-			-- BufReadPost handler for the matching reattach logic.
+			attaching[buf] = nil
+			-- Capture the attach session (the state-table identity). Any
+			-- callback closed over `session` will no-op if the buffer has
+			-- been re-attached in the meantime (state[buf] points to a
+			-- different table) — closes the double-subscription window
+			-- created by :edit firing on_detach + BufReadPost reattach.
 			local session = state[buf]
-			-- Subscribe to buffer mutations. on_lines fires synchronously in a
-			-- fast event for every line change (including programmatic edits
-			-- that TextChanged/I would miss), so the handler only schedules
-			-- work via a uv timer.
+			-- on_lines runs in a fast event for every line change
+			-- (including programmatic edits that TextChanged/I would
+			-- miss), so the handler only schedules work via a uv timer.
 			local ok = api.nvim_buf_attach(buf, false, {
 				on_lines = function(_, b)
-					return on_lines_change(b)
+					return on_lines_change(b, session)
 				end,
 				on_reload = function(_, b)
-					if state[b] then
+					if state[b] == session then
 						vim.schedule(function()
 							schedule_diff(b, true, false)
 						end)
@@ -277,9 +300,6 @@ function M.attach(buf)
 				end,
 				on_detach = function(_, b)
 					vim.schedule(function()
-						-- :edit detaches the buf-attach but BufReadPost
-						-- re-attaches synchronously with a fresh session.
-						-- Only clean up if we're still the active session.
 						if state[b] == session then
 							M.detach(b)
 						end
@@ -298,6 +318,7 @@ end
 ---@param buf integer?
 function M.detach(buf)
 	buf = buf or api.nvim_get_current_buf()
+	attaching[buf] = nil
 	local st = state[buf]
 	if not st then
 		return
