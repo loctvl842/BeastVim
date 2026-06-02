@@ -92,6 +92,9 @@ PY
 ) || { echo "ERROR: fixture build failed" >&2; exit 2; }
 
 # ── Shared probe: hooks nvim_buf_set_extmark per sign namespace ───────────
+# Tracks only the unstaged namespace because that's the one rewritten per
+# keystroke. Staged signs only change on stage/unstage/commit and would
+# only add noise to the latency measurement.
 cat > "$WORK/probe.lua" <<'LUA'
 local backend = os.getenv("BENCH_BACKEND") or "unknown"
 local logpath = os.getenv("BENCH_LOG") or ("/tmp/perf-" .. backend .. ".log")
@@ -146,7 +149,7 @@ dofile("$WORK/probe.lua")
 _G.Palette = { get = function() return setmetatable({}, { __index = function() return "#808080" end }) end }
 _G.Util = { colors = { set_hl = function() end, blend = function(c) return c end } }
 require("beast.libs.git").setup({ debounce_ms = tonumber(os.getenv("BENCH_DEBOUNCE") or "50") })
-_G.bench_set_ns("^beast_git_signs\$")
+_G.bench_set_ns("^beast_git_signs_unstaged\$")
 LUA
 
 cat > "$WORK/init-gitsigns.lua" <<LUA
