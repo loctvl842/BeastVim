@@ -528,27 +528,139 @@ end
 ---@class Beast.Git.PreviewOpts
 ---@field target? "unstaged" | "staged" | "auto"   default: "auto"
 
+--- Translate the staged hunks (INDEX line space) into BUFFER lines and pick
+--- those whose footprint overlaps `[s, e]`. Returns the matched hunks and
+--- the projection function (used later to anchor the float).
+---@param st Beast.Git.BufState
+---@param s integer
+---@param e integer
+---@return Beast.Git.RawHunk[] matched, fun(b_start: integer): integer projection
+local function staged_hunks_in_range(st, s, e)
+	local hunks_mod = require("beast.libs.git.hunks")
+	local project = function(b_start)
+		return b_start + hunks_mod.index_to_buffer_delta(b_start == 0 and 1 or b_start, st.hunks)
+	end
+	local matched = {}
+	for _, h in ipairs(st.staged_hunks) do
+		local lo_idx = h.type == "delete" and (h.b_start == 0 and 1 or h.b_start) or h.b_start
+		local hi_idx = h.type == "delete" and lo_idx or (h.b_start + h.b_count - 1)
+		local lo_buf, hi_buf = project(lo_idx), project(hi_idx)
+		if hi_buf >= s and lo_buf <= e then
+			matched[#matched + 1] = h
+		end
+	end
+	return matched, project
+end
+
+--- HEAD↔BUFFER diff — the union of staged + unstaged changes. Used when a
+--- range spans both tiers so the user sees one continuous picture.
+---@param st Beast.Git.BufState
+---@param source_buf integer
+---@return Beast.Git.RawHunk[]
+local function compute_combined_hunks(st, source_buf)
+	local current = table.concat(api.nvim_buf_get_lines(source_buf, 0, -1, false), "\n") .. "\n"
+	return require("beast.libs.git.diff").compute_hunks(st.head, current)
+end
+
+---@class Beast.Git.PreviewPlan
+---@field matched Beast.Git.RawHunk[]
+---@field all_hunks Beast.Git.RawHunk[]    full hunk list for expand_adjacent context
+---@field source Beast.Git.PreviewSource
+---@field removed_text string
+---@field added_text string?
+---@field title (string|table)?
+---@field project (fun(b_start: integer): integer)?
+
+--- Decide which tier (or combination) to render, given an explicit target or
+--- auto-detection from the range overlap. Returns nil when nothing applies
+--- (in which case a notification has already been issued).
 ---@param opts Beast.Git.PreviewOpts?
 ---@param st Beast.Git.BufState
----@param lnum integer  buffer line under cursor (used only for "auto" disambiguation)
----@return "unstaged" | "staged" | "auto"
-local function resolve_target(opts, st, lnum)
+---@param source_buf integer
+---@param s integer
+---@param e integer
+---@return Beast.Git.PreviewPlan?
+local function plan_preview(opts, st, source_buf, s, e)
 	local target = opts and opts.target or "auto"
-	if target == "unstaged" or target == "staged" then
-		return target
+	local matched_unstaged = hunks_in_range(st.hunks, s, e)
+	local matched_staged, staged_project = staged_hunks_in_range(st, s, e)
+
+	if target == "unstaged" then
+		if #matched_unstaged == 0 then
+			vim.notify("No unstaged hunk in selection", vim.log.levels.INFO, { title = "beast.git" })
+			return nil
+		end
+		return {
+			matched = matched_unstaged,
+			all_hunks = st.hunks,
+			source = buffer_source(source_buf),
+			removed_text = st.base,
+			added_text = nil,
+			title = nil,
+		}
 	end
-	-- Auto: prefer unstaged when it covers the cursor (it's the "fresh" tier),
-	-- else fall back to staged. Mirrors the gutter precedence.
-	local hunks_mod = require("beast.libs.git.hunks")
-	if hunks_mod.find_at_buffer_line(st.hunks, lnum) then
-		return "unstaged"
+
+	if target == "staged" then
+		if #matched_staged == 0 then
+			vim.notify("No staged hunk in selection", vim.log.levels.INFO, { title = "beast.git" })
+			return nil
+		end
+		return {
+			matched = matched_staged,
+			all_hunks = st.staged_hunks,
+			source = string_source(st.base),
+			removed_text = st.head,
+			added_text = st.base,
+			title = { { " Staged ", "BeastGitPreviewStagedTitle" } },
+			project = staged_project,
+		}
 	end
-	if hunks_mod.find_staged_at_buffer_line(st.staged_hunks, st.hunks, lnum) then
-		return "staged"
+
+	-- target == "auto": pick the tier(s) that intersect the range.
+	if #matched_unstaged == 0 and #matched_staged == 0 then
+		vim.notify("No hunk in selection", vim.log.levels.INFO, { title = "beast.git" })
+		return nil
 	end
-	-- Default to unstaged when neither matches — the empty-hunks branch
-	-- below will surface a clean "no hunks" notification.
-	return "unstaged"
+	if #matched_unstaged > 0 and #matched_staged == 0 then
+		return {
+			matched = matched_unstaged,
+			all_hunks = st.hunks,
+			source = buffer_source(source_buf),
+			removed_text = st.base,
+			added_text = nil,
+			title = nil,
+		}
+	end
+	if #matched_staged > 0 and #matched_unstaged == 0 then
+		return {
+			matched = matched_staged,
+			all_hunks = st.staged_hunks,
+			source = string_source(st.base),
+			removed_text = st.head,
+			added_text = st.base,
+			title = { { " Staged ", "BeastGitPreviewStagedTitle" } },
+			project = staged_project,
+		}
+	end
+
+	-- Mixed: compute the union HEAD↔BUFFER diff and filter to the range.
+	-- This naturally handles overlapping/abutting staged + unstaged hunks
+	-- (matches `git diff HEAD -- <file>`).
+	local combined = compute_combined_hunks(st, source_buf)
+	local matched_combined = hunks_in_range(combined, s, e)
+	if #matched_combined == 0 then
+		-- Should not happen given the per-tier matches, but bail safely.
+		vim.notify("No hunk in selection", vim.log.levels.INFO, { title = "beast.git" })
+		return nil
+	end
+	return {
+		matched = matched_combined,
+		all_hunks = combined,
+		source = buffer_source(source_buf),
+		removed_text = st.head,
+		added_text = nil,
+		title = { { " HEAD↔buffer ", "BeastGitPreviewStagedTitle" } },
+	}
 end
 
 ---@param opts Beast.Git.PreviewOpts?
@@ -578,39 +690,8 @@ function M.open_for_range(range_start, range_end, opts)
 	end
 
 	local source_buf = api.nvim_get_current_buf()
-	local target = resolve_target(opts, st, range_start)
-
-	local hunks = target == "staged" and st.staged_hunks or st.hunks
-	if #hunks == 0 then
-		vim.notify(target == "staged" and "No staged hunks in this buffer" or "No hunks in this buffer", vim.log.levels.INFO, { title = "beast.git" })
-		return
-	end
-
-	-- For staged, range_start/end are in BUFFER space but staged hunks are in
-	-- INDEX space. Translate the query range INDEX→BUFFER by projecting each
-	-- hunk into buffer space and matching there.
-	local hunks_mod = require("beast.libs.git.hunks")
-	local project = nil
-	local matched
-	if target == "staged" then
-		project = function(b_start)
-			return b_start + hunks_mod.index_to_buffer_delta(b_start == 0 and 1 or b_start, st.hunks)
-		end
-		matched = {}
-		for _, h in ipairs(hunks) do
-			local lo_idx = h.type == "delete" and (h.b_start == 0 and 1 or h.b_start) or h.b_start
-			local hi_idx = h.type == "delete" and lo_idx or (h.b_start + h.b_count - 1)
-			local lo_buf, hi_buf = project(lo_idx), project(hi_idx)
-			if hi_buf >= range_start and lo_buf <= range_end then
-				matched[#matched + 1] = h
-			end
-		end
-	else
-		matched = hunks_in_range(hunks, range_start, range_end)
-	end
-
-	if #matched == 0 then
-		vim.notify(target == "staged" and "No staged hunk in selection" or "No hunk in selection", vim.log.levels.INFO, { title = "beast.git" })
+	local plan = plan_preview(opts, st, source_buf, range_start, range_end)
+	if not plan then
 		return
 	end
 
@@ -618,22 +699,9 @@ function M.open_for_range(range_start, range_end, opts)
 	local preview_cfg = config.preview or {}
 	local ctx_n = preview_cfg.context_size or 0
 	-- Auto-cluster adjacent hunks so back-to-back changes preview together.
-	matched = expand_adjacent(hunks, matched, preview_cfg.adjacent_gap or 0)
+	local matched = expand_adjacent(plan.all_hunks, plan.matched, preview_cfg.adjacent_gap or 0)
 
-	local source, removed_text, added_text, title
-	if target == "staged" then
-		source = string_source(st.base)
-		removed_text = st.head
-		added_text = st.base
-		title = { { " Staged ", "BeastGitPreviewStagedTitle" } }
-	else
-		source = buffer_source(source_buf)
-		removed_text = st.base
-		added_text = nil
-		title = nil
-	end
-
-	local rows = build_rows(source, removed_text, added_text, matched, ctx_n)
+	local rows = build_rows(plan.source, plan.removed_text, plan.added_text, matched, ctx_n)
 	if #rows == 0 then
 		return
 	end
@@ -641,11 +709,11 @@ function M.open_for_range(range_start, range_end, opts)
 
 	local source_ft = vim.bo[source_buf].filetype
 	local source_win = api.nvim_get_current_win()
-	local hunk_lines, hunk_min, hunk_max = compute_hunk_extent(matched, project)
+	local hunk_lines, hunk_min, hunk_max = compute_hunk_extent(matched, plan.project)
 	local width = compute_width(preview_cfg.width, body, gutter_w)
 
 	M.close()
-	local buf, win = open_float(body, hls, gutters, width, source_ft, source_win, hunk_min, title)
+	local buf, win = open_float(body, hls, gutters, width, source_ft, source_win, hunk_min, plan.title)
 	current = PreviewView(buf, win)
 	wire_close(buf, source_buf, source_win, hunk_lines, hunk_min, hunk_max)
 end
