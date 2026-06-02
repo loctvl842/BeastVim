@@ -91,6 +91,18 @@ local function recompute(buf, st)
 	if not api.nvim_buf_is_valid(buf) then
 		return
 	end
+	-- Untracked files (no index entry → path_data nil) have no diff to show.
+	-- Rendering every line as an "add" hunk (gitsigns-style) is misleading:
+	-- there's no prior version to diff against. Clear signs and bail.
+	if not st.path_data then
+		st.hunks = {}
+		st.staged_hunks = {}
+		st.line_signs = {}
+		st.staged_line_signs = {}
+		signs.place_unstaged(buf, st.line_signs)
+		signs.place_staged(buf, st.staged_line_signs)
+		return
+	end
 	local current_lines = api.nvim_buf_get_lines(buf, 0, -1, false)
 	-- Append trailing newline to match `git show` output, otherwise a
 	-- phantom EOF hunk appears on every diff.
@@ -150,6 +162,21 @@ local function schedule_diff(buf, refresh_base, refresh_head)
 				return
 			end
 			st.base = text
+			pending = pending - 1
+			maybe_run()
+		end)
+	end
+	-- If we never resolved path_data (untracked at attach time), retry on
+	-- every base refresh — an external `git add` would have created the
+	-- index entry, and we need path_data populated before recompute will
+	-- emit hunks. Failure stays non-fatal: still nil → still no hunks.
+	if refresh_base and not st.path_data then
+		pending = pending + 1
+		repo.get_path_data(st.ctx, function(data)
+			if not state[buf] then
+				return
+			end
+			st.path_data = data
 			pending = pending - 1
 			maybe_run()
 		end)
