@@ -35,20 +35,21 @@ function M.check()
 	local diff = require("beast.libs.git.diff")
 	health.info("backend: " .. diff.backend)
 
-	-- Namespace
-	health.start("beast.libs.git — namespace")
+	-- Namespaces
+	health.start("beast.libs.git — namespaces")
 	local signs = require("beast.libs.git.signs")
 	local nss = vim.api.nvim_get_namespaces()
-	local found = false
+	local id_to_name = {}
 	for name, id in pairs(nss) do
-		if id == signs.namespace then
-			found = true
-			health.ok("namespace registered: " .. name)
-			break
-		end
+		id_to_name[id] = name
 	end
-	if not found then
-		health.warn("namespace registered but no name resolved (setup not yet called?)")
+	for kind, ns_id in pairs(signs.namespaces) do
+		local name = id_to_name[ns_id]
+		if name then
+			health.ok(("namespace registered (%s): %s"):format(kind, name))
+		else
+			health.warn(("namespace not resolved by name (%s) — setup not yet called?"):format(kind))
+		end
 	end
 
 	-- Attached buffers + last-diff timing

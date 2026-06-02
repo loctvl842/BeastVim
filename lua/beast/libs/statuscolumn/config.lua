@@ -4,6 +4,11 @@
 ---@field delete? string
 ---@field topdelete? string
 ---@field changedelete? string
+---@field staged_add? string         Override for staged add (falls back to `add`)
+---@field staged_change? string      Override for staged change (falls back to `change`)
+---@field staged_delete? string      Override for staged delete (falls back to `delete`)
+---@field staged_topdelete? string   Override for staged topdelete (falls back to `topdelete`)
+---@field staged_changedelete? string Override for staged changedelete (falls back to `changedelete`)
 
 ---@class Beast.Statuscolumn.GitConfig
 ---@field enabled? boolean Silently no-op when false; gitsigns/mini.diff still auto-detected when true

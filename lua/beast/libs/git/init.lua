@@ -40,6 +40,7 @@ local M = {}
 ---@field hunks Beast.Git.RawHunk[] Unstaged hunks (base vs current buffer)
 ---@field staged_hunks Beast.Git.RawHunk[] Staged hunks (head vs base). b_* positions are in INDEX space, not buffer space — they only line up with the buffer when there are no unstaged edits above them.
 ---@field line_signs table<integer, { type: string }>
+---@field staged_line_signs table<integer, { type: string }>
 ---@field timer uv.uv_timer_t? uv_timer_t for debounced on_lines recomputes
 ---@field running boolean Single-flight flag
 ---@field dirty { base: boolean, head: boolean }? Pending refresh flags requested while running
@@ -102,7 +103,9 @@ local function recompute(buf, st)
 	-- If profiles show this dominating, gate behind a "ref changed" flag.
 	st.staged_hunks = diff.compute_hunks(st.head, st.base)
 	st.line_signs = hunks_mod.expand_signs(st.hunks, #current_lines)
-	signs.place(buf, st.line_signs)
+	st.staged_line_signs = hunks_mod.expand_staged_signs(st.staged_hunks, st.hunks, #current_lines)
+	signs.place_unstaged(buf, st.line_signs)
+	signs.place_staged(buf, st.staged_line_signs)
 	st.last_diff_ms = (uv.hrtime() - t0) / 1e6
 end
 
@@ -217,6 +220,7 @@ local function bootstrap_state(buf, ctx, done)
 			hunks = {},
 			staged_hunks = {},
 			line_signs = {},
+			staged_line_signs = {},
 			timer = nil,
 			running = false,
 			dirty = nil,
@@ -354,7 +358,7 @@ function M.preview_hunk_range(range_start, range_end)
 	require("beast.libs.git.preview").open_for_range(range_start, range_end)
 end
 
-M._namespace = signs.namespace
+M._namespaces = signs.namespaces
 
 -- =========================================================================
 -- Event wiring

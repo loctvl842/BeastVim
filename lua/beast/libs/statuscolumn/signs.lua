@@ -110,13 +110,18 @@ end
 -- glyph (config.git.icons) and colour (BeastStcGit*). See the contract
 -- in lua/beast/libs/git/signs.lua's header.
 
----@type table<string, { hl: string, icon_key: string }>
+---@type table<string, { hl: string, icon_key: string, staged: boolean }>
 local BEAST_GIT_MAP = {
-	BeastGitAdd = { hl = "BeastStcGitAdd", icon_key = "add" },
-	BeastGitChange = { hl = "BeastStcGitChange", icon_key = "change" },
-	BeastGitDelete = { hl = "BeastStcGitDelete", icon_key = "delete" },
-	BeastGitTopDelete = { hl = "BeastStcGitDelete", icon_key = "topdelete" },
-	BeastGitChangedelete = { hl = "BeastStcGitChange", icon_key = "changedelete" },
+	BeastGitAdd = { hl = "BeastStcGitAdd", icon_key = "add", staged = false },
+	BeastGitChange = { hl = "BeastStcGitChange", icon_key = "change", staged = false },
+	BeastGitDelete = { hl = "BeastStcGitDelete", icon_key = "delete", staged = false },
+	BeastGitTopDelete = { hl = "BeastStcGitDelete", icon_key = "topdelete", staged = false },
+	BeastGitChangedelete = { hl = "BeastStcGitChange", icon_key = "changedelete", staged = false },
+	BeastGitStagedAdd = { hl = "BeastStcGitStagedAdd", icon_key = "add", staged = true },
+	BeastGitStagedChange = { hl = "BeastStcGitStagedChange", icon_key = "change", staged = true },
+	BeastGitStagedDelete = { hl = "BeastStcGitStagedDelete", icon_key = "delete", staged = true },
+	BeastGitStagedTopDelete = { hl = "BeastStcGitStagedDelete", icon_key = "topdelete", staged = true },
+	BeastGitStagedChangedelete = { hl = "BeastStcGitStagedChange", icon_key = "changedelete", staged = true },
 }
 
 ---@param sign_hl_group string
@@ -128,7 +133,13 @@ local function resolve_beast_git(sign_hl_group)
 	end
 	local config = require("beast.libs.statuscolumn.config")
 	local icons = config.git and config.git.icons or nil
-	local glyph = icons and icons[entry.icon_key]
+	if not icons then
+		return nil, nil
+	end
+	-- Staged tier may override per-type via `staged_<key>`; falls back to
+	-- the base glyph so users who don't care get a sensible default.
+	local glyph = entry.staged and icons["staged_" .. entry.icon_key] or nil
+	glyph = glyph or icons[entry.icon_key]
 	if not glyph then
 		return nil, nil
 	end
