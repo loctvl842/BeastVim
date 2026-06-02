@@ -16,6 +16,7 @@ local M = {}
 ---@field type "add" | "change" | "delete"
 
 --- Backend: prefer vim.text.diff (≥ 0.11) over vim.diff (≥ 0.10).
+---@diagnostic disable-next-line: deprecated
 local diff_fn = (vim.text and vim.text.diff) or vim.diff
 
 M.backend = (vim.text and vim.text.diff) and "vim.text.diff" or "vim.diff"
