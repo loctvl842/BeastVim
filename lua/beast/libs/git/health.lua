@@ -20,7 +20,7 @@ function M.check()
 
 	-- Submodules (avoid `highlights` — requiring it executes side-effecting set_hl).
 	health.start("beast.libs.git — modules")
-	local submodules = { "config", "repo", "diff", "hunks", "signs" }
+	local submodules = { "config", "repo", "diff", "hunks", "signs", "patch", "apply", "actions", "nav", "preview" }
 	for _, name in ipairs(submodules) do
 		local ok, err = pcall(require, "beast.libs.git." .. name)
 		if ok then
@@ -85,6 +85,17 @@ function M.check()
 	if require("beast.libs.git.config").keymaps then
 		health.info("default keymaps enabled: ]c, [c, <leader>gp (buffer-local on attach)")
 	else
-		health.info("default keymaps disabled — bind nav_hunk / preview_hunk manually")
+		health.info("default keymaps disabled — bind nav_hunk / preview_hunk / stage_hunk / reset_hunk manually")
+	end
+
+	-- Statuscolumn highlight groups for staged tier (Phase 2/3 contract).
+	health.start("beast.libs.git — staged-tier highlights")
+	for _, hl in ipairs({ "BeastStcGitStagedAdd", "BeastStcGitStagedChange", "BeastStcGitStagedDelete" }) do
+		local ok, attrs = pcall(vim.api.nvim_get_hl, 0, { name = hl })
+		if ok and attrs and (attrs.fg or attrs.link) then
+			health.ok(hl .. " defined")
+		else
+			health.warn(hl .. " not defined — statuscolumn theme not loaded yet?")
+		end
 	end
 end

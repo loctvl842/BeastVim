@@ -1,4 +1,4 @@
-<!-- Generated: 2026-05-31 | Files scanned: 173 | Token estimate: ~2680 -->
+<!-- Generated: 2026-06-02 | Files scanned: 176 | Token estimate: ~2750 -->
 
 # Libraries
 
@@ -292,31 +292,43 @@ Loaded via: `packer.lazy()` on VimEnter (deferred)
 
 ---
 
-## git — Native Git Hunk Signs / Navigation / Preview
+## git — Native Git Hunk Signs / Navigation / Preview / Stage / Reset
 
 ```
 git/
-├── init.lua       ← state, attach/detach, debounced recompute, single-flight, autocmds
+├── init.lua       ← state, attach/detach, debounced recompute, single-flight, autocmds, public surface
 ├── config.lua     ← debounce_ms, keymaps, icons, ft_ignore, bt_ignore (frozen, ADR-003)
-├── repo.lua       ← resolve(buf) + get_base(ctx) via `git rev-parse` / `git show HEAD:<path>`
+├── repo.lua       ← resolve(buf) + get_base/get_head/get_path_data/intent_to_add via vim.system
 ├── diff.lua       ← compute_hunks(base, current) via vim.text.diff (fallback vim.diff), histogram + linematch
-├── hunks.lua      ← expand_signs(hunks, n_lines) → per-line {add|change|delete|topdelete|changedelete}
-├── signs.lua      ← namespace `beast_git_signs`; place() sets extmarks with sign_text + sign_hl_group
-├── nav.lua        ← nav_hunk("next"|"prev", { wrap, foldopen }) — `''` mark + `zv`
+├── hunks.lua      ← expand_signs / expand_staged_signs / find_at_buffer_line / index_to_buffer_delta
+├── signs.lua      ← namespaces { unstaged, staged }; place_unstaged / place_staged (priority 6 vs 5)
+├── patch.lua      ← pure: format(ref, target, hunks, path_data) → unified-zero patch lines (mini.diff pattern)
+├── apply.lua      ← async: vim.system `git apply --cached --unidiff-zero [--reverse] -` on stdin
+├── actions.lua    ← stage_hunk (toggle), unstage_hunk, reset_hunk; with_path_data covers untracked via intent-to-add
+├── nav.lua        ← nav_hunk("next"|"prev", { wrap, foldopen, target }) — `''` mark + `zv`; target=unstaged|staged|all
 ├── preview.lua    ← Beast.View subclass; <leader>gp opens diff float, auto-close on CursorMoved
-├── highlights.lua ← BeastGit{Add,Change,Delete,TopDelete,Changedelete} link to GitSigns* defaults
-└── health.lua     ← :checkhealth — git bin, diff backend, attached count, mean last_diff_ms
+├── highlights.lua ← BeastGit{Add,Change,Delete,TopDelete,Changedelete} + BeastGitStaged* link to GitSigns* defaults
+└── health.lua     ← :checkhealth — git bin, diff backend, namespaces, attached count, staged-tier hl groups
 ```
 
-API: `git.setup(opts)`, `git.attach(buf)`, `git.get_hunks(buf)`, `git.nav_hunk(dir, opts)`, `git.preview_hunk()`.
+API: `git.setup(opts)`, `git.attach(buf)`, `git.get_hunks(buf)`, `git.get_staged_hunks(buf)`,
+`git.nav_hunk(dir, opts)`, `git.preview_hunk()`, `git.stage_hunk(buf, lnum)`,
+`git.unstage_hunk(buf, lnum)`, `git.reset_hunk(buf, lnum)`, `git.repeat_action()`,
+`git.refresh(buf, { base?, head? })`.
 Default buffer-local keymaps (when `config.keymaps=true`): `]c` / `[c` next/prev, `<leader>gp` preview.
-Statuscolumn integration: extmarks classified by namespace pattern `^beast_git_signs` (ADR-020).
+Statuscolumn integration: extmarks classified by namespace pattern `^beast_git_signs_(unstaged|staged)$` — staged tier rendered via `BeastStcGitStaged{Add,Change,Delete}` desaturated palette blends (ADR-020).
 Loaded via: `packer.lazy()` on `BufReadPost` (deferred).
 
+### Two-tier diff model
+- `unstaged_hunks = diff(base=index, buffer)` — live edits, repaint per keystroke
+- `staged_hunks   = diff(head, base=index)` — queued for next commit, repaint on stage/commit/FocusGained
+- Staged signs translated INDEX→BUFFER via `index_to_buffer_delta` (end-exclusive arithmetic handles abutting hunks)
+- Render priority: unstaged=6 > staged=5; live edits visually override staged regions
+
 ### Performance
-- 200ms debounce on TextChanged/I; single-flight per buffer (running/dirty flags).
-- Bench `scripts/bench-git.lua`: 1k=0.3ms, 5k=2.6ms, 20k=19ms — threshold 10ms @ 5k PASS.
-- Pure-Lua diff via `vim.text.diff` — no subprocess per recompute; only `git show HEAD:<path>` once per BufWritePost.
+- 200ms debounce on `nvim_buf_attach.on_lines` (more precise than TextChanged*); single-flight per buffer (running/dirty bitset).
+- Bench `scripts/bench-git-wezterm.sh`: 50ms debounce median 52.59ms, 1ms debounce median 2.82ms (5k-line fixture, real wezterm pane).
+- Pure-Lua diff via `vim.text.diff` — no subprocess per recompute; `git show :file` / `git show HEAD:file` only on attach + stage + FocusGained.
 - ADRs: 022 (native lib vs gitsigns.nvim), 023 (vim.text.diff backend), 024 (distinct namespace for coexistence).
 
 ---

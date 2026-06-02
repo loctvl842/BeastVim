@@ -359,26 +359,53 @@ function M.preview_hunk_range(range_start, range_end)
 end
 
 -- =========================================================================
--- Hunk actions (Phase 3)
+-- Hunk actions (Phase 3) — wrapped with the dot-repeat shim from Phase 4
 -- =========================================================================
+
+---@type fun()?
+local last_repeatable_action = nil
+
+--- Replay the most recent stage/reset action (any line). Bind to `.` via
+--- `:lua vim.go.operatorfunc = ...` or call directly from a keymap.
+function M.repeat_action()
+	if last_repeatable_action then
+		last_repeatable_action()
+	end
+end
+
+--- Memoise the call site so M.repeat_action can replay it. Captures the
+--- args resolved at call time (current buffer + cursor line), so `.` after
+--- moving the cursor still applies the action to wherever the cursor went
+--- — same UX as gitsigns' default repeat shim.
+---@generic T
+---@param fn fun(buf: integer?, lnum: integer?)
+---@return fun(buf: integer?, lnum: integer?)
+local function wrap_repeatable(fn)
+	return function(buf, lnum)
+		last_repeatable_action = function()
+			fn(nil, nil)
+		end
+		fn(buf, lnum)
+	end
+end
 
 ---@param buf integer?
 ---@param lnum integer? 1-based buffer line (default: current cursor line)
-function M.stage_hunk(buf, lnum)
+M.stage_hunk = wrap_repeatable(function(buf, lnum)
 	require("beast.libs.git.actions").stage_hunk(buf, lnum)
-end
+end)
 
 ---@param buf integer?
 ---@param lnum integer?
-function M.unstage_hunk(buf, lnum)
+M.unstage_hunk = wrap_repeatable(function(buf, lnum)
 	require("beast.libs.git.actions").unstage_hunk(buf, lnum)
-end
+end)
 
 ---@param buf integer?
 ---@param lnum integer?
-function M.reset_hunk(buf, lnum)
+M.reset_hunk = wrap_repeatable(function(buf, lnum)
 	require("beast.libs.git.actions").reset_hunk(buf, lnum)
-end
+end)
 
 --- Trigger a re-diff for `buf`. Actions call this after mutating the index
 --- so the gutter reflects the new state without waiting for the next

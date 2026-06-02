@@ -461,7 +461,7 @@ end
 
 ---
 
-## Phases
+## Phases  *(all complete — see ## Completed below)*
 
 ### Phase 1: Switch ref from HEAD to index (foundation)
 1. Modify `repo.get_base` to use `:file` instead of `HEAD:file`.
