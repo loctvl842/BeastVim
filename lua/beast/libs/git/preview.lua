@@ -346,16 +346,35 @@ end
 ---@param gutters Beast.Git.PreviewGutter[]
 local function apply_decorations(buf, body, hls, gutters)
 	local ns = api.nvim_create_namespace("beast_git_preview")
+	api.nvim_buf_clear_namespace(buf, ns, 0, -1)
+	-- Stash the gutter table on the buffer so the window's statuscolumn can
+	-- look up the synthetic line number + marker per row.
+	vim.b[buf].beast_git_preview_gutter = gutters
 	for i = 1, #body do
-		local g = gutters[i]
-		api.nvim_buf_set_extmark(buf, ns, i - 1, 0, {
-			virt_text = { { g.lnum_text, g.lnum_hl }, { g.marker, g.marker_hl } },
-			virt_text_pos = "inline",
-		})
 		if hls[i] then
 			api.nvim_buf_set_extmark(buf, ns, i - 1, 0, { line_hl_group = hls[i] })
 		end
 	end
+end
+
+--- Statuscolumn callback for preview floats. Reads the per-line gutter
+--- record stashed by apply_decorations and returns a `%#hl#text` string.
+---@return string
+function M._statuscol()
+	-- statuscolumn `%!` evaluates with the command-line window as current;
+	-- resolve the *drawing* window via vim.g.statusline_winid so we read
+	-- gutter data from the float's buffer, not whatever buffer is current.
+	local winid = vim.g.statusline_winid or 0
+	local buf = winid ~= 0 and vim.api.nvim_win_get_buf(winid) or vim.api.nvim_get_current_buf()
+	local gutters = vim.b[buf].beast_git_preview_gutter
+	if not gutters then
+		return ""
+	end
+	local g = gutters[vim.v.lnum]
+	if not g then
+		return ""
+	end
+	return string.format("%%#%s#%s%%#%s#%s", g.lnum_hl, g.lnum_text, g.marker_hl, g.marker)
 end
 
 ---@return integer
@@ -371,12 +390,13 @@ end
 ---@param hls table<integer, string>
 ---@param gutters Beast.Git.PreviewGutter[]
 ---@param width integer
+---@param gutter_w integer  display width of the per-row gutter
 ---@param source_ft string
 ---@param source_win integer
 ---@param anchor_lnum integer  1-indexed buffer line to anchor the float below
 ---@param title (string|table)?  optional title shown in the float border (string or chunks list)
 ---@return integer buf, integer win
-local function open_float(body, hls, gutters, width, source_ft, source_win, anchor_lnum, title)
+local function open_float(body, hls, gutters, width, gutter_w, source_ft, source_win, anchor_lnum, title)
 	local buf = Buffer.new("")
 	api.nvim_buf_set_lines(buf, 0, -1, false, body)
 	vim.bo[buf].modifiable = false
@@ -394,7 +414,6 @@ local function open_float(body, hls, gutters, width, source_ft, source_win, anch
 		col = 0,
 		width = width,
 		height = height,
-		style = "minimal",
 		border = "rounded",
 		focusable = true,
 		noautocmd = true,
@@ -404,8 +423,27 @@ local function open_float(body, hls, gutters, width, source_ft, source_win, anch
 		win_opts.title_pos = "right"
 	end
 	local win = api.nvim_open_win(buf, false, win_opts)
+	-- We skip `style = "minimal"` so we can keep `statuscolumn` writable
+	-- (minimal blanks it). The options below replicate minimal's other
+	-- effects so the float still looks chrome-free.
 	vim.api.nvim_set_option_value("winhighlight", "Normal:BeastGitPreviewNormal,FloatBorder:BeastGitPreviewBorder", { win = win })
 	vim.api.nvim_set_option_value("wrap", false, { win = win })
+	-- 'statuscolumn' only allocates width when 'number'/'relativenumber' or
+	-- 'signcolumn' is on; without one of those the callback runs but its
+	-- output has nowhere to render. Turn 'number' on (statuscolumn overrides
+	-- the actual number display) and explicitly size the column to match
+	-- our gutter so the float doesn't flicker on focus changes.
+	vim.api.nvim_set_option_value("number", true, { win = win })
+	vim.api.nvim_set_option_value("relativenumber", false, { win = win })
+	vim.api.nvim_set_option_value("numberwidth", math.max(1, gutter_w), { win = win })
+	vim.api.nvim_set_option_value("cursorline", false, { win = win })
+	vim.api.nvim_set_option_value("cursorcolumn", false, { win = win })
+	vim.api.nvim_set_option_value("foldcolumn", "0", { win = win })
+	vim.api.nvim_set_option_value("spell", false, { win = win })
+	vim.api.nvim_set_option_value("list", false, { win = win })
+	vim.api.nvim_set_option_value("signcolumn", "no", { win = win })
+	vim.api.nvim_set_option_value("colorcolumn", "", { win = win })
+	vim.api.nvim_set_option_value("statuscolumn", "%!v:lua.require'beast.libs.git.preview'._statuscol()", { win = win })
 	return buf, win
 end
 
@@ -713,7 +751,7 @@ function M.open_for_range(range_start, range_end, opts)
 	local width = compute_width(preview_cfg.width, body, gutter_w)
 
 	M.close()
-	local buf, win = open_float(body, hls, gutters, width, source_ft, source_win, hunk_min, plan.title)
+	local buf, win = open_float(body, hls, gutters, width, gutter_w, source_ft, source_win, hunk_min, plan.title)
 	current = PreviewView(buf, win)
 	wire_close(buf, source_buf, source_win, hunk_lines, hunk_min, hunk_max)
 end
