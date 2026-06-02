@@ -6,7 +6,7 @@
 
 ---@class Beast.Git.Config
 local defaults = {
-	---@type integer Debounce window (ms) for TextChanged / TextChangedI re-diffs.
+	---@type integer Debounce window (ms) for on_lines re-diffs.
 	debounce_ms = 200,
 
 	---@type Beast.Git.PreviewConfig

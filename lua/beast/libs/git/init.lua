@@ -1,20 +1,25 @@
 -- Public surface for beast.libs.git.
 --
 -- Lifecycle per buffer:
---   attach(buf) → resolve(repo) → get_base → diff → expand → place extmarks
---                 └→ nvim_buf_attach with on_lines / on_reload / on_detach
+--   attach(buf) → resolve(repo) → bootstrap (base + head + path_data) →
+--                 nvim_buf_attach (on_lines / on_reload / on_detach) → diff
+-- Diff inputs:
+--   base = `git show :file`     — index (the staging area)
+--   head = `git show HEAD:file` — last commit
+-- Diffs computed per recompute:
+--   unstaged_hunks = diff(base, current_buffer)   — what you'd stage next
+--   staged_hunks   = diff(head, base)             — what's staged, not committed
 -- Re-diff triggers:
---   BufWritePost   — refetch base + recompute
---   FocusGained    — refetch base for every attached buffer (catches external commits)
---   on_lines       — debounced (config.debounce_ms) recompute, base unchanged
---                    (catches every mutation, including programmatic edits that
---                    TextChanged/I would miss)
---   on_reload      — buffer reloaded from disk (e.g. `:edit`), recompute immediately
+--   BufWritePost   — refetch base + recompute (covers hook-driven `git add`)
+--   FocusGained    — refetch base + head (catches external stages / commits)
+--   on_lines       — debounced (config.debounce_ms) recompute, base/head unchanged
+--   on_reload      — buffer reloaded from disk (e.g. `:edit`), refetch base
 -- Cleanup:
 --   on_detach (buffer wiped / unloaded / reloaded) or M.detach(buf)
 --
--- Single-flight per buffer: if a job is in-flight, a new request flips the
--- `dirty` bit; the in-flight job re-runs once on completion if dirty.
+-- Single-flight per buffer: if a job is in-flight, a new request merges its
+-- refresh flags into a pending bit-set; the in-flight job re-runs once on
+-- completion if anything is pending.
 
 local api = vim.api
 local uv = vim.uv or vim.loop
@@ -29,12 +34,15 @@ local M = {}
 
 ---@class Beast.Git.BufState
 ---@field ctx Beast.Git.RepoCtx
----@field base string Cached HEAD text
----@field hunks Beast.Git.RawHunk[] Latest computed hunks
+---@field path_data Beast.Git.PathData? Path metadata for patch headers (lazy)
+---@field base string Cached index text (`git show :file`)
+---@field head string Cached HEAD text (`git show HEAD:file`)
+---@field hunks Beast.Git.RawHunk[] Unstaged hunks (base vs current buffer)
+---@field staged_hunks Beast.Git.RawHunk[] Staged hunks (head vs base). b_* positions are in INDEX space, not buffer space — they only line up with the buffer when there are no unstaged edits above them.
 ---@field line_signs table<integer, { type: string }>
----@field timer uv.uv_timer_t? uv_timer_t for debounced TextChanged
+---@field timer uv.uv_timer_t? uv_timer_t for debounced on_lines recomputes
 ---@field running boolean Single-flight flag
----@field dirty boolean Re-run requested while running
+---@field dirty { base: boolean, head: boolean }? Pending refresh flags requested while running
 ---@field last_diff_ms number? Wall-clock duration of the most recent recompute
 
 ---@type table<integer, Beast.Git.BufState>
@@ -88,42 +96,73 @@ local function recompute(buf, st)
 	local current = table.concat(current_lines, "\n") .. "\n"
 	local t0 = uv.hrtime()
 	st.hunks = diff.compute_hunks(st.base, current)
+	-- Staged diff is HEAD vs index. Inputs only change on commit (head) or
+	-- stage (base), but we recompute here for simplicity. vim.text.diff
+	-- short-circuits when inputs are unchanged, so the cost is small.
+	-- If profiles show this dominating, gate behind a "ref changed" flag.
+	st.staged_hunks = diff.compute_hunks(st.head, st.base)
 	st.line_signs = hunks_mod.expand_signs(st.hunks, #current_lines)
 	signs.place(buf, st.line_signs)
 	st.last_diff_ms = (uv.hrtime() - t0) / 1e6
 end
 
 ---@param buf integer
----@param refresh_base boolean
-local function schedule_diff(buf, refresh_base)
+---@param refresh_base boolean Refetch index text before recompute
+---@param refresh_head boolean Refetch HEAD text before recompute
+local function schedule_diff(buf, refresh_base, refresh_head)
 	local st = state[buf]
 	if not st then
 		return
 	end
 	if st.running then
-		st.dirty = true
+		st.dirty = st.dirty or { base = false, head = false }
+		st.dirty.base = st.dirty.base or refresh_base
+		st.dirty.head = st.dirty.head or refresh_head
 		return
 	end
 	st.running = true
 
 	local function finish()
 		st.running = false
-		if st.dirty then
-			st.dirty = false
-			schedule_diff(buf, false)
+		local d = st.dirty
+		if d then
+			st.dirty = nil
+			schedule_diff(buf, d.base, d.head)
 		end
 	end
 
+	local pending = 0
+	local function maybe_run()
+		if pending > 0 then
+			return
+		end
+		recompute(buf, st)
+		finish()
+	end
+
 	if refresh_base then
+		pending = pending + 1
 		repo.get_base(st.ctx, function(text)
 			if not state[buf] then
 				return
 			end
 			st.base = text
-			recompute(buf, st)
-			finish()
+			pending = pending - 1
+			maybe_run()
 		end)
-	else
+	end
+	if refresh_head then
+		pending = pending + 1
+		repo.get_head(st.ctx, function(text)
+			if not state[buf] then
+				return
+			end
+			st.head = text
+			pending = pending - 1
+			maybe_run()
+		end)
+	end
+	if pending == 0 then
 		recompute(buf, st)
 		finish()
 	end
@@ -148,9 +187,58 @@ local function on_lines_change(buf)
 		config.debounce_ms,
 		0,
 		vim.schedule_wrap(function()
-			schedule_diff(buf, false)
+			schedule_diff(buf, false, false)
 		end)
 	)
+end
+
+-- Initial fetch of base + head + path_data. Path data failure is non-fatal:
+-- staging actions in Phase 3 will retry the lookup (covers files added to the
+-- index after attach).
+---@param buf integer
+---@param ctx Beast.Git.RepoCtx
+---@param done fun()
+local function bootstrap_state(buf, ctx, done)
+	local pending = 3
+	local base, head, path_data = "", "", nil
+
+	local function maybe_done()
+		if pending > 0 then
+			return
+		end
+		if not api.nvim_buf_is_valid(buf) then
+			return
+		end
+		state[buf] = {
+			ctx = ctx,
+			path_data = path_data,
+			base = base,
+			head = head,
+			hunks = {},
+			staged_hunks = {},
+			line_signs = {},
+			timer = nil,
+			running = false,
+			dirty = nil,
+		}
+		done()
+	end
+
+	repo.get_base(ctx, function(text)
+		base = text
+		pending = pending - 1
+		maybe_done()
+	end)
+	repo.get_head(ctx, function(text)
+		head = text
+		pending = pending - 1
+		maybe_done()
+	end)
+	repo.get_path_data(ctx, function(data)
+		path_data = data
+		pending = pending - 1
+		maybe_done()
+	end)
 end
 
 ---@param buf integer?
@@ -163,19 +251,7 @@ function M.attach(buf)
 		if not ctx or not api.nvim_buf_is_valid(buf) then
 			return
 		end
-		repo.get_base(ctx, function(base)
-			if not api.nvim_buf_is_valid(buf) then
-				return
-			end
-			state[buf] = {
-				ctx = ctx,
-				base = base,
-				hunks = {},
-				line_signs = {},
-				timer = nil,
-				running = false,
-				dirty = false,
-			}
+		bootstrap_state(buf, ctx, function()
 			-- Subscribe to buffer mutations. on_lines fires synchronously in a
 			-- fast event for every line change (including programmatic edits
 			-- that TextChanged/I would miss), so the handler only schedules
@@ -187,7 +263,7 @@ function M.attach(buf)
 				on_reload = function(_, b)
 					if state[b] then
 						vim.schedule(function()
-							schedule_diff(b, true)
+							schedule_diff(b, true, false)
 						end)
 					end
 				end,
@@ -201,7 +277,7 @@ function M.attach(buf)
 				M.detach(buf)
 				return
 			end
-			schedule_diff(buf, false)
+			schedule_diff(buf, false, false)
 		end)
 	end)
 end
@@ -232,6 +308,17 @@ function M.get_hunks(buf)
 	buf = buf or api.nvim_get_current_buf()
 	local st = state[buf]
 	return st and st.hunks or {}
+end
+
+--- Hunks representing changes already staged in the index (HEAD vs index).
+--- Note: b_* positions are in INDEX line space — only aligned with the buffer
+--- when there are no unstaged edits above them.
+---@param buf integer?
+---@return Beast.Git.RawHunk[]
+function M.get_staged_hunks(buf)
+	buf = buf or api.nvim_get_current_buf()
+	local st = state[buf]
+	return st and st.staged_hunks or {}
 end
 
 ---@param buf integer?
@@ -290,7 +377,10 @@ local function ensure_autocmds()
 		group = group,
 		callback = function(ev)
 			if state[ev.buf] then
-				schedule_diff(ev.buf, true)
+				-- Save updates the working tree, not the index. Refetch base
+				-- defensively in case the user has a pre/post-write hook that
+				-- stages the file (e.g. format-on-save → git add).
+				schedule_diff(ev.buf, true, false)
 			end
 		end,
 	})
@@ -299,7 +389,9 @@ local function ensure_autocmds()
 		callback = function()
 			for buf, _ in pairs(state) do
 				if api.nvim_buf_is_valid(buf) then
-					schedule_diff(buf, true)
+					-- External terminal might have committed (HEAD) or
+					-- staged (index) since we last looked.
+					schedule_diff(buf, true, true)
 				end
 			end
 		end,
