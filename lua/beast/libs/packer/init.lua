@@ -232,7 +232,6 @@ function M.setup(opts)
 	local vim_pack_specs = {} ---@type (string|vim.pack.Spec)[]
 	local lazy_specs = {} ---@type table<string, Beast.Packer.PluginSpec> -- {<plugin_name> = <spec>}
 	local eager_specs = {} ---@type table<string, Beast.Packer.PluginSpec> -- {<plugin_name> = <spec>}
-	local manual_specs = {} ---@type table<string, Beast.Packer.PluginSpec> -- {<plugin_name> = <spec>}
 
 	for _, spec in ipairs(specs) do
 		-- Add to vim.pack list with name so vim.pack uses our extracted name
@@ -249,8 +248,6 @@ function M.setup(opts)
 			eager_specs[spec.name] = spec
 		elseif type(spec.lazy) == "table" then
 			lazy_specs[spec.name] = spec
-		elseif spec.lazy == nil then -- lazy is nil - manual loading only
-			manual_specs[spec.name] = spec
 		else
 			error("Invalid lazy value: " .. tostring(spec.lazy))
 		end
@@ -390,6 +387,7 @@ function M.setup(opts)
 		-- Module triggers
 		if lazy_config.module then
 			---@type string[]
+			---@diagnostic disable-next-line: assign-type-mismatch
 			local modules = type(lazy_config.module) == "string" and { lazy_config.module } or lazy_config.module
 			for _, mod in ipairs(modules) do
 				module_trigger.register(mod, spec.name)
