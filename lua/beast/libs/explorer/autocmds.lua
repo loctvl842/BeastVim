@@ -292,6 +292,31 @@ function M.mount()
 		end,
 	})
 
+	-- React to in-process index mutations from beast.libs.git (stage/unstage/
+	-- range-stage). `git apply --cached` only touches .git/index, which our
+	-- fs_event watchers don't observe and which never produces a BufWritePost,
+	-- so without this hook the explorer's git badges would stay stale until
+	-- the next save or FocusGained.
+	--
+	-- NOTE: Event emitted from `lua/beast/libs/git/actions.lua` →
+	-- `refresh_base_after_apply`. Payload: `{ buf, file }`.
+	vim.api.nvim_create_autocmd("User", {
+		group = state.augroup,
+		pattern = "BeastGitIndexChanged",
+		callback = function(ev)
+			-- stylua: ignore
+			if not (state.tree and state.view and state.view:is_valid()) then return end
+			local file = ev.data and ev.data.file
+			git.schedule_refresh({
+				file = (file and file ~= "") and file or nil,
+				on_done = function()
+					ui.flush()
+					sticky.refresh()
+				end,
+			})
+		end,
+	})
+
 	refresh_cursor()
 end
 
