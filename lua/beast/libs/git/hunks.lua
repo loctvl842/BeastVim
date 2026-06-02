@@ -120,4 +120,80 @@ function M.expand_staged_signs(staged, unstaged, n_lines)
 	return out
 end
 
+--- Compute INDEX→BUFFER shift for a single INDEX line, given the unstaged
+--- diff that maps INDEX→BUFFER (its `a_*` is in INDEX space).
+---
+--- The shift includes every unstaged hunk that ends strictly before the
+--- index position. See `expand_staged_signs` for the same end-exclusive
+--- arithmetic and why pure-adds use `max(a_count, 1)`.
+---@param index_line integer 1-based index-space line
+---@param unstaged Beast.Git.RawHunk[]
+---@return integer delta
+function M.index_to_buffer_delta(index_line, unstaged)
+	local delta = 0
+	for i = 1, #unstaged do
+		local u = unstaged[i]
+		local u_end = u.a_start + math.max(u.a_count, 1)
+		if u_end <= index_line then
+			delta = delta + (u.b_count - u.a_count)
+		else
+			break
+		end
+	end
+	return delta
+end
+
+--- Find a hunk that "covers" the given buffer line. A hunk covers a buffer
+--- line when its rendered sign (see `expand_signs`) would land on that line.
+---
+--- - add/change: lines `b_start..b_start+b_count-1`
+--- - delete:     a single line at `b_start` (1 if topdelete)
+---
+--- Returns the first match; hunks are presumed non-overlapping (true for
+--- diff output).
+---@param hunks Beast.Git.RawHunk[]
+---@param lnum integer 1-based buffer line
+---@return Beast.Git.RawHunk?
+function M.find_at_buffer_line(hunks, lnum)
+	for i = 1, #hunks do
+		local h = hunks[i]
+		if h.type == "delete" then
+			local target = h.b_start == 0 and 1 or h.b_start
+			if target == lnum then
+				return h
+			end
+		else
+			if lnum >= h.b_start and lnum <= h.b_start + h.b_count - 1 then
+				return h
+			end
+		end
+	end
+	return nil
+end
+
+--- Find a staged hunk that covers the given buffer line, using the unstaged
+--- diff to project its INDEX-space `b_*` into BUFFER space.
+---@param staged Beast.Git.RawHunk[]
+---@param unstaged Beast.Git.RawHunk[]
+---@param lnum integer
+---@return Beast.Git.RawHunk?
+function M.find_staged_at_buffer_line(staged, unstaged, lnum)
+	for i = 1, #staged do
+		local h = staged[i]
+		local delta = M.index_to_buffer_delta(h.b_start == 0 and 1 or h.b_start, unstaged)
+		local buf_b_start = h.b_start + (h.b_start == 0 and 0 or delta)
+		if h.type == "delete" then
+			local target = buf_b_start == 0 and 1 or buf_b_start
+			if target == lnum then
+				return h
+			end
+		else
+			if lnum >= buf_b_start and lnum <= buf_b_start + h.b_count - 1 then
+				return h
+			end
+		end
+	end
+	return nil
+end
+
 return M

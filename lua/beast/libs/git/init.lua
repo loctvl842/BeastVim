@@ -358,6 +358,39 @@ function M.preview_hunk_range(range_start, range_end)
 	require("beast.libs.git.preview").open_for_range(range_start, range_end)
 end
 
+-- =========================================================================
+-- Hunk actions (Phase 3)
+-- =========================================================================
+
+---@param buf integer?
+---@param lnum integer? 1-based buffer line (default: current cursor line)
+function M.stage_hunk(buf, lnum)
+	require("beast.libs.git.actions").stage_hunk(buf, lnum)
+end
+
+---@param buf integer?
+---@param lnum integer?
+function M.unstage_hunk(buf, lnum)
+	require("beast.libs.git.actions").unstage_hunk(buf, lnum)
+end
+
+---@param buf integer?
+---@param lnum integer?
+function M.reset_hunk(buf, lnum)
+	require("beast.libs.git.actions").reset_hunk(buf, lnum)
+end
+
+--- Trigger a re-diff for `buf`. Actions call this after mutating the index
+--- so the gutter reflects the new state without waiting for the next
+--- on_lines event.
+---@param buf integer?
+---@param opts? { base?: boolean, head?: boolean }
+function M.refresh(buf, opts)
+	buf = buf or api.nvim_get_current_buf()
+	opts = opts or {}
+	schedule_diff(buf, opts.base ~= false, opts.head == true)
+end
+
 M._namespaces = signs.namespaces
 
 -- =========================================================================
