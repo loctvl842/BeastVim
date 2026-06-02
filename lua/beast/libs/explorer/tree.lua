@@ -125,10 +125,11 @@ function M:ensure_child(parent, name, ftype)
 	local path = parent.path .. "/" .. name
 	local node = Node(path, name, ftype, parent)
 
-	-- Stamp git status from the cached maps (if available). Two O(1) lookups:
-	-- direct status for files, dir_status aggregate for directories.
+	-- Stamp git status from the cached maps (if available). Uses the same
+	-- resolver as git.apply so untracked/ignored directory entries propagate
+	-- down to newly-materialized descendants on expand.
 	if state.git.status then
-		node.git_status = state.git.status[path] or (state.git.dir_status and state.git.dir_status[path])
+		node.git_status = require("beast.libs.explorer.git").resolve(path, parent.path)
 	end
 
 	parent.children[name] = path

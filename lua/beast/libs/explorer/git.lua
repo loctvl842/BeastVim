@@ -259,19 +259,48 @@ local function build_dir_status(status)
 	return dir_status
 end
 
---- Stamp `node.git_status` on every tree node from a direct status lookup,
---- falling back to the directory-aggregate map for ancestors of dirty files.
---- No sort, no per-node parent walk, no separate clear pass.
+--- Resolve the git status to stamp on a tree node at `path`.
+--- Falls back through three layers, in order:
+---   1. Direct hit in `status` (file or collapsed-dir record).
+---   2. Aggregated `dir_status` (ancestor of a dirty file).
+---   3. Nearest ancestor in `status` with a propagating kind
+---      (untracked/ignored dir entries collapse all descendants).
+---@param path string
+---@param parent_path string?
+---@return Beast.Explorer.GitStatus?
+function M.resolve(path, parent_path)
+	local status = state.git.status
+	-- stylua: ignore
+	if not status then return nil end
+
+	local st = status[path] or (state.git.dir_status and state.git.dir_status[path])
+	-- stylua: ignore
+	if st then return st end
+
+	local nodes = state.tree and state.tree.nodes
+	local p = parent_path
+	while p do
+		local anc = status[p]
+		if anc and (anc.kind == "untracked" or anc.kind == "ignored") then
+			return anc
+		end
+		local pn = nodes and nodes[p]
+		p = pn and pn.parent or nil
+	end
+	return nil
+end
+
+--- Stamp `node.git_status` on every tree node.
 ---@param status table<string, Beast.Explorer.GitStatus>
 function M.apply(status)
 	-- stylua: ignore
 	if not state.tree then return end
 
-	local dir_status = build_dir_status(status)
-	state.git.dir_status = dir_status
+	state.git.status = status
+	state.git.dir_status = build_dir_status(status)
 
 	for path, node in pairs(state.tree.nodes) do
-		node.git_status = status[path] or dir_status[path]
+		node.git_status = M.resolve(path, node.parent)
 	end
 end
 
