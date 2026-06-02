@@ -256,6 +256,10 @@ function M.attach(buf)
 			return
 		end
 		bootstrap_state(buf, ctx, function()
+			-- Capture this attach session so a stale on_detach (e.g. queued
+			-- by `:edit`) can't wipe a freshly re-attached state. See
+			-- BufReadPost handler for the matching reattach logic.
+			local session = state[buf]
 			-- Subscribe to buffer mutations. on_lines fires synchronously in a
 			-- fast event for every line change (including programmatic edits
 			-- that TextChanged/I would miss), so the handler only schedules
@@ -273,7 +277,12 @@ function M.attach(buf)
 				end,
 				on_detach = function(_, b)
 					vim.schedule(function()
-						M.detach(b)
+						-- :edit detaches the buf-attach but BufReadPost
+						-- re-attaches synchronously with a fresh session.
+						-- Only clean up if we're still the active session.
+						if state[b] == session then
+							M.detach(b)
+						end
 					end)
 				end,
 			})
@@ -455,6 +464,13 @@ local function ensure_autocmds()
 	api.nvim_create_autocmd({ "BufReadPost", "BufNewFile" }, {
 		group = group,
 		callback = function(ev)
+			-- `:edit` on an already-attached buffer reloads its contents
+			-- and severs the nvim_buf_attach subscription. Detach our
+			-- stale state first so M.attach below sets up a fresh session
+			-- (and a fresh on_lines subscription).
+			if state[ev.buf] then
+				M.detach(ev.buf)
+			end
 			M.attach(ev.buf)
 		end,
 	})
