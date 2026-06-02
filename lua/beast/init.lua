@@ -102,6 +102,11 @@ function M.setup(opts)
 	packer.lazy("beast.libs.tabline", {
 		event = "VimEnter",
 		defer = true,
+    -- stylua: ignore
+		keys = {
+			{ "[B", function() require("beast.libs.tabline").move_prev() end, { mode = "n", desc = "Move buffer prev", group = "Tabline" } },
+      { "]B", function() require("beast.libs.tabline").move_next() end, { mode = "n", desc = "Move buffer next", group = "Tabline" } },
+		},
 		setup = function(tabline)
 			tabline.setup({
 				max_name_width = 30,
@@ -113,10 +118,6 @@ function M.setup(opts)
 			})
 		end,
 	})
-  -- stylua: ignore start
-	Key.safe_set("n", "[B", function() require("beast.libs.tabline").move_prev() end, { desc = "Move buffer prev", group = "Tabline" })
-	Key.safe_set("n", "]B", function() require("beast.libs.tabline").move_next() end, { desc = "Move buffer next", group = "Tabline" })
-	-- stylua: ignore end
 
 	-- Statuscolumn (lazy — deferred past first screen update)
 	packer.lazy("beast.libs.statuscolumn", {
@@ -129,20 +130,21 @@ function M.setup(opts)
 	-- Git (lazy — attaches per buffer on BufReadPost)
 	packer.lazy("beast.libs.git", {
 		event = "BufReadPost",
+    -- stylua: ignore
+    keys = {
+      { "]c", function() require("beast.libs.git").next_hunk() end, mode = "n", desc = "Next hunk", group = "Git" },
+      { "[c", function() require("beast.libs.git").prev_hunk() end, mode = "n", desc = "Previous hunk", group = "Git" },
+      { "<leader>gp", function() require("beast.libs.git").preview_hunk() end, mode = { "n", "x" }, desc = "Preview hunk(s)", group = "Git" },
+      { "<leader>gs", function() require("beast.libs.git").stage_hunk() end, mode = { "n", "x" }, desc = "Stage hunk (toggle)", group = "Git" },
+      { "<leader>gu", function() require("beast.libs.git").unstage_hunk() end, mode = { "n", "x" }, desc = "Unstage hunk (explicit)", group = "Git" },
+      { "<leader>gr", function() require("beast.libs.git").reset_hunk() end, mode = { "n", "x" }, desc = "Reset hunk", group = "Git" },
+      { "<leader>g.", function() require("beast.libs.git").repeat_action() end, mode = "n", desc = "Repeat last git action", group = "Git" },
+    },
 		defer = true,
 		setup = function(g)
 			g.setup({})
 		end,
 	})
-  -- stylua: ignore start
-  Key.safe_set({ "n", "x" }, "<leader>gp", function() require("beast.libs.git").preview_hunk() end, {desc = "Preview hunk(s)", group = "Git"})
-  Key.safe_set("n", "]c", function() require("beast.libs.git").next_hunk() end, {desc = "Next hunk", group = "Git"})
-  Key.safe_set("n", "[c", function() require("beast.libs.git").prev_hunk() end, {desc = "Previous hunk", group = "Git"})
-  Key.safe_set({ "n", "x" }, "<leader>gs", function() require("beast.libs.git").stage_hunk() end, {desc = "Stage hunk (toggle)", group = "Git"})
-  Key.safe_set("n", "<leader>gu", function() require("beast.libs.git").unstage_hunk() end, {desc = "Unstage hunk (explicit)", group = "Git"})
-  Key.safe_set({ "n", "x" }, "<leader>gr", function() require("beast.libs.git").reset_hunk() end, {desc = "Reset hunk", group = "Git"})
-  Key.safe_set("n", "<leader>g.", function() require("beast.libs.git").repeat_action() end, {desc = "Repeat last git action", group = "Git"})
-	-- stylua: ignore end
 
 	vim.g.loaded_netrw = 1
 	vim.g.loaded_netrwPlugin = 1
