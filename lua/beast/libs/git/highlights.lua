@@ -12,4 +12,7 @@ Util.colors.set_hl("BeastGit", {
 	-- so the tint stays continuous across the gutter.
 	PreviewAddSign = { fg = Util.colors.blend(p.accent3, 0.6, p.dark1), bg = Util.colors.blend(p.accent3, 0.15, p.dark1), bold = true },
 	PreviewDeleteSign = { fg = Util.colors.blend(p.accent1, 0.6, p.dark1), bg = Util.colors.blend(p.accent1, 0.15, p.dark1), bold = true },
+
+	-- "Staged" badge in the float's top-right border.
+	PreviewStagedTitle = { fg = p.dark1, bg = Util.colors.blend(p.accent4, 0.7, p.dark1), bold = true },
 })
