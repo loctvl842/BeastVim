@@ -5,6 +5,8 @@ local stack = require("beast.libs.toast.stack")
 
 local state = State()
 
+---@class Beast.Toast
+---@overload fun(message: string|string[], level?: string|integer, opts?: Beast.Toast.Options): Beast.Toast.Record|{}
 local M = setmetatable({}, {
 	__call = function(self, m, l, o)
 		if vim.in_fast_event() or vim.fn.has("vim_starting") == 1 then

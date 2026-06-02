@@ -77,6 +77,8 @@ end
 ---@field current_tabnr integer
 ---@field tabpages_width integer
 ---@field toggle_button_width integer
+---@field edge_trim_bufs? table<integer, boolean> Buffers rendered with edge trimming (skip min_cell_width)
+---@field edge_trim_compact? table<integer, string> Map of buffer → pull side ("left"|"right") for compact edge trim
 
 --- Build the render context. Called once per render.
 ---@param state table Module-level state from init.lua
