@@ -29,10 +29,21 @@ end
 
 --- Re-run the diff pipeline after a successful index mutation; the base text
 --- changed so we need a fresh fetch.
+---
+--- NOTE: This is the single emit site for `User BeastGitIndexChanged`. It
+--- fires after every successful stage/unstage/reset-range apply (the three
+--- entry points _stage, _unstage, stage_hunk_range all funnel through here).
+--- Consumers that need to react to index movement (explorer git status,
+--- statusline counters, etc.) should subscribe to that User event. Event
+--- `data` carries `{ buf = <bufnr>, file = <absolute path or ""> }`.
 ---@param buf integer
 local function refresh_base_after_apply(buf)
 	-- Delegate via the public scheduler; avoids a circular require with init.lua.
 	require("beast.libs.git").refresh(buf, { base = true, head = false })
+	pcall(api.nvim_exec_autocmds, "User", {
+		pattern = "BeastGitIndexChanged",
+		data = { buf = buf, file = api.nvim_buf_get_name(buf) },
+	})
 end
 
 --- Run an action that needs `path_data`. If `path_data` is nil the file is
