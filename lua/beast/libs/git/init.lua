@@ -2,12 +2,16 @@
 --
 -- Lifecycle per buffer:
 --   attach(buf) → resolve(repo) → get_base → diff → expand → place extmarks
+--                 └→ nvim_buf_attach with on_lines / on_reload / on_detach
 -- Re-diff triggers:
 --   BufWritePost   — refetch base + recompute
 --   FocusGained    — refetch base for every attached buffer (catches external commits)
---   TextChanged/I  — debounced (config.debounce_ms) recompute, base unchanged
+--   on_lines       — debounced (config.debounce_ms) recompute, base unchanged
+--                    (catches every mutation, including programmatic edits that
+--                    TextChanged/I would miss)
+--   on_reload      — buffer reloaded from disk (e.g. `:edit`), recompute immediately
 -- Cleanup:
---   BufDelete / BufWipeout / detach(buf)
+--   on_detach (buffer wiped / unloaded / reloaded) or M.detach(buf)
 --
 -- Single-flight per buffer: if a job is in-flight, a new request flips the
 -- `dirty` bit; the in-flight job re-runs once on completion if dirty.
@@ -28,7 +32,7 @@ local M = {}
 ---@field base string Cached HEAD text
 ---@field hunks Beast.Git.RawHunk[] Latest computed hunks
 ---@field line_signs table<integer, { type: string }>
----@field timer userdata? uv_timer_t for debounced TextChanged
+---@field timer uv.uv_timer_t? uv_timer_t for debounced TextChanged
 ---@field running boolean Single-flight flag
 ---@field dirty boolean Re-run requested while running
 ---@field last_diff_ms number? Wall-clock duration of the most recent recompute
@@ -129,6 +133,26 @@ end
 -- Attach / detach
 -- =========================================================================
 
+---@param buf integer
+local function on_lines_change(buf)
+	local st = state[buf]
+	if not st then
+		return true -- detach
+	end
+	if st.timer then
+		st.timer:stop()
+	else
+		st.timer = assert(uv.new_timer(), "failed to create timer")
+	end
+	st.timer:start(
+		config.debounce_ms,
+		0,
+		vim.schedule_wrap(function()
+			schedule_diff(buf, false)
+		end)
+	)
+end
+
 ---@param buf integer?
 function M.attach(buf)
 	buf = buf or api.nvim_get_current_buf()
@@ -152,6 +176,31 @@ function M.attach(buf)
 				running = false,
 				dirty = false,
 			}
+			-- Subscribe to buffer mutations. on_lines fires synchronously in a
+			-- fast event for every line change (including programmatic edits
+			-- that TextChanged/I would miss), so the handler only schedules
+			-- work via a uv timer.
+			local ok = api.nvim_buf_attach(buf, false, {
+				on_lines = function(_, b)
+					return on_lines_change(b)
+				end,
+				on_reload = function(_, b)
+					if state[b] then
+						vim.schedule(function()
+							schedule_diff(b, true)
+						end)
+					end
+				end,
+				on_detach = function(_, b)
+					vim.schedule(function()
+						M.detach(b)
+					end)
+				end,
+			})
+			if not ok then
+				M.detach(buf)
+				return
+			end
 			schedule_diff(buf, false)
 		end)
 	end)
@@ -223,26 +272,10 @@ M._namespace = signs.namespace
 -- =========================================================================
 -- Event wiring
 -- =========================================================================
-
----@param buf integer
-local function on_text_changed(buf)
-	local st = state[buf]
-	if not st then
-		return
-	end
-	if st.timer then
-		st.timer:stop()
-	else
-		st.timer = assert(uv.new_timer(), "failed to create timer")
-	end
-	st.timer:start(
-		config.debounce_ms,
-		0,
-		vim.schedule_wrap(function()
-			schedule_diff(buf, false)
-		end)
-	)
-end
+--
+-- Per-buffer text mutations are caught by `nvim_buf_attach.on_lines` (set up
+-- in `M.attach`). The autocmds below only cover events that aren't part of the
+-- buffer-subscription protocol: initial attach, save, focus, rename.
 
 local function ensure_autocmds()
 	local group = api.nvim_create_augroup("BeastGit", { clear = true })
@@ -261,14 +294,6 @@ local function ensure_autocmds()
 			end
 		end,
 	})
-	api.nvim_create_autocmd({ "TextChanged", "TextChangedI" }, {
-		group = group,
-		callback = function(ev)
-			if state[ev.buf] then
-				on_text_changed(ev.buf)
-			end
-		end,
-	})
 	api.nvim_create_autocmd("FocusGained", {
 		group = group,
 		callback = function()
@@ -277,12 +302,6 @@ local function ensure_autocmds()
 					schedule_diff(buf, true)
 				end
 			end
-		end,
-	})
-	api.nvim_create_autocmd({ "BufDelete", "BufWipeout" }, {
-		group = group,
-		callback = function(ev)
-			M.detach(ev.buf)
 		end,
 	})
 	api.nvim_create_autocmd("BufFilePost", {
