@@ -349,6 +349,10 @@ function M.prev_hunk(opts)
 end
 
 function M.preview_hunk()
+	local vs, ve = require("beast.libs.git.visual").range()
+	if vs then
+		return require("beast.libs.git.preview").open_for_range(vs, ve)
+	end
 	require("beast.libs.git.preview").open_for_current_line()
 end
 

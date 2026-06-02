@@ -83,27 +83,7 @@ local function get_state(buf)
 	return require("beast.libs.git")._get_state(buf)
 end
 
---- Return `(start, end)` line numbers if invoked from a visual-mode mapping,
---- else `nil`. Reads the live selection via `line("v")` / `line(".")` — these
---- stay valid during the keymap's :lua callback because we haven't left
---- visual mode yet. Charwise / linewise / blockwise all collapse to "the
---- buffer-line span the selection touches", which is what hunks care about.
----@return integer?, integer?
-local function visual_range()
-	local mode = vim.fn.mode()
-	if mode ~= "v" and mode ~= "V" and mode ~= "\22" then
-		return nil, nil
-	end
-	local s = vim.fn.line("v")
-	local e = vim.fn.line(".")
-	if s > e then
-		s, e = e, s
-	end
-	-- Drop back to normal so subsequent commands (eg cursor moves from a
-	-- post-action `vim.cmd`) don't run inside visual.
-	vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<Esc>", true, false, true), "nx", false)
-	return s, e
-end
+local visual_range = require("beast.libs.git.visual").range
 
 -- =========================================================================
 -- stage_hunk — toggle (unstaged → stage; staged → unstage)
