@@ -378,18 +378,20 @@ function M.prev_hunk(opts)
 	require("beast.libs.git.nav").nav_hunk("prev", opts or { wrap = true })
 end
 
-function M.preview_hunk()
+---@param opts Beast.Git.PreviewOpts?
+function M.preview_hunk(opts)
 	local vs, ve = require("beast.libs.git.visual").range()
 	if vs then
-		return require("beast.libs.git.preview").open_for_range(vs, ve)
+		return require("beast.libs.git.preview").open_for_range(vs, ve, opts)
 	end
-	require("beast.libs.git.preview").open_for_current_line()
+	require("beast.libs.git.preview").open_for_current_line(opts)
 end
 
 ---@param range_start integer
 ---@param range_end integer
-function M.preview_hunk_range(range_start, range_end)
-	require("beast.libs.git.preview").open_for_range(range_start, range_end)
+---@param opts Beast.Git.PreviewOpts?
+function M.preview_hunk_range(range_start, range_end, opts)
+	require("beast.libs.git.preview").open_for_range(range_start, range_end, opts)
 end
 
 -- =========================================================================

@@ -94,29 +94,73 @@ local function expand_adjacent(hunks, seed, adj_gap)
 	return out
 end
 
----@param base string
----@param hunk Beast.Git.RawHunk
+---@param text string
+---@param start integer 1-based start line (inclusive)
+---@param count integer number of lines (0 = empty result)
 ---@return string[]
-local function slice_base(base, hunk)
-	if hunk.a_count == 0 then
+local function slice_text(text, start, count)
+	if count == 0 then
 		return {}
 	end
-	local all = vim.split(base, "\n", { plain = true })
+	local all = vim.split(text, "\n", { plain = true })
 	local out = {}
-	for i = hunk.a_start, hunk.a_start + hunk.a_count - 1 do
+	for i = start, start + count - 1 do
 		out[#out + 1] = all[i] or ""
 	end
 	return out
 end
 
+-- =========================================================================
+-- Source abstraction
+-- =========================================================================
+-- Preview reads from two places depending on which tier is being shown:
+--   - unstaged tier → "+ " / context come from the live buffer
+--   - staged tier   → "+ " / context come from the INDEX text (st.base)
+--
+-- Source.get_lines(from, to)  1-based, inclusive on both ends → string[]
+-- Source.line_count()         total line count (used to clamp tail context)
+
+---@class Beast.Git.PreviewSource
+---@field get_lines fun(from: integer, to: integer): string[]
+---@field line_count fun(): integer
+
 ---@param buf integer
----@param hunk Beast.Git.RawHunk
----@return string[]
-local function slice_current(buf, hunk)
-	if hunk.b_count == 0 then
-		return {}
+---@return Beast.Git.PreviewSource
+local function buffer_source(buf)
+	return {
+		get_lines = function(from, to)
+			if to < from then
+				return {}
+			end
+			return api.nvim_buf_get_lines(buf, from - 1, to, false)
+		end,
+		line_count = function()
+			return api.nvim_buf_line_count(buf)
+		end,
+	}
+end
+
+---@param text string
+---@return Beast.Git.PreviewSource
+local function string_source(text)
+	-- Trailing newline from `git show` produces a phantom empty line —
+	-- drop it so the index source matches its actual line count.
+	local lines = vim.split(text, "\n", { plain = true })
+	if #lines > 0 and lines[#lines] == "" then
+		lines[#lines] = nil
 	end
-	return api.nvim_buf_get_lines(buf, hunk.b_start - 1, hunk.b_start + hunk.b_count - 1, false)
+	return {
+		get_lines = function(from, to)
+			local out = {}
+			for i = from, to do
+				out[#out + 1] = lines[i] or ""
+			end
+			return out
+		end,
+		line_count = function()
+			return #lines
+		end,
+	}
 end
 
 -- =========================================================================
@@ -130,14 +174,14 @@ end
 ---@field hl string?
 
 ---@param rows Beast.Git.PreviewRow[]
----@param buf integer
+---@param source Beast.Git.PreviewSource
 ---@param from integer
 ---@param to integer
-local function emit_context(rows, buf, from, to)
+local function emit_context(rows, source, from, to)
 	if to < from then
 		return
 	end
-	local lines = api.nvim_buf_get_lines(buf, from - 1, to, false)
+	local lines = source.get_lines(from, to)
 	for i, l in ipairs(lines) do
 		rows[#rows + 1] = { lnum = from + i - 1, marker = "  ", text = l }
 	end
@@ -154,14 +198,15 @@ local function hunk_context_bounds(hunk)
 	return hunk.b_start - 1, hunk.b_start + hunk.b_count
 end
 
----@param buf integer
----@param st { base: string }
+---@param source Beast.Git.PreviewSource
+---@param removed_text string  Full text of the "before" side (base for unstaged, head for staged)
+---@param added_text string?   Full text of the "after" side; nil = read added/context from `source` (unstaged case)
 ---@param hunks Beast.Git.RawHunk[]
 ---@param ctx_n integer
 ---@return Beast.Git.PreviewRow[]
-local function build_rows(buf, st, hunks, ctx_n)
+local function build_rows(source, removed_text, added_text, hunks, ctx_n)
 	local rows = {}
-	local total = api.nvim_buf_line_count(buf)
+	local total = source.line_count()
 	local prev_emit = 0
 
 	for i, hunk in ipairs(hunks) do
@@ -169,14 +214,14 @@ local function build_rows(buf, st, hunks, ctx_n)
 
 		-- Context before this hunk, clamped so we never re-emit a buf line.
 		local before_start = math.max(prev_emit + 1, before_end - ctx_n + 1, 1)
-		emit_context(rows, buf, before_start, before_end)
+		emit_context(rows, source, before_start, before_end)
 		if before_end >= before_start then
 			prev_emit = before_end
 		end
 
-		-- Removed lines show the current-buffer line number where they would
+		-- Removed lines show the source line number where they would
 		-- sit (b_start for change/delete; clamped to 1 for topdelete).
-		local removed = slice_base(st.base, hunk)
+		local removed = slice_text(removed_text, hunk.a_start, hunk.a_count)
 		local removed_anchor = math.max(1, hunk.b_start)
 		for j, l in ipairs(removed) do
 			rows[#rows + 1] = {
@@ -186,8 +231,15 @@ local function build_rows(buf, st, hunks, ctx_n)
 				hl = "BeastGitPreviewDelete",
 			}
 		end
-		-- Added lines map to b_start .. b_start+b_count-1 in the current buffer.
-		local added = slice_current(buf, hunk)
+		-- Added lines map to b_start .. b_start+b_count-1 in `source`.
+		local added
+		if hunk.b_count == 0 then
+			added = {}
+		elseif added_text then
+			added = slice_text(added_text, hunk.b_start, hunk.b_count)
+		else
+			added = source.get_lines(hunk.b_start, hunk.b_start + hunk.b_count - 1)
+		end
 		for j, l in ipairs(added) do
 			rows[#rows + 1] = {
 				lnum = hunk.b_start + j - 1,
@@ -202,7 +254,7 @@ local function build_rows(buf, st, hunks, ctx_n)
 
 		if i == #hunks then
 			local after_end = math.min(total, after_start + ctx_n - 1)
-			emit_context(rows, buf, after_start, after_end)
+			emit_context(rows, source, after_start, after_end)
 		end
 	end
 
@@ -322,8 +374,9 @@ end
 ---@param source_ft string
 ---@param source_win integer
 ---@param anchor_lnum integer  1-indexed buffer line to anchor the float below
+---@param title (string|table)?  optional title shown in the float border (string or chunks list)
 ---@return integer buf, integer win
-local function open_float(body, hls, gutters, width, source_ft, source_win, anchor_lnum)
+local function open_float(body, hls, gutters, width, source_ft, source_win, anchor_lnum, title)
 	local buf = Buffer.new("")
 	api.nvim_buf_set_lines(buf, 0, -1, false, body)
 	vim.bo[buf].modifiable = false
@@ -333,7 +386,7 @@ local function open_float(body, hls, gutters, width, source_ft, source_win, anch
 	apply_decorations(buf, body, hls, gutters)
 
 	local height = math.min(#body, math.max(1, resolve_max_height()))
-	local win = api.nvim_open_win(buf, false, {
+	local win_opts = {
 		relative = "win",
 		win = source_win,
 		bufpos = { anchor_lnum - 1, 0 },
@@ -345,7 +398,12 @@ local function open_float(body, hls, gutters, width, source_ft, source_win, anch
 		border = "rounded",
 		focusable = true,
 		noautocmd = true,
-	})
+	}
+	if title and title ~= "" then
+		win_opts.title = title
+		win_opts.title_pos = "right"
+	end
+	local win = api.nvim_open_win(buf, false, win_opts)
 	vim.api.nvim_set_option_value("winhighlight", "Normal:BeastGitPreviewNormal,FloatBorder:BeastGitPreviewBorder", { win = win })
 	vim.api.nvim_set_option_value("wrap", false, { win = win })
 	return buf, win
@@ -434,12 +492,14 @@ local function focus_if_open()
 end
 
 ---@param matched Beast.Git.RawHunk[]
+---@param project? fun(b_start: integer): integer  index→buffer projection for staged hunks
 ---@return table<integer, boolean> hunk_lines, integer hunk_min, integer hunk_max
-local function compute_hunk_extent(matched)
+local function compute_hunk_extent(matched, project)
 	local hunk_lines = {}
 	local hunk_min, hunk_max = math.huge, -math.huge
 	for _, h in ipairs(matched) do
-		local s = math.max(1, h.b_start or 1)
+		local s_raw = math.max(1, h.b_start or 1)
+		local s = project and project(s_raw) or s_raw
 		local n = math.max(h.b_count or 0, 1)
 		for l = s, s + n - 1 do
 			hunk_lines[l] = true
@@ -465,17 +525,45 @@ local function compute_width(mode, body, gutter_w)
 	return math.max(1, vim.o.columns - 2)
 end
 
-function M.open_for_current_line()
+---@class Beast.Git.PreviewOpts
+---@field target? "unstaged" | "staged" | "auto"   default: "auto"
+
+---@param opts Beast.Git.PreviewOpts?
+---@param st Beast.Git.BufState
+---@param lnum integer  buffer line under cursor (used only for "auto" disambiguation)
+---@return "unstaged" | "staged" | "auto"
+local function resolve_target(opts, st, lnum)
+	local target = opts and opts.target or "auto"
+	if target == "unstaged" or target == "staged" then
+		return target
+	end
+	-- Auto: prefer unstaged when it covers the cursor (it's the "fresh" tier),
+	-- else fall back to staged. Mirrors the gutter precedence.
+	local hunks_mod = require("beast.libs.git.hunks")
+	if hunks_mod.find_at_buffer_line(st.hunks, lnum) then
+		return "unstaged"
+	end
+	if hunks_mod.find_staged_at_buffer_line(st.staged_hunks, st.hunks, lnum) then
+		return "staged"
+	end
+	-- Default to unstaged when neither matches — the empty-hunks branch
+	-- below will surface a clean "no hunks" notification.
+	return "unstaged"
+end
+
+---@param opts Beast.Git.PreviewOpts?
+function M.open_for_current_line(opts)
 	if focus_if_open() then
 		return
 	end
 	local cursor = api.nvim_win_get_cursor(0)[1]
-	M.open_for_range(cursor, cursor)
+	M.open_for_range(cursor, cursor, opts)
 end
 
 ---@param range_start integer
 ---@param range_end integer
-function M.open_for_range(range_start, range_end)
+---@param opts Beast.Git.PreviewOpts?
+function M.open_for_range(range_start, range_end, opts)
 	if focus_if_open() then
 		return
 	end
@@ -484,21 +572,45 @@ function M.open_for_range(range_start, range_end)
 	end
 
 	local git = require("beast.libs.git")
-	local hunks = git.get_hunks()
-	if #hunks == 0 then
-		vim.notify("No hunks in this buffer", vim.log.levels.INFO, { title = "beast.git" })
+	local st = git._get_state()
+	if not st then
 		return
 	end
 
 	local source_buf = api.nvim_get_current_buf()
-	local matched = hunks_in_range(hunks, range_start, range_end)
-	if #matched == 0 then
-		vim.notify("No hunk in selection", vim.log.levels.INFO, { title = "beast.git" })
+	local target = resolve_target(opts, st, range_start)
+
+	local hunks = target == "staged" and st.staged_hunks or st.hunks
+	if #hunks == 0 then
+		vim.notify(target == "staged" and "No staged hunks in this buffer" or "No hunks in this buffer", vim.log.levels.INFO, { title = "beast.git" })
 		return
 	end
 
-	local st = git._get_state()
-	if not st then
+	-- For staged, range_start/end are in BUFFER space but staged hunks are in
+	-- INDEX space. Translate the query range INDEX→BUFFER by projecting each
+	-- hunk into buffer space and matching there.
+	local hunks_mod = require("beast.libs.git.hunks")
+	local project = nil
+	local matched
+	if target == "staged" then
+		project = function(b_start)
+			return b_start + hunks_mod.index_to_buffer_delta(b_start == 0 and 1 or b_start, st.hunks)
+		end
+		matched = {}
+		for _, h in ipairs(hunks) do
+			local lo_idx = h.type == "delete" and (h.b_start == 0 and 1 or h.b_start) or h.b_start
+			local hi_idx = h.type == "delete" and lo_idx or (h.b_start + h.b_count - 1)
+			local lo_buf, hi_buf = project(lo_idx), project(hi_idx)
+			if hi_buf >= range_start and lo_buf <= range_end then
+				matched[#matched + 1] = h
+			end
+		end
+	else
+		matched = hunks_in_range(hunks, range_start, range_end)
+	end
+
+	if #matched == 0 then
+		vim.notify(target == "staged" and "No staged hunk in selection" or "No hunk in selection", vim.log.levels.INFO, { title = "beast.git" })
 		return
 	end
 
@@ -508,7 +620,20 @@ function M.open_for_range(range_start, range_end)
 	-- Auto-cluster adjacent hunks so back-to-back changes preview together.
 	matched = expand_adjacent(hunks, matched, preview_cfg.adjacent_gap or 0)
 
-	local rows = build_rows(source_buf, st, matched, ctx_n)
+	local source, removed_text, added_text, title
+	if target == "staged" then
+		source = string_source(st.base)
+		removed_text = st.head
+		added_text = st.base
+		title = { { " Staged ", "BeastGitPreviewStagedTitle" } }
+	else
+		source = buffer_source(source_buf)
+		removed_text = st.base
+		added_text = nil
+		title = nil
+	end
+
+	local rows = build_rows(source, removed_text, added_text, matched, ctx_n)
 	if #rows == 0 then
 		return
 	end
@@ -516,11 +641,11 @@ function M.open_for_range(range_start, range_end)
 
 	local source_ft = vim.bo[source_buf].filetype
 	local source_win = api.nvim_get_current_win()
-	local hunk_lines, hunk_min, hunk_max = compute_hunk_extent(matched)
+	local hunk_lines, hunk_min, hunk_max = compute_hunk_extent(matched, project)
 	local width = compute_width(preview_cfg.width, body, gutter_w)
 
 	M.close()
-	local buf, win = open_float(body, hls, gutters, width, source_ft, source_win, hunk_min)
+	local buf, win = open_float(body, hls, gutters, width, source_ft, source_win, hunk_min, title)
 	current = PreviewView(buf, win)
 	wire_close(buf, source_buf, source_win, hunk_lines, hunk_min, hunk_max)
 end
