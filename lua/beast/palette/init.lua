@@ -48,23 +48,6 @@ local function extract(group, attr, fallback)
 	return value or fallback
 end
 
---- Pick the first candidate whose fg/bg is defined and differs from `exclude`.
----@param candidates string[] Highlight group names
----@param attr "fg"|"bg"
----@param exclude? string Hex color to skip (e.g. Normal fg to avoid indistinct accents)
----@param fallback string
----@return string
-local function first_distinct(candidates, attr, exclude, fallback)
-	for _, group in ipairs(candidates) do
-		local value = Util.colors.inspect(group)[attr]
-		if value and value ~= exclude then
-			return value
-		end
-	end
-	return fallback
-end
-
----@return boolean
 ---@return boolean
 function M.is_builtin_colorscheme()
 	local name = vim.g.colors_name or "default"
@@ -88,7 +71,9 @@ local function extract_builtin()
 	---@return string
 	local function named(name, fallback)
 		local rgb = vim.api.nvim_get_color_by_name(name)
-		if rgb < 0 then return fallback end
+		if rgb < 0 then
+			return fallback
+		end
 		return string.format("#%06x", rgb)
 	end
 
@@ -96,21 +81,21 @@ local function extract_builtin()
 	local light = is_dark and "NvimLight" or "NvimDark"
 
 	return {
-		dark2 = blend(text, 0.20, background),
-		dark1 = blend(text, 0.10, background),
+		dark2 = blend(text, 0.20, background), -- #3d3f44
+		dark1 = blend(text, 0.10, background), -- #282a30
 		background = background,
 		text = text,
-		accent1 = named(light .. "Red", defaults.accent1),
-		accent2 = named(light .. "Yellow", defaults.accent2),
-		accent3 = named(light .. "Green", defaults.accent3),
-		accent4 = named(light .. "Cyan", defaults.accent4),
-		accent5 = named(light .. "Blue", defaults.accent5),
-		accent6 = named(light .. "Cyan", defaults.accent6),
-		dimmed1 = blend(text, 0.75, background),
-		dimmed2 = blend(text, 0.55, background),
-		dimmed3 = blend(text, 0.40, background),
-		dimmed4 = blend(text, 0.25, background),
-		dimmed5 = blend(text, 0.10, background),
+		accent1 = named(light .. "Red", defaults.accent1), -- #ffc0b9
+		accent2 = named(light .. "Yellow", defaults.accent2), -- #fce094
+		accent3 = named(light .. "Green", defaults.accent3), -- #b3f6c0
+		accent4 = named(light .. "Cyan", defaults.accent4), -- #8cf8f7
+		accent5 = named(light .. "Blue", defaults.accent5), -- #a6dbff
+		accent6 = named(light .. "Magenta", defaults.accent6), -- #ffcaff
+		dimmed1 = blend(text, 0.75, background), -- #adafb6
+		dimmed2 = blend(text, 0.55, background), -- #84868d
+		dimmed3 = blend(text, 0.40, background), -- #66686e
+		dimmed4 = blend(text, 0.25, background), -- #47494f
+		dimmed5 = blend(text, 0.10, background), -- #282a30
 	}
 end
 
