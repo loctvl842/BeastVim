@@ -9,10 +9,6 @@ local M = {}
 ---@type table<string, boolean>
 local dirty_dirs = {}
 
--- Single reusable timer for debouncing.
----@type uv.uv_timer_t?
-local timer = nil
-
 local DEBOUNCE_MS = 100
 
 local function flush()
@@ -34,18 +30,20 @@ local function flush()
 	ui.render()
 end
 
+-- Single reusable debouncer for batched refreshes.
+---@type Beast.Util.Debouncer?
+local debounced_flush = nil
+
 --- Schedule a debounced refresh for `dir_path`.
 --- Multiple calls within DEBOUNCE_MS are batched into one render pass.
 ---@param dir_path string
 function M._schedule_refresh(dir_path)
 	dirty_dirs[dir_path] = true
 
-	if not timer then
-		timer = assert(uv.new_timer(), "failed to create timer")
+	if not debounced_flush then
+		debounced_flush = Util.debounce(DEBOUNCE_MS, flush)
 	end
-
-	timer:stop()
-	timer:start(DEBOUNCE_MS, 0, vim.schedule_wrap(flush))
+	debounced_flush()
 end
 
 --- Start watching a directory for filesystem changes.
@@ -96,10 +94,9 @@ function M.stop_all()
 
 	dirty_dirs = {}
 
-	if timer then
-		timer:stop()
-		timer:close()
-		timer = nil
+	if debounced_flush then
+		debounced_flush:close()
+		debounced_flush = nil
 	end
 end
 

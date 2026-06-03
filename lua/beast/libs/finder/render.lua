@@ -7,25 +7,16 @@ local ui = require("beast.libs.finder.ui")
 
 local M = {}
 
---- Per-query preview debounce timers (keyed by query table reference).
----@type table<Beast.Finder.Query, uv.uv_timer_t>
-local preview_timers = {}
+--- Per-query preview debouncers (keyed by query table reference).
+---@type table<Beast.Finder.Query, Beast.Util.Debouncer>
+local preview_debouncers = {}
 
 --- Debounce preview window updates — waits N ms after cursor moves before loading file content.
 ---@param query Beast.Finder.Query
 function M.schedule_preview(query)
-	local timer = preview_timers[query]
-	if not timer or timer:is_closing() then
-		timer = assert(vim.uv.new_timer(), "failed to create preview timer")
-		preview_timers[query] = timer
-	end
-
-	timer:stop()
-
-	timer:start(
-		config.debounce.preview_ms,
-		0,
-		vim.schedule_wrap(function()
+	local debounced = preview_debouncers[query]
+	if not debounced then
+		debounced = Util.debounce(config.debounce.preview_ms, function()
 			-- stylua: ignore
 			if not query.list_view:is_valid() then return end
 
@@ -51,17 +42,18 @@ function M.schedule_preview(query)
 				end
 			end
 		end)
-	)
+		preview_debouncers[query] = debounced
+	end
+	debounced()
 end
 
---- Clean up the preview timer for a query (call from close).
+--- Clean up the preview debouncer for a query (call from close).
 ---@param query Beast.Finder.Query
 function M.cleanup(query)
-	local timer = preview_timers[query]
-	if timer then
-		timer:stop()
-		timer:close()
-		preview_timers[query] = nil
+	local debounced = preview_debouncers[query]
+	if debounced then
+		debounced:close()
+		preview_debouncers[query] = nil
 	end
 end
 

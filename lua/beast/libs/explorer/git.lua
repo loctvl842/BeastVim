@@ -15,8 +15,8 @@ local M = {}
 -- Internal state (was on state.lua; private to this module now).
 ---@type vim.SystemObj|nil
 local git_job = nil
----@type uv.uv_timer_t|nil
-local git_timer = nil
+---@type Beast.Util.Debouncer|nil
+local git_debounced = nil
 ---@type string|nil  cached porcelain output for change detection
 local git_output_cache = nil
 
@@ -500,15 +500,8 @@ function M.schedule_refresh(opts)
 		pending_on_done = opts.on_done
 	end
 
-	if not git_timer then
-		git_timer = assert((vim.uv or vim.loop).new_timer(), "failed to create timer")
-	end
-
-	git_timer:stop()
-	git_timer:start(
-		DEBOUNCE_MS,
-		0,
-		vim.schedule_wrap(function()
+	if not git_debounced then
+		git_debounced = Util.debounce(DEBOUNCE_MS, function()
 			local full = pending_full
 			local files = pending_files
 			local on_done = pending_on_done
@@ -541,15 +534,15 @@ function M.schedule_refresh(opts)
 				M.refresh({ on_done = on_done })
 			end
 		end)
-	)
+	end
+	git_debounced()
 end
 
 --- Stop debounce timer and cancel in-flight job. Called on explorer close.
 function M.stop()
-	if git_timer then
-		git_timer:stop()
-		git_timer:close()
-		git_timer = nil
+	if git_debounced then
+		git_debounced:close()
+		git_debounced = nil
 	end
 	if git_job then
 		pcall(function()
