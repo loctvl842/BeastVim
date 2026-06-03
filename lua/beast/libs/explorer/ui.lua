@@ -32,7 +32,7 @@ function M.create()
 	if has_buf then
 		buf = state.view.buf
 	else
-		buf = Buffer.new("beast-explorer")
+		buf = View.buf.new("beast-explorer")
 		vim.bo[buf].bufhidden = "hide" -- keep alive across window close
 	end
 
@@ -66,7 +66,7 @@ function M.create()
 	vim.wo[win].listchars = "tab:  ,nbsp:+"
 	-- scrolloff is owned by sticky.refresh() — it tracks the float height so
 	-- the cursor never lands in rows hidden under the sticky overlay.
-	Util.wo(
+	View.win.wo(
 		win,
 		"winhighlight",
 		"Normal:BeastExplorerNormal,EndOfBuffer:BeastExplorerEndOfBuffer,CursorLine:BeastExplorerCursorLine,WinSeparator:BeastExplorerWinSeparator,WinBar:BeastExplorerWinBar,WinBarNC:BeastExplorerWinBar"
@@ -133,7 +133,9 @@ end
 function M.close()
 	if state.view and state.view.win and vim.api.nvim_win_is_valid(state.view.win) then
 		vim.api.nvim_win_close(state.view.win, true)
-		state.view.win = nil
+		-- Use `false` (not `nil`) to avoid cascading through View's namespace
+		-- metatable, which would return the `win` submodule on subsequent reads.
+		state.view.win = false
 	end
 end
 
