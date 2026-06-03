@@ -1,6 +1,6 @@
 # ADR-005: Extract create_scratch_buf Utility
 
-**Status:** Accepted
+**Status:** Superseded by ADR-025 (lua/beast/libs/view/ package restructure)
 
 **Date:** 2026-04-25
 
@@ -13,6 +13,10 @@ Five libraries (confirm, explorer, key, notify, toast) each contained identical 
 ## Decision
 
 Extract `create_scratch_buf(filetype)` into `Util.create_scratch_buf` in the shared util module. All five libraries now call the shared function instead of duplicating the logic.
+
+## Supersession
+
+Subsequently replaced by `Beast.Buf.new(filetype)` in `lua/beast/libs/buf.lua`, then moved to `View.buf.new` in `lua/beast/libs/view/buf.lua` as part of consolidating all UI primitives (buf, win, View base class) under the `View` namespace. See the dev spec for the `libs/view/` package restructure.
 
 ## Alternatives Considered
 

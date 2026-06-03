@@ -48,15 +48,27 @@ package.loaded["nvim-web-devicons"] = {
 	end,
 }
 
--- Buffer.new — scratch buffer factory
-_G.Buffer = { new = function(filetype)
-	local buf = vim.api.nvim_create_buf(false, true)
-	vim.bo[buf].buftype = "nofile"
-	vim.bo[buf].bufhidden = "wipe"
-	vim.bo[buf].swapfile = false
-	vim.bo[buf].filetype = filetype
-	return buf
-end }
+-- View.buf.new — scratch buffer factory
+_G.View = {
+	buf = {
+		new = function(filetype)
+			local buf = vim.api.nvim_create_buf(false, true)
+			vim.bo[buf].buftype = "nofile"
+			vim.bo[buf].bufhidden = "wipe"
+			vim.bo[buf].swapfile = false
+			vim.bo[buf].filetype = filetype
+			return buf
+		end,
+	},
+	win = {
+		wo = function(win, k, v)
+			vim.api.nvim_set_option_value(k, v, { scope = "local", win = win })
+		end,
+		find_normal = function()
+			return vim.api.nvim_get_current_win()
+		end,
+	},
+}
 
 -- =========================================================================
 -- Scenario: tmp folder generation

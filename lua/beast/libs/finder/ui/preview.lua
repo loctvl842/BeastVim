@@ -19,7 +19,7 @@ local MAX_PREVIEW_LINES = 500
 ---@param win_h integer
 ---@return Beast.Finder.PreviewView
 function M.create(win_row, win_col, win_w, win_h)
-	local buf = Buffer.new("beast-finder-preview")
+	local buf = View.buf.new("beast-finder-preview")
 	local ns = vim.api.nvim_create_namespace("beast-finder-preview")
 
 	local win = vim.api.nvim_open_win(buf, false, {
@@ -33,10 +33,10 @@ function M.create(win_row, win_col, win_w, win_h)
 		zindex = 102,
 	})
 
-	Util.wo(win, "winhl", "Normal:BeastFinderNormal,FloatBorder:BeastFinderBorder,FloatTitle:BeastFinderPreviewTitle")
-	Util.wo(win, "wrap", false)
-	Util.wo(win, "number", true)
-	Util.wo(win, "relativenumber", false)
+	View.win.wo(win, "winhl", "Normal:BeastFinderNormal,FloatBorder:BeastFinderBorder,FloatTitle:BeastFinderPreviewTitle")
+	View.win.wo(win, "wrap", false)
+	View.win.wo(win, "number", true)
+	View.win.wo(win, "relativenumber", false)
 
 	return PreviewView(buf, win, ns)
 end

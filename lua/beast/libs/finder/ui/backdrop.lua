@@ -4,7 +4,7 @@ local M = {}
 ---@param backdrop integer?
 ---@return integer? win handle of the backdrop window, or nil if disabled
 function M.create(backdrop)
-	local buf = Buffer.new("beast-finder-backdrop")
+	local buf = View.buf.new("beast-finder-backdrop")
 
 	local win = vim.api.nvim_open_win(buf, false, {
 		relative = "editor",
@@ -17,8 +17,8 @@ function M.create(backdrop)
 		zindex = 100, -- 'input', 'preview', 'list' windows are 101+
 	})
 
-	Util.wo(win, "winhl", "Normal:BeastFinderBackdrop")
-	Util.wo(win, "winblend", backdrop or 60)
+	View.win.wo(win, "winhl", "Normal:BeastFinderBackdrop")
+	View.win.wo(win, "winblend", backdrop or 60)
 
 	return win
 end

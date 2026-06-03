@@ -203,8 +203,8 @@ end
 local Main = {}
 
 function Main.create()
-	local backdrop_buf = Buffer.new("beast-backdrop")
-	local main_buf = Buffer.new("beast-packer")
+	local backdrop_buf = View.buf.new("beast-backdrop")
+	local main_buf = View.buf.new("beast-packer")
 	local backdrop_win = vim.api.nvim_open_win(backdrop_buf, false, {
 		relative = "editor",
 		row = 0,
@@ -216,8 +216,8 @@ function Main.create()
 		zindex = 100,
 	})
 
-	Util.wo(backdrop_win, "winblend", config.ui.backdrop)
-	Util.wo(backdrop_win, "winhighlight", "Normal:BeastPackerBackdrop")
+	View.win.wo(backdrop_win, "winblend", config.ui.backdrop)
+	View.win.wo(backdrop_win, "winhighlight", "Normal:BeastPackerBackdrop")
 
 	local width, height, row, col = calc_main_geometry()
 
@@ -232,15 +232,15 @@ function Main.create()
 		zindex = 101,
 	})
 
-	Util.wo(main_win, "wrap", false)
-	Util.wo(main_win, "number", false)
-	Util.wo(main_win, "relativenumber", false)
-	Util.wo(main_win, "signcolumn", "no")
-	Util.wo(main_win, "conceallevel", 3)
-	Util.wo(main_win, "concealcursor", "nvic")
-	Util.wo(main_win, "cursorline", false)
-	Util.wo(main_win, "colorcolumn", "")
-	Util.wo(main_win, "winhighlight", "Normal:BeastPackerNormal,FloatBorder:BeastPackerBorder,WinBar:BeastPackerWinBar,WinBarNC:BeastPackerWinBar")
+	View.win.wo(main_win, "wrap", false)
+	View.win.wo(main_win, "number", false)
+	View.win.wo(main_win, "relativenumber", false)
+	View.win.wo(main_win, "signcolumn", "no")
+	View.win.wo(main_win, "conceallevel", 3)
+	View.win.wo(main_win, "concealcursor", "nvic")
+	View.win.wo(main_win, "cursorline", false)
+	View.win.wo(main_win, "colorcolumn", "")
+	View.win.wo(main_win, "winhighlight", "Normal:BeastPackerNormal,FloatBorder:BeastPackerBorder,WinBar:BeastPackerWinBar,WinBarNC:BeastPackerWinBar")
 
 	return MainView(main_buf, main_win, vim.api.nvim_create_namespace("beast_packer_main"), View(backdrop_buf, backdrop_win))
 end
@@ -283,7 +283,7 @@ function Main.render(main)
 	elseif main.view_mode == "help" then
 		winbar = winbar .. "%#BeastPackerSubtitle# 󰿟 Help"
 	end
-	Util.wo(main.win, "winbar", winbar .. "%*")
+	View.win.wo(main.win, "winbar", winbar .. "%*")
 
 	if main.view_mode == "main" then
 		Main._render_main(main)
@@ -964,7 +964,7 @@ local Action = {}
 ---@param main Beast.Packer.UI.MainView
 ---@return Beast.Packer.UI.ActionView
 function Action.create(main)
-	local buf = Buffer.new("beast-packer-actions")
+	local buf = View.buf.new("beast-packer-actions")
 	local width, height, row, col = calc_action_geometry(main.win, main.view_mode or "main")
 
 	local win = vim.api.nvim_open_win(buf, false, {
@@ -981,8 +981,8 @@ function Action.create(main)
 		noautocmd = true,
 	})
 
-	Util.wo(win, "winblend", 0)
-	Util.wo(win, "winhighlight", "Normal:BeastPackerNormal")
+	View.win.wo(win, "winblend", 0)
+	View.win.wo(win, "winhighlight", "Normal:BeastPackerNormal")
 
 	return ActionView(buf, win, vim.api.nvim_create_namespace("beast_packer_actions"))
 end

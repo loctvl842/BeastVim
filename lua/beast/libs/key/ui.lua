@@ -92,8 +92,8 @@ local Main = {}
 
 ---@return Beast.Key.UI.MainView
 function Main.create()
-	local backdrop_buf = Buffer.new("beast-backdrop")
-	local main_buf = Buffer.new("beast-key")
+	local backdrop_buf = View.buf.new("beast-backdrop")
+	local main_buf = View.buf.new("beast-key")
 	local backdrop_win = vim.api.nvim_open_win(backdrop_buf, false, {
 		relative = "editor",
 		row = 0,
@@ -105,8 +105,8 @@ function Main.create()
 		zindex = 100,
 	})
 
-	Util.wo(backdrop_win, "winblend", config.ui.backdrop)
-	Util.wo(backdrop_win, "winhighlight", "Normal:BeastKeyBackdrop")
+	View.win.wo(backdrop_win, "winblend", config.ui.backdrop)
+	View.win.wo(backdrop_win, "winhighlight", "Normal:BeastKeyBackdrop")
 
 	local width, height, row, col = calc_main_geometry()
 
@@ -121,13 +121,13 @@ function Main.create()
 		zindex = 101,
 	})
 
-	Util.wo(main_win, "winhighlight", "Normal:BeastKeyNormal,FloatBorder:BeastKeyBorder,WinBar:BeastKeyWinBar,WinBarNC:BeastKeyWinBar")
+	View.win.wo(main_win, "winhighlight", "Normal:BeastKeyNormal,FloatBorder:BeastKeyBorder,WinBar:BeastKeyWinBar,WinBarNC:BeastKeyWinBar")
 	local title = " 🦁 Keymaps"
-	Util.wo(main_win, "winbar", "%#BeastKeyTitle# " .. title .. "%*")
-	Util.wo(main_win, "wrap", false)
-	Util.wo(main_win, "number", false)
-	Util.wo(main_win, "relativenumber", false)
-	Util.wo(main_win, "signcolumn", "no")
+	View.win.wo(main_win, "winbar", "%#BeastKeyTitle# " .. title .. "%*")
+	View.win.wo(main_win, "wrap", false)
+	View.win.wo(main_win, "number", false)
+	View.win.wo(main_win, "relativenumber", false)
+	View.win.wo(main_win, "signcolumn", "no")
 	return MainView(main_buf, main_win, vim.api.nvim_create_namespace("beast_key_main"), View(backdrop_buf, backdrop_win))
 end
 
@@ -205,7 +205,7 @@ local Action = {}
 ---@param main Beast.Key.UI.MainView
 ---@return Beast.Key.UI.ActionView
 function Action.create(main)
-	local buf = Buffer.new("beast-key-actions")
+	local buf = View.buf.new("beast-key-actions")
 	local width, height, row, col = calc_action_geometry(main.win)
 
 	local win = vim.api.nvim_open_win(buf, false, {
@@ -222,8 +222,8 @@ function Action.create(main)
 		noautocmd = true,
 	})
 
-	Util.wo(win, "winblend", 0)
-	Util.wo(win, "winhighlight", "Normal:BeastPackerNormal")
+	View.win.wo(win, "winblend", 0)
+	View.win.wo(win, "winhighlight", "Normal:BeastPackerNormal")
 	return ActionView(buf, win, vim.api.nvim_create_namespace("beast_key_actions"))
 end
 
