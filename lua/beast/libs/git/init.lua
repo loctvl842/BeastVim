@@ -41,7 +41,7 @@ local M = {}
 ---@field staged_hunks Beast.Git.RawHunk[] Staged hunks (head vs base). b_* positions are in INDEX space, not buffer space — they only line up with the buffer when there are no unstaged edits above them.
 ---@field line_signs table<integer, { type: string }>
 ---@field staged_line_signs table<integer, { type: string }>
----@field timer uv.uv_timer_t? uv_timer_t for debounced on_lines recomputes
+---@field debounced_diff Beast.Util.Debouncer Trailing-edge debouncer for on_lines recomputes
 ---@field running boolean Single-flight flag
 ---@field dirty { base: boolean, head: boolean }? Pending refresh flags requested while running
 ---@field last_diff_ms number? Wall-clock duration of the most recent recompute
@@ -211,18 +211,7 @@ local function on_lines_change(buf, session)
 	if not st or st ~= session then
 		return true -- detach
 	end
-	if st.timer then
-		st.timer:stop()
-	else
-		st.timer = assert(uv.new_timer(), "failed to create timer")
-	end
-	st.timer:start(
-		config.debounce_ms,
-		0,
-		vim.schedule_wrap(function()
-			schedule_diff(buf, false, false)
-		end)
-	)
+	st.debounced_diff()
 end
 
 -- Initial fetch of base + head + path_data. Path data failure is non-fatal:
@@ -251,7 +240,9 @@ local function bootstrap_state(buf, ctx, done)
 			staged_hunks = {},
 			line_signs = {},
 			staged_line_signs = {},
-			timer = nil,
+			debounced_diff = Util.debounce(config.debounce_ms, function()
+				schedule_diff(buf, false, false)
+			end),
 			running = false,
 			dirty = nil,
 		}
@@ -350,10 +341,7 @@ function M.detach(buf)
 	if not st then
 		return
 	end
-	if st.timer then
-		st.timer:stop()
-		st.timer:close()
-	end
+	st.debounced_diff:close()
 	state[buf] = nil
 	repo.invalidate(buf)
 	signs.clear(buf)
@@ -408,7 +396,7 @@ end
 ---@param opts Beast.Git.PreviewOpts?
 function M.preview_hunk(opts)
 	local vs, ve = require("beast.libs.git.visual").range()
-	if vs then
+	if vs and ve then
 		return require("beast.libs.git.preview").open_for_range(vs, ve, opts)
 	end
 	require("beast.libs.git.preview").open_for_current_line(opts)

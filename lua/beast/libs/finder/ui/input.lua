@@ -11,13 +11,13 @@ local SPINNER_INTERVAL_MS = 80
 
 ---@class Beast.Finder.InputView : Beast.View
 ---@field ns integer
----@field _timer uv.uv_timer_t|nil
+---@field _debounced Beast.Util.Debouncer|nil
 ---@field _spinner_timer uv.uv_timer_t|nil
 ---@field _spinner_frame integer
 ---@field _spinner_extmark integer|nil
 local InputView = View:extend(function(obj, ns)
 	obj.ns = ns
-	obj._timer = nil
+	obj._debounced = nil
 	obj._spinner_timer = nil
 	obj._spinner_frame = 0
 	obj._spinner_extmark = nil
@@ -61,7 +61,6 @@ function M.create(on_change, total_w, total_h, win_row, win_col, title, debounce
 	Util.wo(win, "winhl", "Normal:BeastFinderInputNormal,FloatBorder:BeastFinderBorder,FloatTitle:BeastFinderInputTitle")
 
 	local view = InputView(buf, win, ns)
-	view._timer = vim.uv.new_timer()
 
 	-- Set prompt prefix so the buffer line contains the prefix text
 	local prefix = config.prompt_prefix
@@ -79,23 +78,18 @@ function M.create(on_change, total_w, total_h, win_row, win_col, title, debounce
 	end
 
 	local db_ms = debounce_ms or config.debounce.normal_ms
+	view._debounced = Util.debounce(db_ms, function()
+		-- stylua: ignore
+		if not view:is_valid() then return end
+		local text = M.get_text(view)
+		on_change(text)
+	end)
 	vim.api.nvim_create_autocmd({ "TextChangedI", "TextChanged" }, {
 		buffer = buf,
 		callback = function()
-			-- stylua: ignore
-      if not view._timer or view._timer:is_closing() then return end
-
-			view._timer:stop()
-			view._timer:start(
-				db_ms,
-				0,
-				vim.schedule_wrap(function()
-          -- stylua: ignore
-          if not view:is_valid() then return end
-					local text = M.get_text(view)
-					on_change(text)
-				end)
-			)
+			if view._debounced then
+				view._debounced()
+			end
 		end,
 	})
 
@@ -103,11 +97,10 @@ function M.create(on_change, total_w, total_h, win_row, win_col, title, debounce
 		buffer = buf,
 		once = true,
 		callback = function()
-			if view._timer and not view._timer:is_closing() then
-				view._timer:stop()
-				view._timer:close()
+			if view._debounced then
+				view._debounced:close()
+				view._debounced = nil
 			end
-			view._timer = nil
 
 			M.stop_spinner(view)
 		end,

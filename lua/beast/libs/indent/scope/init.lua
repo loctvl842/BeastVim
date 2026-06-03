@@ -13,7 +13,8 @@ local find_by_treesitter = require("beast.libs.indent.scope.treesitter").find
 ---@type table<integer, Beast.Indent.Scope[]?>
 local active = {}
 
-local debounce_timer = assert((vim.uv or vim.loop).new_timer())
+---@type Beast.Util.Debouncer?
+local debounced_update = nil
 
 local M = {}
 
@@ -84,15 +85,12 @@ end
 
 ---@param is_excluded fun(buf: integer): boolean
 function M.update(is_excluded)
-	debounce_timer:stop()
-	debounce_timer:start(
-		config.scope.debounce,
-		0,
-		vim.schedule_wrap(function()
+	if not debounced_update then
+		debounced_update = Util.debounce(config.scope.debounce, function(excluded_fn)
 			local win = vim.api.nvim_get_current_win()
 			local buf = vim.api.nvim_get_current_buf()
 
-			if is_excluded(buf) then
+			if excluded_fn(buf) then
 				active[win] = nil
 				return
 			end
@@ -119,7 +117,8 @@ function M.update(is_excluded)
 			end
 			vim.api.nvim__redraw({ flush = true })
 		end)
-	)
+	end
+	debounced_update(is_excluded)
 end
 
 -- ── Draw (called from decoration provider) ─────────────────────────
