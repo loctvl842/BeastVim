@@ -171,8 +171,8 @@ function M.create(parsed)
 	local opts = parsed.opts
 	opts.align = opts.align or "center"
 
-	local backdrop_buf = Buffer.new("beast-backdrop")
-	local main_buf = Buffer.new("beast-confirm")
+	local backdrop_buf = View.buf.new("beast-backdrop")
+	local main_buf = View.buf.new("beast-confirm")
 
 	local backdrop_win = vim.api.nvim_open_win(backdrop_buf, false, {
 		relative = "editor",
@@ -185,8 +185,8 @@ function M.create(parsed)
 		zindex = 100,
 	})
 
-	Util.wo(backdrop_win, "winhighlight", "Normal:BeastConfirmBackdrop,EndOfBuffer:BeastConfirmBackdrop")
-	Util.wo(backdrop_win, "winblend", config.ui.backdrop)
+	View.win.wo(backdrop_win, "winhighlight", "Normal:BeastConfirmBackdrop,EndOfBuffer:BeastConfirmBackdrop")
+	View.win.wo(backdrop_win, "winblend", config.ui.backdrop)
 
 	local width, height, row, col, btn_width = calc_main_geometry(parsed)
 	-- Store computed btn_width back for render
@@ -203,7 +203,7 @@ function M.create(parsed)
 		zindex = 101,
 	})
 
-	Util.wo(main_win, "winhighlight", "Normal:BeastConfirmNormal,FloatBorder:BeastConfirmBorder")
+	View.win.wo(main_win, "winhighlight", "Normal:BeastConfirmNormal,FloatBorder:BeastConfirmBorder")
 	vim.wo[main_win].cursorline = false
 	vim.wo[main_win].number = false
 	vim.wo[main_win].relativenumber = false

@@ -40,7 +40,7 @@ function M.create(row, col, width, height, title)
 		zindex = 101,
 	})
 
-	Util.wo(win, "winhl", "Normal:BeastFinderNormal,FloatBorder:BeastFinderBorder,FloatTitle:BeastFinderInputTitle")
+	View.win.wo(win, "winhl", "Normal:BeastFinderNormal,FloatBorder:BeastFinderBorder,FloatTitle:BeastFinderInputTitle")
 
 	return FzfView(buf, win, ns)
 end

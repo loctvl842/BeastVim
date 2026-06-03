@@ -55,9 +55,9 @@ _G.Util = {
 		end,
 	},
 }
-_G.Buffer = {
-	delete = function() end,
-}
+_G.View = setmetatable({
+	buf = { delete = function() end },
+}, { __index = function() return function() end end })
 
 -- Open multiple buffers to simulate a realistic tabline.
 local test_files = {

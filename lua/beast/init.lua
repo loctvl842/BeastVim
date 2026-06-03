@@ -37,7 +37,7 @@ function M.setup(opts)
 	_G.Util = require("beast.util")
 	_G.Palette = require("beast.palette")
 	_G.Key = require("beast.libs.key")
-	_G.Buffer = require("beast.libs.buf")
+	_G.View = require("beast.libs.view")
 	_G.Icon = require("beast.icon")
 
 	Palette.setup()
@@ -55,7 +55,7 @@ function M.setup(opts)
 
 	Key.setup(cfg.key)
 
-	Key.safe_set("n", "<leader>d", Buffer.delete, { desc = "Close current buffer", group = "Buffer" })
+	Key.safe_set("n", "<leader>d", View.buf.delete, { desc = "Close current buffer", group = "Buffer" })
 
 	-- Notification
 	local notify = require("beast.libs.notify")
@@ -132,8 +132,8 @@ function M.setup(opts)
 		event = "BufReadPost",
     -- stylua: ignore
     keys = {
-      { "]c", function() require("beast.libs.git").next_hunk() end, mode = "n", desc = "Next hunk", group = "Git" },
-      { "[c", function() require("beast.libs.git").prev_hunk() end, mode = "n", desc = "Previous hunk", group = "Git" },
+      { "]c", function() require("beast.libs.git").next_hunk({ target = "all" }) end, mode = "n", desc = "Next hunk", group = "Git" },
+      { "[c", function() require("beast.libs.git").prev_hunk({ target = "all" }) end, mode = "n", desc = "Previous hunk", group = "Git" },
       { "<leader>gp", function() require("beast.libs.git").preview_hunk() end, mode = { "n", "x" }, desc = "Preview hunk(s)", group = "Git" },
       { "<leader>gs", function() require("beast.libs.git").stage_hunk() end, mode = { "n", "x" }, desc = "Stage hunk (toggle)", group = "Git" },
       { "<leader>gu", function() require("beast.libs.git").unstage_hunk() end, mode = { "n", "x" }, desc = "Unstage hunk (explicit)", group = "Git" },

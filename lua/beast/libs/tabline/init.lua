@@ -154,7 +154,7 @@ function M.setup(opts)
 	function _G.beast_tabline_buffer_click(bufnr, _, button, _)
 		if button == "m" then
 			vim.schedule(function()
-				pcall(Buffer.delete, { buf = bufnr })
+				pcall(View.buf.delete, { buf = bufnr })
 			end)
 		elseif button == "l" then
 			vim.api.nvim_set_current_buf(bufnr)
@@ -164,7 +164,7 @@ function M.setup(opts)
 	function _G.beast_tabline_close_click(bufnr, _, button, _)
 		if button == "l" then
 			vim.schedule(function()
-				pcall(Buffer.delete, { buf = bufnr })
+				pcall(View.buf.delete, { buf = bufnr })
 			end)
 		end
 	end

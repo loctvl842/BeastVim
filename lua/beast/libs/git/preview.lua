@@ -397,7 +397,7 @@ end
 ---@param title (string|table)?  optional title shown in the float border (string or chunks list)
 ---@return integer buf, integer win
 local function open_float(body, hls, gutters, width, gutter_w, source_ft, source_win, anchor_lnum, title)
-	local buf = Buffer.new("")
+	local buf = View.buf.new("")
 	api.nvim_buf_set_lines(buf, 0, -1, false, body)
 	vim.bo[buf].modifiable = false
 	vim.bo[buf].readonly = true

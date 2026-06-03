@@ -56,7 +56,7 @@ end
 ---@param on_cancel fun()                called on escape / leave
 ---@param cleanup fun()?                 extra cleanup before restoring focus
 local function open_float(row, col, width, initial, on_confirm, on_cancel, cleanup)
-	Util.wo(state.view.win, "cursorline", false)
+	View.win.wo(state.view.win, "cursorline", false)
 	local exp_win = state.view.win
 
 	local input_buf = vim.api.nvim_create_buf(false, true)
@@ -98,7 +98,7 @@ local function open_float(row, col, width, initial, on_confirm, on_cancel, clean
 		if closed then return end
 		closed = true
 		vim.cmd("stopinsert")
-		Util.wo(state.view.win, "cursorline", true)
+		View.win.wo(state.view.win, "cursorline", true)
 
 		if vim.api.nvim_win_is_valid(input_win) then
 			vim.api.nvim_win_close(input_win, true)

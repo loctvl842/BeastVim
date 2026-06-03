@@ -35,7 +35,7 @@ local M = {}
 ---@param debounce_ms? integer override debounce interval
 ---@param border? table border chars
 function M.create(on_change, total_w, total_h, win_row, win_col, title, debounce_ms, border)
-	local buf = Buffer.new("beast-finder-input")
+	local buf = View.buf.new("beast-finder-input")
 	vim.bo[buf].buftype = "prompt"
 
 	local ns = vim.api.nvim_create_namespace("beast-finder-input")
@@ -57,8 +57,8 @@ function M.create(on_change, total_w, total_h, win_row, win_col, title, debounce
 		zindex = 103,
 	})
 
-	Util.wo(win, "cursorline", false)
-	Util.wo(win, "winhl", "Normal:BeastFinderInputNormal,FloatBorder:BeastFinderBorder,FloatTitle:BeastFinderInputTitle")
+	View.win.wo(win, "cursorline", false)
+	View.win.wo(win, "winhl", "Normal:BeastFinderInputNormal,FloatBorder:BeastFinderBorder,FloatTitle:BeastFinderInputTitle")
 
 	local view = InputView(buf, win, ns)
 

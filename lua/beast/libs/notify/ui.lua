@@ -30,7 +30,7 @@ local M = {}
 ---@param slot_row integer
 ---@return Beast.Notify.View
 function M.create(record, slot_row)
-	local buf = Buffer.new("beast-notify")
+	local buf = View.buf.new("beast-notify")
 	local width, height = record:dimensions()
 
 	local win = vim.api.nvim_open_win(buf, false, {
@@ -46,9 +46,9 @@ function M.create(record, slot_row)
 		zindex = 200,
 		noautocmd = true,
 	})
-	Util.wo(win, "winhighlight", "Normal:BeastNotifyNormal,FloatBorder:BeastNotifyBorder")
-	Util.wo(win, "wrap", false)
-	Util.wo(win, "winblend", 100) -- start transparent
+	View.win.wo(win, "winhighlight", "Normal:BeastNotifyNormal,FloatBorder:BeastNotifyBorder")
+	View.win.wo(win, "wrap", false)
+	View.win.wo(win, "winblend", 100) -- start transparent
 
 	local ns = vim.api.nvim_create_namespace("beastvim_notify_" .. record.id)
 	local view = NotifView(buf, win, ns, record)

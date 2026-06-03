@@ -107,8 +107,8 @@ start_buf = function(buf)
 	if config.fold.enable then
 		local win = vim.fn.bufwinid(buf)
 		if win ~= -1 then
-			Util.wo(win, "foldmethod", "expr")
-			Util.wo(win, "foldexpr", "v:lua.vim.treesitter.foldexpr()")
+			View.win.wo(win, "foldmethod", "expr")
+			View.win.wo(win, "foldexpr", "v:lua.vim.treesitter.foldexpr()")
 		end
 	end
 

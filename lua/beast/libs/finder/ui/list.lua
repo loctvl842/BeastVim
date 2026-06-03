@@ -29,7 +29,7 @@ local M = {}
 ---@param border? table border chars
 ---@return Beast.Finder.ListView
 function M.create(win_row, win_col, win_w, win_h, border)
-	local buf = Buffer.new("beast-finder-list")
+	local buf = View.buf.new("beast-finder-list")
 	local ns = vim.api.nvim_create_namespace("beast-finder-list")
 
 	local win = vim.api.nvim_open_win(buf, false, {
@@ -43,9 +43,9 @@ function M.create(win_row, win_col, win_w, win_h, border)
 		zindex = 101,
 	})
 
-	Util.wo(win, "cursorline", true)
-	Util.wo(win, "scrolloff", 0)
-	Util.wo(win, "winhl", "Normal:BeastFinderNormal,FloatBorder:BeastFinderBorder,CursorLine:BeastFinderListCursorLine")
+	View.win.wo(win, "cursorline", true)
+	View.win.wo(win, "scrolloff", 0)
+	View.win.wo(win, "winhl", "Normal:BeastFinderNormal,FloatBorder:BeastFinderBorder,CursorLine:BeastFinderListCursorLine")
 
 	return ListView(buf, win, ns)
 end

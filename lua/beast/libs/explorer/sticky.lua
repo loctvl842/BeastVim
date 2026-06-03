@@ -47,7 +47,7 @@ local ZINDEX = 30
 ---@param n integer
 local function set_scrolloff(n)
 	if state.view and state.view:is_valid() then
-		Util.wo(state.view.win, "scrolloff", n)
+		View.win.wo(state.view.win, "scrolloff", n)
 	end
 end
 
@@ -225,7 +225,7 @@ end
 ---@param height integer
 ---@return boolean ok
 local function open_float(width, height)
-	local buf = Buffer.new("beast-explorer-sticky")
+	local buf = View.buf.new("beast-explorer-sticky")
 	local ns = vim.api.nvim_create_namespace("beastvim_explorer_sticky")
 
 	local ok, win = pcall(vim.api.nvim_open_win, buf, false, {
@@ -246,9 +246,9 @@ local function open_float(width, height)
 		return false
 	end
 
-	Util.wo(win, "winhighlight", "Normal:BeastExplorerStickyBg")
-	Util.wo(win, "wrap", false)
-	Util.wo(win, "winblend", 0)
+	View.win.wo(win, "winhighlight", "Normal:BeastExplorerStickyBg")
+	View.win.wo(win, "wrap", false)
+	View.win.wo(win, "winblend", 0)
 
 	state.sticky = StickyView(buf, win, ns)
 	return true

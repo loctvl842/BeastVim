@@ -69,7 +69,7 @@ function M:new(source_name, opts)
 		items = {},
 		matched = {},
 		filter = Filter({ cwd = opts.cwd }),
-		main_win = Util.find_normal_win(),
+		main_win = View.win.find_normal(),
 		source = source_name,
 		_preview = has_preview,
 		highlight_preview = is_live,

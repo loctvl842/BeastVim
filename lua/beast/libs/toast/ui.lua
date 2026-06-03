@@ -36,7 +36,7 @@ local M = {}
 ---@param bottom_row integer  row of the bottom edge (SE anchor)
 ---@return Beast.Toast.View
 function M.create(record, bottom_row)
-	local buf = Buffer.new("beast-toast")
+	local buf = View.buf.new("beast-toast")
 
 	local width, height = record:dimensions()
 
@@ -53,9 +53,9 @@ function M.create(record, bottom_row)
 		zindex = 200,
 		noautocmd = true,
 	})
-	Util.wo(win, "wrap", false)
-	Util.wo(win, "winhl", "Normal:BeastToastNormal")
-	Util.wo(win, "winblend", 100) -- start transparent; fade_in animates to 0
+	View.win.wo(win, "wrap", false)
+	View.win.wo(win, "winhl", "Normal:BeastToastNormal")
+	View.win.wo(win, "winblend", 100) -- start transparent; fade_in animates to 0
 
 	local ns = vim.api.nvim_create_namespace("beastvim_toast_" .. record.id)
 	return ToastView(buf, win, ns, record)
