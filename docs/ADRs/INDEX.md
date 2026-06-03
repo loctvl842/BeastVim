@@ -26,3 +26,4 @@
 | [022](022-native-git-library-replaces-gitsigns.md) | Native Git Library Replaces gitsigns.nvim | Accepted | 2026-06-01 |
 | [023](023-vim-text-diff-backend.md) | `vim.text.diff` (with `vim.diff` fallback) as Diff Backend | Accepted | 2026-06-01 |
 | [024](024-beast-git-signs-namespace.md) | Distinct `beast_git_signs` Namespace for Coexistence | Accepted | 2026-06-01 |
+| [025](025-native-key-popup-replaces-which-key.md) | Native Press-and-Wait Popup Replaces which-key.nvim | Accepted | 2026-06-03 |

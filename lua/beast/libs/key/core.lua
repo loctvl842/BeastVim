@@ -34,7 +34,8 @@ local EVENTS = {
 
 M.managed = {}
 
--- Internal: emit a User autocommand when managed keys change, this is needed to attach new keys to which-key.nvim
+-- Internal: emit a User autocommand when managed keys change. Downstream
+-- subscribers (e.g. lua/beast/libs/key/popup.lua) listen for cache invalidation.
 ---@param action 'keymap:set'|'keymap:del'|'keymap:label'
 ---@param keys Beast.Keymap
 ---@param buf? integer|boolean
@@ -108,6 +109,15 @@ function M.set(keys, buffer)
 
 	vim.keymap.set(keys.mode, keys.lhs, keys.rhs, opts)
 
+	-- Normalise buffer identity so downstream consumers (e.g. popup index) can
+	-- determine which buffer this map lives on. `true` / `0` mean "current
+	-- buffer" at set-time — resolve to the actual bufnr.
+	if buffer == true or buffer == 0 then
+		keys.buffer = vim.api.nvim_get_current_buf()
+	elseif type(buffer) == "number" then
+		keys.buffer = buffer
+	end
+
 	-- Store the full keymap object for later export
 	M.managed[keys.id] = keys
 	emit_changed(EVENTS.SET, keys, buffer)
@@ -149,7 +159,8 @@ function M.safe_set(mode, lhs, rhs, opts)
 		elseif rhs ~= nil then
 			M.set(km, opts.buffer)
 		else
-			-- Label/group only: track for exporters (e.g., which-key), but don't set a mapping
+			-- Label/group only: track in the registry for the popup index, but
+			-- don't register an actual keymap with Neovim.
 			M.managed[km.id] = km
 			emit_changed(EVENTS.LBL, km, opts.buffer)
 		end

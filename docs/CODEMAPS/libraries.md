@@ -159,21 +159,24 @@ API: `Toast(message, level, opts)`
 
 ---
 
-## key — Keybinding Viewer & Manager
+## key — Keybinding Viewer, Manager & Press-and-Wait Popup
 
 ```
 key/
 ├── init.lua       ← proxy to core, setup()
-├── config.lua     ← readonly config, UI dimensions
-├── core.lua       ← safe_set, managed keymaps registry
+├── config.lua     ← readonly config, UI + popup dimensions
+├── core.lua       ← safe_set, managed keymaps registry (+ BeastKeysChanged emit)
 ├── api.lua        ← show/hide/query operations
 ├── state.lua      ← active view, mode, filter
-├── ui.lua         ← floating window + backdrop
-├── highlights.lua ← BeastKey* groups
+├── ui.lua         ← floating window + backdrop (full-screen browser)
+├── popup.lua      ← Helix-style press-and-wait popup (replaces which-key)
+├── highlights.lua ← BeastKey* groups (incl. BeastKeyPopup*)
 └── builtin.lua    ← default keymaps (scroll, pin, etc.)
 ```
 
-API: `Key.safe_set(mode, lhs, rhs, opts)`, `Key.managed`
+API: `Key.safe_set(mode, lhs, rhs, opts)`, `Key.managed`. Popup is enabled by
+default via `config.popup.enabled = true`; opt out with
+`Key.setup({ popup = { enabled = false } })`.
 
 ---
 
