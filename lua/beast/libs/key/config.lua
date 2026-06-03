@@ -5,10 +5,40 @@
 ---@field label_hl string
 ---@field on_press string
 
+---@class Beast.Key.PopupWinConfig
+---@field width { min: integer, max: integer }
+---@field height { min: integer, max: number } -- max is integer rows or 0<n<=1 ratio of editor height
+---@field border string|string[]
+---@field anchor "NW"|"NE"|"SW"|"SE"
+---@field padding [integer, integer] -- {row, col}
+---@field title_pos "left"|"center"|"right"
+
+---@class Beast.Key.PopupConfig
+---@field enabled boolean
+---@field triggers string[]
+---@field modes string[]
+---@field delay integer -- ms before popup appears (0 = Helix-style immediate)
+---@field win Beast.Key.PopupWinConfig
+
 ---@class Beast.Key.Config
 ---@field mappings? (Beast.KeymapSpec|Beast.KeymapSpec[]|string|string[])[]
+---@field popup? Beast.Key.PopupConfig
 local defaults = {
 	mappings = {},
+	popup = {
+		enabled = true,
+		triggers = { "<leader>", "<localleader>" },
+		modes = { "n", "x" },
+		delay = 0,
+		win = {
+			width = { min = 30, max = 60 },
+			height = { min = 4, max = 0.6 },
+			border = "rounded",
+			anchor = "SE",
+			padding = { 0, 1 },
+			title_pos = "left",
+		},
+	},
 	ui = {
 		width = 0.7,
 		height = 0.7,
