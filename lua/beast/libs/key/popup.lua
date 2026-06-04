@@ -33,7 +33,6 @@ local PopupView = View:extend()
 ---@field sequence string[]      -- keys pressed *after* the trigger (translated)
 ---@field bufnr integer          -- buffer the popup was opened from
 ---@field win_before integer
----@field was_visual boolean
 ---@field count? integer         -- captured v:count at start
 ---@field register? string       -- captured v:register at start
 ---@field done? boolean          -- set by close_window so deferred callbacks no-op
@@ -500,11 +499,10 @@ local function suspend_and_feed(state, keys)
 	end
 	registered = {}
 
-	-- Build the prefix to restore: register, count, "gv" for visual mode.
+	-- Build the prefix to restore: register and count. Visual selection is
+	-- preserved naturally because we never leave visual mode while the popup
+	-- is open (popup window is non-focusable and not entered).
 	local prefix = ""
-	if state.was_visual then
-		prefix = "gv" .. prefix
-	end
 	if state.count and state.count > 0 then
 		prefix = prefix .. tostring(state.count)
 	end
@@ -599,17 +597,13 @@ function M.start(mode, trigger)
 		sequence = {},
 		bufnr = vim.api.nvim_get_current_buf(),
 		win_before = vim.api.nvim_get_current_win(),
-		was_visual = mode == "x" or mode == "v" or mode == "s",
 		count = vim.v.count,
 		register = vim.v.register,
 	}
 
-	-- Visual: leaving normal-mode collapses the selection. Stash and we will
-	-- replay via `gv` in suspend_and_feed.
-	if state.was_visual then
-		-- Force-leave visual so getcharstr operates in normal mode; gv re-selects.
-		vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<Esc>", true, true, true), "nx", false)
-	end
+	-- Visual selection is preserved across the popup: the floating window is
+	-- non-focusable and opened with enter=false, so the cursor stays in the
+	-- user's window and visual mode remains active while getcharstr blocks.
 
 	-- Run the modal loop under xpcall so any error still tears down the
 	-- floating window cleanly and lets the trigger be re-registered.
@@ -618,18 +612,11 @@ function M.start(mode, trigger)
 
 	if not ok then
 		vim.notify("[beast.key.popup] error: " .. tostring(feed), vim.log.levels.ERROR)
-		-- Re-select visual selection so the user isn't dropped into normal mode.
-		if state.was_visual then
-			vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("gv", true, true, true), "n", false)
-		end
 		return
 	end
 
 	if feed and feed ~= "" then
 		suspend_and_feed(state, feed)
-	elseif state.was_visual then
-		-- Cancelled: restore the user's visual selection.
-		vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("gv", true, true, true), "n", false)
 	end
 end
 
@@ -681,7 +668,6 @@ M._internal = {
 			sequence = sequence or {},
 			bufnr = vim.api.nvim_get_current_buf(),
 			win_before = vim.api.nvim_get_current_win(),
-			was_visual = false,
 		}
 		render(state)
 		close_window(state)
