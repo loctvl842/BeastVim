@@ -400,3 +400,22 @@ This dev spec introduces architectural decisions worth recording once committed:
 - **Native port of `windows.nvim` instead of vendoring** — mirrors the precedent of
   `scroll` (native port of `snacks.scroll`) and `git` (native vs `gitsigns.nvim`).
   Reinforces the "zero plugin deps for editor-level UX" rule.
+
+---
+
+## Completed: 2026-06-05
+
+All 6 phases shipped:
+
+- **Phase 1** (9304aac) — `animate.tween` extracted as shared primitive.
+- **Phase 2** (6e6c85a) — `frame.lua`/`layout.lua`/`resize.lua`/`win.lua`/`config.lua`: pure layout math, headless-verified.
+- **Phase 3** (5558c2e) — `state.lua` + `init.lua`: maximize/restore/equalize public API, WinEnter guard autocmd, user commands.
+- **Phase 4** (f2abad6) — `autocmds.lua`: autowidth wiring, enable/disable/toggle.
+- **Phase 5** (e4cbbb2) — `animate.lua`: tweened resize with single-flight cancel-and-restart.
+- **Phase 6** (db87052) — `health.lua`, `packer.lazy` wiring, `option.lua` settings, codemaps refreshed.
+
+End-to-end smoke (NVIM_APPNAME=BeastVim, 3-way vsplit):
+- focused width 30 → maximize → 58 (full editor minus siblings' winminwidth) → restore → exact 30.
+- `:checkhealth beast.libs.window` clean.
+
+ADRs to be added: extracting `animate.tween` as shared timing primitive; native-port-over-plugin precedent for windows.nvim (deferred — capture next time a related decision is documented).
