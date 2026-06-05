@@ -1,5 +1,12 @@
 # Dev Spec: Fast Highlight Reload Pipeline
 
+> **Status: Completed (Phase 1 + 2) — 2026-06-05.** Phase 3 (JSON cache) intentionally **skipped**.
+> Cold-path reload landed at **853 µs** (baseline 1108 µs, target < 1 ms), so the
+> warm-path cache investment was not justified versus its stale-cache risks. The
+> dispatcher shape is cache-ready if/when the trade-off shifts. See ADR-026.
+>
+> Commits: `53b1116` (Phase 1 — Util.mod), `8e27575` (Phase 2 — M.get + dispatcher).
+
 ## Summary
 
 Adopt two patterns from `tokyonight.nvim` to make BeastVim's `ColorScheme` refresh
