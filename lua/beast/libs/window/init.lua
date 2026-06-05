@@ -45,13 +45,18 @@ local function alive(snap)
 	return out
 end
 
----Apply resize data. In Phase 5 this dispatches to `animate.run` when enabled.
+---Apply resize data. Dispatches to `animate.run` when animation is enabled,
+---otherwise falls back to immediate `resize.apply`.
 ---@param data Beast.Window.WinResizeData[]
 local function apply(data)
 	if vim.tbl_isempty(data) then
 		return
 	end
-	resize.apply(data)
+	if config.animation.enable then
+		require("beast.libs.window.animate").run(data)
+	else
+		resize.apply(data)
+	end
 end
 
 ---@return boolean
