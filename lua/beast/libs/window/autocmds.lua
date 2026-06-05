@@ -26,13 +26,17 @@ local curbufnr = nil
 ---@type boolean  Flag from WinNew → consumed by the next BufWinEnter.
 local new_window = false
 
----Apply data with whatever transport is active. Phase 5 will swap to animate.run.
+---Apply data with whatever transport is active.
 ---@param data Beast.Window.WinResizeData[]
 local function apply_resize(data)
 	if vim.tbl_isempty(data) then
 		return
 	end
-	resize.apply(data)
+	if config.animation.enable then
+		require("beast.libs.window.animate").run(data)
+	else
+		resize.apply(data)
+	end
 end
 
 ---@return boolean
@@ -140,6 +144,14 @@ function M.register()
 			if id then
 				state.cursor_virtcol[id] = nil
 			end
+			require("beast.libs.window.animate").finish()
+		end,
+	})
+
+	api.nvim_create_autocmd("TabLeave", {
+		group = aug,
+		callback = function()
+			require("beast.libs.window.animate").finish()
 		end,
 	})
 end
