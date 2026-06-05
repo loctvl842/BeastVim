@@ -36,10 +36,10 @@ function M.setup(opts)
 	require("beast.option")
 
 	_G.Util = require("beast.util")
-	_G.Palette = require("beast.palette")
-	_G.Key = require("beast.libs.key")
-	_G.View = require("beast.libs.view")
-	_G.Icon = require("beast.icon")
+	_G.Palette = Util.mod("beast.palette")
+	_G.Key = Util.mod("beast.libs.key")
+	_G.View = Util.mod("beast.libs.view")
+	_G.Icon = Util.mod("beast.icon")
 
 	Palette.setup()
 
@@ -306,7 +306,7 @@ function M.reload_highlights()
 		-- stylua: ignore
 		if not package.loaded[parent] then goto continue end
 		package.loaded[mod_name] = nil
-		pcall(require, mod_name)
+		pcall(Util.mod, mod_name)
 		::continue::
 	end
 end
