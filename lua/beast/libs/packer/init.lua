@@ -1,17 +1,29 @@
 -- stylua: ignore start
-local cmd_trigger       = require("beast.libs.packer.triggers.cmd")
 local config            = require("beast.libs.packer.config")
 local event_trigger     = require("beast.libs.packer.triggers.event")
-local filetype_trigger  = require("beast.libs.packer.triggers.filetype")
 local import            = require("beast.libs.packer.import")
 local keys_trigger      = require("beast.libs.packer.triggers.keys")
 local module_trigger    = require("beast.libs.packer.triggers.module")
-local operation         = require("beast.libs.packer.operation")
-local path_trigger      = require("beast.libs.packer.triggers.path")
 local profile           = require("beast.libs.packer.profile")
 local state             = require("beast.libs.packer.state")
-local ui                = require("beast.libs.packer.ui")
 -- stylua: ignore end
+
+-- Lazy submodules. Loaded on first use; require cache makes repeat calls free.
+-- - operation / ui  → only fire inside PackChanged autocmd handlers (install/update)
+-- - cmd / path / filetype triggers → only used when a spec opts in
+local function _lazy(mod)
+	local cached
+	return function()
+		if not cached then cached = require(mod) end
+		return cached
+	end
+end
+
+local operation         = _lazy("beast.libs.packer.operation")
+local ui                = _lazy("beast.libs.packer.ui")
+local cmd_trigger       = _lazy("beast.libs.packer.triggers.cmd")
+local filetype_trigger  = _lazy("beast.libs.packer.triggers.filetype")
+local path_trigger      = _lazy("beast.libs.packer.triggers.path")
 
 local M = {}
 
@@ -270,12 +282,13 @@ function M.setup(opts)
 
 			-- Start tracking operation AFTER user confirms
 			if kind == "install" or kind == "update" then
-				operation.start(name, kind)
+				operation().start(name, kind)
 				-- Open UI once on first operation; refresh for subsequent ones
-				if not ui.is_open() then
-					ui.open()
+				local _ui = ui()
+				if not _ui.is_open() then
+					_ui.open()
 				else
-					ui.refresh()
+					_ui.refresh()
 				end
 			end
 		end,
@@ -288,8 +301,8 @@ function M.setup(opts)
 			-- Complete tracking after operation finishes
 			if kind == "install" or kind == "update" then
 				state.installed_plugins[name] = true
-				operation.complete(name, true, kind == "install" and "installed" or "updated")
-				ui.refresh()
+				operation().complete(name, true, kind == "install" and "installed" or "updated")
+				ui().refresh()
 				local spec = state.plugins[name]
 				if spec and spec.build then
 					local dir = vim.fn.stdpath("data") .. "/site/pack/core/opt/" .. name
@@ -310,8 +323,8 @@ function M.setup(opts)
 				-- Remove from loaded_plugins if present
 				state.loaded_plugins[name] = nil
 				-- Clear any operation status
-				operation.status[name] = nil
-				ui.refresh()
+				operation().status[name] = nil
+				ui().refresh()
 			else
 				error("Unknown PackChanged kind: " .. tostring(kind))
 			end
@@ -344,15 +357,16 @@ function M.setup(opts)
 			installed[p.spec.name] = true
 		end
 
-		for plugin_name, _ in pairs(operation.status) do
+		local op = operation()
+		for plugin_name, _ in pairs(op.status) do
 			if not installed[plugin_name] then
-				operation.complete(plugin_name, false, string.format("Failed to install plugin '%s' | error: %s", plugin_name, tostring(packadd_err)))
+				op.complete(plugin_name, false, string.format("Failed to install plugin '%s' | error: %s", plugin_name, tostring(packadd_err)))
 			end
 		end
 		vim.notify("vim.pack.add failed:\n" .. tostring(packadd_err), vim.log.levels.ERROR, { title = "BeastVim" })
 		return
 	else
-		operation.clear_completed()
+		operation().clear_completed()
 	end
 
 	-- Step 5: Load eager plugins and run their config
@@ -378,7 +392,7 @@ function M.setup(opts)
 
 		-- Command triggers
 		if lazy_config.cmd then
-			cmd_trigger.setup(spec, lazy_config.cmd, state.load)
+			cmd_trigger().setup(spec, lazy_config.cmd, state.load)
 		end
 
 		-- Keymap triggers
@@ -398,12 +412,12 @@ function M.setup(opts)
 
 		-- Filetype triggers
 		if lazy_config.filetype then
-			filetype_trigger.setup(spec, lazy_config.filetype, state.load)
+			filetype_trigger().setup(spec, lazy_config.filetype, state.load)
 		end
 
 		-- Path pattern triggers
 		if lazy_config.path then
-			path_trigger.setup(spec, lazy_config.path, state.load)
+			path_trigger().setup(spec, lazy_config.path, state.load)
 		end
 
 		::continue::
@@ -457,7 +471,7 @@ function M.lazy(mod, opts)
 	end
 
 	if opts.filetype then
-		filetype_trigger.setup(spec, opts.filetype, do_load)
+		filetype_trigger().setup(spec, opts.filetype, do_load)
 	end
 end
 
