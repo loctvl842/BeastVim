@@ -1,3 +1,16 @@
+-- Disable built-in rtp plugins we don't use. Must run BEFORE Neovim sources
+-- $VIMRUNTIME/plugin/*.vim (i.e. before any require() that triggers init), so
+-- the guard `if exists("loaded_<name>")` short-circuits each script.
+-- See docs/development/benchmarking.md for the why.
+vim.g.loaded_gzip = 1
+vim.g.loaded_tarPlugin = 1
+vim.g.loaded_zipPlugin = 1
+vim.g.loaded_tohtml = 1
+vim.g.loaded_tutor = 1
+-- netrw: replaced by beast.libs.explorer (neo-tree backend)
+vim.g.loaded_netrw = 1
+vim.g.loaded_netrwPlugin = 1
+
 if os.getenv("BEAST_PROFILE") == "1" then
 	pcall(function()
 		local profile = require("beast.profile")
