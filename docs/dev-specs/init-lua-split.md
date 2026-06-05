@@ -1,5 +1,21 @@
 # Dev Spec: Split `beast/init.lua` Into Focused Modules
 
+> **Status: Phase 1 shipped (`0e50abe`). Phase 2 + 3 cancelled — 2026-06-05.**
+>
+> Phase 1 extracted `_G.*` registration + the highlight pipeline into
+> `lua/beast/setup/{globals,highlights}.lua`. `init.lua` shrank 358 → 258 lines.
+>
+> Phase 2 (move `packer.lazy(...)` blocks to `setup/lazy_libs.lua`) and Phase 3
+> (move keymaps + orchestrator) were cancelled after profiling showed they are
+> pure code-organization with no startup-time impact — the requires would just
+> shift files. The real startup-perf wins live elsewhere (eager top-level
+> requires of on-demand modules like `packer.ui`); those belong in
+> `util-mod-hot-paths.md`.
+>
+> Phase 1 ships independently and is sufficient as a seam for future highlight
+> work. The remaining body of `beast/init.lua` (258 lines, mostly declarative
+> `packer.lazy(...)` blocks) is left as one cohesive registration file.
+
 ## Summary
 
 `lua/beast/init.lua` is 314 lines and combines six unrelated responsibilities:
