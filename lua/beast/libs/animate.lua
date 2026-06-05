@@ -27,11 +27,34 @@ local function ease_in(t)
 	return t * t
 end
 
+---@param t number
+---@return number
+local function ease_in_out(t)
+	if t < 0.5 then
+		return 2 * t * t
+	end
+	return 1 - (-2 * t + 2) ^ 2 / 2
+end
+
+---@param t number
+---@return number
+local function linear(t)
+	return t
+end
+
 ---@param value number
 ---@return integer
 local function round(value)
 	return math.floor(value + 0.5)
 end
+
+---@type table<string, fun(t:number):number>
+M.easings = {
+	linear = linear,
+	ease_in = ease_in,
+	ease_out = ease_out,
+	ease_in_out = ease_in_out,
+}
 
 -- =============================================================================
 -- TYPES
@@ -50,8 +73,61 @@ end
 ---@field ease_size? fun(t:number):number
 ---@field ease_blend? fun(t:number):number
 
+---@class Beast.Animate.TweenOpts
+---@field frame_ms? integer
+
 -- =============================================================================
--- MODULE
+-- GENERIC TWEEN PRIMITIVE
+-- =============================================================================
+
+---Generic frame-loop tween. Calls `on_frame(t, frame, total_frames)` each tick
+---with `t` in [0,1] (raw linear progress — caller applies easing per axis).
+---Return `false` from `on_frame` to abort the tween (e.g. target became invalid);
+---`on_done` still fires once.
+---@param duration integer Total duration in ms.
+---@param on_frame fun(t:number, frame:integer, total:integer):boolean?
+---@param on_done? fun()
+---@param opts? Beast.Animate.TweenOpts
+function M.tween(duration, on_frame, on_done, opts)
+	opts = opts or {}
+	local frame_ms = opts.frame_ms or FRAME_MS
+	local total_frames = math.max(1, math.floor(duration / frame_ms))
+	local frame = 0
+	local done = false
+
+	local function finish()
+		if done then
+			return
+		end
+		done = true
+		if on_done then
+			on_done()
+		end
+	end
+
+	local function step()
+		if done then
+			return
+		end
+		frame = frame + 1
+		local t = math.min(frame / total_frames, 1)
+		local cont = on_frame(t, frame, total_frames)
+		if cont == false then
+			finish()
+			return
+		end
+		if frame < total_frames then
+			vim.defer_fn(step, frame_ms)
+		else
+			finish()
+		end
+	end
+
+	vim.defer_fn(step, frame_ms)
+end
+
+-- =============================================================================
+-- FLOAT WINDOW ANIMATOR (thin wrapper over M.tween)
 -- =============================================================================
 
 ---Animate float window config fields over time.
@@ -66,36 +142,24 @@ function M.run(win, from, to, duration, on_done, opts)
 	opts = opts or {}
 
 	local blend_delay = opts.blend_delay or 0
-	local ease_pos = opts.ease_pos or ease_out
-	local ease_size = opts.ease_size or ease_in
-	local ease_blend = opts.ease_blend or ease_out
+	local ease_pos_fn = opts.ease_pos or ease_out
+	local ease_size_fn = opts.ease_size or ease_in
+	local ease_blend_fn = opts.ease_blend or ease_out
 
 	local has_geometry = (from.row ~= nil and to.row ~= nil)
 		or (from.col ~= nil and to.col ~= nil)
 		or (from.width ~= nil and to.width ~= nil)
 		or (from.height ~= nil and to.height ~= nil)
 
-	local total_frames = math.max(1, math.floor(duration / FRAME_MS))
-	local frame = 0
-
-	local function step()
+	M.tween(duration, function(t)
 		if not vim.api.nvim_win_is_valid(win) then
-			if on_done then
-				on_done()
-			end
-			return
+			return false
 		end
-
-		frame = frame + 1
-		local t = math.min(frame / total_frames, 1)
 
 		if has_geometry then
 			local ok, conf = pcall(vim.api.nvim_win_get_config, win)
 			if not ok then
-				if on_done then
-					on_done()
-				end
-				return
+				return false
 			end
 
 			local next_conf = {
@@ -107,20 +171,20 @@ function M.run(win, from, to, duration, on_done, opts)
 				height = conf.height,
 			}
 
+			local pos_t = ease_pos_fn(t)
+			local size_t = ease_size_fn(t)
+
 			if from.row ~= nil and to.row ~= nil then
-				next_conf.row = round(lerp(from.row, to.row, ease_pos(t)))
+				next_conf.row = round(lerp(from.row, to.row, pos_t))
 			end
-
 			if from.col ~= nil and to.col ~= nil then
-				next_conf.col = round(lerp(from.col, to.col, ease_pos(t)))
+				next_conf.col = round(lerp(from.col, to.col, pos_t))
 			end
-
 			if from.width ~= nil and to.width ~= nil then
-				next_conf.width = math.max(1, round(lerp(from.width, to.width, ease_size(t))))
+				next_conf.width = math.max(1, round(lerp(from.width, to.width, size_t)))
 			end
-
 			if from.height ~= nil and to.height ~= nil then
-				next_conf.height = math.max(1, round(lerp(from.height, to.height, ease_size(t))))
+				next_conf.height = math.max(1, round(lerp(from.height, to.height, size_t)))
 			end
 
 			vim.api.nvim_win_set_config(win, next_conf)
@@ -133,21 +197,13 @@ function M.run(win, from, to, duration, on_done, opts)
 			elseif t <= blend_delay then
 				blend_t = 0
 			else
-				blend_t = ease_blend((t - blend_delay) / (1 - blend_delay))
+				blend_t = ease_blend_fn((t - blend_delay) / (1 - blend_delay))
 			end
 
 			local blend = math.max(0, math.min(100, round(lerp(from.blend, to.blend, blend_t))))
 			vim.wo[win].winblend = blend
 		end
-
-		if frame < total_frames then
-			vim.defer_fn(step, FRAME_MS)
-		elseif on_done then
-			on_done()
-		end
-	end
-
-	vim.defer_fn(step, FRAME_MS)
+	end, on_done)
 end
 
 return M
