@@ -324,7 +324,7 @@ end
 ---@param opts? Beast.Statuscolumn.Config
 function M.setup(opts)
 	config.setup(opts)
-	require("beast.libs.statuscolumn.highlights")
+	require("beast").apply_highlights("beast.libs.statuscolumn.highlights")
 	rebuild_ignore_sets()
 	rebuild_slots()
 	fold.refresh_glyphs(config.fold and config.fold.icons or nil)

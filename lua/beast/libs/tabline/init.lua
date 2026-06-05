@@ -148,7 +148,7 @@ end
 ---@param opts? Beast.Tabline.Config
 function M.setup(opts)
 	config.setup(opts)
-	require("beast.libs.tabline.highlights")
+	require("beast").apply_highlights("beast.libs.tabline.highlights")
 
 	-- Register click handlers (overwriting is safe on re-setup)
 	function _G.beast_tabline_buffer_click(bufnr, _, button, _)

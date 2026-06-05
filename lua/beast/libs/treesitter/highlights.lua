@@ -1,5 +1,3 @@
-local p = Palette.get()
-
 -- BeastVim treesitter highlights — diversified, role-based.
 --
 -- READABILITY RULES (enforced uniformly):
@@ -30,179 +28,164 @@ local p = Palette.get()
 -- We avoid `link = "Constant"` / "Boolean" / etc. — those are unstyled under
 -- `default`, so linking collapses captures to plain text.
 
-Util.colors.set_hl("", {
-	-- Identifiers ---------------------------------------------------------
-	-- Plain text for variables and members keeps focus on calls and values.
-	["@variable"] = { fg = p.text },
-	["@variable.member"] = { fg = p.text },
-	["@variable.parameter"] = { fg = p.text, italic = true },
-	["@variable.parameter.builtin"] = { fg = p.text, italic = true },
-	["@variable.builtin"] = { fg = p.accent1, italic = true },
-	["@property"] = { fg = p.text },
-	["@field"] = { fg = p.text },
+local M = {}
 
-	-- Values --------------------------------------------------------------
-	-- Coral so numerics/constants pop against cyan callables. Italic on
-	-- builtin variants marks "language-defined".
-	["@constant"] = { fg = p.accent1 },
-	["@constant.builtin"] = { fg = p.accent1, italic = true },
-	["@constant.macro"] = { fg = p.accent5 },
-	["@boolean"] = { fg = p.accent1 },
-	["@number"] = { fg = p.accent1 },
-	["@number.float"] = { fg = p.accent1 },
+function M.get()
+	local p = Palette.get()
+	return {
+		-- Identifiers ---------------------------------------------------------
+		["@variable"] = { fg = p.text },
+		["@variable.member"] = { fg = p.text },
+		["@variable.parameter"] = { fg = p.text, italic = true },
+		["@variable.parameter.builtin"] = { fg = p.text, italic = true },
+		["@variable.builtin"] = { fg = p.accent1, italic = true },
+		["@property"] = { fg = p.text },
+		["@field"] = { fg = p.text },
 
-	-- Strings -------------------------------------------------------------
-	["@string"] = { fg = p.accent3 },
-	["@string.documentation"] = { fg = p.dimmed3, italic = true },
-	["@string.escape"] = { fg = p.accent1 },
-	["@string.regexp"] = { fg = p.accent3, italic = true },
-	["@string.special"] = { fg = p.accent1 },
-	["@string.special.symbol"] = { fg = p.accent1 },
-	["@string.special.url"] = { fg = p.accent4, underline = true },
-	["@character"] = { fg = p.accent3 },
-	["@character.printf"] = { fg = p.accent1 },
-	["@character.special"] = { fg = p.accent1 },
+		-- Values --------------------------------------------------------------
+		["@constant"] = { fg = p.accent1 },
+		["@constant.builtin"] = { fg = p.accent1, italic = true },
+		["@constant.macro"] = { fg = p.accent5 },
+		["@boolean"] = { fg = p.accent1 },
+		["@number"] = { fg = p.accent1 },
+		["@number.float"] = { fg = p.accent1 },
 
-	-- Types & shape -------------------------------------------------------
-	-- Yellow forms a coherent "shape" family: types, constructors,
-	-- decorators, attributes — everything that describes/annotates a value.
-	["@type"] = { fg = p.accent2 },
-	["@type.builtin"] = { fg = p.accent2, italic = true },
-	["@type.definition"] = { fg = p.accent2 },
-	["@type.qualifier"] = { fg = p.accent2, italic = true },
-	["@constructor"] = { fg = p.accent2 },
-	["@attribute"] = { fg = p.accent2, italic = true },
-	["@attribute.builtin"] = { fg = p.accent2, italic = true },
-	["@annotation"] = { fg = p.accent2, italic = true },
+		-- Strings -------------------------------------------------------------
+		["@string"] = { fg = p.accent3 },
+		["@string.documentation"] = { fg = p.dimmed3, italic = true },
+		["@string.escape"] = { fg = p.accent1 },
+		["@string.regexp"] = { fg = p.accent3, italic = true },
+		["@string.special"] = { fg = p.accent1 },
+		["@string.special.symbol"] = { fg = p.accent1 },
+		["@string.special.url"] = { fg = p.accent4, underline = true },
+		["@character"] = { fg = p.accent3 },
+		["@character.printf"] = { fg = p.accent1 },
+		["@character.special"] = { fg = p.accent1 },
 
-	-- Functions -----------------------------------------------------------
-	-- Cyan is the workhorse callable color. Macros go to sky because they
-	-- behave more like keywords / preprocessor than runtime calls.
-	["@function"] = { fg = p.accent4 },
-	["@function.builtin"] = { fg = p.accent4, italic = true },
-	["@function.call"] = { link = "@function" },
-	["@function.method"] = { link = "@function" },
-	["@function.method.call"] = { link = "@function" },
-	["@function.macro"] = { fg = p.accent5 },
+		-- Types & shape -------------------------------------------------------
+		["@type"] = { fg = p.accent2 },
+		["@type.builtin"] = { fg = p.accent2, italic = true },
+		["@type.definition"] = { fg = p.accent2 },
+		["@type.qualifier"] = { fg = p.accent2, italic = true },
+		["@constructor"] = { fg = p.accent2 },
+		["@attribute"] = { fg = p.accent2, italic = true },
+		["@attribute.builtin"] = { fg = p.accent2, italic = true },
+		["@annotation"] = { fg = p.accent2, italic = true },
 
-	-- Modules & labels ----------------------------------------------------
-	-- Modules share sky with import keywords but stay plain (vs italic) so
-	-- `import os` reads as keyword-italic + module-plain.
-	["@module"] = { fg = p.accent5 },
-	["@module.builtin"] = { fg = p.accent5, italic = true },
-	["@namespace.builtin"] = { fg = p.accent1, italic = true },
-	["@label"] = { fg = p.accent1 },
+		-- Functions -----------------------------------------------------------
+		["@function"] = { fg = p.accent4 },
+		["@function.builtin"] = { fg = p.accent4, italic = true },
+		["@function.call"] = { link = "@function" },
+		["@function.method"] = { link = "@function" },
+		["@function.method.call"] = { link = "@function" },
+		["@function.macro"] = { fg = p.accent5 },
 
-	-- Operators & punctuation ---------------------------------------------
-	-- Quiet. They are scaffolding; never compete with identifiers.
-	["@operator"] = { fg = p.dimmed1 },
-	["@punctuation.bracket"] = { fg = p.dimmed1 },
-	["@punctuation.delimiter"] = { fg = p.dimmed2 },
-	["@punctuation.special"] = { fg = p.dimmed2 },
+		-- Modules & labels ----------------------------------------------------
+		["@module"] = { fg = p.accent5 },
+		["@module.builtin"] = { fg = p.accent5, italic = true },
+		["@namespace.builtin"] = { fg = p.accent1, italic = true },
+		["@label"] = { fg = p.accent1 },
 
-	-- Keywords ------------------------------------------------------------
-	-- Structure (sky italic) — declarations, scope, imports, modifiers.
-	["@keyword"] = { fg = p.accent5, italic = true },
-	["@keyword.modifier"] = { link = "@keyword" },
-	["@keyword.coroutine"] = { link = "@keyword" },
-	["@keyword.import"] = { link = "@keyword" },
-	["@keyword.export"] = { link = "@keyword" },
-	["@keyword.directive"] = { link = "@keyword" },
-	["@keyword.directive.define"] = { link = "@keyword" },
-	["@keyword.operator"] = { link = "@operator" },
+		-- Operators & punctuation ---------------------------------------------
+		["@operator"] = { fg = p.dimmed1 },
+		["@punctuation.bracket"] = { fg = p.dimmed1 },
+		["@punctuation.delimiter"] = { fg = p.dimmed2 },
+		["@punctuation.special"] = { fg = p.dimmed2 },
 
-	-- Shape keywords (yellow italic) — `static`, `const`, type-position.
-	-- Italic keeps them in the keyword visual family.
-	["@keyword.storage"] = { fg = p.accent2, italic = true },
-	["@keyword.type"] = { fg = p.accent2, italic = true },
+		-- Keywords ------------------------------------------------------------
+		["@keyword"] = { fg = p.accent5, italic = true },
+		["@keyword.modifier"] = { link = "@keyword" },
+		["@keyword.coroutine"] = { link = "@keyword" },
+		["@keyword.import"] = { link = "@keyword" },
+		["@keyword.export"] = { link = "@keyword" },
+		["@keyword.directive"] = { link = "@keyword" },
+		["@keyword.directive.define"] = { link = "@keyword" },
+		["@keyword.operator"] = { link = "@operator" },
 
-	-- Flow break (coral italic) — `return`, `if`, `for`, `raise`, `break`,
-	-- and `def`/`function` (introduces a new callable, also a flow pivot).
-	["@keyword.return"] = { fg = p.accent1, italic = true },
-	["@keyword.conditional"] = { fg = p.accent1, italic = true },
-	["@keyword.repeat"] = { fg = p.accent1, italic = true },
-	["@keyword.exception"] = { fg = p.accent1, italic = true },
-	["@keyword.function"] = { fg = p.accent1, italic = true },
-	["@keyword.debug"] = { fg = p.accent1, italic = true },
-	["@keyword.conditional.ternary"] = { link = "@operator" },
+		["@keyword.storage"] = { fg = p.accent2, italic = true },
+		["@keyword.type"] = { fg = p.accent2, italic = true },
 
-	-- Comments ------------------------------------------------------------
-	["@comment"] = { link = "Comment" },
-	["@comment.documentation"] = { link = "Comment" },
-	-- Diagnostic-coded comment markers: red=err, yellow=warn, blue=info,
-	-- green=hint. todo stays cyan (action item, not severity).
-	["@comment.error"] = { fg = p.accent1 },
-	["@comment.warning"] = { fg = p.accent2 },
-	["@comment.todo"] = { fg = p.accent4 },
-	["@comment.hint"] = { fg = p.accent3 },
-	["@comment.info"] = { fg = p.accent5 },
-	["@comment.note"] = { fg = p.accent5 },
+		["@keyword.return"] = { fg = p.accent1, italic = true },
+		["@keyword.conditional"] = { fg = p.accent1, italic = true },
+		["@keyword.repeat"] = { fg = p.accent1, italic = true },
+		["@keyword.exception"] = { fg = p.accent1, italic = true },
+		["@keyword.function"] = { fg = p.accent1, italic = true },
+		["@keyword.debug"] = { fg = p.accent1, italic = true },
+		["@keyword.conditional.ternary"] = { link = "@operator" },
 
-	-- Markup --------------------------------------------------------------
-	["@markup"] = { link = "@none" },
-	["@markup.strong"] = { bold = true },
-	["@markup.italic"] = { italic = true },
-	["@markup.emphasis"] = { italic = true },
-	["@markup.strikethrough"] = { strikethrough = true },
-	["@markup.underline"] = { underline = true },
-	["@markup.heading"] = { fg = p.accent5, bold = true },
-	["@markup.quote"] = { fg = p.text, italic = true },
-	["@markup.math"] = { fg = p.accent1 },
-	["@markup.environment"] = { fg = p.accent5 },
-	["@markup.environment.name"] = { fg = p.accent2 },
-	["@markup.link"] = { fg = p.accent4 },
-	["@markup.link.label"] = { fg = p.accent1 },
-	["@markup.link.label.symbol"] = { fg = p.accent1 },
-	["@markup.link.url"] = { fg = p.accent4, underline = true },
-	["@markup.raw"] = { fg = p.accent3 },
-	["@markup.raw.markdown_inline"] = { fg = p.accent5, bg = p.dark1 },
-	["@markup.list"] = { fg = p.accent5 },
-	["@markup.list.checked"] = { fg = p.accent3 },
-	["@markup.list.unchecked"] = { fg = p.dimmed2 },
-	["@markup.list.markdown"] = { fg = p.accent6, bold = true },
-	["@none"] = {},
+		-- Comments ------------------------------------------------------------
+		["@comment"] = { link = "Comment" },
+		["@comment.documentation"] = { link = "Comment" },
+		["@comment.error"] = { fg = p.accent1 },
+		["@comment.warning"] = { fg = p.accent2 },
+		["@comment.todo"] = { fg = p.accent4 },
+		["@comment.hint"] = { fg = p.accent3 },
+		["@comment.info"] = { fg = p.accent5 },
+		["@comment.note"] = { fg = p.accent5 },
 
-	-- Diff ----------------------------------------------------------------
-	["@diff.plus"] = { link = "DiffAdd" },
-	["@diff.minus"] = { link = "DiffDelete" },
-	["@diff.delta"] = { link = "DiffChange" },
+		-- Markup --------------------------------------------------------------
+		["@markup"] = { link = "@none" },
+		["@markup.strong"] = { bold = true },
+		["@markup.italic"] = { italic = true },
+		["@markup.emphasis"] = { italic = true },
+		["@markup.strikethrough"] = { strikethrough = true },
+		["@markup.underline"] = { underline = true },
+		["@markup.heading"] = { fg = p.accent5, bold = true },
+		["@markup.quote"] = { fg = p.text, italic = true },
+		["@markup.math"] = { fg = p.accent1 },
+		["@markup.environment"] = { fg = p.accent5 },
+		["@markup.environment.name"] = { fg = p.accent2 },
+		["@markup.link"] = { fg = p.accent4 },
+		["@markup.link.label"] = { fg = p.accent1 },
+		["@markup.link.label.symbol"] = { fg = p.accent1 },
+		["@markup.link.url"] = { fg = p.accent4, underline = true },
+		["@markup.raw"] = { fg = p.accent3 },
+		["@markup.raw.markdown_inline"] = { fg = p.accent5, bg = p.dark1 },
+		["@markup.list"] = { fg = p.accent5 },
+		["@markup.list.checked"] = { fg = p.accent3 },
+		["@markup.list.unchecked"] = { fg = p.dimmed2 },
+		["@markup.list.markdown"] = { fg = p.accent6, bold = true },
+		["@none"] = {},
 
-	-- Tags (HTML/JSX) -----------------------------------------------------
-	-- Tag names coral (they're values-in-markup-territory), attributes
-	-- yellow (they're shape — describing the tag).
-	["@tag"] = { fg = p.accent1 },
-	["@tag.builtin"] = { fg = p.accent1, italic = true },
-	["@tag.attribute"] = { fg = p.accent2 },
-	["@tag.delimiter"] = { fg = p.dimmed2 },
+		-- Diff ----------------------------------------------------------------
+		["@diff.plus"] = { link = "DiffAdd" },
+		["@diff.minus"] = { link = "DiffDelete" },
+		["@diff.delta"] = { link = "DiffChange" },
 
-	-- Misc ----------------------------------------------------------------
-	["@conceal"] = { link = "Conceal" },
+		-- Tags (HTML/JSX) -----------------------------------------------------
+		["@tag"] = { fg = p.accent1 },
+		["@tag.builtin"] = { fg = p.accent1, italic = true },
+		["@tag.attribute"] = { fg = p.accent2 },
+		["@tag.delimiter"] = { fg = p.dimmed2 },
 
-	-- LSP semantic tokens -------------------------------------------------
-	["@lsp.type.comment"] = {},
-	["@lsp.type.enum"] = { link = "@type" },
-	["@lsp.type.interface"] = { link = "@type" },
-	["@lsp.type.keyword"] = { link = "@keyword" },
-	["@lsp.type.namespace"] = { link = "@module" },
-	["@lsp.type.parameter"] = { link = "@variable.parameter" },
-	["@lsp.type.property"] = { link = "@property" },
-	["@lsp.typemod.function.defaultLibrary"] = { link = "@function.builtin" },
-	["@lsp.typemod.operator.injected"] = { link = "@operator" },
-	["@lsp.typemod.string.injected"] = { link = "@string" },
-	["@lsp.typemod.variable.constant"] = { link = "@constant" },
-	["@lsp.typemod.variable.defaultLibrary"] = { link = "@variable.builtin" },
-	["@lsp.typemod.variable.injected"] = { link = "@variable" },
+		-- Misc ----------------------------------------------------------------
+		["@conceal"] = { link = "Conceal" },
 
-	-- Language-specific ---------------------------------------------------
-	-- Lua: `{ }` table constructor should read as bracket, not value.
-	["@constructor.lua"] = { link = "@punctuation.bracket" },
-	-- TSX/JSX: keep components (sky/structural) vs DOM tags (coral) distinct.
-	["@constructor.tsx"] = { fg = p.accent5 },
-	["@tag.tsx"] = { fg = p.accent1 },
-	["@tag.javascript"] = { fg = p.accent1 },
-	-- Markdown
-	["@conceal.markdown"] = { fg = p.dimmed2 },
-	["@markup.raw.block.markdown"] = { bg = p.dark1 },
-	["@markup.raw.delimiter.markdown"] = { fg = p.dimmed2 },
-	["@punctuation.special.markdown"] = { fg = p.accent6, bold = true },
-})
+		-- LSP semantic tokens -------------------------------------------------
+		["@lsp.type.comment"] = {},
+		["@lsp.type.enum"] = { link = "@type" },
+		["@lsp.type.interface"] = { link = "@type" },
+		["@lsp.type.keyword"] = { link = "@keyword" },
+		["@lsp.type.namespace"] = { link = "@module" },
+		["@lsp.type.parameter"] = { link = "@variable.parameter" },
+		["@lsp.type.property"] = { link = "@property" },
+		["@lsp.typemod.function.defaultLibrary"] = { link = "@function.builtin" },
+		["@lsp.typemod.operator.injected"] = { link = "@operator" },
+		["@lsp.typemod.string.injected"] = { link = "@string" },
+		["@lsp.typemod.variable.constant"] = { link = "@constant" },
+		["@lsp.typemod.variable.defaultLibrary"] = { link = "@variable.builtin" },
+		["@lsp.typemod.variable.injected"] = { link = "@variable" },
+
+		-- Language-specific ---------------------------------------------------
+		["@constructor.lua"] = { link = "@punctuation.bracket" },
+		["@constructor.tsx"] = { fg = p.accent5 },
+		["@tag.tsx"] = { fg = p.accent1 },
+		["@tag.javascript"] = { fg = p.accent1 },
+		["@conceal.markdown"] = { fg = p.dimmed2 },
+		["@markup.raw.block.markdown"] = { bg = p.dark1 },
+		["@markup.raw.delimiter.markdown"] = { fg = p.dimmed2 },
+		["@punctuation.special.markdown"] = { fg = p.accent6, bold = true },
+	}
+end
+
+return M

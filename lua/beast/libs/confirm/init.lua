@@ -105,7 +105,7 @@ local M = setmetatable({}, {
 
 ---@param opts? Beast.Confirm.Config
 function M.setup(opts)
-	require("beast.libs.confirm.highlights")
+	require("beast").apply_highlights("beast.libs.confirm.highlights")
 	config.setup(opts)
 end
 

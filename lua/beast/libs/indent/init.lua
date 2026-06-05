@@ -69,7 +69,7 @@ end
 ---@param opts? Beast.Indent.Config
 function M.setup(opts)
 	config.setup(opts)
-	require("beast.libs.indent.highlights")
+	require("beast").apply_highlights("beast.libs.indent.highlights")
 	vim.api.nvim_set_decoration_provider(ns, { on_win = on_win })
 	ensure_autocmds()
 	vim.schedule(function()

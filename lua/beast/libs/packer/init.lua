@@ -249,7 +249,7 @@ function M.setup(opts)
 		elseif type(spec.lazy) == "table" then
 			lazy_specs[spec.name] = spec
 		elseif spec.lazy == nil then -- lazy is nil - manual loading only
-      -- Do nothing
+			-- Do nothing
 		else
 			error("Invalid lazy value: " .. tostring(spec.lazy))
 		end
@@ -408,7 +408,7 @@ function M.setup(opts)
 
 		::continue::
 	end
-	require("beast.libs.packer.highlights")
+	require("beast").apply_highlights("beast.libs.packer.highlights")
 
 	-- Install module auto-loader
 	M.install_module_loader()

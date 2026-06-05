@@ -254,7 +254,7 @@ function M.setup(opts)
 		defer = true,
     -- stylua: ignore
 		keys = {
-			{ "<leader>z",  function() require("beast.libs.window").maximize() end, desc = "Zoom window", group = "Window" },
+			{ "<leader>zz",  function() require("beast.libs.window").maximize() end, desc = "Zoom window", group = "Window" },
 			{ "<leader>z=", function() require("beast.libs.window").equalize() end, desc = "Equalize windows", group = "Window" },
 		},
 		setup = function(window)
@@ -285,6 +285,7 @@ M.highlight_modules = {
 	"beast.libs.tabline.highlights",
 	"beast.libs.toast.highlights",
 	"beast.libs.indent.highlights",
+	"beast.libs.treesitter.highlights",
 }
 
 --- Highlight modules that are only needed for builtin colorschemes
@@ -294,20 +295,63 @@ local builtin_only_highlights = {
 	["beast.libs.treesitter.highlights"] = true,
 }
 
+--- Apply a single highlight module immediately. Used at lib `setup()` time
+--- so freshly-loaded libs see their highlights before the next ColorScheme
+--- event triggers a full `reload_highlights()`.
+---@param mod_name string e.g. "beast.libs.explorer.highlights"
+function M.apply_highlights(mod_name)
+	local ok, mod = pcall(Util.mod, mod_name)
+	if not (ok and type(mod) == "table" and type(mod.get) == "function") then
+		return
+	end
+	local ok_get, groups = pcall(mod.get)
+	if not (ok_get and type(groups) == "table") then
+		return
+	end
+	for group, hl in pairs(groups) do
+		vim.api.nvim_set_hl(0, group, hl)
+	end
+	if type(mod.post_apply) == "function" then
+		pcall(mod.post_apply)
+	end
+end
+
 --- Reload all Beast lib highlights.
 --- Skips modules whose parent lib hasn't been loaded yet.
 --- Skips treesitter highlights for third-party colorschemes.
+---
+--- Each highlight module returns `{ get(), post_apply?() }`. We collect groups
+--- from every gated module first, then push them via a single nvim_set_hl
+--- pass, then run any post_apply hooks (statusline redraw, icon cache, etc.).
 function M.reload_highlights()
 	local is_builtin = Palette.is_builtin_colorscheme()
+	local merged = {}
+	local post_hooks = {}
 	for _, mod_name in ipairs(M.highlight_modules) do
 		-- stylua: ignore
 		if not is_builtin and builtin_only_highlights[mod_name] then goto continue end
 		local parent = mod_name:gsub("%.highlights$", "")
 		-- stylua: ignore
 		if not package.loaded[parent] then goto continue end
-		package.loaded[mod_name] = nil
-		pcall(Util.mod, mod_name)
+		local ok, mod = pcall(Util.mod, mod_name)
+		if ok and type(mod) == "table" and type(mod.get) == "function" then
+			local ok_get, groups = pcall(mod.get)
+			if ok_get and type(groups) == "table" then
+				for group, hl in pairs(groups) do
+					merged[group] = hl
+				end
+			end
+			if type(mod.post_apply) == "function" then
+				post_hooks[#post_hooks + 1] = mod.post_apply
+			end
+		end
 		::continue::
+	end
+	for group, hl in pairs(merged) do
+		vim.api.nvim_set_hl(0, group, hl)
+	end
+	for _, hook in ipairs(post_hooks) do
+		pcall(hook)
 	end
 end
 

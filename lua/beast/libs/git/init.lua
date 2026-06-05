@@ -549,7 +549,7 @@ end
 ---@param opts? Beast.Git.Config
 function M.setup(opts)
 	config.setup(opts)
-	require("beast.libs.git.highlights")
+	require("beast").apply_highlights("beast.libs.git.highlights")
 	rebuild_ignore_sets()
 	ensure_autocmds()
 	-- Attach existing loaded buffers (lazy-load case).

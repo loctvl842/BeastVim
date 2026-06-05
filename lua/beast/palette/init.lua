@@ -141,7 +141,7 @@ function M.get()
 end
 
 function M.setup()
-	require("beast.palette.highlights")
+	require("beast").apply_highlights("beast.palette.highlights")
 end
 
 return M
