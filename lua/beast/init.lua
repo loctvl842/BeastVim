@@ -80,8 +80,7 @@ function M.setup(opts)
 
 	-- Breadcrumb / winbar (lazy — deferred past first screen update)
 	packer.lazy("beast.libs.breadcrumb", {
-		event = "BufEnter",
-		defer = true,
+		event = { name = "BufEnter", defer = true },
 		setup = function(breadcrumb)
 			breadcrumb.setup(cfg.breadcrumb or {})
 		end,
@@ -89,8 +88,7 @@ function M.setup(opts)
 
 	-- Tabline (lazy — deferred past first screen update)
 	packer.lazy("beast.libs.tabline", {
-		event = "VimEnter",
-		defer = true,
+		event = { name = "VimEnter", defer = true },
     -- stylua: ignore
 		keys = {
 			{ "[B", function() require("beast.libs.tabline").move_prev() end, { mode = "n", desc = "Move buffer prev", group = "Tabline" } },
@@ -110,15 +108,14 @@ function M.setup(opts)
 
 	-- Statuscolumn (lazy — deferred past first screen update)
 	packer.lazy("beast.libs.statuscolumn", {
-		event = "VimEnter",
-		defer = true,
+		event = { name = "VimEnter", defer = true },
 		setup = function(stc)
 			stc.setup({})
 		end,
 	})
 	-- Git (lazy — attaches per buffer on BufReadPost)
 	packer.lazy("beast.libs.git", {
-		event = "BufReadPost",
+		event = { name = "BufReadPost", defer = true },
     -- stylua: ignore
     keys = {
       { "]c", function() require("beast.libs.git").next_hunk({ target = "all" }) end, mode = "n", desc = "Next hunk", group = "Git" },
@@ -129,14 +126,11 @@ function M.setup(opts)
       { "<leader>gr", function() require("beast.libs.git").reset_hunk() end, mode = { "n", "x" }, desc = "Reset hunk", group = "Git" },
       { "<leader>g.", function() require("beast.libs.git").repeat_action() end, mode = "n", desc = "Repeat last git action", group = "Git" },
     },
-		defer = true,
 		setup = function(g)
 			g.setup({})
 		end,
 	})
 
-	vim.g.loaded_netrw = 1
-	vim.g.loaded_netrwPlugin = 1
 	-- Explorer (lazy — deferred to first <leader>e press or VimEnter with no file)
 	packer.lazy("beast.libs.explorer", {
 		keys = {
@@ -149,8 +143,7 @@ function M.setup(opts)
 				group = "Explorer",
 			},
 		},
-		event = "VimEnter",
-		defer = true,
+		event = { name = "VimEnter", defer = true },
 		setup = function(explorer)
 			explorer.setup(cfg.explorer)
 			-- Detect directory buffers from startup (e.g. `nvim ~/Downloads`),
@@ -173,8 +166,7 @@ function M.setup(opts)
 
 	-- Indent scope indicator (lazy — activate on first buffer with content)
 	packer.lazy("beast.libs.indent", {
-		event = "BufReadPost",
-		defer = true,
+		event = { name = "BufReadPost", defer = true },
 		setup = function(indent)
 			indent.setup(cfg.indent or {})
 		end,
@@ -182,8 +174,7 @@ function M.setup(opts)
 
 	-- Treesitter (lazy — enable builtin highlighting + fold on FileType)
 	packer.lazy("beast.libs.treesitter", {
-		event = "FileType",
-		defer = true,
+		event = { name = "FileType", defer = true },
 		setup = function(ts)
 			ts.setup(cfg.treesitter)
 			ts.enable()
@@ -191,7 +182,6 @@ function M.setup(opts)
 	})
 
 	packer.lazy("beast.libs.finder", {
-		defer = true,
 		setup = function(finder)
 			finder.setup(cfg.finder or {})
 		end,
@@ -229,8 +219,7 @@ function M.setup(opts)
 
 	-- Smooth viewport scrolling (lazy — activate after first buffer read)
 	packer.lazy("beast.libs.scroll", {
-		event = "BufReadPost",
-		defer = true,
+		event = { name = "BufReadPost", defer = true },
 		setup = function(scroll)
 			scroll.setup(cfg.scroll or {})
 		end,
@@ -238,8 +227,7 @@ function M.setup(opts)
 
 	-- Window auto-resize + maximize (lazy — needs a second window to be useful)
 	packer.lazy("beast.libs.window", {
-		event = "WinNew",
-		defer = true,
+		event = { name = "WinNew", defer = true },
     -- stylua: ignore
 		keys = {
 			{ "<leader>zz",  function() require("beast.libs.window").maximize() end, desc = "Zoom window", group = "Window" },
