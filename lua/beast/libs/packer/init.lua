@@ -419,14 +419,17 @@ end
 -- ================================
 
 ---@class Beast.Packer.LazyLibOpts
----@field event? string|string[] Event trigger(s)
----@field keys? Beast.KeymapSpec|Beast.KeymapSpec[]|string|string[] Key trigger(s)
----@field filetype? string|string[] Filetype trigger(s)
+---@field event? string|string[]|Beast.Packer.EventSpec|Beast.Packer.EventSpec[] Event trigger(s). Per-event `defer = true` available — see Beast.Packer.EventSpec.
+---@field keys? Beast.KeymapSpec|Beast.KeymapSpec[]|string|string[] Key trigger(s). Always sync — user is actively waiting.
+---@field filetype? string|string[] Filetype trigger(s). Always sync — render-critical.
 ---@field setup fun(lib: table) Called after require(mod), receives the module
----@field defer? boolean Wrap load in vim.schedule() to run after startup completes
 
 --- Lazy-load a Beast library using the same trigger infrastructure as plugins.
 --- Instead of packadd, the load action is require(mod) + opts.setup(lib).
+---
+--- NOTE: `defer` is per-event only (see Beast.Packer.EventSpec). Keys,
+--- filetype, cmd, module, and path triggers always load synchronously
+--- because the caller is actively awaiting the result.
 ---@param mod string Lua module path (e.g. "beast.libs.tabline")
 ---@param opts Beast.Packer.LazyLibOpts
 function M.lazy(mod, opts)
@@ -443,26 +446,18 @@ function M.lazy(mod, opts)
 		end
 	end
 
-	local function load_lib()
-		if opts.defer then
-			vim.schedule(do_load)
-		else
-			do_load()
-		end
-	end
-
 	local spec = { name = mod }
 
 	if opts.event then
-		event_trigger.setup(spec, opts.event, load_lib)
+		event_trigger.setup(spec, opts.event, do_load)
 	end
 
 	if opts.keys then
-		keys_trigger.setup(spec, opts.keys, load_lib)
+		keys_trigger.setup(spec, opts.keys, do_load)
 	end
 
 	if opts.filetype then
-		filetype_trigger.setup(spec, opts.filetype, load_lib)
+		filetype_trigger.setup(spec, opts.filetype, do_load)
 	end
 end
 
