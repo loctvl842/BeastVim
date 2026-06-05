@@ -7,6 +7,17 @@
 #     cold   — runs `sudo purge` before each run (true cold start)
 #     mixed  — no cache control, first run may be cold (default)
 #   APPNAME  — NVIM_APPNAME to benchmark (default: BeastVim)
+#
+# What this measures (and what it does NOT):
+#   The headline numbers in this script come from Neovim's `--startuptime`,
+#   which only timestamps events AFTER the nvim binary + libluajit are loaded.
+#   That means dyld/exec, shared-library cold reads, and process teardown are
+#   INVISIBLE to it — on a true cold start, these can be 300–400 ms on macOS
+#   that this script will not show. Use this for per-file diagnosis.
+#
+#   For wall-clock truth ("how long does the user wait?"), prefer hyperfine.
+#   If installed, a hyperfine section is appended at the end and results are
+#   exported as JSON for tracking over time.
 
 set -eu
 
@@ -185,10 +196,10 @@ hint()  { printf "  %-24s \033[2m%s\033[0m\n" "" "$1"; }
 head()  { printf "\n  \033[1m%s\033[0m\n" "$1"; hline; }
 dim()   { printf "\033[2m%s\033[0m" "$1"; }
 
-head "$APP Startup Benchmark ($RUNS runs, $MODE)"
+head "$APP Startup Benchmark ($RUNS runs, $MODE) — nvim-internal time only"
 case "$MODE" in
   warm)  hint "All runs measured after OS cache is primed (steady-state performance)" ;;
-  cold)  hint "Each run preceded by cache purge (worst-case first-open performance)" ;;
+  cold)  hint "Each run preceded by cache purge — but dyld/exec cost NOT measured" ;;
   mixed) hint "No cache control — run 1 may be cold, the rest benefit from warm cache" ;;
 esac
 row "Mean"                      "${MEAN} ms $(dim '· avg across all runs')"
@@ -200,16 +211,16 @@ if [ "$MODE" != "cold" ] && [ "$RUNS" -gt 1 ]; then
   row "Steady std"                "${WARM_STD} ms"
 fi
 
-head "Quality"
+head "Quality (nvim-internal — excludes dyld/exec; use hyperfine row below for wall-clock)"
 case "$MODE" in
   warm)
     row "Steady (${WARM_MEAN} ms)"  "$WARM_QUALITY $(dim "· runs 2–${RUNS}; target <50 ms")"
     ;;
   cold)
-    row "Cold  (${MEAN} ms)"     "$QUALITY $(dim '· all runs are cold; target <80 ms')"
+    row "Cold internal (${MEAN} ms)" "$QUALITY $(dim '· nvim-internal only; target <80 ms')"
     ;;
   mixed)
-    row "Cold  (${MEAN} ms)"     "$QUALITY $(dim '· includes priming artifact; target <80 ms')"
+    row "Cold internal (${MEAN} ms)" "$QUALITY $(dim '· nvim-internal only; target <80 ms')"
     if [ "$RUNS" -gt 1 ]; then
       row "Steady (${WARM_MEAN} ms)" "$WARM_QUALITY $(dim "· runs 2–${RUNS}; target <50 ms")"
     fi
@@ -231,3 +242,57 @@ head "Raw (ms)"
 printf "  "; echo "$TIMES_RAW" | awk '{printf "%.1f  ", $1}' | sed 's/  $//'
 echo ""
 hline
+
+# ── Wall-clock truth via hyperfine ──────────────────────────────────────
+# Hyperfine measures full process wall-time (including dyld/exec/teardown),
+# which is what the user actually waits for. Trust this number over the
+# nvim-internal stats above.
+if command -v hyperfine >/dev/null 2>&1; then
+  CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/beast-bench"
+  mkdir -p "$CACHE_DIR"
+  TS=$(date +%Y%m%d-%H%M%S)
+  JSON_PATH="$CACHE_DIR/startup-${APP}-${MODE}-${TS}.json"
+
+  head "Wall-clock (hyperfine, $RUNS runs) — trust this over the above"
+  case "$MODE" in
+    warm)
+      HF_PREPARE=""
+      HF_WARMUP="--warmup 3"
+      hint "Warmup runs prime OS cache; reports steady-state wall-clock"
+      ;;
+    cold)
+      # Reuse cached sudo timestamp from earlier purge_cache calls. If it
+      # has expired, the prepare command will fail and hyperfine will skip.
+      HF_PREPARE="--prepare 'sudo -n purge 2>/dev/null || sudo purge'"
+      HF_WARMUP="--warmup 0"
+      hint "Cache purged before each run; includes dyld/exec cost (true cold)"
+      ;;
+    mixed)
+      HF_PREPARE=""
+      HF_WARMUP="--warmup 0"
+      hint "No cache control; matches real first-launch experience after warmup"
+      ;;
+  esac
+
+  HF_CMD="env NVIM_APPNAME=\"$APP\" nvim --headless -c 'qa!'"
+  # shellcheck disable=SC2086
+  HF_OUT=$(eval hyperfine --shell=none --runs "$RUNS" $HF_WARMUP $HF_PREPARE \
+    --export-json "\"$JSON_PATH\"" \
+    "\"$HF_CMD\"" 2>&1)
+
+  HF_MEAN=$(echo "$HF_OUT" | awk '/Time \(mean/ { for(i=1;i<=NF;i++) if($i=="ms"){print $(i-1); exit} }')
+  HF_STD=$(echo "$HF_OUT"  | awk '/Time \(mean/ { c=0; for(i=1;i<=NF;i++) if($i=="ms"){c++; if(c==2){print $(i-1); exit}} }')
+  HF_RANGE=$(echo "$HF_OUT" | awk '/Range \(min/ { sub(/.*: */,""); sub(/  *[0-9]+ runs.*/,""); print }')
+
+  if [ -n "$HF_MEAN" ]; then
+    row "Wall-clock mean"          "${HF_MEAN} ms ± ${HF_STD} ms $(dim '· what the user waits for')"
+    row "Range"                    "${HF_RANGE}"
+    row "JSON"                     "$(dim "$JSON_PATH")"
+  else
+    row "hyperfine"                "(failed — see output below)"
+    echo "$HF_OUT" | sed 's/^/    /'
+  fi
+  hline
+else
+  printf "\n  \033[2m(install hyperfine for wall-clock measurements: brew install hyperfine)\033[0m\n"
+fi
