@@ -121,7 +121,7 @@ end
 
 function M.setup(opts)
 	config.setup(opts)
-	require("beast.libs.treesitter.highlights")
+	require("beast").apply_highlights("beast.libs.treesitter.highlights")
 end
 
 function M.enable()

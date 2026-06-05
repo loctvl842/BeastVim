@@ -19,7 +19,7 @@ local M = setmetatable({}, {
 })
 
 function M.setup(opts)
-	require("beast.libs.notify.highlights")
+	require("beast").apply_highlights("beast.libs.notify.highlights")
 	config.setup(opts)
 	vim.notify = M.notify
 end

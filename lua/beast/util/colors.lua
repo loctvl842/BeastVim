@@ -151,6 +151,22 @@ function M.set_hl(prefix, groups)
 	end
 end
 
+--- Build a prefixed highlights table without applying it. Used by
+--- `<lib>/highlights.lua` `M.get()` functions feeding the central dispatcher.
+---@param prefix string Prefix for highlight groups (e.g. "BeastFinder"). Empty for unprefixed (e.g. treesitter captures).
+---@param groups table<string, vim.api.keyset.highlight|{link:string}>
+---@return table<string, vim.api.keyset.highlight|{link:string}>
+function M.build(prefix, groups)
+	if prefix == "" then
+		return groups
+	end
+	local out = {}
+	for name, def in pairs(groups) do
+		out[prefix .. name] = def
+	end
+	return out
+end
+
 ---@class Beast.HighlightValue
 ---@field fg? string
 ---@field bg? string

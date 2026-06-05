@@ -154,7 +154,7 @@ end
 ---@param opts? Beast.Breadcrumb.Config
 function M.setup(opts)
 	config.setup(opts)
-	require("beast.libs.breadcrumb.highlights")
+	require("beast").apply_highlights("beast.libs.breadcrumb.highlights")
 
 	-- Reset cache on re-setup
 	state.cache = {}

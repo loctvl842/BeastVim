@@ -1,12 +1,17 @@
-local p = Palette.get()
+local M = {}
 
-Util.colors.set_hl("BeastNotify", {
-	Border = { bg = p.dimmed5, fg = p.background },
-	Normal = { bg = p.dimmed5, fg = p.dimmed2 },
+function M.get()
+	local p = Palette.get()
+	return Util.colors.build("BeastNotify", {
+		Border = { bg = p.dimmed5, fg = p.background },
+		Normal = { bg = p.dimmed5, fg = p.dimmed2 },
 
-	ERROR = { link = "DiagnosticError" },
-	WARN = { link = "DiagnosticWarn" },
-	INFO = { link = "DiagnosticInfo" },
-	DEBUG = { link = "DiagnosticHint" },
-	TRACE = { link = "Comment" },
-})
+		ERROR = { link = "DiagnosticError" },
+		WARN = { link = "DiagnosticWarn" },
+		INFO = { link = "DiagnosticInfo" },
+		DEBUG = { link = "DiagnosticHint" },
+		TRACE = { link = "Comment" },
+	})
+end
+
+return M

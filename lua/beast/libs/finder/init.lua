@@ -7,7 +7,7 @@ local query ---@type Beast.Finder.Query
 ---@param opts? Beast.Finder.Config
 function M.setup(opts)
 	require("beast.libs.finder.config").setup(opts)
-	require("beast.libs.finder.highlights")
+	require("beast").apply_highlights("beast.libs.finder.highlights")
 end
 
 ---@param source Beast.Finder.Source

@@ -89,7 +89,7 @@ function M.toggle(cwd)
 end
 
 function M.setup(opts)
-	require("beast.libs.explorer.highlights")
+	require("beast").apply_highlights("beast.libs.explorer.highlights")
 	config.setup(opts)
 end
 
