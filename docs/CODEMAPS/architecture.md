@@ -109,16 +109,29 @@ Palette.get / Palette.refresh
   → ColorScheme autocmd
     → Palette.refresh()
       → M.reload_highlights()
-        → for each module in M.highlight_modules:
-            skip if parent lib not loaded
-            skip builtin-only highlights (treesitter) when colorscheme is third-party
-            package.loaded[m] = nil
-            require(m)
+        ├── collect: for each module in M.highlight_modules
+        │     skip if parent lib not loaded
+        │     skip builtin-only highlights (treesitter) when colorscheme is third-party
+        │     mod = Util.mod(m)                ← fast loader, bypasses package.loaded
+        │     merge mod.get() into `merged`
+        │     queue mod.post_apply (if defined)
+        ├── apply: vim.api.nvim_set_hl(0, group, hl) for every entry in merged
+        └── post:  run queued post_apply hooks (redrawstatus, icon cache reset, …)
 ```
 
-`M.highlight_modules` includes: palette, confirm, explorer, finder, key, notify,
-packer, statusline, breadcrumb, tabline, toast, indent.
-Builtin-only (gated by `Palette.is_builtin_colorscheme()`): treesitter.
+Each `<lib>/highlights.lua` exposes a pure `M.get(): table<string, hl>` and
+optionally `M.post_apply()` for non-set_hl side effects (statusline cache
+clear, breadcrumb redraw, tabline icon cache + redrawtabline). The dispatcher
+applies all highlights in a single batched `nvim_set_hl` pass.
+
+Lib `setup()` calls `require("beast").apply_highlights("X.highlights")` for the
+first-load apply, which reuses the same get → set_hl → post_apply pipeline for
+a single module.
+
+`M.highlight_modules` includes: palette, confirm, explorer, finder, key,
+notify, packer, statusline, breadcrumb, tabline, toast, indent, treesitter,
+statuscolumn, git. Builtin-only (gated by `Palette.is_builtin_colorscheme()`):
+treesitter.
 
 ## Patterns
 
