@@ -394,3 +394,55 @@ batches. Two profiles: `animate` (200 ms total, 10 ms step) and `animate_repeat`
 and skipped (terminal handles it). Folds accounted for via `nvim_win_text_height`.
 
 Ports the design of `snacks.nvim`'s `snacks.scroll` natively — no plugin dependency.
+
+---
+
+## window — Auto-Width + Maximize/Restore Splits
+
+```
+window/
+├── init.lua       ← setup(opts), maximize/maximize_vertically/maximize_horizontally/equalize,
+│                    enable/disable/toggle, user commands, WinEnter maximize-guard
+├── config.lua     ← readonly singleton (autowidth, animation, ignore.{buftype,filetype})
+├── state.lua      ← per-tab maximized snapshot (keyed by tabpage), augroup handles,
+│                    cursor_virtcol cache, animation handle slot
+├── win.lua        ← bare-winid helpers: get/set width/height, is_floating, is_ignored,
+│                    get_wanted_width (textwidth + cfg.autowidth.winwidth, ft-aware,
+│                    supports fractional w: 0<w<1 = %columns, 1<w<2 = %textwidth)
+├── frame.lua      ← Frame layout tree from vim.fn.winlayout(): autowidth, maximize_window,
+│                    equalize_windows; fixed-axis caching; longest-row/column queries.
+│                    Plain-Lua metatable class (no middleclass)
+├── layout.lua     ← orchestrator returning WinResizeData[]:
+│                    autowidth(curwin), maximize_win(win, do_w, do_h), equalize_wins(do_w, do_h)
+├── resize.lua     ← apply(data) via nvim_win_set_width/height (pcall);
+│                    merge(width_data, height_data) by winid
+├── animate.lua    ← split-resize tween built on Beast.Animate.tween;
+│                    captures (w0, h0, dw, dh); snap-to-final on completion;
+│                    single-flight (cancel + restart on new run())
+├── autocmds.lua   ← BufWinEnter/WinEnter/WinNew/VimResized/WinClosed/TabLeave
+│                    driving layout.autowidth; single-flight via state.resizing_request;
+│                    vim.defer_fn(setup_layout, 10) on WinEnter so BufWinEnter wins
+│                    the race for new buffers
+└── health.lua     ← :checkhealth — modules, config, augroups, animation status, current layout
+```
+
+API: `window.setup(opts)`, `window.maximize()`, `window.maximize_vertically()`,
+`window.maximize_horizontally()`, `window.equalize()`, `window.enable/disable/toggle()`.
+User commands: `BeastWindowMaximize{,Vertically,Horizontally}`, `BeastWindowEqualize`,
+`BeastWindowEnableAutowidth/DisableAutowidth/ToggleAutowidth`.
+Per-buffer opt-out: `vim.b[buf].beast_window_disabled = true`.
+Per-session opt-out: `vim.g.beast_window_disabled = true`.
+Loaded via: `packer.lazy()` on `WinNew` + `<leader>z` / `<leader>z=` keys (deferred).
+
+### How autowidth picks a width
+
+1. Build a `Frame` tree from `vim.fn.winlayout()`.
+2. Find the leaf for the current window.
+3. Ask it for `wanted_width = textwidth + cfg.autowidth.winwidth` (filetype-aware).
+4. If the tree can fit it, grow that leaf and shrink non-fixed siblings toward
+   `winminwidth` (proportional by `get_longest_row` weight).
+5. If not, recursively `maximize_window` the leaf in its parent row.
+6. `THRESHOLD = 1` "breathing" suppression keeps ±1-cell jitter at bay.
+
+Ports the layout core from `anuvyklack/windows.nvim`, dropping `middleclass` and
+`animation.nvim` deps. Animation reuses the shared `beast.libs.animate.tween` primitive.

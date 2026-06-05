@@ -97,3 +97,8 @@ vim.cmd("set whichwrap+=<,>,[,]")
 vim.cmd([[set iskeyword+=-]])
 -- diable open fold with `l`
 vim.cmd([[set foldopen-=hor]])
+
+-- Window auto-resize defaults (consumed by beast.libs.window's autowidth)
+o.winwidth          = 30
+o.winminwidth       = 10
+o.equalalways       = true

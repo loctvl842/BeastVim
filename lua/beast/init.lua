@@ -12,6 +12,7 @@ local M = {}
 ---@field breadcrumb? Beast.Breadcrumb.Config
 ---@field scroll? Beast.Scroll.Config
 ---@field starter? Beast.Starter.Config
+---@field window? Beast.Window.Config
 local defaults = {
 	key = {},
 	notify = {},
@@ -244,6 +245,20 @@ function M.setup(opts)
 		defer = true,
 		setup = function(scroll)
 			scroll.setup(cfg.scroll or {})
+		end,
+	})
+
+	-- Window auto-resize + maximize (lazy — needs a second window to be useful)
+	packer.lazy("beast.libs.window", {
+		event = "WinNew",
+		defer = true,
+    -- stylua: ignore
+		keys = {
+			{ "<leader>z",  function() require("beast.libs.window").maximize() end, desc = "Zoom window", group = "Window" },
+			{ "<leader>z=", function() require("beast.libs.window").equalize() end, desc = "Equalize windows", group = "Window" },
+		},
+		setup = function(window)
+			window.setup(cfg.window or {})
 		end,
 	})
 
