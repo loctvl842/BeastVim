@@ -227,9 +227,23 @@ end
 -- AUTOWIDTH TOGGLES (Phase 4 wires the autocmds)
 -- =============================================================================
 
-function M.enable() end
-function M.disable() end
-function M.toggle() end
+function M.enable()
+	require("beast.libs.window.autocmds").register()
+	config.autowidth.enable = true
+end
+
+function M.disable()
+	require("beast.libs.window.autocmds").unregister()
+	config.autowidth.enable = false
+end
+
+function M.toggle()
+	if config.autowidth.enable then
+		M.disable()
+	else
+		M.enable()
+	end
+end
 
 -- =============================================================================
 -- SETUP + USER COMMANDS
@@ -246,12 +260,18 @@ local function register_commands()
 	cmd("BeastWindowMaximizeVertically", M.maximize_vertically, { bang = true })
 	cmd("BeastWindowMaximizeHorizontally", M.maximize_horizontally, { bang = true })
 	cmd("BeastWindowEqualize", M.equalize, { bang = true, desc = "Equalize window sizes" })
+	cmd("BeastWindowEnableAutowidth", M.enable, { bang = true })
+	cmd("BeastWindowDisableAutowidth", M.disable, { bang = true })
+	cmd("BeastWindowToggleAutowidth", M.toggle, { bang = true })
 end
 
 ---@param opts? Beast.Window.Config
 function M.setup(opts)
 	config.setup(opts)
 	register_commands()
+	if config.autowidth.enable then
+		require("beast.libs.window.autocmds").register()
+	end
 end
 
 return M
