@@ -20,6 +20,7 @@ function M.get()
 		HintDesc = { fg = p.dimmed1, bg = p.dark1 },
 		HintGroup = { fg = p.accent3, bg = p.dark1 },
 		HintSeparator = { fg = p.dimmed3, bg = p.dark1 },
+		HintHeader = { fg = p.dimmed3, bg = p.dark1, italic = true },
 	})
 end
 

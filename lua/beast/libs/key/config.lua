@@ -19,6 +19,7 @@
 ---@field delay integer -- ms before hint appears (0 = Helix-style immediate)
 ---@field win Beast.Key.HintWinConfig
 ---@field auto_derive_subtriggers boolean -- on fast-typed prefixes, drain typeahead and open hint at the deepest matched subtree
+---@field show_group_headers boolean -- render "── Group ──" separator rows between groups
 
 ---@class Beast.Key.VimBuiltinsConfig
 ---@field enabled boolean
@@ -34,7 +35,7 @@ local defaults = {
 	},
 	hint = {
 		enabled = true,
-		triggers = { "<leader>", "<localleader>", "[", "]" },
+		triggers = { "<leader>", "<localleader>", "[", "]", "c" },
 		modes = { "n", "x" },
 		delay = 0,
 		win = {
@@ -45,6 +46,7 @@ local defaults = {
 			title_pos = "left",
 		},
 		auto_derive_subtriggers = true,
+		show_group_headers = false,
 	},
 	cheatsheet = {
 		width = 0.7,
