@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780720587528,
+  "lastUpdate": 1780727722751,
   "repoUrl": "https://github.com/loctvl842/BeastVim",
   "entries": {
     "BeastVim Startup": [
@@ -175,6 +175,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "BeastVim startup (warm) max",
             "value": 232.46572600000002,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "committer": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "distinct": true,
+          "id": "7c87f0821261ff4c253f84e91b078831bd28bf26",
+          "message": "fix(git): anchor preview float to source window\n\nTreat preview.width = 'full' as the width of the source window (not the\nwhole editor) and offset the float left by the window's gutter so its\nborder sits flush with the window edge, overriding statuscolumn /\nsigncolumn / numberwidth.",
+          "timestamp": "2026-06-06T13:34:47+07:00",
+          "tree_id": "b6487004a89b1615b5fecb36aa9d5ec68e3f020f",
+          "url": "https://github.com/loctvl842/BeastVim/commit/7c87f0821261ff4c253f84e91b078831bd28bf26"
+        },
+        "date": 1780727722455,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "BeastVim startup (warm) mean",
+            "value": 52.752183349999996,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) stddev",
+            "value": 1.861581970701385,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) min",
+            "value": 50.420759000000004,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) max",
+            "value": 57.921957000000006,
             "unit": "ms"
           }
         ]
