@@ -7,7 +7,7 @@
 Fast. Measured. Opinionated.
 
 [![Neovim](https://img.shields.io/badge/Neovim-0.10+-57A143?logo=neovim&logoColor=white)](https://neovim.io)
-[![Startup](https://img.shields.io/badge/startup-20ms-success)](#performance-with-receipts)
+[![Startup](https://img.shields.io/badge/startup-38ms_wall-success)](#performance-with-receipts)
 [![Bench dashboard](https://img.shields.io/badge/bench-dashboard-blue?logo=githubpages&logoColor=white)](https://loctvl842.github.io/BeastVim/dev/bench/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](#license)
 
@@ -19,7 +19,7 @@ Fast. Measured. Opinionated.
 
 Most Neovim configs are plugin grab-bags that get slow as they grow. BeastVim flips the model: a small, opinionated core with **built-in UI** — `statusline`, `tabline`, `explorer`, `breadcrumb`, fuzzy finder, git signs, key hint — all measured by a real benchmark suite.
 
-- ⚡ **20 ms cold start.** Lazy-loaded, profile-tracked, regression-gated.
+- ⚡ **~38 ms wall-clock startup** (18 ms nvim-internal). Lazy-loaded, profile-tracked, regression-gated.
 - 🎯 **Built-in UI, no plugin bloat.** Heavy plugins replaced by native code.
 - 📊 **Latency is a tracked metric.** Real key-to-paint timings in a wezterm pane.
 - 🧪 **Every component has a bench.** No "trust me, it's fast."
@@ -50,8 +50,8 @@ Measured on Apple Silicon, fresh clone, default settings.
 
 | Bench | Target | **Measured** | Status |
 |---|---|---|---|
-| Cold startup (mean of 10) | < 150 ms | **20.91 ms** | ✅ 7× headroom |
-| Steady startup | < 50 ms | **19.67 ms** | ✅ |
+| Wall-clock startup (hyperfine, 20 warm runs) | < 100 ms | **37.7 ms ± 4.8 ms** | ✅ what the user actually waits for |
+| Nvim-internal startup (`--startuptime`, steady) | < 50 ms | **18.26 ms** | ✅ excludes dyld/exec |
 | `statusline` render | < 1 ms | **11.5 µs** (lualine: 96.8 µs) | ✅ 8× faster |
 | `tabline` render | < 1 ms | **153 µs** (bufferline: 1168 µs) | ✅ 7× faster |
 | `explorer` full render | < 2 ms | **464 µs** | ✅ |
