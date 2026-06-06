@@ -406,12 +406,16 @@ local function open_float(body, hls, gutters, width, gutter_w, source_ft, source
 	apply_decorations(buf, body, hls, gutters)
 
 	local height = math.min(#body, math.max(1, resolve_max_height()))
+	-- Offset left by the source window's gutter (statuscolumn/sign/number) so
+	-- the float's left border sits at the window's true left edge instead of
+	-- starting after the gutter.
+	local textoff = (vim.fn.getwininfo(source_win)[1] or {}).textoff or 0
 	local win_opts = {
 		relative = "win",
 		win = source_win,
 		bufpos = { anchor_lnum - 1, 0 },
 		row = 1,
-		col = 0,
+		col = -textoff,
 		width = width,
 		height = height,
 		border = "rounded",
@@ -555,12 +559,14 @@ end
 ---@param mode string?  "full" | "fit"
 ---@param body string[]
 ---@param gutter_w integer
+---@param source_win integer  window the float will be anchored to
 ---@return integer
-local function compute_width(mode, body, gutter_w)
+local function compute_width(mode, body, gutter_w, source_win)
+	local win_w = api.nvim_win_get_width(source_win)
 	if mode == "fit" then
-		return math.min(max_width(body) + gutter_w + 2, math.floor(vim.o.columns * 0.8))
+		return math.min(max_width(body) + gutter_w + 2, math.floor(win_w * 0.8))
 	end
-	return math.max(1, vim.o.columns - 2)
+	return math.max(1, win_w - 2)
 end
 
 ---@class Beast.Git.PreviewOpts
@@ -748,7 +754,7 @@ function M.open_for_range(range_start, range_end, opts)
 	local source_ft = vim.bo[source_buf].filetype
 	local source_win = api.nvim_get_current_win()
 	local hunk_lines, hunk_min, hunk_max = compute_hunk_extent(matched, plan.project)
-	local width = compute_width(preview_cfg.width, body, gutter_w)
+	local width = compute_width(preview_cfg.width, body, gutter_w, source_win)
 
 	M.close()
 	local buf, win = open_float(body, hls, gutters, width, gutter_w, source_ft, source_win, hunk_min, plan.title)
