@@ -149,11 +149,43 @@ function M.start(mode, trigger)
 		return
 	end
 
-	-- Skip when there is pending input queued (e.g. inside `:norm`, or our
-	-- own suspend_and_feed re-entering after vim.schedule re-registered the
-	-- trigger): replay the trigger AT THE HEAD so it lands before the
-	-- already-queued operator argument.
-	if vim.fn.getchar(1) ~= 0 then
+	-- Fast-typed prefix handling.
+	-- When the user types e.g. <leader>z faster than the trigger callback can
+	-- fire, `z` is already in the typeahead by the time we get here. Drain
+	-- it ourselves and walk the index so we can open the hint at the deepest
+	-- matched subtree (e.g. directly at the <leader>z group) instead of
+	-- bailing out and letting the keys resolve natively without ever
+	-- surfacing the hint.
+	local trigger_segs = index.split_keys(trigger)
+	local pre_sequence = {}
+	if config.hint.auto_derive_subtriggers and vim.fn.getchar(1) ~= 0 then
+		while true do
+			local c = vim.fn.getchar(0)
+			if c == 0 then
+				break
+			end
+			local raw = type(c) == "number" and vim.fn.nr2char(c) or c
+			local label = index.key_label(raw)
+			table.insert(pre_sequence, label)
+
+			local full = {}
+			vim.list_extend(full, trigger_segs)
+			vim.list_extend(full, pre_sequence)
+			local node = index.walk(mode, full)
+			-- No match, or leaf: feed everything verbatim and let Neovim
+			-- resolve through the normal keymap chain.
+			if not node or not next(node.children) then
+				local feed = trigger .. table.concat(pre_sequence, "")
+				vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes(feed, true, true, true), "in", false)
+				return
+			end
+			-- Still a prefix node — keep draining until either a leaf is
+			-- reached or the typeahead is empty.
+		end
+		-- Fell through: typeahead drained, landed on a prefix node. Continue
+		-- below with pre_sequence prefilled so the hint opens at that subtree.
+	elseif vim.fn.getchar(1) ~= 0 then
+		-- auto_derive_subtriggers disabled: preserve legacy bailout behavior.
 		vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes(trigger, true, true, true), "in", false)
 		return
 	end
@@ -161,8 +193,8 @@ function M.start(mode, trigger)
 	local state = {
 		mode = mode,
 		trigger = trigger,
-		trigger_segs = index.split_keys(trigger),
-		sequence = {},
+		trigger_segs = trigger_segs,
+		sequence = pre_sequence,
 		bufnr = vim.api.nvim_get_current_buf(),
 		win_before = vim.api.nvim_get_current_win(),
 		count = vim.v.count,

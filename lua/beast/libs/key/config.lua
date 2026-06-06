@@ -8,7 +8,6 @@
 ---@class Beast.Key.HintWinConfig
 ---@field width { min: integer, max: integer }
 ---@field height { min: integer, max: number } -- max is integer rows or 0<n<=1 ratio of editor height
----@field border string|string[]
 ---@field anchor "NW"|"NE"|"SW"|"SE"
 ---@field padding [integer, integer] -- {row, col}
 ---@field title_pos "left"|"center"|"right"
@@ -19,6 +18,7 @@
 ---@field modes string[]
 ---@field delay integer -- ms before hint appears (0 = Helix-style immediate)
 ---@field win Beast.Key.HintWinConfig
+---@field auto_derive_subtriggers boolean -- on fast-typed prefixes, drain typeahead and open hint at the deepest matched subtree
 
 ---@class Beast.Key.VimBuiltinsConfig
 ---@field enabled boolean
@@ -34,17 +34,17 @@ local defaults = {
 	},
 	hint = {
 		enabled = true,
-		triggers = { "<leader>", "<localleader>", "]", "[", "f", "<leader>z", "<leader>g", "c", "z" },
+		triggers = { "<leader>", "<localleader>" },
 		modes = { "n", "x" },
 		delay = 0,
 		win = {
 			width = { min = 30, max = 60 },
 			height = { min = 4, max = 0.6 },
-			border = "rounded",
 			anchor = "SE",
 			padding = { 0, 1 },
 			title_pos = "left",
 		},
+		auto_derive_subtriggers = true,
 	},
 	cheatsheet = {
 		width = 0.7,
