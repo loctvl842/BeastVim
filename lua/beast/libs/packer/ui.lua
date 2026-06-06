@@ -47,6 +47,18 @@ end)
 
 local M = {}
 
+-- Prime state.installed_plugins from vim.pack.get(). Called lazily on first
+-- UI open because vim.pack.get() shells out to git per plugin (~50 ms wall on
+-- macOS) and the UI is the only consumer. PackChanged keeps it fresh after.
+local installed_primed = false
+local function prime_installed()
+	if installed_primed then return end
+	installed_primed = true
+	for _, plugin in ipairs(vim.pack.get()) do
+		state.installed_plugins[plugin.spec.name] = true
+	end
+end
+
 -- =============================================================================
 -- UI STATE
 -- =============================================================================
@@ -1268,6 +1280,7 @@ end
 -- PUBLIC API
 -- =============================================================================
 function M.open()
+	prime_installed()
 	if state_data:is_valid() then
 		render_state()
 		vim.api.nvim_set_current_win(state_data.main.win)
