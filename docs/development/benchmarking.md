@@ -1,6 +1,6 @@
 # Benchmarking — bench contract, inventory, and workflow recipes
 
-> See also: [`bench-ux.md`](./bench-ux.md) for the wezterm UX harness deep-dive, [`writing-benches.md`](./writing-benches.md) for adding new benches, [`glossary.md`](./glossary.md) for terms.
+> See also: [`bench-ux.md`](./bench-ux.md) for the wezterm UX harness deep-dive, [`writing-benches.md`](./writing-benches.md) for adding new benches, [`bench-ci.md`](./bench-ci.md) for the GitHub Actions startup-history dashboard, [`glossary.md`](./glossary.md) for terms.
 
 This is the reference for **what** benches exist, **what** they measure, **what** to run when something changes, and **what** "passing" means.
 

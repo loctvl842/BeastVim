@@ -8,6 +8,7 @@ Fast. Measured. Opinionated.
 
 [![Neovim](https://img.shields.io/badge/Neovim-0.10+-57A143?logo=neovim&logoColor=white)](https://neovim.io)
 [![Startup](https://img.shields.io/badge/startup-20ms-success)](#performance-with-receipts)
+[![Bench dashboard](https://img.shields.io/badge/bench-dashboard-blue?logo=githubpages&logoColor=white)](https://loctvl842.github.io/BeastVim/dev/bench/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](#license)
 
 </div>
@@ -74,6 +75,9 @@ LOAD_USER_CONFIG=1 ./scripts/bench-ux.sh all
 
 Full methodology, knobs, and the leak-hunting workflow:
 **[DEVELOPMENT.md](./DEVELOPMENT.md)**.
+
+Every push to `main` re-runs the startup bench in CI and appends a datapoint to the public dashboard — so regressions show up commit-by-commit:
+**[loctvl842.github.io/BeastVim/dev/bench](https://loctvl842.github.io/BeastVim/dev/bench/)**.
 
 ---
 
