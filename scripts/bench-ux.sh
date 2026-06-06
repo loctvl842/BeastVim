@@ -24,7 +24,13 @@
 #               Tests marktree lookup + decoration redraw amplification.
 #   longsession Mixed workload for $LONG_MINUTES minutes, snapshot every
 #               $LONG_INTERVAL seconds. Plots latency/memory growth.
-#   all         Runs keypress + scroll + bufswitch + extmarks (skips longsession).
+#   keymaps     Drive every user-facing keymap from lua/beast/init.lua
+#               (finder, explorer, git, packer UI, tabline, window, …).
+#               Forces LOAD_USER_CONFIG=1 + FIXTURE_GIT=1 (real hunks for
+#               []c / <leader>g*). Prints aggregate p50/p99 plus a
+#               per-keymap latency table so cold loads stand out.
+#   all         Runs keypress + scroll + bufswitch + extmarks + keymaps
+#               (skips longsession).
 #
 # Usage
 # -----
@@ -33,6 +39,7 @@
 #   ./scripts/bench-ux.sh bufswitch
 #   EXTMARKS_N=10000 ./scripts/bench-ux.sh extmarks
 #   LONG_MINUTES=10 LONG_INTERVAL=30 ./scripts/bench-ux.sh longsession
+#   ./scripts/bench-ux.sh keymaps
 #   ./scripts/bench-ux.sh all
 #
 # Environment knobs
@@ -104,6 +111,10 @@ TH_SCROLL_P50=20     ; TH_SCROLL_P99=80
 TH_BUFSWITCH_P50=25  ; TH_BUFSWITCH_P99=120
 TH_EXTMARKS_P50=20   ; TH_EXTMARKS_P99=100
 TH_LONG_P50=30       ; TH_LONG_P99=150
+# keymaps mixes cold plugin loads (finder/packer/explorer open) with cheap
+# motions ([]c, <leader>n) so the aggregate p99 is intentionally loose; the
+# real signal is the per-keymap breakdown printed by summarise.py.
+TH_KEYMAPS_P50=40    ; TH_KEYMAPS_P99=500
 
 # ── working dir ───────────────────────────────────────────────────────────
 WORK="${TMPDIR:-/tmp}/bench-ux.$$"
@@ -387,6 +398,136 @@ _G.bench_log(string.format("# longsession files=%d\n", #files))
 LUA
 }
 
+# ── keymaps scenario ─────────────────────────────────────────────────────
+# Exercises every user-facing keymap registered in lua/beast/init.lua:
+#   <leader>n          dismiss notifications
+#   <leader>p          packer UI            (Esc/q closes)
+#   <leader>e          toggle explorer      (toggled twice)
+#   <leader>f|b|/|h|c  finder pickers       (Esc closes)
+#   <leader>zz|z=      window zoom/equalise (requires a vsplit)
+#   [B / ]B            tabline move buffer
+#   ]c / [c            git hunk nav         (needs FIXTURE_GIT=1)
+#   <leader>gp         preview hunk         (Esc closes float)
+#   <leader>gs|gu|gr   stage/unstage/reset hunk
+#   <leader>g.         repeat last git action
+#   <leader>d          close buffer         (destructive — runs last)
+#
+# Forces LOAD_USER_CONFIG=1 + a git-state lua fixture so the git+lazy keymaps
+# have realistic targets to act on. The runner brackets each press with
+# :BenchMark km_<name>, so summarise.py --per-keymap can split the paint
+# stream into per-keymap latency rows.
+write_init_keymaps() {
+  rm -rf "$WORK/keymaps"
+  mkdir -p "$WORK/keymaps"
+  python3 - "$WORK/keymaps" 8 <<'PY'
+import sys, os
+d, n = sys.argv[1], int(sys.argv[2])
+for i in range(n):
+    p = f"{d}/mod_{i:04d}.lua"
+    with open(p, "w") as f:
+        f.write(f"local M = {{}}\n\nfunction M.hello_{i}()\n  return 'hello {i}'\nend\n\n")
+        for j in range(1, 40):
+            f.write(f"function M.helper_{j}(x)\n  return x + {j} + {i}\nend\n\n")
+        f.write("return M\n")
+PY
+  # Force a git fixture (mixed-state) so hunk keymaps have hunks to navigate
+  # — independent of the caller's FIXTURE_GIT setting.
+  _saved_git=${FIXTURE_GIT:-0}; FIXTURE_GIT=1
+  maybe_git_init "$WORK/keymaps"
+  FIXTURE_GIT="$_saved_git"
+
+  base_init_head >"$WORK/init-keymaps.lua"
+  cat >>"$WORK/init-keymaps.lua" <<LUA
+local dir = "${WORK}/keymaps"
+local files = vim.tbl_filter(function(f) return not f:match("/%.") end,
+  vim.fn.glob(dir .. "/*.lua", false, true))
+table.sort(files)
+-- Pre-load every file as a hidden buffer so tabline []B / bnext have targets.
+for _, f in ipairs(files) do vim.cmd("badd " .. vim.fn.fnameescape(f)) end
+-- Open mod_0000.lua (modified by maybe_git_init → has unstaged hunks).
+vim.cmd("buffer " .. vim.fn.fnameescape(files[1]))
+-- Give window keymaps something to operate on.
+vim.cmd("vsplit " .. vim.fn.fnameescape(files[2]))
+vim.cmd("wincmd p") -- back to the modified buffer
+_G.bench_log(string.format("# keymaps fixture=%d files vsplit=1\n", #files))
+LUA
+}
+
+run_keymaps() {
+  echo
+  echo "  ── keymaps (drive every lua/beast/init.lua binding) ──"
+  if [ "$LOAD_USER_CONFIG" != "1" ]; then
+    echo "  (forcing LOAD_USER_CONFIG=1 — bare nvim has no BeastVim keymaps)"
+    LOAD_USER_CONFIG=1
+    [ -z "${NVIM_APPNAME:-}" ] && NVIM_APPNAME="BeastVim"
+    export NVIM_APPNAME
+  fi
+  write_init_keymaps
+  spawn_pane "$WORK/init-keymaps.lua" "$WORK/keymaps.log" "$WORK/keymaps" || return $?
+  # Extra settle time: lazy loaders register on first event/key.
+  sleep 1.0
+
+  # Helper: mark + send keys + optional recovery (esc by default) + settle.
+  #   $1 name   $2 raw key string   $3 settle seconds (default 0.25)
+  #   $4 recovery: "esc" (default), "none", "esc2", "q"
+  km() {
+    name=$1; keys=$2; settle=${3:-0.25}; recovery=${4:-esc}
+    send_cmd "BenchMark km_${name}"
+    send_text "$keys"
+    sleep "$settle"
+    case "$recovery" in
+      none) ;;
+      esc)  send_ctl esc ;;
+      esc2) send_ctl esc; sleep 0.1; send_ctl esc ;;
+      q)    send_text "q" ;;
+    esac
+    sleep 0.2
+  }
+
+  # Notification + simple no-UI keymaps first (cheapest, warm up).
+  km notify_dismiss " n" 0.15 none
+
+  # Tabline move (no UI). 'badd' gave us multiple buffers.
+  km tabline_move_next "]B" 0.15 none
+  km tabline_move_prev "[B" 0.15 none
+
+  # Window keymaps (we vsplit in init).
+  km window_zoom     " zz" 0.20 none
+  km window_equalize " z=" 0.20 none
+
+  # Git hunk navigation + actions. Buffer has unstaged hunks (added by
+  # maybe_git_init). Nav first so a hunk is under the cursor for the actions.
+  km git_next_hunk    "]c"  0.20 none
+  km git_prev_hunk    "[c"  0.20 none
+  km git_preview_hunk " gp" 0.40 esc
+  km git_stage_hunk   " gs" 0.35 none
+  km git_unstage_hunk " gu" 0.35 none
+  km git_repeat       " g." 0.30 none
+  km git_reset_hunk   " gr" 0.35 none
+
+  # Finder pickers — each one is a cold lazy load on first press.
+  km finder_files       " f"  0.60 esc
+  km finder_buffers     " b"  0.40 esc
+  km finder_live_grep   " /"  0.40 esc
+  km finder_help_tags   " h"  0.40 esc
+  # <leader>c previews colorschemes by swapping; Esc restores original.
+  km finder_colorschemes " c" 0.50 esc
+
+  # Packer UI (cold lazy load).
+  km packer_ui " p" 0.60 q
+
+  # Explorer toggle: open + close (two distinct paints).
+  km explorer_open  " e" 0.50 none
+  km explorer_close " e" 0.30 none
+
+  # Destructive — must come last. Closes current buffer.
+  km buffer_delete " d" 0.30 none
+
+  quit_pane
+  python3 "$SUMMARISE" "$WORK/keymaps.log" "keymaps" \
+    "$TH_KEYMAPS_P50" "$TH_KEYMAPS_P99" --per-keymap
+}
+
 # ── pane lifecycle ───────────────────────────────────────────────────────
 spawn_pane() {
   init=$1; log=$2; cwd=$3
@@ -555,7 +696,8 @@ print_header() {
   thresholds:     keypress p50≤${TH_KEYPRESS_P50}/p99≤${TH_KEYPRESS_P99}ms,
                   scroll   p50≤${TH_SCROLL_P50}/p99≤${TH_SCROLL_P99}ms,
                   bufsw    p50≤${TH_BUFSWITCH_P50}/p99≤${TH_BUFSWITCH_P99}ms,
-                  extmark  p50≤${TH_EXTMARKS_P50}/p99≤${TH_EXTMARKS_P99}ms
+                  extmark  p50≤${TH_EXTMARKS_P50}/p99≤${TH_EXTMARKS_P99}ms,
+                  keymaps  p50≤${TH_KEYMAPS_P50}/p99≤${TH_KEYMAPS_P99}ms
 
 EOF
 }
@@ -567,7 +709,7 @@ usage() {
 
 cmd="${1:-help}"
 case "$cmd" in
-  keypress|scroll|bufswitch|extmarks|longsession)
+  keypress|scroll|bufswitch|extmarks|longsession|keymaps)
     print_header
     "run_${cmd}"
     ;;
@@ -578,6 +720,7 @@ case "$cmd" in
     run_scroll    || rc=$?
     run_bufswitch || rc=$?
     run_extmarks  || rc=$?
+    run_keymaps   || rc=$?
     echo
     exit "$rc"
     ;;
