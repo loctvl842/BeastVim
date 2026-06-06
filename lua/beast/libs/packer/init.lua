@@ -205,15 +205,12 @@ end
 ---@param opts? Beast.Packer.Config
 function M.setup(opts)
 	config.setup(opts)
-	-- Defer install-status priming off the startup critical path.
-	-- vim.pack.get() walks each plugin's git metadata (~50 ms for a few plugins)
-	-- and the only consumer of state.installed_plugins is the :Pack UI.
-	-- PackChanged (init.lua below) keeps the table fresh after install/update.
-	vim.schedule(function()
-		for _, plugin in ipairs(vim.pack.get()) do
-			state.installed_plugins[plugin.spec.name] = true
-		end
-	end)
+	-- NOTE: state.installed_plugins is primed lazily on first :Pack UI open
+	-- (see ui.M.open). vim.pack.get() shells out to git ~3× per plugin
+	-- (~50 ms wall + ~100 ms total CPU for ~7 plugins on macOS), and the
+	-- only consumer is the UI. PackChanged (below) keeps the table fresh
+	-- within the session after install/update. Health checks fall back to
+	-- a filesystem check when the table is empty.
 	local specs = config.spec
 
 	-- Step 0: Expand imports (plugin discovery)
