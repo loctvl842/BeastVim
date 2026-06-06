@@ -18,8 +18,11 @@ function M.setup(opts)
 	for _, spec in ipairs(config.mappings or {}) do
 		M.safe_set(spec.mode or "n", spec[1], spec[2], spec)
 	end
+	if config.vim_builtins and config.vim_builtins.enabled then
+		require("beast.libs.key.vim_builtins").register()
+	end
 	if config.hint and config.hint.enabled then
-		require("beast.libs.key.hint").setup(config.hint)
+		require("beast.libs.key.hint").setup()
 	end
 end
 
