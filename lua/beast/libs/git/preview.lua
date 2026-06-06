@@ -501,12 +501,16 @@ local function wire_close(buf, source_buf, source_win, hunk_lines, hunk_min, hun
 				return
 			end
 			local visible = math.min(math.max(hunk_min, top), hunk_max, bot)
+			-- Recompute the source window's gutter width on every scroll: it
+			-- changes as line numbers grow (e.g. 99 → 100) or as signs come
+			-- and go, and the float must stay flush with the window edge.
+			local textoff = (vim.fn.getwininfo(source_win)[1] or {}).textoff or 0
 			pcall(api.nvim_win_set_config, current.win, {
 				relative = "win",
 				win = source_win,
 				bufpos = { visible - 1, 0 },
 				row = 1,
-				col = 0,
+				col = -textoff,
 			})
 		end,
 	})
