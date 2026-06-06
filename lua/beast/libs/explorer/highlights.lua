@@ -21,12 +21,21 @@ function M.get()
 		Clip = { fg = p.accent5 },
 		Cursor = { blend = 100, nocombine = true },
 
-		-- Git status (by phase: glyph kind is independent, color is by phase).
-		GitUnstaged = { fg = p.accent2 }, -- yellow/orange: unstaged only
-		GitStaged = { fg = p.accent3 }, -- green-ish: staged only
-		GitBoth = { fg = p.accent4 }, -- red-ish: both staged & unstaged
-		GitConflict = { fg = p.accent2 }, -- attention: merge conflict
-		GitUntracked = { fg = p.dimmed1 },
+		-- Git status. Color = kind (what changed). Staged-only files get a
+		-- dimmed variant blended toward the sidebar bg, so worktree changes
+		-- read brighter than already-indexed ones. The "both" phase falls
+		-- through to the full-intensity color (worktree state wins visually,
+		-- matching Zed and git CLI conventions).
+		GitConflict = { fg = p.accent1, bold = true },
+		GitDeleted = { fg = p.accent1 },
+		GitDeletedStaged = { fg = Util.colors.blend(p.accent1, 0.7, Util.colors.darken(p.dark1, 5)) },
+		GitModified = { fg = p.accent2 },
+		GitModifiedStaged = { fg = Util.colors.blend(p.accent2, 0.7, Util.colors.darken(p.dark1, 5)) },
+		GitAdded = { fg = p.accent3 },
+		GitAddedStaged = { fg = Util.colors.blend(p.accent3, 0.7, Util.colors.darken(p.dark1, 5)) },
+		GitRenamed = { fg = p.accent5 },
+		GitRenamedStaged = { fg = Util.colors.blend(p.accent5, 0.7, Util.colors.darken(p.dark1, 5)) },
+		GitUntracked = { fg = p.accent3 },
 		GitIgnored = { fg = p.dimmed4 },
 
 		-- Sticky ancestor headers (float overlay)

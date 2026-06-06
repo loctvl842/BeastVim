@@ -8,15 +8,27 @@ local styles = {
 	classic = { indent = "  ", vertical = "│ ", branch = "│ ", last_branch = "└╴" },
 }
 
--- Phase → highlight group for name coloring and virt_text.
--- Glyph selection uses `kind` (see git_icon below); color uses `phase`.
-local GIT_HL = {
+-- Color is selected by `kind` (what changed); staged-only files swap to a
+-- dimmed variant so worktree changes read brighter. `both` falls through
+-- to the full-intensity kind color (worktree wins visually). Conflict,
+-- untracked, and ignored are single-state and have no dim variant.
+local KIND_HL = {
 	conflict = "BeastExplorerGitConflict",
-	both = "BeastExplorerGitBoth",
-	unstaged = "BeastExplorerGitUnstaged",
-	staged = "BeastExplorerGitStaged",
+	deleted = "BeastExplorerGitDeleted",
+	modified = "BeastExplorerGitModified",
+	added = "BeastExplorerGitAdded",
+	renamed = "BeastExplorerGitRenamed",
+	copied = "BeastExplorerGitRenamed",
 	untracked = "BeastExplorerGitUntracked",
 	ignored = "BeastExplorerGitIgnored",
+}
+
+local KIND_HL_STAGED = {
+	deleted = "BeastExplorerGitDeletedStaged",
+	modified = "BeastExplorerGitModifiedStaged",
+	added = "BeastExplorerGitAddedStaged",
+	renamed = "BeastExplorerGitRenamedStaged",
+	copied = "BeastExplorerGitRenamedStaged",
 }
 
 --- Resolve the user-configured icon for a git status.
@@ -35,14 +47,18 @@ local function git_icon(status)
 	return glyph
 end
 
---- Resolve the highlight group for a git status. Selected by `phase`.
---- Returns nil when status is nil or its phase is unrecognized.
+--- Resolve the highlight group for a git status. Selected by `kind`, with
+--- a dim variant for staged-only files (phase == "staged"). Returns nil
+--- when status is nil or its kind is unrecognized.
 ---@param status? Beast.Explorer.GitStatus
 ---@return string?
 function M.git_hl(status)
 	-- stylua: ignore
 	if not status then return nil end
-	return GIT_HL[status.phase]
+	if status.phase == "staged" and KIND_HL_STAGED[status.kind] then
+		return KIND_HL_STAGED[status.kind]
+	end
+	return KIND_HL[status.kind]
 end
 
 --- Build the tree-line prefix for `node`.

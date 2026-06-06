@@ -46,6 +46,7 @@ local defaults = {
 		["x"] = "cut_to_clipboard",
 		["y"] = "copy_to_clipboard",
 		["p"] = "paste_from_clipboard",
+		["i"] = "debug_node",
 	},
 }
 
@@ -71,6 +72,7 @@ function methods.dir_icon(name, open)
 	end
 
 	if methods._mini_icons then
+		---@diagnostic disable-next-line: undefined-field
 		local icon, hl, is_default = methods._mini_icons.get("directory", name)
 		if icon and not is_default then
 			return icon, hl
