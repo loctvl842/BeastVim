@@ -34,7 +34,7 @@ local defaults = {
 	},
 	hint = {
 		enabled = true,
-		triggers = { "<leader>", "<localleader>" },
+		triggers = { "<leader>", "<localleader>", "[", "]" },
 		modes = { "n", "x" },
 		delay = 0,
 		win = {

@@ -67,7 +67,7 @@ function M.setup(opts)
 	---@type Beast.Packer.Config
 	packer.setup(cfg.packer)
   -- stylua: ignore
-	Key.safe_set("n", "<leader>p", function() require("beast.libs.packer.ui").open() end)
+	Key.safe_set("n", "<leader>p", function() require("beast.libs.packer.ui").open() end, { desc = "Open packer UI", group = "Packer" })
 	cfg.starter.keys[#cfg.starter.keys + 1] = { verb = "press", key = "<leader>p", desc = "to manage plugins" }
 
 	-- Statusline (declarative components, native %! evaluation)
@@ -91,8 +91,8 @@ function M.setup(opts)
 		event = { name = "VimEnter", defer = true },
     -- stylua: ignore
 		keys = {
-			{ "[B", function() require("beast.libs.tabline").move_prev() end, { mode = "n", desc = "Move buffer prev", group = "Tabline" } },
-      { "]B", function() require("beast.libs.tabline").move_next() end, { mode = "n", desc = "Move buffer next", group = "Tabline" } },
+			{ "[B", function() require("beast.libs.tabline").move_prev() end, mode = "n", desc = "Move buffer prev", group = "Tabline" },
+      { "]B", function() require("beast.libs.tabline").move_next() end, mode = "n", desc = "Move buffer next", group = "Tabline" },
 		},
 		setup = function(tabline)
 			tabline.setup({
