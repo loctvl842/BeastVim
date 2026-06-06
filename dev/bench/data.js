@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780750680385,
+  "lastUpdate": 1780765848764,
   "repoUrl": "https://github.com/loctvl842/BeastVim",
   "entries": {
     "BeastVim Startup": [
@@ -263,6 +263,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "BeastVim startup (warm) max",
             "value": 53.323930000000004,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "committer": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "distinct": true,
+          "id": "67ba650ff7af7b06e813cb3ef12e8344a250874c",
+          "message": "fix(git): re-apply gutter offset when re-anchoring preview on scroll\n\nWinScrolled handler was hardcoding col = 0, undoing the textoff offset\napplied at open time, so the float jumped rightward past the source\nwindow's statuscolumn/sign/number on the first scroll. Recompute textoff\non each scroll so the float stays flush with the window edge even when\nthe gutter grows mid-preview (e.g. line numbers crossing 99 → 100).",
+          "timestamp": "2026-06-07T00:10:08+07:00",
+          "tree_id": "2df18e39076aa3a17807f8a8d168d9c6982f19ea",
+          "url": "https://github.com/loctvl842/BeastVim/commit/67ba650ff7af7b06e813cb3ef12e8344a250874c"
+        },
+        "date": 1780765848321,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "BeastVim startup (warm) mean",
+            "value": 25.042563150000003,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) stddev",
+            "value": 0.4393113950062587,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) min",
+            "value": 24.337404,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) max",
+            "value": 25.716779000000002,
             "unit": "ms"
           }
         ]
