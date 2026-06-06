@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780718333117,
+  "lastUpdate": 1780719447535,
   "repoUrl": "https://github.com/loctvl842/BeastVim",
   "entries": {
     "BeastVim Startup": [
@@ -43,6 +43,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "BeastVim startup (warm) max",
             "value": 70.00314200000001,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "committer": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "distinct": true,
+          "id": "7e3fdefc294988fb641c181edb4390d39a49e42d",
+          "message": "fix(init,key): document built-in keys + cover [/]/<leader> as triggers\n\n- <leader>p (packer UI) had no opts at all — surfaced in hint as the\n  bare key with no description or group. Add desc='Open packer UI'\n  group='Packer'.\n- [B/]B (tabline move buffer) nested their options under a third\n  positional element. Beast.KeymapSpec uses flat options; the packer\n  keys trigger silently dropped mode/desc/group so they showed as\n  'Lazy load X'. Flatten to match the type hint.\n- Default hint triggers only covered <leader>/<localleader>, but\n  beast/init.lua ships [B, ]B, [c, ]c. Add [ and ] to defaults so\n  the hint opens for every prefix Beast itself registers.",
+          "timestamp": "2026-06-06T11:16:44+07:00",
+          "tree_id": "4a839c48ced164d3a261e2afa44b81dd008713ab",
+          "url": "https://github.com/loctvl842/BeastVim/commit/7e3fdefc294988fb641c181edb4390d39a49e42d"
+        },
+        "date": 1780719446744,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "BeastVim startup (warm) mean",
+            "value": 55.71177810000001,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) stddev",
+            "value": 22.067717104228958,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) min",
+            "value": 39.715155,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) max",
+            "value": 116.130673,
             "unit": "ms"
           }
         ]
