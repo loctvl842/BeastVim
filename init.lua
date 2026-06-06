@@ -51,16 +51,16 @@ require("beast").setup({
 		icon = {
 			dir_open = "󰝰", -- nf-md-folder_open
 			dir_closed = "󰉋", -- nf-md-folder
-			git = {
-				conflict = "󰞇",
-				modified = "●",
-				renamed = "󰁕",
-				copied = "⧉",
-				deleted = "󰍵",
-				added = "󰐕",
-				untracked = "󰞋",
-				ignored = "󰈉",
-			},
+			-- git = {
+			-- 	conflict = "󰞇",
+			-- 	modified = "●",
+			-- 	renamed = "󰁕",
+			-- 	copied = "⧉",
+			-- 	deleted = "󰍵",
+			-- 	added = "󰐕",
+			-- 	untracked = "󰞋",
+			-- 	ignored = "󰈉",
+			-- },
 		},
 		mappings = {
 			["l"] = "open",

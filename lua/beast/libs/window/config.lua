@@ -23,7 +23,7 @@
 local defaults = {
 	autowidth = {
 		enable = true,
-		winwidth = 5,
+		winwidth = 10,
 		filetype = { help = 2 },
 	},
 	animation = {
