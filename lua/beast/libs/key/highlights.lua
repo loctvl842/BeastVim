@@ -13,7 +13,7 @@ function M.get()
 		Keys = { fg = p.accent6 },
 		-- Hint (press-and-wait)
 		HintNormal = { bg = p.dark1, fg = p.dimmed1 },
-		HintBorder = { fg = p.dark1, bg = p.dark1 },
+		HintBorder = { fg = p.dark1, bg = p.background },
 		HintTitle = { fg = p.accent3, bg = p.dark1, bold = true },
 		HintBreadcrumb = { fg = p.dimmed3, bg = p.dark1, italic = true },
 		HintKey = { fg = p.accent6, bg = p.dark1, bold = true },
