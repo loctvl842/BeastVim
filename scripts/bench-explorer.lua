@@ -175,10 +175,10 @@ end
 -- =========================================================================
 
 local Tree = require("beast.libs.explorer.tree")
+local View = require("beast.libs.view")
+local config = require("beast.libs.explorer.config")
 local render = require("beast.libs.explorer.render")
 local state = require("beast.libs.explorer.state")
-local config = require("beast.libs.explorer.config")
-local View = require("beast.libs.view")
 local sticky_mod = require("beast.libs.explorer.sticky")
 
 ---@class Beast.Explorer.BenchView : Beast.View
@@ -319,8 +319,15 @@ for _, scenario in ipairs(scenarios) do
 				render.write(lines, hls)
 			end)
 
-			print(string.format("  breakdown: flat_miss=%.2fus flat_hit=%.2fus build=%.2fus write=%.2fus",
-				mixed_details.flat_miss, mixed_details.flat_hit, mixed_details.build, mixed_details.write))
+			print(
+				string.format(
+					"  breakdown: flat_miss=%.2fus flat_hit=%.2fus build=%.2fus write=%.2fus",
+					mixed_details.flat_miss,
+					mixed_details.flat_hit,
+					mixed_details.build,
+					mixed_details.write
+				)
+			)
 		end
 	end)
 
@@ -342,12 +349,14 @@ if not primary_us then
 	os.exit(2)
 end
 
-print(string.format(
-	"BENCH name=explorer full_render=%.2fus nodes=%d scenario=mixed threshold=%dus",
-	primary_us,
-	mixed_details.nodes or 0,
-	FAIL_THRESHOLD_US
-))
+print(
+	string.format(
+		"BENCH name=explorer full_render=%.2fus nodes=%d scenario=mixed threshold=%dus",
+		primary_us,
+		mixed_details.nodes or 0,
+		FAIL_THRESHOLD_US
+	)
+)
 
 cleanup()
 

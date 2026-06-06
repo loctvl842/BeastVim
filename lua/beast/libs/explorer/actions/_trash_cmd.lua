@@ -43,12 +43,7 @@ function M.move(path)
 		if vim.fn.executable(cmd[1]) == 1 then
 			local ok, ret = pcall(vim.fn.system, cmd)
 			if not ok or vim.v.shell_error ~= 0 then
-				return false,
-					string.format(
-						"- cmd: `%s`\n- error: %s",
-						table.concat(cmd, " "),
-						type(ret) == "string" and ret or "Unknown error"
-					)
+				return false, string.format("- cmd: `%s`\n- error: %s", table.concat(cmd, " "), type(ret) == "string" and ret or "Unknown error")
 			end
 			return true
 		end

@@ -136,14 +136,7 @@ local primary_us = cold_us
 -- Summary line + exit code
 -- =========================================================================
 
-print(
-	string.format(
-		"BENCH name=breadcrumb cold=%.2fus hot=%.2fus threshold=%dus",
-		cold_us,
-		hot_us,
-		FAIL_THRESHOLD_US
-	)
-)
+print(string.format("BENCH name=breadcrumb cold=%.2fus hot=%.2fus threshold=%dus", cold_us, hot_us, FAIL_THRESHOLD_US))
 
 if primary_us > FAIL_THRESHOLD_US then
 	io.stderr:write(string.format("FAIL: %.2f µs > %d µs threshold\n", primary_us, FAIL_THRESHOLD_US))

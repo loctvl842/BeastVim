@@ -32,8 +32,7 @@ function M.ensure(icon_color, is_selected, is_visible)
 
 	local style
 	if state_styles then
-		style = is_selected and state_styles.selected
-			or (is_visible and state_styles.visible or state_styles.normal)
+		style = is_selected and state_styles.selected or (is_visible and state_styles.visible or state_styles.normal)
 	else
 		-- Fallback (should not happen in practice — highlights.lua runs at setup)
 		local p = Palette.get()

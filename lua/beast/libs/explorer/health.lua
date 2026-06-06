@@ -34,13 +34,33 @@ function M.check()
 	health.start("beast.libs.explorer — modules")
 
 	local submods = {
-		"config", "state", "tree", "ui", "render", "git", "watch",
-		"sticky", "autocmds", "keymaps", "prompt", "highlights",
+		"config",
+		"state",
+		"tree",
+		"ui",
+		"render",
+		"git",
+		"watch",
+		"sticky",
+		"autocmds",
+		"keymaps",
+		"prompt",
+		"highlights",
 	}
 	local actions = {
-		"open", "split_open", "system_open", "create", "delete", "trash",
-		"rename", "navigate_up", "set_root", "show_hidden",
-		"copy_to_clipboard", "cut_to_clipboard", "paste_from_clipboard",
+		"open",
+		"split_open",
+		"system_open",
+		"create",
+		"delete",
+		"trash",
+		"rename",
+		"navigate_up",
+		"set_root",
+		"show_hidden",
+		"copy_to_clipboard",
+		"cut_to_clipboard",
+		"paste_from_clipboard",
 		"_trash_cmd",
 	}
 
@@ -115,12 +135,19 @@ function M.check()
 	health.start("beast.libs.explorer — highlights")
 
 	local required_hls = {
-		"BeastExplorerNormal", "BeastExplorerTitle", "BeastExplorerDir",
-		"BeastExplorerFile", "BeastExplorerIndent", "BeastExplorerComment",
+		"BeastExplorerNormal",
+		"BeastExplorerTitle",
+		"BeastExplorerDir",
+		"BeastExplorerFile",
+		"BeastExplorerIndent",
+		"BeastExplorerComment",
 		"BeastExplorerClip",
-		"BeastExplorerGitConflict", "BeastExplorerGitBoth",
-		"BeastExplorerGitUnstaged", "BeastExplorerGitStaged",
-		"BeastExplorerGitUntracked", "BeastExplorerGitIgnored",
+		"BeastExplorerGitConflict",
+		"BeastExplorerGitBoth",
+		"BeastExplorerGitUnstaged",
+		"BeastExplorerGitStaged",
+		"BeastExplorerGitUntracked",
+		"BeastExplorerGitIgnored",
 	}
 	local missing_hls = {}
 	for _, hl_name in ipairs(required_hls) do
@@ -148,8 +175,9 @@ function M.check()
 
 	health.info(string.format("style = %s", tostring(config.style)))
 	health.info(string.format("width = %s, side = %s", tostring(config.width), tostring(config.side)))
-	health.info(string.format("show_hidden = %s, icons = %s, sticky = %s",
-		tostring(config.show_hidden), tostring(config.icons), tostring(config.sticky)))
+	health.info(
+		string.format("show_hidden = %s, icons = %s, sticky = %s", tostring(config.show_hidden), tostring(config.icons), tostring(config.sticky))
+	)
 
 	local mappings = config.mappings or {}
 	local count, seen, dupes = 0, {}, {}
@@ -246,8 +274,7 @@ function M.check()
 			elseif type(hls) ~= "table" then
 				health.error("render.build() returned non-table highlights")
 			else
-				health.ok(string.format("render.build() returned %d lines, %d highlights, %d badges",
-					#lines, #hls, badges and #badges or 0))
+				health.ok(string.format("render.build() returned %d lines, %d highlights, %d badges", #lines, #hls, badges and #badges or 0))
 			end
 		else
 			health.error("tree:flat() failed: " .. tostring(flat_or_err))
@@ -288,12 +315,16 @@ function M.check()
 				local probe_path = watch_tmp .. "/probe.txt"
 				local trigger_timer = uv.new_timer()
 				local tick = 0
-				trigger_timer:start(50, 100, vim.schedule_wrap(function()
-					tick = tick + 1
-					if vim.fn.isdirectory(watch_tmp) == 1 then
-						pcall(vim.fn.writefile, { "trigger" .. tick }, probe_path)
-					end
-				end))
+				trigger_timer:start(
+					50,
+					100,
+					vim.schedule_wrap(function()
+						tick = tick + 1
+						if vim.fn.isdirectory(watch_tmp) == 1 then
+							pcall(vim.fn.writefile, { "trigger" .. tick }, probe_path)
+						end
+					end)
+				)
 
 				local got = vim.wait(1000, function()
 					return fired
@@ -330,15 +361,11 @@ function M.check()
 			local root = vim.fn.fnamemodify(git_dir, ":h")
 			local done, exit_code, stdout = false, nil, nil
 
-			local ok_sys = pcall(vim.system,
-				{ "git", "-C", root, "status", "--porcelain=v2", "--ignored", "-z" },
-				{ text = true },
-				function(result)
-					exit_code = result.code
-					stdout = result.stdout or ""
-					done = true
-				end
-			)
+			local ok_sys = pcall(vim.system, { "git", "-C", root, "status", "--porcelain=v2", "--ignored", "-z" }, { text = true }, function(result)
+				exit_code = result.code
+				stdout = result.stdout or ""
+				done = true
+			end)
 
 			if not ok_sys then
 				health.error("vim.system() failed to launch git")
