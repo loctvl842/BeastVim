@@ -1,7 +1,7 @@
----@class Beast.Key.UI.State
+---@class Beast.Key.Cheatsheet.State
 local M = {
-	main = nil, ---@type Beast.Key.UI.MainView?
-	action = nil, ---@type Beast.Key.UI.ActionView?
+	main = nil, ---@type Beast.Key.Cheatsheet.MainView?
+	action = nil, ---@type Beast.Key.Cheatsheet.ActionView?
 	augroup = -1,
 	closed = false,
 	lines = nil, ---@type Beast.Key.API.Line[]?

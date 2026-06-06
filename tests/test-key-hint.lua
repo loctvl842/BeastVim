@@ -1,16 +1,16 @@
 -- =========================================================================
--- Manual test: Beast key popup (press-and-wait)
+-- Manual test: Beast key hint (press-and-wait)
 -- =========================================================================
 -- Open the BeastVim config root, then inside Neovim run:
---   :luafile tests/test-key-popup.lua
+--   :luafile tests/test-key-hint.lua
 --
 -- Then manually verify:
---   1. Press <leader>           → popup appears bottom-right with `f` entry
---   2. Press <leader>f          → popup updates, breadcrumb shows " <space> f "
+--   1. Press <leader>           → hint appears bottom-right with `f` entry
+--   2. Press <leader>f          → hint updates, breadcrumb shows " <space> f "
 --   3. Press <leader>ff         → echoes "find files" via vim.notify
---   4. Press <leader> then <Esc>→ popup closes, no side-effect
---   5. Press <leader> then <BS> → popup stays at root level
---   6. Press <leader>x          → popup closes, no echo (x not mapped)
+--   4. Press <leader> then <Esc>→ hint closes, no side-effect
+--   5. Press <leader> then <BS> → hint stays at root level
+--   6. Press <leader>x          → hint closes, no echo (x not mapped)
 -- =========================================================================
 
 local Key = require("beast.libs.key")
@@ -32,7 +32,7 @@ Key.safe_set("n", "<leader>fb", notify("buffers"), { desc = "Buffers" })
 Key.safe_set("n", "<leader>fn", notify("new file"), { desc = "New file" })
 Key.safe_set("n", "<leader>fs", notify("save file"), { desc = "Save file" })
 
--- Enable popup (idempotent — safe even if Key.setup already ran).
-Key.setup({ popup = { enabled = true } })
+-- Enable hint (idempotent — safe even if Key.setup already ran).
+Key.setup({ hint = { enabled = true } })
 
-vim.notify("Beast key popup test ready — press <leader> to begin.", vim.log.levels.INFO)
+vim.notify("Beast key hint test ready — press <leader> to begin.", vim.log.levels.INFO)

@@ -159,24 +159,24 @@ API: `Toast(message, level, opts)`
 
 ---
 
-## key — Keybinding Viewer, Manager & Press-and-Wait Popup
+## key — Keybinding Cheatsheet, Manager & Press-and-Wait Hint
 
 ```
 key/
-├── init.lua       ← proxy to core, setup()
-├── config.lua     ← readonly config, UI + popup dimensions
-├── core.lua       ← safe_set, managed keymaps registry (+ BeastKeysChanged emit)
-├── api.lua        ← show/hide/query operations
-├── state.lua      ← active view, mode, filter
-├── ui.lua         ← floating window + backdrop (full-screen browser)
-├── popup.lua      ← Helix-style press-and-wait popup (replaces which-key)
-├── highlights.lua ← BeastKey* groups (incl. BeastKeyPopup*)
-└── builtin.lua    ← default keymaps (scroll, pin, etc.)
+├── init.lua             ← proxy to core, setup()
+├── config.lua           ← readonly config, cheatsheet + hint dimensions
+├── core.lua             ← safe_set, managed keymaps registry (+ BeastKeysChanged emit)
+├── api.lua              ← show/hide/query operations
+├── cheatsheet_state.lua ← active view, mode, filter
+├── cheatsheet.lua       ← floating window + backdrop (full-screen browser)
+├── hint.lua             ← Helix-style press-and-wait hint (replaces which-key)
+├── highlights.lua       ← BeastKey* groups (incl. BeastKeyHint*)
+└── builtin.lua          ← default keymaps (scroll, pin, etc.)
 ```
 
-API: `Key.safe_set(mode, lhs, rhs, opts)`, `Key.managed`. Popup is enabled by
-default via `config.popup.enabled = true`; opt out with
-`Key.setup({ popup = { enabled = false } })`.
+API: `Key.safe_set(mode, lhs, rhs, opts)`, `Key.managed`. Hint is enabled by
+default via `config.hint.enabled = true`; opt out with
+`Key.setup({ hint = { enabled = false } })`.
 
 ---
 

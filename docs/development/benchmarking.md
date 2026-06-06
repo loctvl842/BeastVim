@@ -38,7 +38,7 @@ Each runs in `nvim --clean --headless -l <file>`, stubs out the parts of BeastVi
 | `bench-statuscolumn.lua` | `beast.libs.statuscolumn` | per-line median (200 lines × 1000 renders) | **< 5 µs/line** (warn: 2 µs) | per redraw §3 cost driver — keep this lean |
 | `bench-statusline.lua` | `beast.libs.statusline` | full-bar render p50 | **< 1000 µs** (warn: 50 µs) | compares against lualine if installed |
 | `bench-tabline.lua` | `beast.libs.tabline` | full-bar render p50 | **< 1000 µs** (warn: 50 µs) | compares against bufferline if installed |
-| `bench-key-popup.lua` | `beast.libs.key.popup` | `popup_open` p50 + `index_build` p50 | open **< 5 ms**, index **< 500 µs** | trigger → window-visible proxy |
+| `bench-key-hint.lua` | `beast.libs.key.hint` | `hint_open` p50 + `index_build` p50 | open **< 5 ms**, index **< 500 µs** | trigger → window-visible proxy |
 
 ### End-to-end benches (real wezterm pane, real keystrokes)
 

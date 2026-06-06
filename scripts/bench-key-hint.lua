@@ -1,19 +1,19 @@
 -- =========================================================================
--- Bench: Beast key popup
+-- Bench: Beast key hint
 -- =========================================================================
--- Headless benchmark for `lua/beast/libs/key/popup.lua`.
--- Run as: nvim --clean --headless -l scripts/bench-key-popup.lua
---   * Final stdout line begins with `BENCH ` and includes name=key-popup
+-- Headless benchmark for `lua/beast/libs/key/hint.lua`.
+-- Run as: nvim --clean --headless -l scripts/bench-key-hint.lua
+--   * Final stdout line begins with `BENCH ` and includes name=key-hint
 --     plus primary metric and threshold.
 --   * Exit code: 0 PASS, 1 FAIL (threshold), 2 setup error.
 --
 -- Measurements:
 --   * index_build_us      — time to build prefix tree from 200-keymap registry
---   * popup_open_us       — time for one render of the root popup (proxy for
+--   * hint_open_us       — time for one render of the root hint (proxy for
 --                           "trigger fired → window visible")
 -- =========================================================================
 
-local OPEN_THRESHOLD_US = 5000 -- popup_open p50 must be < 5ms (spec target)
+local OPEN_THRESHOLD_US = 5000 -- hint_open p50 must be < 5ms (spec target)
 local INDEX_THRESHOLD_US = 500 -- index_build < 500us for 200 maps
 local ITERS = 100
 
@@ -34,7 +34,7 @@ _G.Util = require("beast.util")
 _G.Util.colors = _G.Util.colors or { set_hl = function() end }
 
 local Key = require("beast.libs.key")
-local popup = require("beast.libs.key.popup")
+local hint = require("beast.libs.key.hint")
 
 -- 200 mappings under <leader>: 10 groups × 20 leaves
 local prefixes = { "f", "g", "b", "c", "d", "s", "t", "u", "w", "x" }
@@ -46,7 +46,7 @@ for _, p in ipairs(prefixes) do
 	end
 end
 
-popup.setup({
+hint.setup({
 	enabled = true,
 	triggers = { "<leader>" },
 	modes = { "n" },
@@ -85,20 +85,20 @@ end
 -- =========================================================================
 local index_samples = {}
 for _ = 1, ITERS do
-	popup._internal.invalidate_cache()
-	table.insert(index_samples, time_ns(popup._internal.build_index))
+	hint._internal.invalidate_cache()
+	table.insert(index_samples, time_ns(hint._internal.build_index))
 end
 local idx = stats(index_samples)
 
 -- =========================================================================
--- 2. popup_open — time for one render of the root popup
+-- 2. hint_open — time for one render of the root hint
 -- =========================================================================
 local open_samples = {}
 for _ = 1, ITERS do
 	table.insert(
 		open_samples,
 		time_ns(function()
-			popup._internal.render_once("n", "<leader>", {})
+			hint._internal.render_once("n", "<leader>", {})
 		end)
 	)
 end
@@ -112,14 +112,14 @@ for _ = 1, ITERS do
 	table.insert(
 		resolve_samples,
 		time_ns(function()
-			popup._internal.render_once("n", "<leader>", { "f" })
+			hint._internal.render_once("n", "<leader>", { "f" })
 		end)
 	)
 end
 local res = stats(resolve_samples)
 
 print(string.format("index_build_us:      min=%.1f p50=%.1f p95=%.1f max=%.1f", us(idx.min), us(idx.p50), us(idx.p95), us(idx.max)))
-print(string.format("popup_open_us:       min=%.1f p50=%.1f p95=%.1f max=%.1f", us(opn.min), us(opn.p50), us(opn.p95), us(opn.max)))
+print(string.format("hint_open_us:       min=%.1f p50=%.1f p95=%.1f max=%.1f", us(opn.min), us(opn.p50), us(opn.p95), us(opn.max)))
 print(string.format("keypress_resolve_us: min=%.1f p50=%.1f p95=%.1f max=%.1f", us(res.min), us(res.p50), us(res.p95), us(res.max)))
 
 local idx_pass = us(idx.p50) < INDEX_THRESHOLD_US
@@ -128,7 +128,7 @@ local status = (idx_pass and opn_pass) and "PASS" or "FAIL"
 
 print(
 	string.format(
-		"BENCH name=key-popup index_p50=%.1fus(<%d) open_p50=%.1fus(<%d) status=%s",
+		"BENCH name=key-hint index_p50=%.1fus(<%d) open_p50=%.1fus(<%d) status=%s",
 		us(idx.p50),
 		INDEX_THRESHOLD_US,
 		us(opn.p50),

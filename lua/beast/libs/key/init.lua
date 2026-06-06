@@ -18,8 +18,8 @@ function M.setup(opts)
 	for _, spec in ipairs(config.mappings or {}) do
 		M.safe_set(spec.mode or "n", spec[1], spec[2], spec)
 	end
-	if config.popup and config.popup.enabled then
-		require("beast.libs.key.popup").setup(config.popup)
+	if config.hint and config.hint.enabled then
+		require("beast.libs.key.hint").setup(config.hint)
 	end
 end
 

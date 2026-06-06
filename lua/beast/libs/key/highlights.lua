@@ -11,15 +11,15 @@ function M.get()
 		H2 = { fg = p.dimmed1, bold = true },
 		Comment = { fg = p.dimmed3 },
 		Keys = { fg = p.accent6 },
-		-- Popup (press-and-wait)
-		PopupNormal = { bg = p.dark1, fg = p.dimmed1 },
-		PopupBorder = { fg = p.dark1, bg = p.dark1 },
-		PopupTitle = { fg = p.accent3, bg = p.dark1, bold = true },
-		PopupBreadcrumb = { fg = p.dimmed3, bg = p.dark1, italic = true },
-		PopupKey = { fg = p.accent6, bg = p.dark1, bold = true },
-		PopupDesc = { fg = p.dimmed1, bg = p.dark1 },
-		PopupGroup = { fg = p.accent3, bg = p.dark1 },
-		PopupSeparator = { fg = p.dimmed3, bg = p.dark1 },
+		-- Hint (press-and-wait)
+		HintNormal = { bg = p.dark1, fg = p.dimmed1 },
+		HintBorder = { fg = p.dark1, bg = p.dark1 },
+		HintTitle = { fg = p.accent3, bg = p.dark1, bold = true },
+		HintBreadcrumb = { fg = p.dimmed3, bg = p.dark1, italic = true },
+		HintKey = { fg = p.accent6, bg = p.dark1, bold = true },
+		HintDesc = { fg = p.dimmed1, bg = p.dark1 },
+		HintGroup = { fg = p.accent3, bg = p.dark1 },
+		HintSeparator = { fg = p.dimmed3, bg = p.dark1 },
 	})
 end
 
