@@ -39,7 +39,7 @@ local function compute()
 
 	local active_bg = p.background
 	local inactive_bg = Util.colors.lighten(p.background, 15)
-	local inactive_fg = Util.colors.blend(p.text, 0.6, active_bg)
+	local inactive_fg = Util.colors.blend(p.text, 0.4, active_bg)
 	local normal_fg = Util.colors.blend(p.text, 0.4, inactive_bg)
 	local fill_bg_default = p.dark1
 	local sep_fg_default = p.dimmed3
