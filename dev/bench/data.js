@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780727722751,
+  "lastUpdate": 1780750680385,
   "repoUrl": "https://github.com/loctvl842/BeastVim",
   "entries": {
     "BeastVim Startup": [
@@ -219,6 +219,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "BeastVim startup (warm) max",
             "value": 57.921957000000006,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "committer": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "distinct": true,
+          "id": "9dea5ee2d8e3bf65523d10e913d9168714971d4a",
+          "message": "refactor(key/hint): smooth held-trigger autorepeat + split M.start\n\nFixes the perceived low-fps cursor movement when holding <leader> (or any\nsingle-segment trigger) and simplifies the now-grown M.start function.\n\nBehavior fixes\n--------------\n* On autorepeat detection, feed `trigger .. trigger` instead of a single\n  trigger. The loop consumes two presses (the keymap fire + the one\n  getcharstr eats) so feeding only one halved the visible cursor rate.\n* Replace the fixed 100 ms autorepeat-resume timer with a `vim.on_key`\n  watcher + 50 ms quiet timer. The trigger keymap now stays deleted for\n  the entire hold (zero Lua per OS autorepeat), and re-registers only\n  after input goes quiet — i.e. the user actually released the key.\n\nRefactor (behavior-preserving)\n------------------------------\n* Extract `termcodes`, `feed`, `getchar_to_str` helpers (each previously\n  inlined 5-7 times).\n* Split M.start (130 lines) into named phases, each <30 lines:\n  - try_autorepeat_fast_path\n  - bump_recursion_guard\n  - drain_typeahead_prefix\n  - new_state (also shared by _internal.render_once)\n* M.start is now 56 lines of straight-line orchestration with early\n  returns; reads as a TOC of the lifecycle phases.\n\nVerified: luac syntax check + headless module load.",
+          "timestamp": "2026-06-06T19:57:15+07:00",
+          "tree_id": "fc437d47dc96c964266be064acb7036aca5ef9a9",
+          "url": "https://github.com/loctvl842/BeastVim/commit/9dea5ee2d8e3bf65523d10e913d9168714971d4a"
+        },
+        "date": 1780750679891,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "BeastVim startup (warm) mean",
+            "value": 50.130241099999985,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) stddev",
+            "value": 1.245483763235243,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) min",
+            "value": 48.802875,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) max",
+            "value": 53.323930000000004,
             "unit": "ms"
           }
         ]
