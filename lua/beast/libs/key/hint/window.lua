@@ -92,11 +92,11 @@ function M.open_or_update(state, title, items)
 		local row = i - 1 + pad_h
 		local prefix_w = pad_w + (max_key_w - vim.fn.strdisplaywidth(it.key))
 		local key_end = prefix_w + #it.key
-		vim.api.nvim_buf_add_highlight(buf, ns, "BeastKeyHintKey", row, prefix_w, key_end)
+		vim.api.nvim_buf_set_extmark(buf, ns, row, prefix_w, { end_col = key_end, hl_group = "BeastKeyHintKey" })
 		local desc_start = key_end + 2 -- two spaces separator
 		local is_group = it.child.group ~= nil and not it.child.keymap
 		local hl = is_group and "BeastKeyHintGroup" or "BeastKeyHintDesc"
-		vim.api.nvim_buf_add_highlight(buf, ns, hl, row, desc_start, -1)
+		vim.api.nvim_buf_set_extmark(buf, ns, row, desc_start, { end_row = row, end_col = #padded_lines[i + pad_h], hl_group = hl })
 	end
 
 	local win
