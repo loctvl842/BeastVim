@@ -66,7 +66,10 @@ local function suspend_and_feed(state, keys)
 	if state.count and state.count > 0 then
 		prefix = prefix .. tostring(state.count)
 	end
-	if state.register and state.register ~= "" then
+	-- v:register defaults to '"' (the unnamed register). Only forward an
+	-- explicit selection; otherwise prepending `"<reg>` corrupts the feed
+	-- (e.g. `""ci"` derails the `ci"` operator through feedkeys).
+	if state.register and state.register ~= "" and state.register ~= '"' then
 		prefix = '"' .. state.register .. prefix
 	end
 
@@ -138,15 +141,20 @@ function M.start(mode, trigger)
 
 	-- Skip during macro recording or replay: feed the trigger verbatim so the
 	-- macro records the literal keys (without opening our hint).
+	-- 'in' = insert at the head of the typeahead, no remap; without 'i' the
+	-- key is appended, which reorders it after any pending characters and
+	-- silently corrupts operator+textobject sequences (e.g. ci").
 	if vim.fn.reg_recording() ~= "" or vim.fn.reg_executing() ~= "" then
-		vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes(trigger, true, true, true), "n", false)
+		vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes(trigger, true, true, true), "in", false)
 		return
 	end
 
-	-- Skip when there is pending input queued (e.g. inside `:norm`): replay
-	-- the trigger so normal-mode mappings resolve as the user wrote them.
+	-- Skip when there is pending input queued (e.g. inside `:norm`, or our
+	-- own suspend_and_feed re-entering after vim.schedule re-registered the
+	-- trigger): replay the trigger AT THE HEAD so it lands before the
+	-- already-queued operator argument.
 	if vim.fn.getchar(1) ~= 0 then
-		vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes(trigger, true, true, true), "n", false)
+		vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes(trigger, true, true, true), "in", false)
 		return
 	end
 
