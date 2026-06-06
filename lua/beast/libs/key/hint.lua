@@ -31,7 +31,7 @@ local HintView = View:extend()
 ---@field trigger string         -- raw trigger (e.g. "<leader>")
 ---@field trigger_segs string[]  -- pre-split trigger segments (e.g. { " " })
 ---@field sequence string[]      -- keys pressed *after* the trigger (translated)
----@field bufnr integer          -- buffer the popup was opened from
+---@field bufnr integer          -- buffer the hint was opened from
 ---@field win_before integer
 ---@field count? integer         -- captured v:count at start
 ---@field register? string       -- captured v:register at start
@@ -500,8 +500,8 @@ local function suspend_and_feed(state, keys)
 	registered = {}
 
 	-- Build the prefix to restore: register and count. Visual selection is
-	-- preserved naturally because we never leave visual mode while the popup
-	-- is open (popup window is non-focusable and not entered).
+	-- preserved naturally because we never leave visual mode while the hint
+	-- is open (hint window is non-focusable and not entered).
 	local prefix = ""
 	if state.count and state.count > 0 then
 		prefix = prefix .. tostring(state.count)
@@ -577,7 +577,7 @@ function M.start(mode, trigger)
 	end
 
 	-- Skip during macro recording or replay: feed the trigger verbatim so the
-	-- macro records the literal keys (without opening our popup).
+	-- macro records the literal keys (without opening our hint).
 	if vim.fn.reg_recording() ~= "" or vim.fn.reg_executing() ~= "" then
 		vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes(trigger, true, true, true), "n", false)
 		return
@@ -601,7 +601,7 @@ function M.start(mode, trigger)
 		register = vim.v.register,
 	}
 
-	-- Visual selection is preserved across the popup: the floating window is
+	-- Visual selection is preserved across the hint: the floating window is
 	-- non-focusable and opened with enter=false, so the cursor stays in the
 	-- user's window and visual mode remains active while getcharstr blocks.
 
@@ -656,7 +656,7 @@ M._internal = {
 	walk = walk,
 	visible_children = visible_children,
 	split_keys = split_keys,
-	---Render the popup once at the given prefix (no getchar loop).
+	---Render the hint once at the given prefix (no getchar loop).
 	---@param mode string
 	---@param trigger string
 	---@param sequence string[]
