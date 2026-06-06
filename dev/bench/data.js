@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780719447535,
+  "lastUpdate": 1780720428032,
   "repoUrl": "https://github.com/loctvl842/BeastVim",
   "entries": {
     "BeastVim Startup": [
@@ -87,6 +87,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "BeastVim startup (warm) max",
             "value": 116.130673,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "committer": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "distinct": true,
+          "id": "b3b2914228e64281136cd01654f44edf4dd3de02",
+          "message": "feat(key/hint): sort by group + opt-in group headers in UI\n\nSort visible children by group label first so rows that share a\ngroup cluster together (Buffer, Git, Packer, ...). Rows with no\ngroup sink to the bottom. Within a group, alphabetical by key.\n\nAdd config.hint.show_group_headers (default false). When enabled,\nrender '── Group ──' separator rows between sections highlighted\nas BeastKeyHintHeader. Ungrouped tail gets a bare '──' separator.\n\nLeverages the explicit group field on every managed keymap — one\nof our advantages over which-key.nvim, where groupings are\ninferred from desc prefixes alone.\n\nbench unchanged: index_p50=237us, open_p50=228us.",
+          "timestamp": "2026-06-06T11:32:28+07:00",
+          "tree_id": "cb3364e3ea96c2dd778f4d6c6f8a8f4e49f36b99",
+          "url": "https://github.com/loctvl842/BeastVim/commit/b3b2914228e64281136cd01654f44edf4dd3de02"
+        },
+        "date": 1780720427743,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "BeastVim startup (warm) mean",
+            "value": 50.46322485000001,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) stddev",
+            "value": 1.0945597483501028,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) min",
+            "value": 49.117514,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) max",
+            "value": 53.00844800000001,
             "unit": "ms"
           }
         ]
