@@ -100,6 +100,13 @@ function M.run(state)
 				end
 			end
 		else
+			-- Autorepeat: user is holding the trigger key while the hint is
+			-- open. Exit with a sentinel so the caller suspends the trigger
+			-- keymap and feeds the press noremap (native cursor speed).
+			if #state.trigger_segs == 1 and label == state.trigger_segs[1] and #state.sequence == 0 then
+				stop_timer()
+				return "\0autorepeat"
+			end
 			-- Descend
 			table.insert(state.sequence, label)
 			local node = walk_state(state)

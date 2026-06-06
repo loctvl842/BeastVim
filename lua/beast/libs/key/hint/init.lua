@@ -39,6 +39,40 @@ local registered = {}
 local recursion_count = 0
 local recursion_timer = nil
 
+-- Autorepeat resume: when we delete a trigger keymap to let OS autorepeat
+-- run natively, this timer re-registers it after a quiet period.
+local AUTOREPEAT_QUIET_MS = 250
+---@type table<string, uv.uv_timer_t>
+local autorepeat_resume_timers = {}
+
+---Delete the trigger keymap so subsequent OS-autorepeat presses execute
+---natively (no Lua callback overhead). A uv timer re-registers it after
+---AUTOREPEAT_QUIET_MS of inactivity — i.e. as soon as the user lets go.
+---@param mode string
+---@param trigger string
+local function suspend_trigger_for_autorepeat(mode, trigger)
+	local key = mode .. "\0" .. trigger
+	if registered[key] then
+		pcall(vim.keymap.del, mode, trigger)
+		registered[key] = nil
+	end
+	local timer = autorepeat_resume_timers[key]
+	if not timer then
+		timer = assert((vim.uv or vim.loop).new_timer())
+		autorepeat_resume_timers[key] = timer
+	end
+	timer:stop()
+	timer:start(
+		AUTOREPEAT_QUIET_MS,
+		0,
+		vim.schedule_wrap(function()
+			autorepeat_resume_timers[key] = nil
+			timer:close()
+			M.register_trigger(mode, trigger)
+		end)
+	)
+end
+
 -- =============================================================================
 -- Execute (suspend & feed)
 -- =============================================================================
@@ -116,6 +150,25 @@ end
 ---@param mode string
 ---@param trigger string
 function M.start(mode, trigger)
+	local trigger_segs = index.split_keys(trigger)
+
+	-- Autorepeat fast path: peek typeahead. If the next pending char equals
+	-- the trigger root, the user is holding the trigger key. Delete the
+	-- keymap so subsequent OS-autorepeats execute natively (no Lua callback
+	-- overhead), and feed the current press noremap. Must run BEFORE the
+	-- recursion guard since held keys easily exceed the limit.
+	if #trigger_segs == 1 then
+		local peek = vim.fn.getchar(1)
+		if peek ~= 0 then
+			local peek_raw = type(peek) == "number" and vim.fn.nr2char(peek) or peek
+			if index.key_label(peek_raw) == trigger_segs[1] then
+				suspend_trigger_for_autorepeat(mode, trigger)
+				vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes(trigger, true, true, true), "n", false)
+				return
+			end
+		end
+	end
+
 	-- Recursion guard: if our trigger gets re-entered too many times in quick
 	-- succession (e.g. user's keymap feeds <leader> recursively), bail out.
 	recursion_count = recursion_count + 1
@@ -156,7 +209,6 @@ function M.start(mode, trigger)
 	-- matched subtree (e.g. directly at the <leader>z group) instead of
 	-- bailing out and letting the keys resolve natively without ever
 	-- surfacing the hint.
-	local trigger_segs = index.split_keys(trigger)
 	local pre_sequence = {}
 	if config.hint.auto_derive_subtriggers and vim.fn.getchar(1) ~= 0 then
 		while true do
@@ -216,7 +268,12 @@ function M.start(mode, trigger)
 	end
 
 	if feed and feed ~= "" then
-		suspend_and_feed(state, feed)
+		if feed == "\0autorepeat" then
+			suspend_trigger_for_autorepeat(mode, trigger)
+			vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes(trigger, true, true, true), "n", false)
+		else
+			suspend_and_feed(state, feed)
+		end
 	end
 end
 
