@@ -32,6 +32,34 @@ local M = {}
 ---@field delay_timer? uv.uv_timer_t  -- libuv timer used for cfg.delay
 ---@field view? Beast.View
 
+-- =============================================================================
+-- Small helpers
+-- =============================================================================
+
+---@param s string
+---@return string
+local function termcodes(s)
+	return vim.api.nvim_replace_termcodes(s, true, true, true)
+end
+
+---@param keys string
+---@param flags string  -- e.g. "n", "in", "m"
+local function feed(keys, flags)
+	vim.api.nvim_feedkeys(termcodes(keys), flags, false)
+end
+
+---Convert a getchar() return value (number for plain ASCII, string for special
+---keys) to a raw string suitable for keytrans.
+---@param c integer|string
+---@return string
+local function getchar_to_str(c)
+	return type(c) == "number" and vim.fn.nr2char(c) or c
+end
+
+-- =============================================================================
+-- Module state
+-- =============================================================================
+
 ---@type table<string, boolean>  -- "mode\0trigger" → registered
 local registered = {}
 
@@ -40,14 +68,22 @@ local recursion_count = 0
 local recursion_timer = nil
 
 -- Autorepeat resume: when we delete a trigger keymap to let OS autorepeat
--- run natively, this timer re-registers it after a quiet period.
-local AUTOREPEAT_QUIET_MS = 100
----@type table<string, uv.uv_timer_t>
-local autorepeat_resume_timers = {}
+-- run natively, an on_key watcher tracks input activity and re-registers
+-- the trigger only after input goes quiet (i.e. the user released the key).
+-- This gives zero per-repeat overhead while the key is held: the trigger
+-- keymap is gone for the entire hold, not re-armed every N ms.
+local AUTOREPEAT_QUIET_MS = 50
+
+---@class Beast.Key.Hint.ResumeWatch
+---@field timer uv.uv_timer_t
+---@field ns integer
+
+---@type table<string, Beast.Key.Hint.ResumeWatch>
+local autorepeat_watches = {}
 
 ---Delete the trigger keymap so subsequent OS-autorepeat presses execute
----natively (no Lua callback overhead). A uv timer re-registers it after
----AUTOREPEAT_QUIET_MS of inactivity — i.e. as soon as the user lets go.
+---natively (no Lua callback overhead). Use vim.on_key to detect when input
+---goes quiet (key released) and re-register the trigger then.
 ---@param mode string
 ---@param trigger string
 local function suspend_trigger_for_autorepeat(mode, trigger)
@@ -56,21 +92,47 @@ local function suspend_trigger_for_autorepeat(mode, trigger)
 		pcall(vim.keymap.del, mode, trigger)
 		registered[key] = nil
 	end
-	local timer = autorepeat_resume_timers[key]
-	if not timer then
-		timer = assert((vim.uv or vim.loop).new_timer())
-		autorepeat_resume_timers[key] = timer
+
+	-- Tear down any previous watch for this trigger.
+	local existing = autorepeat_watches[key]
+	if existing then
+		existing.timer:stop()
+		existing.timer:close()
+		vim.on_key(nil, existing.ns)
+		autorepeat_watches[key] = nil
 	end
-	timer:stop()
-	timer:start(
-		AUTOREPEAT_QUIET_MS,
-		0,
-		vim.schedule_wrap(function()
-			autorepeat_resume_timers[key] = nil
-			timer:close()
-			M.register_trigger(mode, trigger)
-		end)
-	)
+
+	local timer = assert((vim.uv or vim.loop).new_timer())
+	local ns = vim.api.nvim_create_namespace("BeastKeyHintResume:" .. key)
+	local watch = { timer = timer, ns = ns }
+	autorepeat_watches[key] = watch
+
+	local function resume()
+		if autorepeat_watches[key] ~= watch then
+			return
+		end
+		autorepeat_watches[key] = nil
+		timer:stop()
+		timer:close()
+		vim.on_key(nil, ns)
+		M.register_trigger(mode, trigger)
+	end
+
+	local schedule_resume = vim.schedule_wrap(resume)
+
+	-- Each keystroke (including OS autorepeats of the held trigger) resets
+	-- the quiet timer. When input stops, the timer fires and re-registers.
+	vim.on_key(function()
+		if autorepeat_watches[key] ~= watch then
+			return
+		end
+		timer:stop()
+		timer:start(AUTOREPEAT_QUIET_MS, 0, schedule_resume)
+	end, ns)
+
+	-- Kick the timer immediately so we still resume if no further keys arrive
+	-- (e.g. the user released right after the autorepeat detection).
+	timer:start(AUTOREPEAT_QUIET_MS, 0, schedule_resume)
 end
 
 -- =============================================================================
@@ -107,7 +169,7 @@ local function suspend_and_feed(state, keys)
 		prefix = '"' .. state.register .. prefix
 	end
 
-	local termcoded = vim.api.nvim_replace_termcodes(prefix .. keys, true, true, true)
+	local termcoded = termcodes(prefix .. keys)
 	vim.api.nvim_feedkeys(termcoded, "m", false)
 
 	vim.schedule(function()
@@ -146,36 +208,33 @@ function M.register_trigger(mode, trigger)
 	registered[key] = true
 end
 
----Entry-point called by the trigger keymap.
 ---@param mode string
 ---@param trigger string
-function M.start(mode, trigger)
-	local trigger_segs = index.split_keys(trigger)
-
-	-- Autorepeat fast path: peek typeahead. If the next pending char equals
-	-- the trigger root, the user is holding the trigger key. Delete the
-	-- keymap so subsequent OS-autorepeats execute natively (no Lua callback
-	-- overhead), and feed the current press noremap. Must run BEFORE the
-	-- recursion guard since held keys easily exceed the limit.
-	if #trigger_segs == 1 then
-		local peek = vim.fn.getchar(1)
-		if peek ~= 0 then
-			local peek_raw = type(peek) == "number" and vim.fn.nr2char(peek) or peek
-			if index.key_label(peek_raw) == trigger_segs[1] then
-				suspend_trigger_for_autorepeat(mode, trigger)
-				vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes(trigger, true, true, true), "n", false)
-				return
-			end
-		end
+---@param trigger_segs string[]
+---@return boolean handled  -- true if held trigger was detected and fed
+local function try_autorepeat_fast_path(mode, trigger, trigger_segs)
+	if #trigger_segs ~= 1 then
+		return false
 	end
+	local peek = vim.fn.getchar(1)
+	if peek == 0 then
+		return false
+	end
+	if index.key_label(getchar_to_str(peek)) ~= trigger_segs[1] then
+		return false
+	end
+	suspend_trigger_for_autorepeat(mode, trigger)
+	feed(trigger, "n")
+	return true
+end
 
-	-- Recursion guard: if our trigger gets re-entered too many times in quick
-	-- succession (e.g. user's keymap feeds <leader> recursively), bail out.
+---@return boolean over_limit  -- true if recursion limit hit and start() should bail
+local function bump_recursion_guard()
 	recursion_count = recursion_count + 1
 	if recursion_count > 20 then
 		vim.notify("[beast.key.hint] recursion limit hit; aborting", vim.log.levels.WARN)
 		recursion_count = 0
-		return
+		return true
 	end
 	if not recursion_timer then
 		recursion_timer = assert((vim.uv or vim.loop).new_timer())
@@ -191,89 +250,122 @@ function M.start(mode, trigger)
 			end)
 		)
 	end
+	return false
+end
 
-	-- Skip during macro recording or replay: feed the trigger verbatim so the
-	-- macro records the literal keys (without opening our hint).
-	-- 'in' = insert at the head of the typeahead, no remap; without 'i' the
-	-- key is appended, which reorders it after any pending characters and
-	-- silently corrupts operator+textobject sequences (e.g. ci").
-	if vim.fn.reg_recording() ~= "" or vim.fn.reg_executing() ~= "" then
-		vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes(trigger, true, true, true), "in", false)
-		return
+---Drain any keys already in the typeahead following a fast-typed trigger,
+---walking the index. Returns a sequence to seed the hint with, or nil if the
+---typed sequence was already fed through verbatim (caller should bail).
+---@param mode string
+---@param trigger string
+---@param trigger_segs string[]
+---@return string[]? pre_sequence
+local function drain_typeahead_prefix(mode, trigger, trigger_segs)
+	if vim.fn.getchar(1) == 0 then
+		return {}
+	end
+	if not config.hint.auto_derive_subtriggers then
+		-- Legacy bailout: defer to native resolver instead of opening the hint.
+		feed(trigger, "in")
+		return nil
 	end
 
-	-- Fast-typed prefix handling.
-	-- When the user types e.g. <leader>z faster than the trigger callback can
-	-- fire, `z` is already in the typeahead by the time we get here. Drain
-	-- it ourselves and walk the index so we can open the hint at the deepest
-	-- matched subtree (e.g. directly at the <leader>z group) instead of
-	-- bailing out and letting the keys resolve natively without ever
-	-- surfacing the hint.
 	local pre_sequence = {}
-	if config.hint.auto_derive_subtriggers and vim.fn.getchar(1) ~= 0 then
-		while true do
-			local c = vim.fn.getchar(0)
-			if c == 0 then
-				break
-			end
-			local raw = type(c) == "number" and vim.fn.nr2char(c) or c
-			local label = index.key_label(raw)
-			table.insert(pre_sequence, label)
-
-			local full = {}
-			vim.list_extend(full, trigger_segs)
-			vim.list_extend(full, pre_sequence)
-			local node = index.walk(mode, full)
-			-- No match, or leaf: feed everything verbatim and let Neovim
-			-- resolve through the normal keymap chain.
-			if not node or not next(node.children) then
-				local feed = trigger .. table.concat(pre_sequence, "")
-				vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes(feed, true, true, true), "in", false)
-				return
-			end
-			-- Still a prefix node — keep draining until either a leaf is
-			-- reached or the typeahead is empty.
+	while true do
+		local c = vim.fn.getchar(0)
+		if c == 0 then
+			-- Typeahead drained, landed on a prefix node — open hint here.
+			return pre_sequence
 		end
-		-- Fell through: typeahead drained, landed on a prefix node. Continue
-		-- below with pre_sequence prefilled so the hint opens at that subtree.
-	elseif vim.fn.getchar(1) ~= 0 then
-		-- auto_derive_subtriggers disabled: preserve legacy bailout behavior.
-		vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes(trigger, true, true, true), "in", false)
-		return
-	end
+		table.insert(pre_sequence, index.key_label(getchar_to_str(c)))
 
-	local state = {
+		local full = {}
+		vim.list_extend(full, trigger_segs)
+		vim.list_extend(full, pre_sequence)
+		local node = index.walk(mode, full)
+		-- No match or leaf reached: let Neovim resolve the full sequence.
+		if not node or not next(node.children) then
+			feed(trigger .. table.concat(pre_sequence, ""), "in")
+			return nil
+		end
+	end
+end
+
+---@param mode string
+---@param trigger string
+---@param sequence string[]
+---@param capture_count_register boolean
+---@return Beast.Key.Hint.State
+local function new_state(mode, trigger, sequence, capture_count_register)
+	return {
 		mode = mode,
 		trigger = trigger,
-		trigger_segs = trigger_segs,
-		sequence = pre_sequence,
+		trigger_segs = index.split_keys(trigger),
+		sequence = sequence,
 		bufnr = vim.api.nvim_get_current_buf(),
 		win_before = vim.api.nvim_get_current_win(),
-		count = vim.v.count,
-		register = vim.v.register,
+		count = capture_count_register and vim.v.count or nil,
+		register = capture_count_register and vim.v.register or nil,
 	}
+end
+
+---Entry-point called by the trigger keymap.
+---@param mode string
+---@param trigger string
+function M.start(mode, trigger)
+	local trigger_segs = index.split_keys(trigger)
+
+	-- Held trigger: delete the keymap so OS autorepeats run natively. Must
+	-- run BEFORE the recursion guard since held keys easily exceed the limit.
+	if try_autorepeat_fast_path(mode, trigger, trigger_segs) then
+		return
+	end
+
+	if bump_recursion_guard() then
+		return
+	end
+
+	-- Skip during macro recording or replay: feed the trigger verbatim so the
+	-- macro records the literal keys (without opening our hint). 'in' inserts
+	-- at the head; without 'i' the key reorders after pending chars and can
+	-- corrupt operator+textobject sequences (e.g. ci").
+	if vim.fn.reg_recording() ~= "" or vim.fn.reg_executing() ~= "" then
+		feed(trigger, "in")
+		return
+	end
+
+	local pre_sequence = drain_typeahead_prefix(mode, trigger, trigger_segs)
+	if pre_sequence == nil then
+		return
+	end
 
 	-- Visual selection is preserved across the hint: the floating window is
 	-- non-focusable and opened with enter=false, so the cursor stays in the
 	-- user's window and visual mode remains active while getcharstr blocks.
+	local state = new_state(mode, trigger, pre_sequence, true)
 
 	-- Run the modal loop under xpcall so any error still tears down the
 	-- floating window cleanly and lets the trigger be re-registered.
-	local ok, feed = xpcall(loop.run, debug.traceback, state)
+	local ok, feed_or_err = xpcall(loop.run, debug.traceback, state)
 	window.close(state)
 
 	if not ok then
-		vim.notify("[beast.key.hint] error: " .. tostring(feed), vim.log.levels.ERROR)
+		vim.notify("[beast.key.hint] error: " .. tostring(feed_or_err), vim.log.levels.ERROR)
 		return
 	end
 
-	if feed and feed ~= "" then
-		if feed == "\0autorepeat" then
-			suspend_trigger_for_autorepeat(mode, trigger)
-			vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes(trigger, true, true, true), "n", false)
-		else
-			suspend_and_feed(state, feed)
-		end
+	if not feed_or_err or feed_or_err == "" then
+		return
+	end
+
+	if feed_or_err == "\0autorepeat" then
+		suspend_trigger_for_autorepeat(mode, trigger)
+		-- Feed BOTH consumed presses: the one that fired this trigger callback
+		-- and the one getcharstr ate inside loop.run. Feeding only one would
+		-- drop a keypress per autorepeat cycle, halving the perceived rate.
+		feed(trigger .. trigger, "n")
+	else
+		suspend_and_feed(state, feed_or_err)
 	end
 end
 
@@ -315,14 +407,7 @@ M._internal = {
 	---@param trigger string
 	---@param sequence string[]
 	render_once = function(mode, trigger, sequence)
-		local state = {
-			mode = mode,
-			trigger = trigger,
-			trigger_segs = index.split_keys(trigger),
-			sequence = sequence or {},
-			bufnr = vim.api.nvim_get_current_buf(),
-			win_before = vim.api.nvim_get_current_win(),
-		}
+		local state = new_state(mode, trigger, sequence or {}, false)
 		loop.render(state)
 		window.close(state)
 	end,
