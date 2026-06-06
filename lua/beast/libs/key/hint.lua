@@ -1,5 +1,5 @@
 -- =============================================================================
--- Beast key popup — Helix-style press-and-wait
+-- Beast key hint — Helix-style press-and-wait
 -- =============================================================================
 -- Built on top of `Key.managed` (our single source of truth) so we never scrape
 -- nvim_get_keymap, never rebuild per-buffer, never run a polling timer.
@@ -17,16 +17,16 @@ local core = require("beast.libs.key.core")
 
 local M = {}
 
----@class Beast.Key.PopupView : Beast.View
-local PopupView = View:extend()
+---@class Beast.Key.HintView : Beast.View
+local HintView = View:extend()
 
----@class Beast.Key.Popup.Node
----@field children table<string, Beast.Key.Popup.Node>
+---@class Beast.Key.Hint.Node
+---@field children table<string, Beast.Key.Hint.Node>
 ---@field keymap? Beast.Keymap   -- present at leaves
 ---@field group? string          -- group label if any
 ---@field key string             -- the single key segment that leads here
 
----@class Beast.Key.Popup.State
+---@class Beast.Key.Hint.State
 ---@field mode string
 ---@field trigger string         -- raw trigger (e.g. "<leader>")
 ---@field trigger_segs string[]  -- pre-split trigger segments (e.g. { " " })
@@ -39,10 +39,10 @@ local PopupView = View:extend()
 ---@field delay_timer? userdata  -- libuv timer used for cfg.delay
 ---@field view? Beast.View
 
----@type Beast.Key.PopupConfig?
+---@type Beast.Key.HintConfig?
 local cfg = nil
 
----@type table<string, Beast.Key.Popup.Node>?  -- key: mode → tree root
+---@type table<string, Beast.Key.Hint.Node>?  -- key: mode → tree root
 local index_cache = nil
 
 ---@type table<string, boolean>  -- "mode\0trigger" → registered
@@ -52,7 +52,7 @@ local registered = {}
 local recursion_count = 0
 local recursion_timer = nil
 
-local ns = vim.api.nvim_create_namespace("BeastKeyPopup")
+local ns = vim.api.nvim_create_namespace("BeastKeyHint")
 
 -- =============================================================================
 -- Key utilities
@@ -98,9 +98,9 @@ local function new_node(key)
 	return { children = {}, key = key or "" }
 end
 
----@return table<string, Beast.Key.Popup.Node>
+---@return table<string, Beast.Key.Hint.Node>
 local function build_index()
-	---@type table<string, Beast.Key.Popup.Node>
+	---@type table<string, Beast.Key.Hint.Node>
 	local roots = {}
 
 	for _, km in pairs(core.managed) do
@@ -146,7 +146,7 @@ local MODE_FALLBACK = { x = "v", s = "v" }
 ---Walk the tree following a sequence of translated keys.
 ---@param mode string
 ---@param segs string[]
----@return Beast.Key.Popup.Node?
+---@return Beast.Key.Hint.Node?
 local function walk(mode, segs)
 	local idx = get_index()
 	local root = idx[mode] or idx[MODE_FALLBACK[mode] or mode]
@@ -164,7 +164,7 @@ local function walk(mode, segs)
 end
 
 ---Returns true if any descendant (or this node) holds a keymap reachable from bufnr.
----@param node Beast.Key.Popup.Node
+---@param node Beast.Key.Hint.Node
 ---@param bufnr integer
 ---@return boolean
 local function reachable(node, bufnr)
@@ -186,9 +186,9 @@ local function reachable(node, bufnr)
 end
 
 ---Filter children of a node to those that are reachable from the current buffer.
----@param node Beast.Key.Popup.Node
+---@param node Beast.Key.Hint.Node
 ---@param bufnr integer
----@return { key: string, child: Beast.Key.Popup.Node }[]
+---@return { key: string, child: Beast.Key.Hint.Node }[]
 local function visible_children(node, bufnr)
 	local out = {}
 	for key, child in pairs(node.children) do
@@ -212,7 +212,7 @@ end
 -- Window
 -- =============================================================================
 
----@param items { key: string, child: Beast.Key.Popup.Node }[]
+---@param items { key: string, child: Beast.Key.Hint.Node }[]
 ---@param title string
 ---@return integer width, integer height, string[] lines, integer max_key_w
 local function measure(items, title)
@@ -246,9 +246,9 @@ local function measure(items, title)
 	return max_line, #lines, lines, max_key
 end
 
----@param state Beast.Key.Popup.State
+---@param state Beast.Key.Hint.State
 ---@param title string
----@param items { key: string, child: Beast.Key.Popup.Node }[]
+---@param items { key: string, child: Beast.Key.Hint.Node }[]
 local function open_or_update(state, title, items)
 	local win_cfg = cfg.win
 	local content_w, content_h, lines, max_key_w = measure(items, title)
@@ -285,7 +285,7 @@ local function open_or_update(state, title, items)
 		vim.bo[buf].buftype = "nofile"
 		vim.bo[buf].bufhidden = "wipe"
 		vim.bo[buf].swapfile = false
-		vim.bo[buf].filetype = "beast-key-popup"
+		vim.bo[buf].filetype = "beast-key-hint"
 	end
 	vim.api.nvim_buf_set_lines(buf, 0, -1, false, padded_lines)
 	vim.bo[buf].modifiable = false
@@ -296,10 +296,10 @@ local function open_or_update(state, title, items)
 		local row = i - 1 + pad_h
 		local prefix_w = pad_w + (max_key_w - vim.fn.strdisplaywidth(it.key))
 		local key_end = prefix_w + #it.key
-		vim.api.nvim_buf_add_highlight(buf, ns, "BeastKeyPopupKey", row, prefix_w, key_end)
+		vim.api.nvim_buf_add_highlight(buf, ns, "BeastKeyHintKey", row, prefix_w, key_end)
 		local desc_start = key_end + 2 -- two spaces separator
 		local is_group = it.child.group ~= nil and not it.child.keymap
-		local hl = is_group and "BeastKeyPopupGroup" or "BeastKeyPopupDesc"
+		local hl = is_group and "BeastKeyHintGroup" or "BeastKeyHintDesc"
 		vim.api.nvim_buf_add_highlight(buf, ns, hl, row, desc_start, -1)
 	end
 
@@ -332,14 +332,14 @@ local function open_or_update(state, title, items)
 			title_pos = win_cfg.title_pos,
 			zindex = 200,
 		})
-		state.view = PopupView:new(buf, win)
+		state.view = HintView:new(buf, win)
 	end
 
 	-- Window-local options
 	vim.wo[win].winhighlight = table.concat({
-		"Normal:BeastKeyPopupNormal",
-		"FloatBorder:BeastKeyPopupBorder",
-		"FloatTitle:BeastKeyPopupTitle",
+		"Normal:BeastKeyHintNormal",
+		"FloatBorder:BeastKeyHintBorder",
+		"FloatTitle:BeastKeyHintTitle",
 	}, ",")
 	vim.wo[win].wrap = false
 	vim.wo[win].cursorline = false
@@ -362,8 +362,8 @@ end
 -- Render + loop
 -- =============================================================================
 
----@param state Beast.Key.Popup.State
----@return Beast.Key.Popup.Node?
+---@param state Beast.Key.Hint.State
+---@return Beast.Key.Hint.Node?
 local function walk_state(state)
 	local full = {}
 	for _, s in ipairs(state.trigger_segs) do
@@ -383,7 +383,7 @@ local function walk_state(state)
 	return node
 end
 
----@param state Beast.Key.Popup.State
+---@param state Beast.Key.Hint.State
 local function render(state)
 	local node = walk_state(state)
 	if not node then
@@ -400,7 +400,7 @@ local function render(state)
 	return true
 end
 
----@param state Beast.Key.Popup.State
+---@param state Beast.Key.Hint.State
 ---@return string|nil sequence_to_feed -- canonical sequence (e.g. "<leader>ff") or nil to cancel
 local function loop(state)
 	-- Open immediately when delay == 0; otherwise schedule below.
@@ -485,7 +485,7 @@ end
 
 ---Temporarily remove trigger keymaps so feedkeys() resolves through normal maps,
 ---then re-register them on the next tick.
----@param state Beast.Key.Popup.State
+---@param state Beast.Key.Hint.State
 ---@param keys string
 local function suspend_and_feed(state, keys)
 	-- Tear down all registered triggers.
@@ -534,8 +534,8 @@ function M.register_trigger(mode, trigger)
 
 	-- Collision check: skip if another (non-Beast) map already owns it.
 	local existing = vim.fn.maparg(trigger, mode, false, true)
-	if type(existing) == "table" and existing.lhs and existing.desc ~= "beast-key-popup-trigger" then
-		vim.notify(string.format("[beast.key.popup] skipping trigger %q (mode=%s): already mapped", trigger, mode), vim.log.levels.WARN)
+	if type(existing) == "table" and existing.lhs and existing.desc ~= "beast-key-hint-trigger" then
+		vim.notify(string.format("[beast.key.hint] skipping trigger %q (mode=%s): already mapped", trigger, mode), vim.log.levels.WARN)
 		return
 	end
 
@@ -544,7 +544,7 @@ function M.register_trigger(mode, trigger)
 	end, {
 		silent = true,
 		nowait = true,
-		desc = "beast-key-popup-trigger",
+		desc = "beast-key-hint-trigger",
 	})
 	registered[key] = true
 end
@@ -557,7 +557,7 @@ function M.start(mode, trigger)
 	-- succession (e.g. user's keymap feeds <leader> recursively), bail out.
 	recursion_count = recursion_count + 1
 	if recursion_count > 20 then
-		vim.notify("[beast.key.popup] recursion limit hit; aborting", vim.log.levels.WARN)
+		vim.notify("[beast.key.hint] recursion limit hit; aborting", vim.log.levels.WARN)
 		recursion_count = 0
 		return
 	end
@@ -611,7 +611,7 @@ function M.start(mode, trigger)
 	close_window(state)
 
 	if not ok then
-		vim.notify("[beast.key.popup] error: " .. tostring(feed), vim.log.levels.ERROR)
+		vim.notify("[beast.key.hint] error: " .. tostring(feed), vim.log.levels.ERROR)
 		return
 	end
 
@@ -624,12 +624,12 @@ end
 -- Setup
 -- =============================================================================
 
----@param popup_cfg Beast.Key.PopupConfig
-function M.setup(popup_cfg)
-	cfg = popup_cfg
+---@param hint_cfg Beast.Key.HintConfig
+function M.setup(hint_cfg)
+	cfg = hint_cfg
 
 	-- Invalidate index whenever managed keymaps change.
-	local group = vim.api.nvim_create_augroup("BeastKeyPopup", { clear = true })
+	local group = vim.api.nvim_create_augroup("BeastKeyHint", { clear = true })
 	vim.api.nvim_create_autocmd("User", {
 		group = group,
 		pattern = "BeastKeysChanged",
@@ -649,7 +649,7 @@ end
 -- Internal hooks (tests + bench)
 -- =============================================================================
 
----Internal: exposed for `scripts/bench-key-popup.lua` and `tests/`.
+---Internal: exposed for `scripts/bench-key-hint.lua` and `tests/`.
 ---Do not depend on this API outside of those.
 M._internal = {
 	build_index = build_index,

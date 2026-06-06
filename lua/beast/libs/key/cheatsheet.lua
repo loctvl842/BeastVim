@@ -1,9 +1,9 @@
 local View = require("beast.libs.view")
 local api = require("beast.libs.key.api")
 local config = require("beast.libs.key.config")
-local state = require("beast.libs.key.state")
+local state = require("beast.libs.key.cheatsheet_state")
 
----@class Beast.Key.UI.MainView : Beast.View
+---@class Beast.Key.Cheatsheet.MainView : Beast.View
 ---@field ns integer
 ---@field backdrop Beast.View
 local MainView = View:extend(function(obj, ns, backdrop)
@@ -11,7 +11,7 @@ local MainView = View:extend(function(obj, ns, backdrop)
 	obj.backdrop = backdrop
 end)
 
----@class Beast.Key.UI.ActionView : Beast.View
+---@class Beast.Key.Cheatsheet.ActionView : Beast.View
 ---@field ns integer
 local ActionView = View:extend(function(obj, ns)
 	obj.ns = ns
@@ -28,8 +28,8 @@ local M = {}
 ---@return integer row
 ---@return integer col
 local function calc_main_geometry()
-	local width = math.floor(vim.o.columns * config.ui.width)
-	local height = math.floor(vim.o.lines * config.ui.height)
+	local width = math.floor(vim.o.columns * config.cheatsheet.width)
+	local height = math.floor(vim.o.lines * config.cheatsheet.height)
 	local row = math.floor((vim.o.lines - height) / 2)
 	local col = math.floor((vim.o.columns - width) / 2)
 	return width, height, row, col
@@ -44,7 +44,7 @@ local function keys_to_string(keys)
 	return keys
 end
 
----@param actions Beast.Key.UI.Action[]
+---@param actions Beast.Key.Cheatsheet.Action[]
 ---@return integer
 local function get_max_keys_width(actions)
 	local max_width = 0
@@ -55,7 +55,7 @@ local function get_max_keys_width(actions)
 	return max_width
 end
 
----@param actions Beast.Key.UI.Action[]
+---@param actions Beast.Key.Cheatsheet.Action[]
 ---@return integer
 local function calc_action_width(actions)
 	local max_len_key = 0
@@ -75,8 +75,8 @@ end
 ---@return integer col
 local function calc_action_geometry(main_win)
 	local main_cfg = vim.api.nvim_win_get_config(main_win)
-	local width = calc_action_width(config.ui.actions)
-	local height = math.max(#config.ui.actions, 1)
+	local width = calc_action_width(config.cheatsheet.actions)
+	local height = math.max(#config.cheatsheet.actions, 1)
 
 	-- Top-right inside the main window with a little padding.
 	local row = -1 -- offset into the winbar row
@@ -90,7 +90,7 @@ end
 -- =============================================================================
 local Main = {}
 
----@return Beast.Key.UI.MainView
+---@return Beast.Key.Cheatsheet.MainView
 function Main.create()
 	local backdrop_buf = View.buf.new("beast-backdrop")
 	local main_buf = View.buf.new("beast-key")
@@ -105,7 +105,7 @@ function Main.create()
 		zindex = 100,
 	})
 
-	View.win.wo(backdrop_win, "winblend", config.ui.backdrop)
+	View.win.wo(backdrop_win, "winblend", config.cheatsheet.backdrop)
 	View.win.wo(backdrop_win, "winhighlight", "Normal:BeastKeyBackdrop")
 
 	local width, height, row, col = calc_main_geometry()
@@ -128,10 +128,10 @@ function Main.create()
 	View.win.wo(main_win, "number", false)
 	View.win.wo(main_win, "relativenumber", false)
 	View.win.wo(main_win, "signcolumn", "no")
-	return MainView(main_buf, main_win, vim.api.nvim_create_namespace("beast_key_main"), View(backdrop_buf, backdrop_win))
+	return MainView(main_buf, main_win, vim.api.nvim_create_namespace("beast_key_cheatsheet_main"), View(backdrop_buf, backdrop_win))
 end
 
----@param main Beast.Key.UI.MainView
+---@param main Beast.Key.Cheatsheet.MainView
 function Main.layout(main)
   -- stylua: ignore
 	if not main:is_valid() then return end
@@ -156,7 +156,7 @@ function Main.layout(main)
 	})
 end
 
----@param main Beast.Key.UI.MainView
+---@param main Beast.Key.Cheatsheet.MainView
 function Main.render(main)
   --stylua: ignore
   if not main:is_valid() then return end
@@ -189,7 +189,7 @@ function Main.render(main)
 	end
 end
 
----@param main Beast.Key.UI.MainView|nil
+---@param main Beast.Key.Cheatsheet.MainView|nil
 function Main.close(main)
   --stylua: ignore
   if not main then return end
@@ -202,8 +202,8 @@ end
 -- =============================================================================
 local Action = {}
 
----@param main Beast.Key.UI.MainView
----@return Beast.Key.UI.ActionView
+---@param main Beast.Key.Cheatsheet.MainView
+---@return Beast.Key.Cheatsheet.ActionView
 function Action.create(main)
 	local buf = View.buf.new("beast-key-actions")
 	local width, height, row, col = calc_action_geometry(main.win)
@@ -224,11 +224,11 @@ function Action.create(main)
 
 	View.win.wo(win, "winblend", 0)
 	View.win.wo(win, "winhighlight", "Normal:BeastPackerNormal")
-	return ActionView(buf, win, vim.api.nvim_create_namespace("beast_key_actions"))
+	return ActionView(buf, win, vim.api.nvim_create_namespace("beast_key_cheatsheet_actions"))
 end
 
----@param action Beast.Key.UI.ActionView
----@param main Beast.Key.UI.MainView
+---@param action Beast.Key.Cheatsheet.ActionView
+---@param main Beast.Key.Cheatsheet.MainView
 function Action.layout(action, main)
 	if not action:is_valid() or not main:is_valid() then
 		return
@@ -246,16 +246,16 @@ function Action.layout(action, main)
 	})
 end
 
----@param action Beast.Key.UI.ActionView
+---@param action Beast.Key.Cheatsheet.ActionView
 function Action.render(action)
   --stylua: ignore
   if not action:is_valid() then return end
 
 	vim.api.nvim_buf_clear_namespace(action.buf, action.ns, 0, -1)
 
-	local max_keys_width = get_max_keys_width(config.ui.actions)
+	local max_keys_width = get_max_keys_width(config.cheatsheet.actions)
 
-	for i, a in ipairs(config.ui.actions) do
+	for i, a in ipairs(config.cheatsheet.actions) do
 		local line0 = i - 1
 		local line_count = vim.api.nvim_buf_line_count(action.buf)
 
@@ -282,7 +282,7 @@ function Action.render(action)
 	end
 end
 
----@param action Beast.Key.UI.ActionView
+---@param action Beast.Key.Cheatsheet.ActionView
 function Action.close(action)
 	action:close()
 end
@@ -350,7 +350,7 @@ local function layout_state()
 end
 
 local function mount_keymaps()
-	for _, a in ipairs(config.ui.actions) do
+	for _, a in ipairs(config.cheatsheet.actions) do
 		---@type string[]
 		---@diagnostic disable-next-line: assign-type-mismatch
 		local keys = type(a.keys) == "string" and { a.keys } or a.keys
@@ -365,7 +365,7 @@ local function mount_keymaps()
 end
 
 local function mount_autocmds()
-	state.augroup = vim.api.nvim_create_augroup("BeastKeyUI_" .. tostring(vim.loop.hrtime()), { clear = true })
+	state.augroup = vim.api.nvim_create_augroup("BeastKeyCheatsheet_" .. tostring(vim.loop.hrtime()), { clear = true })
 
 	vim.api.nvim_create_autocmd("BufLeave", {
 		group = state.augroup,

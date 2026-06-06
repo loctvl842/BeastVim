@@ -1,11 +1,11 @@
----@class Beast.Key.UI.Action
+---@class Beast.Key.Cheatsheet.Action
 ---@field keys string[]|string
 ---@field label string
 ---@field key_hl string
 ---@field label_hl string
 ---@field on_press string
 
----@class Beast.Key.PopupWinConfig
+---@class Beast.Key.HintWinConfig
 ---@field width { min: integer, max: integer }
 ---@field height { min: integer, max: number } -- max is integer rows or 0<n<=1 ratio of editor height
 ---@field border string|string[]
@@ -13,19 +13,19 @@
 ---@field padding [integer, integer] -- {row, col}
 ---@field title_pos "left"|"center"|"right"
 
----@class Beast.Key.PopupConfig
+---@class Beast.Key.HintConfig
 ---@field enabled boolean
 ---@field triggers string[]
 ---@field modes string[]
----@field delay integer -- ms before popup appears (0 = Helix-style immediate)
----@field win Beast.Key.PopupWinConfig
+---@field delay integer -- ms before hint appears (0 = Helix-style immediate)
+---@field win Beast.Key.HintWinConfig
 
 ---@class Beast.Key.Config
 ---@field mappings? (Beast.KeymapSpec|Beast.KeymapSpec[]|string|string[])[]
----@field popup? Beast.Key.PopupConfig
+---@field hint? Beast.Key.HintConfig
 local defaults = {
 	mappings = {},
-	popup = {
+	hint = {
 		enabled = true,
 		triggers = { "<leader>", "<localleader>", "]", "[", "f", "<leader>z", "<leader>g" },
 		modes = { "n", "x" },
@@ -39,11 +39,11 @@ local defaults = {
 			title_pos = "left",
 		},
 	},
-	ui = {
+	cheatsheet = {
 		width = 0.7,
 		height = 0.7,
 		backdrop = 60,
-		---@type Beast.Key.UI.Action[]
+		---@type Beast.Key.Cheatsheet.Action[]
 		actions = {
 			{
 				keys = "<CR>",

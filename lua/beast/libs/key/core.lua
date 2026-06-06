@@ -35,7 +35,7 @@ local EVENTS = {
 M.managed = {}
 
 -- Internal: emit a User autocommand when managed keys change. Downstream
--- subscribers (e.g. lua/beast/libs/key/popup.lua) listen for cache invalidation.
+-- subscribers (e.g. lua/beast/libs/key/hint.lua) listen for cache invalidation.
 ---@param action 'keymap:set'|'keymap:del'|'keymap:label'
 ---@param keys Beast.Keymap
 ---@param buf? integer|boolean
