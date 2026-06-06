@@ -109,7 +109,7 @@ function M.set(keys, buffer)
 
 	vim.keymap.set(keys.mode, keys.lhs, keys.rhs, opts)
 
-	-- Normalise buffer identity so downstream consumers (e.g. popup index) can
+	-- Normalise buffer identity so downstream consumers (e.g. hint index) can
 	-- determine which buffer this map lives on. `true` / `0` mean "current
 	-- buffer" at set-time — resolve to the actual bufnr.
 	if buffer == true or buffer == 0 then
@@ -159,7 +159,7 @@ function M.safe_set(mode, lhs, rhs, opts)
 		elseif rhs ~= nil then
 			M.set(km, opts.buffer)
 		else
-			-- Label/group only: track in the registry for the popup index, but
+			-- Label/group only: track in the registry for the hint index, but
 			-- don't register an actual keymap with Neovim.
 			M.managed[km.id] = km
 			emit_changed(EVENTS.LBL, km, opts.buffer)
