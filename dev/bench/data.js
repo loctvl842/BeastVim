@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780720428032,
+  "lastUpdate": 1780720587528,
   "repoUrl": "https://github.com/loctvl842/BeastVim",
   "entries": {
     "BeastVim Startup": [
@@ -131,6 +131,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "BeastVim startup (warm) max",
             "value": 53.00844800000001,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "committer": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "distinct": true,
+          "id": "fa86d9d4a2c611bf217b8c9173490d15984b532a",
+          "message": "docs(bench): document gh-pages dashboard, drop bogus :Lazy step\n\n* .github/workflows/bench.yml — remove '+Lazy! sync' from the prime\n  step. BeastVim is self-configured (lua/beast/libs/packer on top of\n  vim.pack.add); there is no :Lazy command. First headless start\n  clones missing plugins; second start warms caches.\n* docs/development/bench-ci.md — new reference covering what gets\n  published, when the workflow runs, the one-time setup we already\n  did (orphan gh-pages + 'gh api pages'), tuning knobs, and how to\n  add a baseline config to the same chart.\n* docs/development/benchmarking.md — cross-link to bench-ci.md.\n* README.md — add bench-dashboard badge and a sentence pointing at\n  the per-commit history page.",
+          "timestamp": "2026-06-06T11:35:38+07:00",
+          "tree_id": "9f9b3457f65ced9dfea3fe66e342cda14c4ca0e9",
+          "url": "https://github.com/loctvl842/BeastVim/commit/fa86d9d4a2c611bf217b8c9173490d15984b532a"
+        },
+        "date": 1780720587230,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "BeastVim startup (warm) mean",
+            "value": 63.205429450000004,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) stddev",
+            "value": 40.051825744132834,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) min",
+            "value": 51.387772000000005,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) max",
+            "value": 232.46572600000002,
             "unit": "ms"
           }
         ]
