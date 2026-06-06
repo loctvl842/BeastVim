@@ -16,7 +16,7 @@
 ---@field enabled boolean
 ---@field triggers string[]
 ---@field modes string[]
----@field delay integer -- ms before hint appears (0 = Helix-style immediate)
+---@field delay integer -- ms before hint appears (0 = immediate; default 50 avoids window-flash on held trigger and on fast key sequences)
 ---@field win Beast.Key.HintWinConfig
 ---@field auto_derive_subtriggers boolean -- on fast-typed prefixes, drain typeahead and open hint at the deepest matched subtree
 ---@field show_group_headers boolean -- render "── Group ──" separator rows between groups
@@ -37,7 +37,7 @@ local defaults = {
 		enabled = true,
 		triggers = { "<leader>", "<localleader>", "[", "]", "c" },
 		modes = { "n", "x" },
-		delay = 0,
+		delay = 50,
 		win = {
 			width = { min = 30, max = 60 },
 			height = { min = 4, max = 0.6 },

@@ -41,7 +41,7 @@ local recursion_timer = nil
 
 -- Autorepeat resume: when we delete a trigger keymap to let OS autorepeat
 -- run natively, this timer re-registers it after a quiet period.
-local AUTOREPEAT_QUIET_MS = 250
+local AUTOREPEAT_QUIET_MS = 100
 ---@type table<string, uv.uv_timer_t>
 local autorepeat_resume_timers = {}
 
