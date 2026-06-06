@@ -8,6 +8,14 @@ function M.is_valid(w)
 	return api.nvim_win_is_valid(w)
 end
 
+function M.get_width(w)
+	return api.nvim_win_get_width(w)
+end
+
+function M.get_height(w)
+	return api.nvim_win_get_height(w)
+end
+
 function M.is_floating(w)
 	return fn.win_gettype(w) == "popup"
 end
