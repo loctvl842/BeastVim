@@ -1,0 +1,9 @@
+# Python bytecode (e.g. scripts/bench-ux/summarise.py imports)
+__pycache__/
+*.pyc
+*.pyo
+
+# Editor / OS
+.DS_Store
+*.swp
+*.swo
