@@ -34,13 +34,33 @@ local EVENTS = {
 
 M.managed = {}
 
--- Internal: emit a User autocommand when managed keys change. Downstream
--- subscribers (e.g. lua/beast/libs/key/hint.lua) listen for cache invalidation.
+-- =============================================================================
+-- BeastKeysChanged
+-- =============================================================================
+-- A `User` autocommand fired (deferred via `vim.schedule`) whenever a managed
+-- keymap is set, deleted, or relabeled. Carries `{ action, keys, buffer }` in
+-- `data` so subscribers can react granularly.
+--
+-- Why an autocmd and not a direct call?
+--   * `M.managed` is the single source of truth; multiple consumers may want
+--     to react (cache invalidation, exporters, future tooling).
+--   * Decoupled from any specific consumer — `core.lua` does not know who is
+--     listening and does not need to.
+--   * Consumers opt-in via their own setup (see lib-conventions.md §7).
+--
+-- Current subscribers
+--   * `beast.libs.key.hint.index` — invalidates the prefix-tree cache so
+--     keymaps registered at runtime (LSP attach, lazy-loaded plugins) appear
+--     in the press-and-wait hint without restart.
+--
+-- ⚠ Keep this in sync when adding/removing consumers.
+-- =============================================================================
+
 ---@param action 'keymap:set'|'keymap:del'|'keymap:label'
 ---@param keys Beast.Keymap
 ---@param buf? integer|boolean
 local function emit_changed(action, keys, buf)
-	-- Defer to avoid re-entrancy and batch rapid changes
+	-- Defer to avoid re-entrancy and batch rapid changes.
 	vim.schedule(function()
 		pcall(vim.api.nvim_exec_autocmds, "User", {
 			pattern = "BeastKeysChanged",

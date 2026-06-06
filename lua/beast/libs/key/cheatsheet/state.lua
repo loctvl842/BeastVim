@@ -7,10 +7,6 @@ local M = {
 	lines = nil, ---@type Beast.Key.API.Line[]?
 }
 
--- ================================
--- Methods
--- ================================
-
 function M.is_valid()
 	return not M.closed and M.main and M.main:is_valid() and M.action and M.action:is_valid()
 end

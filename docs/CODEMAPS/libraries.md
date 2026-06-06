@@ -167,11 +167,18 @@ key/
 ├── config.lua           ← readonly config, cheatsheet + hint dimensions
 ├── core.lua             ← safe_set, managed keymaps registry (+ BeastKeysChanged emit)
 ├── api.lua              ← show/hide/query operations
-├── cheatsheet_state.lua ← active view, mode, filter
-├── cheatsheet.lua       ← floating window + backdrop (full-screen browser)
-├── hint.lua             ← Helix-style press-and-wait hint (replaces which-key)
 ├── highlights.lua       ← BeastKey* groups (incl. BeastKeyHint*)
-└── builtin.lua          ← default keymaps (scroll, pin, etc.)
+├── builtin.lua          ← default keymaps (scroll, pin, etc.)
+├── cheatsheet/          ← full-screen keymap browser
+│   ├── init.lua         ← public M.open/M.refresh + controller + actions
+│   ├── state.lua        ← active main/action views, lines, augroup
+│   ├── main.lua         ← MainView (backdrop + main float) create/layout/render/close
+│   └── action.lua       ← ActionView (top-right action overlay)
+└── hint/                ← Helix-style press-and-wait hint (replaces which-key)
+    ├── init.lua         ← M.setup/M.start, register_trigger, suspend_and_feed
+    ├── index.lua        ← split_keys, prefix tree, walk, reachable, visible_children
+    ├── window.lua       ← HintView, measure, open_or_update, close
+    └── loop.lua         ← walk_state, render, modal getchar loop
 ```
 
 API: `Key.safe_set(mode, lhs, rhs, opts)`, `Key.managed`. Hint is enabled by
