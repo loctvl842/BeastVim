@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780765848764,
+  "lastUpdate": 1780766161110,
   "repoUrl": "https://github.com/loctvl842/BeastVim",
   "entries": {
     "BeastVim Startup": [
@@ -307,6 +307,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "BeastVim startup (warm) max",
             "value": 25.716779000000002,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "committer": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "distinct": true,
+          "id": "b4066615c67d10a7e6d8c63267d7e41339809f34",
+          "message": "feat(bench-ux): add keymaps scenario driving every lua/beast/init.lua binding\n\nNew scenario exercises notification, tabline, window, git hunk\nnav/preview/stage/unstage/reset/repeat, finder pickers, packer UI,\nexplorer toggle, and buffer-delete keymaps end-to-end. Forces\nLOAD_USER_CONFIG=1 + FIXTURE_GIT=1 so git keymaps have real hunks to\noperate on. Brackets each press with :BenchMark km_<name> and prints\nboth aggregate p50/p99 and a per-keymap breakdown via summarise.py\n--per-keymap so cold lazy loads stand out from cheap motions.\n\nsummarise.py gains parse_paint_with_ts + fmt_per_keymap to attribute\neach paint sample to the most recent evt marker while preserving the\nlegacy paint-only parser for existing callers.",
+          "timestamp": "2026-06-07T00:15:23+07:00",
+          "tree_id": "31a04861c14126dc5ff32d2ffdb79e1639682590",
+          "url": "https://github.com/loctvl842/BeastVim/commit/b4066615c67d10a7e6d8c63267d7e41339809f34"
+        },
+        "date": 1780766160319,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "BeastVim startup (warm) mean",
+            "value": 24.889196700000007,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) stddev",
+            "value": 0.8606964113811739,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) min",
+            "value": 24.140849000000003,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) max",
+            "value": 28.371435,
             "unit": "ms"
           }
         ]
