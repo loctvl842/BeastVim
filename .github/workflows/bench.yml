@@ -38,11 +38,15 @@ jobs:
           mkdir -p "$HOME/.config/BeastVim"
           cp -r . "$HOME/.config/BeastVim/"
 
-      - name: Prime config (install plugins headlessly)
+      - name: Prime config (clone plugins via vim.pack on first start)
         env:
           NVIM_APPNAME: BeastVim
         run: |
-          timeout 300 nvim --headless "+Lazy! sync" +qa || true
+          # BeastVim is self-configured: `lua/beast/libs/packer` calls
+          # vim.pack.add() during setup(), which clones any missing plugins
+          # synchronously. First headless start does the install; second
+          # start warms caches before measurement.
+          timeout 300 nvim --headless "+qa" || true
           timeout 60  nvim --headless "+qa" || true
 
       - name: Run startup benchmark (warm)
