@@ -8,30 +8,85 @@ local M = {}
 
 local ns = vim.api.nvim_create_namespace("BeastKeyHint")
 
+---@class Beast.Key.Hint.Row
+---@field kind "item"|"header"
+---@field item? { key: string, child: Beast.Key.Hint.Node }
+---@field header? string
+
+---Group label for a child node (folder group OR leaf keymap group).
+---@param it { key: string, child: Beast.Key.Hint.Node }
+---@return string -- "" when ungrouped
+local function group_of(it)
+	return it.child.group or (it.child.keymap and it.child.keymap.group) or ""
+end
+
+---Interleave group-header rows into the sorted item list. When headers are
+---disabled, returns a flat item-only row list (no headers, no separators).
 ---@param items { key: string, child: Beast.Key.Hint.Node }[]
+---@return Beast.Key.Hint.Row[]
+local function build_rows(items)
+	local rows = {}
+	if not config.hint.show_group_headers then
+		for _, it in ipairs(items) do
+			table.insert(rows, { kind = "item", item = it })
+		end
+		return rows
+	end
+	local current = nil
+	for _, it in ipairs(items) do
+		local g = group_of(it)
+		if g ~= current then
+			current = g
+			if g ~= "" then
+				table.insert(rows, { kind = "header", header = g })
+			elseif #rows > 0 then
+				-- transition into ungrouped tail: still mark it so rows don't
+				-- run together visually.
+				table.insert(rows, { kind = "header", header = "" })
+			end
+		end
+		table.insert(rows, { kind = "item", item = it })
+	end
+	return rows
+end
+
+---@param rows Beast.Key.Hint.Row[]
 ---@param title string
 ---@return integer width, integer height, string[] lines, integer max_key_w
-local function measure(items, title)
+local function measure(rows, title)
 	local max_key = 0
-	for _, it in ipairs(items) do
-		max_key = math.max(max_key, vim.fn.strdisplaywidth(it.key))
+	for _, r in ipairs(rows) do
+		if r.kind == "item" then
+			max_key = math.max(max_key, vim.fn.strdisplaywidth(r.item.key))
+		end
 	end
 	local lines = {}
 	local max_line = vim.fn.strdisplaywidth(title)
-	for _, it in ipairs(items) do
-		local key = it.key
-		local pad = string.rep(" ", max_key - vim.fn.strdisplaywidth(key))
-		local desc
-		if it.child.keymap and it.child.keymap.desc and it.child.keymap.desc ~= "" then
-			desc = it.child.keymap.desc
-		elseif it.child.group then
-			desc = "+" .. it.child.group
-		elseif next(it.child.children) then
-			desc = "+prefix"
+	for _, r in ipairs(rows) do
+		local line
+		if r.kind == "header" then
+			-- "── Git ──" style. Empty header (ungrouped tail) renders as a
+			-- bare separator the width of the longest line so far.
+			if r.header == "" then
+				line = "──"
+			else
+				line = "── " .. r.header .. " ──"
+			end
 		else
-			desc = ""
+			local it = r.item
+			local pad = string.rep(" ", max_key - vim.fn.strdisplaywidth(it.key))
+			local desc
+			if it.child.keymap and it.child.keymap.desc and it.child.keymap.desc ~= "" then
+				desc = it.child.keymap.desc
+			elseif it.child.group then
+				desc = "+" .. it.child.group
+			elseif next(it.child.children) then
+				desc = "+prefix"
+			else
+				desc = ""
+			end
+			line = string.format("%s%s  %s", pad, it.key, desc)
 		end
-		local line = string.format("%s%s  %s", pad, key, desc)
 		table.insert(lines, line)
 		max_line = math.max(max_line, vim.fn.strdisplaywidth(line))
 	end
@@ -47,7 +102,8 @@ end
 ---@param items { key: string, child: Beast.Key.Hint.Node }[]
 function M.open_or_update(state, title, items)
 	local win_cfg = config.hint.win
-	local content_w, content_h, lines, max_key_w = measure(items, title)
+	local rows = build_rows(items)
+	local content_w, content_h, lines, max_key_w = measure(rows, title)
 
 	local pad_h, pad_w = win_cfg.padding[1], win_cfg.padding[2]
 	local width = math.max(win_cfg.width.min, math.min(win_cfg.width.max, content_w + pad_w * 2))
@@ -88,15 +144,32 @@ function M.open_or_update(state, title, items)
 
 	-- Highlights
 	vim.api.nvim_buf_clear_namespace(buf, ns, 0, -1)
-	for i, it in ipairs(items) do
+	for i, r in ipairs(rows) do
 		local row = i - 1 + pad_h
-		local prefix_w = pad_w + (max_key_w - vim.fn.strdisplaywidth(it.key))
-		local key_end = prefix_w + #it.key
-		vim.api.nvim_buf_set_extmark(buf, ns, row, prefix_w, { end_col = key_end, hl_group = "BeastKeyHintKey" })
-		local desc_start = key_end + 2 -- two spaces separator
-		local is_group = it.child.group ~= nil and not it.child.keymap
-		local hl = is_group and "BeastKeyHintGroup" or "BeastKeyHintDesc"
-		vim.api.nvim_buf_set_extmark(buf, ns, row, desc_start, { end_row = row, end_col = #padded_lines[i + pad_h], hl_group = hl })
+		local line = padded_lines[row + 1]
+		if r.kind == "header" then
+			vim.api.nvim_buf_set_extmark(buf, ns, row, 0, {
+				end_row = row,
+				end_col = #line,
+				hl_group = "BeastKeyHintHeader",
+			})
+		else
+			local it = r.item
+			local prefix_w = pad_w + (max_key_w - vim.fn.strdisplaywidth(it.key))
+			local key_end = prefix_w + #it.key
+			vim.api.nvim_buf_set_extmark(buf, ns, row, prefix_w, {
+				end_col = key_end,
+				hl_group = "BeastKeyHintKey",
+			})
+			local desc_start = key_end + 2
+			local is_group = it.child.group ~= nil and not it.child.keymap
+			local hl = is_group and "BeastKeyHintGroup" or "BeastKeyHintDesc"
+			vim.api.nvim_buf_set_extmark(buf, ns, row, desc_start, {
+				end_row = row,
+				end_col = #line,
+				hl_group = hl,
+			})
+		end
 	end
 
 	local win

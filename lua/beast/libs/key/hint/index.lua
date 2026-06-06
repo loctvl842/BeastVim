@@ -162,12 +162,25 @@ function M.visible_children(node, bufnr)
 			table.insert(out, { key = key, child = child })
 		end
 	end
-	-- Sort: groups last, alphanum.
+	-- Sort:
+	--   1. By group label first (folder nodes use `child.group`, leaf
+	--      nodes use `child.keymap.group`). This clusters every row that
+	--      shares a group — e.g. all "Git" rows together — which is one of
+	--      our advantages over which-key.nvim, where groups are inferred
+	--      from desc prefixes only.
+	--   2. Rows with no group sink to the bottom.
+	--   3. Within a group, sort alphabetically by key.
 	table.sort(out, function(a, b)
-		local ag = a.child.group ~= nil and not a.child.keymap
-		local bg = b.child.group ~= nil and not b.child.keymap
+		local ag = a.child.group or (a.child.keymap and a.child.keymap.group) or ""
+		local bg = b.child.group or (b.child.keymap and b.child.keymap.group) or ""
 		if ag ~= bg then
-			return not ag
+			if ag == "" then
+				return false
+			end
+			if bg == "" then
+				return true
+			end
+			return ag < bg
 		end
 		return a.key < b.key
 	end)
