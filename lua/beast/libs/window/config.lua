@@ -1,25 +1,7 @@
----@class Beast.Window.AutowidthFiletype : table<string, number>
-
----@class Beast.Window.AutowidthConfig
----@field enable boolean
----@field winwidth number Padding beyond textwidth (or fraction if 0<w<1 or 1<w<2).
----@field filetype Beast.Window.AutowidthFiletype Per-ft override of `winwidth`.
-
----@class Beast.Window.AnimationConfig
----@field enable boolean
----@field duration integer Total duration in ms.
----@field easing string|fun(t:number):number One of: linear|ease_in|ease_out|ease_in_out, or a function.
-
----@class Beast.Window.IgnoreConfig
----@field buftype table<string, true>|string[]
----@field filetype table<string, true>|string[]
-
 ---@class Beast.Window.Config
----@field autowidth Beast.Window.AutowidthConfig
----@field animation Beast.Window.AnimationConfig
----@field ignore Beast.Window.IgnoreConfig
-
----@type Beast.Window.Config
+---@field autowidth { enable: boolean, winwidth: number, filetype: table<string, number> }
+---@field animation { enable: boolean, duration: integer, easing: string|fun(t:number):number }
+---@field ignore { buftype: string[]|table<string,true>, filetype: string[]|table<string,true> }
 local defaults = {
 	autowidth = {
 		enable = true,
@@ -52,45 +34,46 @@ local defaults = {
 	},
 }
 
----@param list string[]|table<string,true>
----@return table<string,true>
 local function to_set(list)
 	if type(list) ~= "table" then
 		return {}
 	end
-	-- Already a set? leave alone.
-	if next(list) and type(next(list)) == "string" and list[1] == nil then
-		return list --[[@as table<string,true>]]
+	if list[1] == nil then
+		return list
 	end
 	local set = {}
-	for _, item in ipairs(list) do
-		set[item] = true
+	for _, v in ipairs(list) do
+		set[v] = true
 	end
 	return set
 end
 
-local M = vim.deepcopy(defaults)
-M.ignore.buftype = to_set(M.ignore.buftype)
-M.ignore.filetype = to_set(M.ignore.filetype)
+local function normalize(c)
+	c.ignore.buftype = to_set(c.ignore.buftype)
+	c.ignore.filetype = to_set(c.ignore.filetype)
+	return c
+end
 
-local initialized = false
+---@type Beast.Window.Config
+local cfg = normalize(vim.deepcopy(defaults))
+
+local methods = {}
 
 ---@param opts? Beast.Window.Config
----@return Beast.Window.Config
-function M.setup(opts)
-	if initialized then
-		return M
-	end
-	opts = opts or {}
-	local merged = vim.tbl_deep_extend("force", vim.deepcopy(defaults), opts)
-	M.autowidth = merged.autowidth
-	M.animation = merged.animation
-	M.ignore = {
-		buftype = to_set(merged.ignore.buftype),
-		filetype = to_set(merged.ignore.filetype),
-	}
-	initialized = true
-	return M
+function methods.setup(opts)
+	cfg = normalize(vim.tbl_deep_extend("force", vim.deepcopy(defaults), opts or {}))
 end
+
+local M = setmetatable({}, {
+	__index = function(_, key)
+		if methods[key] ~= nil then
+			return methods[key]
+		end
+		return cfg[key]
+	end,
+	__newindex = function(_, key, _)
+		error(string.format("beast.libs.window.config is read-only; cannot assign '%s' directly. Use setup() instead.", tostring(key)), 2)
+	end,
+})
 
 return M
