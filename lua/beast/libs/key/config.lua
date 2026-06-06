@@ -20,14 +20,21 @@
 ---@field delay integer -- ms before hint appears (0 = Helix-style immediate)
 ---@field win Beast.Key.HintWinConfig
 
+---@class Beast.Key.VimBuiltinsConfig
+---@field enabled boolean
+
 ---@class Beast.Key.Config
 ---@field mappings? (Beast.KeymapSpec|Beast.KeymapSpec[]|string|string[])[]
 ---@field hint? Beast.Key.HintConfig
+---@field vim_builtins? Beast.Key.VimBuiltinsConfig
 local defaults = {
 	mappings = {},
+	vim_builtins = {
+		enabled = true,
+	},
 	hint = {
 		enabled = true,
-		triggers = { "<leader>", "<localleader>", "]", "[", "f", "<leader>z", "<leader>g" },
+		triggers = { "<leader>", "<localleader>", "]", "[", "f", "<leader>z", "<leader>g", "c", "z" },
 		modes = { "n", "x" },
 		delay = 0,
 		win = {
