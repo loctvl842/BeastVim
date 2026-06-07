@@ -226,6 +226,12 @@ local function update(buf)
 	if fold_closed(winid, start_lnum) then
 		return
 	end
+	-- Skip empty lines: nothing meaningful to blame, just noise.
+	local cur_line = api.nvim_buf_get_lines(buf, start_lnum - 1, start_lnum, false)[1]
+	if not cur_line or cur_line:match("^%s*$") then
+		M.reset(buf)
+		return
+	end
 
 	local contents = vim.bo[buf].modified and api.nvim_buf_get_lines(buf, 0, -1, false) or nil
 
