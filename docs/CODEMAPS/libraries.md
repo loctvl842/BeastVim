@@ -307,8 +307,8 @@ Loaded via: `packer.lazy()` on VimEnter (deferred)
 ```
 git/
 ├── init.lua       ← state, attach/detach, debounced recompute, single-flight, autocmds, public surface
-├── config.lua     ← debounce_ms, keymaps, icons, ft_ignore, bt_ignore (frozen, ADR-003)
-├── repo.lua       ← resolve(buf) + get_base/get_head/get_path_data/intent_to_add via vim.system
+├── config.lua     ← debounce_ms, keymaps, icons, ft_ignore, bt_ignore, blame{ enabled, delay_ms, ... } (frozen, ADR-003)
+├── repo.lua       ← resolve(buf) + get_base/get_head/get_path_data/intent_to_add/get_username via vim.system
 ├── diff.lua       ← compute_hunks(base, current) via vim.text.diff (fallback vim.diff), histogram + linematch
 ├── hunks.lua      ← expand_signs / expand_staged_signs / find_at_buffer_line / index_to_buffer_delta
 ├── signs.lua      ← namespaces { unstaged, staged }; place_unstaged / place_staged (priority 6 vs 5)
@@ -317,15 +317,17 @@ git/
 ├── actions.lua    ← stage_hunk (toggle), unstage_hunk, reset_hunk; with_path_data covers untracked via intent-to-add
 ├── nav.lua        ← nav_hunk("next"|"prev", { wrap, foldopen, target }) — `''` mark + `zv`; target=unstaged|staged|all
 ├── preview.lua    ← Beast.View subclass; <leader>gp opens diff float, auto-close on CursorMoved
-├── highlights.lua ← BeastGit{Add,Change,Delete,TopDelete,Changedelete} + BeastGitStaged* link to GitSigns* defaults
-└── health.lua     ← :checkhealth — git bin, diff backend, namespaces, attached count, staged-tier hl groups
+├── blame.lua      ← async `git blame --incremental` parser; run(ctx, { lnum?, contents?, ignore_whitespace?, revision?, untracked? }, cb)
+├── current_line_blame.lua ← cursor-driven virt_text; namespace beast_git_blame; debounced via Util.debounce; cursor-race guard
+├── highlights.lua ← BeastGit{Add,Change,Delete,TopDelete,Changedelete} + BeastGitStaged* + BeastGitCurrentLineBlame
+└── health.lua     ← :checkhealth — git bin, diff backend, namespaces, attached count, staged-tier hl groups, blame config + user.name
 ```
 
 API: `git.setup(opts)`, `git.attach(buf)`, `git.get_hunks(buf)`, `git.get_staged_hunks(buf)`,
 `git.nav_hunk(dir, opts)`, `git.preview_hunk()`, `git.stage_hunk(buf, lnum)`,
 `git.unstage_hunk(buf, lnum)`, `git.reset_hunk(buf, lnum)`, `git.repeat_action()`,
-`git.refresh(buf, { base?, head? })`.
-Default buffer-local keymaps (when `config.keymaps=true`): `]c` / `[c` next/prev, `<leader>gp` preview.
+`git.refresh(buf, { base?, head? })`, `git.blame_line(opts?)`, `git.toggle_current_line_blame()`.
+Default buffer-local keymaps (when `config.keymaps=true`): `]c` / `[c` next/prev, `<leader>gp` preview, `<leader>gb` blame line, `<leader>gtb` toggle blame.
 Statuscolumn integration: extmarks classified by namespace pattern `^beast_git_signs_(unstaged|staged)$` — staged tier rendered via `BeastStcGitStaged{Add,Change,Delete}` desaturated palette blends (ADR-020).
 Loaded via: `packer.lazy()` on `BufReadPost` (deferred).
 
@@ -334,6 +336,13 @@ Loaded via: `packer.lazy()` on `BufReadPost` (deferred).
 - `staged_hunks   = diff(head, base=index)` — queued for next commit, repaint on stage/commit/FocusGained
 - Staged signs translated INDEX→BUFFER via `index_to_buffer_delta` (end-exclusive arithmetic handles abutting hunks)
 - Render priority: unstaged=6 > staged=5; live edits visually override staged regions
+
+### Blame
+- `current_line_blame.lua` paints virt_text in namespace `beast_git_blame` (extmark id=1, replaced on debounced `CursorMoved`/`CursorMovedI`/`BufEnter`/`WinResized`/`FocusGained`). Cleared on `InsertEnter`/`BufLeave`/`OptionSet{fileformat,bomb,eol}`.
+- Cursor-race guard: captured `start_lnum` is re-checked after both the blame and `get_username` async hops; mismatch → recurse `update(buf)` for the new line.
+- `blame.lua` is the shared engine; `M.blame_line()` (one-shot info notify) and the planned full-file blame view both call only `blame.run(ctx, opts, cb)`.
+- Untracked buffers are skipped in cursor blame (would just paint NC on every line); explicit `blame_line` reports the unresolved state.
+- Bench `scripts/bench-git-blame.lua`: single-line ~40ms, full-file ~60ms on a 624-line fixture (dominated by `vim.system` → git process startup; threshold 80ms).
 
 ### Performance
 - 200ms debounce on `nvim_buf_attach.on_lines` (more precise than TextChanged*); single-flight per buffer (running/dirty bitset).
