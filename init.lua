@@ -74,3 +74,46 @@ require("beast").setup({
 		fold = { enable = true },
 	},
 })
+
+-- ---------------------------------------------------------------------------
+-- LSP wiring (hardcoded until BeastVim/<Lang> extension repos exist).
+-- ---------------------------------------------------------------------------
+
+-- blink.cmp client capabilities → contributed lazily (forces blink.cmp load
+-- only when capabilities are first resolved, i.e. on the first Lsp.register).
+Lsp.add_capabilities(function()
+	local ok, blink = pcall(require, "blink.cmp")
+	if not ok then
+		return {}
+	end
+	return blink.get_lsp_capabilities(nil, false)
+end)
+
+Lsp.register("lua_ls", {
+	cmd = { "lua-language-server" },
+	filetypes = { "lua" },
+	root_markers = { ".luarc.json", ".luarc.jsonc", ".git" },
+	settings = {
+		Lua = {
+			workspace = { checkThirdParty = false },
+			telemetry = { enable = false },
+			diagnostics = { globals = { "vim" } },
+			completion = { callSnippet = "Replace" },
+		},
+	},
+	keys = {
+		{ "K", vim.lsp.buf.hover, desc = "Hover", cond = "textDocument/hover" },
+		{ "gd", vim.lsp.buf.definition, desc = "Go to definition", cond = "textDocument/definition" },
+		{ "gD", vim.lsp.buf.declaration, desc = "Go to declaration", cond = "textDocument/declaration" },
+		{ "gr", vim.lsp.buf.references, desc = "References", cond = "textDocument/references" },
+		{ "gi", vim.lsp.buf.implementation, desc = "Implementation", cond = "textDocument/implementation" },
+		{ "<leader>rn", vim.lsp.buf.rename, desc = "Rename", cond = "textDocument/rename" },
+		{
+			"<leader>ca",
+			vim.lsp.buf.code_action,
+			mode = { "n", "v" },
+			desc = "Code action",
+			cond = "textDocument/codeAction",
+		},
+	},
+})
