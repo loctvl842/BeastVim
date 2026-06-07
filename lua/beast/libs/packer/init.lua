@@ -243,8 +243,10 @@ function M.setup(opts)
 	local eager_specs = {} ---@type table<string, Beast.Packer.PluginSpec> -- {<plugin_name> = <spec>}
 
 	for _, spec in ipairs(specs) do
-		-- Add to vim.pack list with name so vim.pack uses our extracted name
-		table.insert(vim_pack_specs, { src = spec.src, name = spec.name })
+		-- Add to vim.pack list with name so vim.pack uses our extracted name.
+		-- `version` is optional; forwarded so plugins like blink.cmp that key
+		-- their downloaded binaries off a git tag can pin to a release.
+		table.insert(vim_pack_specs, { src = spec.src, name = spec.name, version = spec.version })
 
 		-- Register the plugin
 		state.plugins[spec.name] = spec

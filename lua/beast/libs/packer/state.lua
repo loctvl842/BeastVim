@@ -18,6 +18,7 @@
 ---@field init? fun() Initialization function (runs during setup, before loading)
 ---@field config? fun() Configuration function (runs after plugin loads)
 ---@field build? string|string[] Build step to run after install/update (like lazy.nvim)
+---@field version? string|vim.VersionRange Version constraint passed to `vim.pack.add` (e.g. `vim.version.range("*")`)
 
 -- Track packer vs startup plugins
 ---@class Beast.Packer.LoadReason
