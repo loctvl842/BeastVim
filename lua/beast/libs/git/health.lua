@@ -20,7 +20,7 @@ function M.check()
 
 	-- Submodules (avoid `highlights` — requiring it executes side-effecting set_hl).
 	health.start("beast.libs.git — modules")
-	local submodules = { "config", "repo", "diff", "hunks", "signs", "patch", "apply", "actions", "nav", "preview" }
+	local submodules = { "config", "repo", "diff", "hunks", "signs", "patch", "apply", "actions", "nav", "preview", "blame", "current_line_blame" }
 	for _, name in ipairs(submodules) do
 		local ok, err = pcall(require, "beast.libs.git." .. name)
 		if ok then
@@ -97,5 +97,25 @@ function M.check()
 		else
 			health.warn(hl .. " not defined — statuscolumn theme not loaded yet?")
 		end
+	end
+
+	-- Blame
+	health.start("beast.libs.git — blame")
+	local cfg = require("beast.libs.git.config")
+	health.info(
+		string.format(
+			"current-line blame: %s (delay_ms=%d, pos=%s)",
+			cfg.blame.enabled and "enabled" or "disabled",
+			cfg.blame.delay_ms,
+			cfg.blame.virt_text_pos
+		)
+	)
+	-- user.name — synchronous probe (health checks are allowed to block briefly).
+	local result = vim.system({ "git", "config", "user.name" }, { text = true }):wait()
+	local username = vim.trim(result.stdout or "")
+	if result.code == 0 and username ~= "" then
+		health.ok("git config user.name = " .. username)
+	else
+		health.warn("git config user.name is unset — blame formatter will not substitute 'You'")
 	end
 end
