@@ -14,6 +14,7 @@ function M.run()
 	_G.Key = Util.mod("beast.libs.key")
 	_G.View = Util.mod("beast.libs.view")
 	_G.Icon = Util.mod("beast.icon")
+	_G.Lsp = Util.mod("beast.libs.lsp")
 
 	Palette.setup()
 end

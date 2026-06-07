@@ -18,6 +18,7 @@ M.reload_highlights = hl.reload_highlights
 ---@field scroll? Beast.Scroll.Config
 ---@field starter? Beast.Starter.Config
 ---@field window? Beast.Window.Config
+---@field lsp? Beast.LSP.Config
 local defaults = {
 	key = {},
 	notify = {},
@@ -59,6 +60,11 @@ function M.setup(opts)
 	end, { desc = "Dismiss all notifications", group = "Notify" })
 
 	require("beast.libs.confirm").setup()
+
+	-- LSP infrastructure (eager — must register diagnostics + LspAttach
+	-- dispatcher before any FileType autocmd fires, so server `register()`
+	-- calls from anywhere downstream resolve correctly).
+	Lsp.setup(cfg.lsp or {})
 
 	local packer = require("beast.libs.packer")
 
