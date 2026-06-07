@@ -3,7 +3,7 @@ local M = {}
 function M.get()
 	local p = Palette.get()
 	return Util.colors.build("BeastPacker", {
-		Backdrop = { bg = "#000000", underline = true, sp = p.dimmed3 },
+		Backdrop = { bg = "#000000" },
 		Normal = { bg = p.dark1, fg = p.dimmed1 },
 		Border = { fg = p.dark1, bg = p.dark1 },
 		WinBar = { bg = p.dark1 },
