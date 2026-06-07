@@ -160,4 +160,44 @@ function M.intent_to_add(ctx, cb)
 	end)
 end
 
+-- Process-global `git config user.name`. Memoised: one subprocess per nvim
+-- session. `false` means "git ran but user.name is unset"; `nil` means
+-- "not yet fetched". Callers always get a string (possibly empty) for ease.
+---@type string|false|nil
+local cached_username = nil
+---@type fun(name: string)[]
+local username_waiters = {}
+local username_in_flight = false
+
+--- Fetch `git config user.name`, memoised. Used by the blame formatter to
+--- substitute "You" when the commit author matches.
+---@param cb fun(name: string)
+function M.get_username(cb)
+	if cached_username ~= nil then
+		local name = cached_username or ""
+		vim.schedule(function()
+			cb(name)
+		end)
+		return
+	end
+	table.insert(username_waiters, cb)
+	if username_in_flight then
+		return
+	end
+	username_in_flight = true
+	vim.system({ "git", "config", "user.name" }, { text = true }, function(result)
+		vim.schedule(function()
+			local name = vim.trim(result.stdout or "")
+			cached_username = (result.code == 0 and name ~= "") and name or false
+			username_in_flight = false
+			local resolved = cached_username or ""
+			local pending = username_waiters
+			username_waiters = {}
+			for _, waiter in ipairs(pending) do
+				waiter(resolved)
+			end
+		end)
+	end)
+end
+
 return M
