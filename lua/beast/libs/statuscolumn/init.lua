@@ -329,7 +329,23 @@ function M.setup(opts)
 	rebuild_slots()
 	fold.refresh_glyphs(config.fold and config.fold.icons or nil)
 	ensure_autocmds()
-	vim.o.statuscolumn = STC_EXPR
+	-- Set the global default so new windows inherit the renderer.
+	-- `vim.go` writes the GLOBAL value only — `vim.o` would also stamp the
+	-- current window's local value, which is the wrong scope when setup
+	-- runs while a `style = "minimal"` float (e.g. the packer install UI)
+	-- is current: that float already has a window-local `statuscolumn = ""`
+	-- override, and we'd risk reading/writing through it.
+	vim.go.statuscolumn = STC_EXPR
+	-- Apply to all existing non-floating windows. Their window-local was
+	-- captured (as "") when they were created before setup ran, so they
+	-- won't pick up the new global until we re-stamp. Skip floats: most
+	-- are intentionally minimal (packer UI, finder preview, etc.).
+	for _, win in ipairs(vim.api.nvim_list_wins()) do
+		local cfg = vim.api.nvim_win_get_config(win)
+		if cfg.relative == "" then
+			vim.api.nvim_set_option_value("statuscolumn", STC_EXPR, { win = win })
+		end
+	end
 	state.installed = true
 end
 
