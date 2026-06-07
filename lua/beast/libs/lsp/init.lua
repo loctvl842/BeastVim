@@ -36,6 +36,41 @@ local function split_spec(cfg)
 	return lsp_cfg, extras
 end
 
+---Build a multi-line summary of LSP state focused on the current buffer.
+---@return string
+local function build_info()
+	local buf = vim.api.nvim_get_current_buf()
+	local disp = require("beast.libs.lsp.attach")
+	local caps = require("beast.libs.lsp.capabilities")
+	local lines = {}
+
+	local servers = vim.tbl_keys(disp.servers)
+	table.sort(servers)
+	table.insert(lines, string.format("Registered servers (%d): %s", #servers, table.concat(servers, ", ")))
+	table.insert(lines, string.format("Global subscribers: %d", #disp.subscribers))
+	table.insert(lines, string.format("Capability contributors: %d", #caps.contributors))
+	table.insert(lines, "")
+
+	local clients = vim.lsp.get_clients({ bufnr = buf })
+	if #clients == 0 then
+		table.insert(lines, string.format("No clients attached to buffer %d", buf))
+	else
+		table.insert(lines, string.format("Clients attached to buffer %d:", buf))
+		for _, c in ipairs(clients) do
+			local root = c.root_dir or "(none)"
+			table.insert(lines, string.format("  • %s (id=%d) root=%s", c.name, c.id, root))
+		end
+	end
+
+	return table.concat(lines, "\n")
+end
+
+local function install_commands()
+	vim.api.nvim_create_user_command("BeastLspInfo", function()
+		vim.notify(build_info(), vim.log.levels.INFO, { title = "BeastVim LSP" })
+	end, { desc = "Show BeastVim LSP state for current buffer" })
+end
+
 ---Initialize the LSP lib. Idempotent.
 ---@param opts? Beast.LSP.Config
 function M.setup(opts)
@@ -47,6 +82,7 @@ function M.setup(opts)
 	config.setup(opts)
 	require("beast.libs.lsp.diagnostics").setup()
 	require("beast.libs.lsp.attach").setup()
+	install_commands()
 end
 
 ---Register an LSP server. Merges the spec into `vim.lsp.config(name, ...)`
