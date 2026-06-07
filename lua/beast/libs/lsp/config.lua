@@ -15,10 +15,14 @@
 ---@class Beast.LSP.Codelens
 ---@field enabled? boolean
 
+---@class Beast.LSP.Fold
+---@field enabled? boolean
+
 ---@class Beast.LSP.Config
 ---@field diagnostics? Beast.LSP.Diagnostics
 ---@field inlay_hints? Beast.LSP.InlayHints
 ---@field codelens? Beast.LSP.Codelens
+---@field fold? Beast.LSP.Fold
 local defaults = {
 	diagnostics = {
 		virtual_text = {
@@ -47,6 +51,14 @@ local defaults = {
 	},
 	codelens = {
 		enabled = false,
+	},
+	fold = {
+		-- When the attached client supports textDocument/foldingRange, set
+		-- foldexpr=v:lua.vim.lsp.foldexpr() on the buffer's windows. Fires
+		-- after FileType so it overrides treesitter's foldexpr when both
+		-- are configured. Treesitter remains the fallback for buffers
+		-- without an LSP server (or without foldingRange support).
+		enabled = true,
 	},
 }
 

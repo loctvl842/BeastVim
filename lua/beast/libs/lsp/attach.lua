@@ -14,6 +14,8 @@
 
 local M = {}
 
+local View = require("beast.libs.view")
+
 ---@class Beast.LSP.Registered
 ---@field keys? table[] Buffer-local keymap specs (see keys.lua)
 ---@field on_attach? fun(client: vim.lsp.Client, bufnr: integer)
@@ -41,6 +43,28 @@ function M.subscribe(fn)
 	table.insert(M.subscribers, fn)
 end
 
+---Apply LSP foldexpr to all windows currently showing `buf` if the client
+---supports `textDocument/foldingRange`. No-op if disabled in config or
+---unsupported by the server. Fires from `LspAttach`, so it overrides
+---whatever foldexpr was set earlier on `FileType` (e.g. treesitter's).
+---@param client vim.lsp.Client
+---@param buf integer
+local function apply_fold(client, buf)
+	local cfg = require("beast.libs.lsp.config")
+	if not (cfg.fold and cfg.fold.enabled) then
+		return
+	end
+	if not client:supports_method("textDocument/foldingRange") then
+		return
+	end
+	for _, win in ipairs(vim.api.nvim_list_wins()) do
+		if vim.api.nvim_win_get_buf(win) == buf then
+			View.win.wo(win, "foldmethod", "expr")
+			View.win.wo(win, "foldexpr", "v:lua.vim.lsp.foldexpr()")
+		end
+	end
+end
+
 ---Install the single dispatching autocmd. Idempotent — re-creates the
 ---augroup with `clear = true` on each call.
 function M.setup()
@@ -63,6 +87,8 @@ function M.setup()
 					server.on_attach(client, ev.buf)
 				end
 			end
+
+			apply_fold(client, ev.buf)
 
 			for _, fn in ipairs(M.subscribers) do
 				fn(client, ev.buf)
