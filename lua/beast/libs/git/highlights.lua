@@ -21,6 +21,12 @@ function M.get()
 		-- Current-line blame virt_text. Foreground only — a background tint
 		-- would fight the cursorline.
 		CurrentLineBlame = { fg = Util.colors.blend(p.dimmed1, 0.55, p.dark1), italic = true },
+
+		-- Full-file blame side window: three-tone hierarchy so the column
+		-- reads cleanly without distracting from the source code on the right.
+		BlameViewSha = { fg = Util.colors.blend(p.accent4, 0.75, p.dark1) },
+		BlameViewAuthor = { fg = Util.colors.blend(p.dimmed1, 0.85, p.dark1) },
+		BlameViewDate = { fg = Util.colors.blend(p.dimmed1, 0.55, p.dark1), italic = true },
 	})
 end
 

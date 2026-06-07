@@ -126,6 +126,7 @@ function M.setup(opts)
       { "<leader>gr", function() require("beast.libs.git").reset_hunk() end, mode = { "n", "x" }, desc = "Reset hunk", group = "Git" },
       { "<leader>g.", function() require("beast.libs.git").repeat_action() end, mode = "n", desc = "Repeat last git action", group = "Git" },
       { "<leader>gb", function() require("beast.libs.git").blame_line() end, mode = "n", desc = "Blame current line", group = "Git" },
+      { "<leader>gB", function() require("beast.libs.git").blame() end, mode = "n", desc = "Blame file (side window)", group = "Git" },
       { "<leader>gtb", function() require("beast.libs.git").toggle_current_line_blame() end, mode = "n", desc = "Toggle current-line blame", group = "Git" },
     },
 		setup = function(g)

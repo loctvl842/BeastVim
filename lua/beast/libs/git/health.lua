@@ -20,7 +20,8 @@ function M.check()
 
 	-- Submodules (avoid `highlights` — requiring it executes side-effecting set_hl).
 	health.start("beast.libs.git — modules")
-	local submodules = { "config", "repo", "diff", "hunks", "signs", "patch", "apply", "actions", "nav", "preview", "blame", "current_line_blame" }
+	local submodules =
+		{ "config", "repo", "diff", "hunks", "signs", "patch", "apply", "actions", "nav", "preview", "blame", "current_line_blame", "blame_view" }
 	for _, name in ipairs(submodules) do
 		local ok, err = pcall(require, "beast.libs.git." .. name)
 		if ok then

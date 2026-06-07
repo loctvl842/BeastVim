@@ -544,6 +544,12 @@ function M.toggle_current_line_blame()
 	end
 end
 
+--- Open the full-file blame side window for the current window.
+---@param opts? { revision?: string }
+function M.blame(opts)
+	require("beast.libs.git.blame_view").open(api.nvim_get_current_win(), opts)
+end
+
 -- =========================================================================
 -- Event wiring
 -- =========================================================================

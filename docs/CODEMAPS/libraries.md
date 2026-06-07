@@ -319,15 +319,16 @@ git/
 ├── preview.lua    ← Beast.View subclass; <leader>gp opens diff float, auto-close on CursorMoved
 ├── blame.lua      ← async `git blame --incremental` parser; run(ctx, { lnum?, contents?, ignore_whitespace?, revision?, untracked? }, cb)
 ├── current_line_blame.lua ← cursor-driven virt_text; namespace beast_git_blame; debounced via Util.debounce; cursor-race guard
-├── highlights.lua ← BeastGit{Add,Change,Delete,TopDelete,Changedelete} + BeastGitStaged* + BeastGitCurrentLineBlame
+├── blame_view.lua ← Beast.View subclass; <leader>gB opens left side window with full-file blame; scrollbind-synced; <CR>=show commit, r=reblame parent, R=reset
+├── highlights.lua ← BeastGit{Add,Change,Delete,TopDelete,Changedelete} + BeastGitStaged* + BeastGitCurrentLineBlame + BeastGitBlameView{Sha,Author,Date}
 └── health.lua     ← :checkhealth — git bin, diff backend, namespaces, attached count, staged-tier hl groups, blame config + user.name
 ```
 
 API: `git.setup(opts)`, `git.attach(buf)`, `git.get_hunks(buf)`, `git.get_staged_hunks(buf)`,
 `git.nav_hunk(dir, opts)`, `git.preview_hunk()`, `git.stage_hunk(buf, lnum)`,
 `git.unstage_hunk(buf, lnum)`, `git.reset_hunk(buf, lnum)`, `git.repeat_action()`,
-`git.refresh(buf, { base?, head? })`, `git.blame_line(opts?)`, `git.toggle_current_line_blame()`.
-Default buffer-local keymaps (when `config.keymaps=true`): `]c` / `[c` next/prev, `<leader>gp` preview, `<leader>gb` blame line, `<leader>gtb` toggle blame.
+`git.refresh(buf, { base?, head? })`, `git.blame_line(opts?)`, `git.blame(opts?)`, `git.toggle_current_line_blame()`.
+Default buffer-local keymaps (when `config.keymaps=true`): `]c` / `[c` next/prev, `<leader>gp` preview, `<leader>gb` blame line, `<leader>gB` blame file, `<leader>gtb` toggle blame.
 Statuscolumn integration: extmarks classified by namespace pattern `^beast_git_signs_(unstaged|staged)$` — staged tier rendered via `BeastStcGitStaged{Add,Change,Delete}` desaturated palette blends (ADR-020).
 Loaded via: `packer.lazy()` on `BufReadPost` (deferred).
 
@@ -340,7 +341,8 @@ Loaded via: `packer.lazy()` on `BufReadPost` (deferred).
 ### Blame
 - `current_line_blame.lua` paints virt_text in namespace `beast_git_blame` (extmark id=1, replaced on debounced `CursorMoved`/`CursorMovedI`/`BufEnter`/`WinResized`/`FocusGained`). Cleared on `InsertEnter`/`BufLeave`/`OptionSet{fileformat,bomb,eol}`.
 - Cursor-race guard: captured `start_lnum` is re-checked after both the blame and `get_username` async hops; mismatch → recurse `update(buf)` for the new line.
-- `blame.lua` is the shared engine; `M.blame_line()` (one-shot info notify) and the planned full-file blame view both call only `blame.run(ctx, opts, cb)`.
+- `blame.lua` is the shared engine; `M.blame_line()` (one-shot info notify) and `M.blame()` / `blame_view.lua` (full-file side window) both call only `blame.run(ctx, opts, cb)`.
+- Full-file blame view (`blame_view.lua`): Beast.View subclass, singleton, opens a left vertical split with `<sha> <author> <relative-date>` per row; scrollbind-synced (prior source scrollbind captured + restored on close). Buffer-local keymaps: `<CR>` opens commit diff float (`git show --stat --patch <sha>`, filetype `git`), `r` reblames `<sha>^`, `R` resets to HEAD, `q`/`<Esc>` close. Per-instance augroup `BeastGitBlameView_<bufnr>` closes the view on either window's WinClosed or source-buf BufWipeout/BufUnload.
 - Untracked buffers are skipped in cursor blame (would just paint NC on every line); explicit `blame_line` reports the unresolved state.
 - Bench `scripts/bench-git-blame.lua`: single-line ~40ms, full-file ~60ms on a 624-line fixture (dominated by `vim.system` → git process startup; threshold 80ms).
 
