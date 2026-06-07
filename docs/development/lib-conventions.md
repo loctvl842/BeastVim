@@ -97,6 +97,15 @@ libs/<name>/
   not write bare `nvim_open_win` UIs without wrapping them in a `Beast.View`.
 - Never set `view.buf` or `view.win` to `nil`. Use `false` (or call
   `view:close()`) — see ADR-???: namespace cascade fix.
+- **Writing window-local options at setup**: use `vim.go.<opt>` for the
+  global default and `nvim_set_option_value(opt, val, { win = w })` for any
+  already-open windows you want to retro-apply to. Do **not** use
+  `vim.o.<opt>` — it stamps the current window's local value, which is
+  wrong when setup fires while a `style = "minimal"` float is current
+  (e.g. the packer install UI on first start). That float already carries
+  a window-local override; writing through it leaves the global empty and
+  newly-spawned plain windows have nothing to inherit. See
+  `lua/beast/libs/statuscolumn/init.lua:setup` for the pattern.
 
 ## 6. Submodule responsibilities
 
@@ -126,6 +135,25 @@ Not every lib needs every file — only what the responsibility justifies.
   autocmd, e.g. `BeastKeysChanged`). Never rely on polling timers.
 - Expose a `module.invalidate()` for caches. Submodules listen to the User
   autocmd from the lib's top-level setup, not from inside helper modules.
+- **Per-item highlighting**: when a list view re-renders on every keystroke
+  (finder, picker, explorer), do **not** stamp `nvim_buf_set_extmark` per
+  item up-front. Use `nvim_set_decoration_provider` with `on_win` / `on_line`
+  and `ephemeral = true` extmarks instead — the callback only fires for
+  lines about to be drawn, so a 500-item buffer with a 10-line viewport
+  does ~10 stamps per redraw instead of 500. The two patterns we already
+  have:
+  - `lua/beast/libs/finder/match_hl.lua` — fuzzy match highlights on the
+    visible slice of the result list + preview buffer.
+  - `lua/beast/libs/indent/init.lua` — indent guides.
+
+  Persistent annotations that outlive a redraw (sign-column gutters,
+  diagnostic underlines, comment-toggle markers) still want regular
+  buffer-scoped extmarks. The rule is *transient per-redraw decoration →
+  provider, persistent state → extmark*.
+- **Statuscolumn rendering**: do not implement statuscolumn logic via
+  decoration providers. The native `%!v:lua...` callback is per-visible-
+  screen-line by default and Neovim caches the result. See
+  `beast.libs.statuscolumn` for the production pattern.
 
 ## 8. Tests + benches
 
