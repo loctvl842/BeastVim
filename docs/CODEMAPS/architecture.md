@@ -1,4 +1,4 @@
-<!-- Generated: 2026-05-31 | Files scanned: 173 | Token estimate: ~1020 -->
+<!-- Generated: 2026-06-08 | Files scanned: 180 | Token estimate: ~1060 -->
 
 # Architecture
 
@@ -39,6 +39,7 @@ lua/beast/
 │   ├── statusline/       ← native %! statusline (+ per-lib health.lua for :checkhealth)
 │   ├── tabline/          ← native %! tabline
 │   ├── toast/            ← toast notification stack
+│   ├── lsp/              ← LSP infra: register(name, cfg), capabilities, LspAttach dispatch
 │   └── treesitter/       ← treesitter setup, parser install, scope queries
 └── plugins/
     ├── init.lua           ← plugin spec imports
@@ -55,6 +56,7 @@ lua/beast/
 | `Icon` | beast.icon | Icon lookup |
 | `Toast` | beast.libs.toast | Toast notifications |
 | `Palette` | beast.palette | Theme palette (resolves accent1, …) |
+| `Lsp` | beast.libs.lsp | LSP infra: register, capabilities, on_attach |
 
 ## Setup Flow
 
@@ -66,15 +68,16 @@ beast.setup(opts)
   4. Key.setup() + default keymaps
   5. notify.setup() + toast.setup() → Toast global
   6. confirm.setup()
-  7. packer.setup() → git-clone + lazy-load plugins
-  8. statusline.setup() → native %! with component specs
-  9. packer.lazy("beast.libs.breadcrumb") → deferred VimEnter (winbar)
- 10. packer.lazy("beast.libs.tabline") → deferred VimEnter
- 11. packer.lazy("beast.libs.explorer") → deferred VimEnter + <leader>e
- 12. packer.lazy("beast.libs.indent") → deferred VimEnter (decoration provider)
- 13. packer.lazy("beast.libs.treesitter") → deferred FileType
- 14. packer.lazy("beast.libs.finder") → deferred keys (<leader>f/b/g/c/h)
- 15. Palette.refresh() + reload_highlights()
+  7. Lsp.setup(cfg.lsp or {}) → eager (vim.lsp.enable must run before FileType)
+  8. packer.setup() → git-clone + lazy-load plugins
+  9. statusline.setup() → native %! with component specs
+ 10. packer.lazy("beast.libs.breadcrumb") → deferred VimEnter (winbar)
+ 11. packer.lazy("beast.libs.tabline") → deferred VimEnter
+ 12. packer.lazy("beast.libs.explorer") → deferred VimEnter + <leader>e
+ 13. packer.lazy("beast.libs.indent") → deferred VimEnter (decoration provider)
+ 14. packer.lazy("beast.libs.treesitter") → deferred FileType
+ 15. packer.lazy("beast.libs.finder") → deferred keys (<leader>f/b/g/c/h)
+ 16. Palette.refresh() + reload_highlights()
 ```
 
 ## Lazy Lib Loading (`packer.lazy`)

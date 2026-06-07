@@ -1,5 +1,7 @@
 # Dev Spec: LSP Library
 
+> **Status:** ✅ Completed 2026-06-08 (Phase 1 + Phase 2 shipped, ADRs 029–031 written).
+
 ## Summary
 
 Build a `beast/libs/lsp/` library that wraps Neovim 0.12's builtin LSP client (`vim.lsp.config`, `vim.lsp.enable`, `LspAttach`) into a thin **infrastructure** layer. The library owns *policy* — diagnostics config, capabilities composition, the global `LspAttach` pipeline, and a `register(name, cfg)` API — but does **not** own server-specific knowledge (that lives in future `lang` extensions, see *Out of Scope*). **No dependency on `nvim-lspconfig` or `mason-lspconfig`.**

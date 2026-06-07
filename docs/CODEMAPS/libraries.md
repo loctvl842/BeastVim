@@ -1,4 +1,4 @@
-<!-- Generated: 2026-06-02 | Files scanned: 176 | Token estimate: ~2750 -->
+<!-- Generated: 2026-06-08 | Files scanned: 183 | Token estimate: ~2900 -->
 
 # Libraries
 
@@ -236,6 +236,25 @@ treesitter/
 
 API: `treesitter.setup(opts)`, `treesitter.enable()`
 Loaded via: `packer.lazy()` on FileType (deferred)
+
+---
+
+## lsp — LSP Infra over `vim.lsp.config` / `vim.lsp.enable` (no nvim-lspconfig)
+
+```
+lsp/
+├── init.lua          ← setup, register(name, cfg), capabilities, add_capabilities, on_attach, :BeastLspInfo
+├── config.lua        ← diagnostics defaults (Icon.diagnostics.*), read-only metatable
+├── capabilities.lua  ← base() + contributors + get() (deep-merged at register time)
+├── diagnostics.lua   ← vim.diagnostic.config(cfg.diagnostics)
+├── attach.lua        ← single LspAttach autocmd on BeastVim-lsp augroup; servers map + subscribers list
+├── keys.lua          ← Key.safe_set per buffer; cond gating via client:supports_method
+└── health.lua        ← :checkhealth beast.libs.lsp (version, init, servers + cmd[1] PATH, contributors, attached clients)
+```
+
+API: `Lsp.setup(opts)`, `Lsp.register(name, cfg)`, `Lsp.capabilities()`, `Lsp.add_capabilities(contrib)`, `Lsp.on_attach(fn)`
+`cfg` is a `vim.lsp.Config` augmented with `keys` (with optional `cond` LSP-method gating) and `on_attach`.
+Loaded **eagerly** from `beast/init.lua` between `confirm.setup()` and `packer.setup` — `vim.lsp.enable` must run before the first `FileType` autocmd. Global: `_G.Lsp`. Dispatch order: per-server keys → per-server on_attach → global subscribers. Per-server configs live in external `BeastVim/<Lang>` repos (see ADR-030).
 
 ---
 

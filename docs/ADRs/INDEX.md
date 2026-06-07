@@ -30,3 +30,6 @@
 | [026](026-pure-highlight-module-contract.md) | Pure `M.get()` Highlight Module Contract | Accepted | 2026-06-05 |
 | [027](027-git-blame-data-layer-pattern.md) | Git Blame via `vim.system` + Buffered Porcelain Parse | Accepted | 2026-06-07 |
 | [028](028-git-blame-side-window-beast-view.md) | Full-File Blame as `Beast.View` Subclass with Native `scrollbind` | Accepted | 2026-06-07 |
+| [029](029-native-lsp-infra-no-lspconfig.md) | BeastVim-Native LSP Infra over `vim.lsp.config` / `vim.lsp.enable` | Accepted | 2026-06-08 |
+| [030](030-lsp-server-registry-ownership-extensions.md) | LSP Server Registry Owned by `BeastVim/<Lang>` Extensions | Accepted | 2026-06-08 |
+| [031](031-lsp-register-api-keys-on-attach-extensions.md) | `Lsp.register(name, cfg)` API with `keys`/`on_attach` Extensions | Accepted | 2026-06-08 |
