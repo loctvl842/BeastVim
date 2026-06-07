@@ -345,6 +345,7 @@ function M.detach(buf)
 	state[buf] = nil
 	repo.invalidate(buf)
 	signs.clear(buf)
+	require("beast.libs.git.current_line_blame").detach(buf)
 end
 
 -- =========================================================================
@@ -488,6 +489,61 @@ end
 
 M._namespaces = signs.namespaces
 
+--- One-shot blame for the current cursor line. Notifies the formatted
+--- commit info (sha, author, date, summary). Mostly useful for ad-hoc
+--- inspection and `:checkhealth`-style flows.
+---@param opts? { ignore_whitespace?: boolean }
+function M.blame_line(opts)
+	opts = opts or {}
+	local buf = api.nvim_get_current_buf()
+	local st = state[buf]
+	if not st then
+		vim.notify("beast.libs.git: buffer not attached", vim.log.levels.WARN)
+		return
+	end
+	if not st.path_data then
+		vim.notify("beast.libs.git: untracked or unresolved file", vim.log.levels.INFO)
+		return
+	end
+	local winid = api.nvim_get_current_win()
+	local lnum = api.nvim_win_get_cursor(winid)[1]
+	local contents = vim.bo[buf].modified and api.nvim_buf_get_lines(buf, 0, -1, false) or nil
+	local blame_mod = require("beast.libs.git.blame")
+	blame_mod.run(st.ctx, {
+		lnum = lnum,
+		contents = contents,
+		ignore_whitespace = opts.ignore_whitespace,
+	}, function(blame, _)
+		if not blame or not blame[lnum] then
+			vim.notify("beast.libs.git: no blame for line " .. lnum, vim.log.levels.WARN)
+			return
+		end
+		local info = blame[lnum]
+		local c = info.commit
+		local lines = {
+			c.abbrev_sha .. "  " .. (c.author or "?"),
+			(c.author_mail or "") .. "  " .. (c.author_time and os.date("%Y-%m-%d %H:%M", c.author_time) or ""),
+			c.summary or "",
+		}
+		vim.notify(table.concat(lines, "\n"), vim.log.levels.INFO, { title = "Git blame (line " .. lnum .. ")" })
+	end)
+end
+
+--- Flip `config.blame.enabled` and run setup / teardown accordingly.
+function M.toggle_current_line_blame()
+	local cl = require("beast.libs.git.current_line_blame")
+	local enabled = not config.blame.enabled
+	config.set("blame.enabled", enabled)
+	if enabled then
+		cl.setup()
+		M._namespaces.blame = cl._namespace
+		vim.notify("Current-line blame: on", vim.log.levels.INFO)
+	else
+		cl.teardown()
+		vim.notify("Current-line blame: off", vim.log.levels.INFO)
+	end
+end
+
 -- =========================================================================
 -- Event wiring
 -- =========================================================================
@@ -557,6 +613,11 @@ function M.setup(opts)
 		if api.nvim_buf_is_loaded(buf) then
 			M.attach(buf)
 		end
+	end
+	if config.blame.enabled then
+		local cl = require("beast.libs.git.current_line_blame")
+		cl.setup()
+		M._namespaces.blame = cl._namespace
 	end
 end
 

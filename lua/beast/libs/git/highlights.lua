@@ -17,6 +17,10 @@ function M.get()
 
 		-- "Staged" badge in the float's top-right border.
 		PreviewStagedTitle = { fg = p.dark1, bg = Util.colors.blend(p.accent4, 0.7, p.dark1), bold = true },
+
+		-- Current-line blame virt_text. Foreground only — a background tint
+		-- would fight the cursorline.
+		CurrentLineBlame = { fg = Util.colors.blend(p.dimmed1, 0.55, p.dark1), italic = true },
 	})
 end
 
