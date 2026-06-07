@@ -78,7 +78,7 @@ return {
 		-- stylua: ignore
 		if not v then return {} end
 		return {
-			{ text = " ", hl = { fg = "dimmed3" } },
+			{ text = " ", hl = { fg = "dimmed3" } },
 			{ text = v, hl = { fg = "dimmed3" } },
 		}
 	end,

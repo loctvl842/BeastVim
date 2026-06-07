@@ -48,8 +48,12 @@ local function relative_time(secs)
 		return hours .. (hours == 1 and " hour ago" or " hours ago")
 	end
 	local days = math.floor(hours / 24)
-	if days < 30 then
+	if days < 7 then
 		return days .. (days == 1 and " day ago" or " days ago")
+	end
+	if days < 30 then
+		local weeks = math.floor(days / 7)
+		return weeks .. (weeks == 1 and " week ago" or " weeks ago")
 	end
 	local months = math.floor(days / 30)
 	if months < 12 then
@@ -69,6 +73,16 @@ local function format_time(ts, spec)
 	return os.date(spec, ts) --[[@as string]]
 end
 
+---@param s string
+---@param max integer 0 disables
+---@return string
+local function truncate(s, max)
+	if max <= 0 or vim.fn.strdisplaywidth(s) <= max then
+		return s
+	end
+	return vim.fn.strcharpart(s, 0, max - 1) .. "…"
+end
+
 ---@param fmt string
 ---@param info Beast.Git.BlameInfo
 ---@param username string
@@ -79,6 +93,7 @@ local function expand(fmt, info, username)
 	if author == username and username ~= "" then
 		author = "You"
 	end
+	local max_summary = config.blame.max_summary_length or 0
 	-- Order matters: handle the `<author_time:fmt>` form before the bare
 	-- `<author_time>` substitution, else `:%R` would be left orphaned.
 	local out = fmt:gsub("<([%w_]+):([^>]+)>", function(key, spec)
@@ -99,7 +114,7 @@ local function expand(fmt, info, username)
 		elseif key == "committer" then
 			return commit.committer or ""
 		elseif key == "summary" then
-			return commit.summary or ""
+			return truncate(commit.summary or "", max_summary)
 		elseif key == "abbrev_sha" then
 			return commit.abbrev_sha or ""
 		elseif key == "sha" then

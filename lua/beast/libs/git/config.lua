@@ -11,6 +11,7 @@
 ---@field ignore_whitespace? boolean Pass `--ignore-whitespace` to git blame.
 ---@field formatter? string Format string for committed lines. Placeholders: <author>, <author_mail>, <author_time:%R>, <summary>, <abbrev_sha>.
 ---@field formatter_nc? string Format string for "Not Committed Yet" lines.
+---@field max_summary_length? integer Truncate `<summary>` to N display cells with a `…` suffix. 0 disables. Default 50 (matches VSCode GitLens).
 ---@field use_focus? boolean Trigger updates on FocusGained as well.
 
 ---@class Beast.Git.Config
@@ -32,8 +33,9 @@ local defaults = {
 		delay_ms = 500,
 		virt_text_pos = "eol",
 		ignore_whitespace = false,
-		formatter = "  󰊢 <author>, <author_time:%R> • <summary>",
-		formatter_nc = "  󰊢 <author>",
+		formatter = "      <author>, <author_time:%R> • <summary>",
+		formatter_nc = "      <author>",
+		max_summary_length = 50,
 		use_focus = true,
 	},
 
