@@ -28,3 +28,5 @@
 | [024](024-beast-git-signs-namespace.md) | Distinct `beast_git_signs` Namespace for Coexistence | Accepted | 2026-06-01 |
 | [025](025-native-key-popup-replaces-which-key.md) | Native Press-and-Wait Popup Replaces which-key.nvim | Accepted | 2026-06-03 |
 | [026](026-pure-highlight-module-contract.md) | Pure `M.get()` Highlight Module Contract | Accepted | 2026-06-05 |
+| [027](027-git-blame-data-layer-pattern.md) | Git Blame via `vim.system` + Buffered Porcelain Parse | Accepted | 2026-06-07 |
+| [028](028-git-blame-side-window-beast-view.md) | Full-File Blame as `Beast.View` Subclass with Native `scrollbind` | Accepted | 2026-06-07 |
