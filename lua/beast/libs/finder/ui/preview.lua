@@ -3,9 +3,13 @@ local View = require("beast.libs.view")
 ---@class Beast.Finder.PreviewView : Beast.View
 ---@field ns integer
 ---@field visible boolean
+---@field loaded_file? string  absolute path of the file currently shown in the buffer
+---@field loaded_line_count integer  line count of the loaded file (for cursor clamping)
 local PreviewView = View:extend(function(obj, ns)
 	obj.ns = ns
 	obj.visible = true
+	obj.loaded_file = nil
+	obj.loaded_line_count = 0
 end)
 
 ---@class Beast.Finder.UI.Preview
@@ -47,6 +51,17 @@ function M.show(view, item)
 	-- stylua: ignore
 	if not view:is_valid() or not view.visible then return end
 
+	-- Fast path: same file as currently loaded — just move the cursor.
+	if item.file and view.loaded_file == item.file then
+		if item.pos then
+			local line = math.max(1, math.min(item.pos[1], math.max(1, view.loaded_line_count)))
+			pcall(vim.api.nvim_win_set_cursor, view.win, { line, item.pos[2] or 0 })
+		else
+			pcall(vim.api.nvim_win_set_cursor, view.win, { 1, 0 })
+		end
+		return
+	end
+
 	local lines = {}
 	local ft = ""
 	local title = ""
@@ -77,14 +92,18 @@ function M.show(view, item)
 		-- Binary file — lines contain embedded newlines
 		vim.api.nvim_buf_set_lines(view.buf, 0, -1, false, { "(binary file)" })
 		vim.bo[view.buf].modifiable = false
+		view.loaded_file = nil
+		view.loaded_line_count = 1
 		return
 	end
 	vim.bo[view.buf].modifiable = false
 	vim.bo[view.buf].filetype = ft
+	view.loaded_file = item.file
+	view.loaded_line_count = #lines
 
 	-- Jump to the item's line if provided
 	if item.pos and view:is_valid() then
-		local line = math.max(1, math.min(item.pos[1], #lines))
+		local line = math.max(1, math.min(item.pos[1], math.max(1, #lines)))
 		pcall(vim.api.nvim_win_set_cursor, view.win, { line, item.pos[2] or 0 })
 	else
 		pcall(vim.api.nvim_win_set_cursor, view.win, { 1, 0 })
@@ -99,6 +118,8 @@ function M.clear(view)
 	vim.api.nvim_buf_set_lines(view.buf, 0, -1, false, {})
 	vim.bo[view.buf].modifiable = false
 	pcall(vim.api.nvim_win_set_config, view.win, { title = "", title_pos = "center" })
+	view.loaded_file = nil
+	view.loaded_line_count = 0
 end
 
 return M
