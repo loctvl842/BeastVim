@@ -81,7 +81,7 @@ function M.setup(opts)
 	local cpn = require("beast.libs.statusline.components")
 	stl.setup({
 		left = { cpn.git_branch, cpn.diagnostics },
-		right = { cpn.git_commit, cpn.position, cpn.filetype, cpn.shiftwidth, cpn.encoding, cpn.mode },
+		right = { cpn.macro, cpn.git_commit, cpn.position, cpn.filetype, cpn.shiftwidth, cpn.encoding, cpn.mode },
 	})
 
 	-- Breadcrumb / winbar (lazy — deferred past first screen update)
