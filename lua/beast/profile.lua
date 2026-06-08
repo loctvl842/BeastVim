@@ -26,6 +26,7 @@ local hrtime = uv.hrtime
 -- LuaJIT 2.1 (Lua 5.1 base) lacks table.pack / table.unpack — use `select`
 -- + the global `unpack` so we can preserve multi-return values, including
 -- intentional nils, without calling the wrapped function twice.
+---@diagnostic disable-next-line: deprecated
 local _unpack = table.unpack or unpack
 
 local function pack_varargs(...)

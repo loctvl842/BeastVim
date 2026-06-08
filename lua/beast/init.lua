@@ -198,10 +198,10 @@ function M.setup(opts)
 		keys = {
 			{ "<leader>f", function() require("beast.libs.finder").open("files") end, desc = "Find files" },
 			{ "<leader>b", function() require("beast.libs.finder").open("buffers") end, desc = "Find buffers" },
-			{ "<leader>/", function() require("beast.libs.finder").open("live_grep") end, desc = "Live grep" },
+			{ "<leader>F", function() require("beast.libs.finder").open("live_grep") end, desc = "Live grep" },
 			{ "<leader>h", function() require("beast.libs.finder").open("help_tags") end, desc = "Help tags" },
 			{
-				"<leader>c",
+				"<leader>C",
 				function()
 					local original = vim.g.colors_name or "default"
 					local confirmed = false
