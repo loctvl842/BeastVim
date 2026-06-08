@@ -12,6 +12,7 @@
 local M = {}
 
 local MATCH_NS = vim.api.nvim_create_namespace("beast-finder-match")
+local CURRENT_NS = vim.api.nvim_create_namespace("beast-finder-current-match")
 
 -- =========================================================================
 -- Per-buffer state
@@ -237,10 +238,16 @@ end
 
 --- Apply substring match highlights to preview buffer.
 --- Terms are extracted from the query pattern; matching is plain + case-insensitive.
+--- When `current_pos` is provided ({lnum, col}; lnum 1-based, col 0-based byte),
+--- the match covering that column on that row uses `BeastFinderPreviewCurrentMatch`.
 ---@param buf integer buffer handle
 ---@param query string current search query
-function M.apply_preview(buf, query)
+---@param current_pos? integer[]  {lnum, col} of the currently selected match
+function M.apply_preview(buf, query, current_pos)
 	install_provider()
+	-- Always clear the previous current-match mark first.
+	pcall(vim.api.nvim_buf_clear_namespace, buf, CURRENT_NS, 0, -1)
+
 	if not query or query == "" then
 		preview_state[buf] = nil
 		return
@@ -257,6 +264,54 @@ function M.apply_preview(buf, query)
 		lowered[i] = terms[i]:lower()
 	end
 	preview_state[buf] = { terms = lowered }
+
+	-- Stamp a persistent extmark over the match covering current_pos so that
+	-- the highlight updates even when the preview buffer's content is
+	-- unchanged (e.g. switching between two grep hits in the same file —
+	-- ephemeral marks rely on dirty lines getting re-decorated).
+	if not current_pos or not current_pos[1] then
+		return
+	end
+	local row = current_pos[1] - 1
+	local col = current_pos[2] or 0
+	local line = vim.api.nvim_buf_get_lines(buf, row, row + 1, false)[1]
+	-- stylua: ignore
+	if not line or line == "" then return end
+	local lower = line:lower()
+	-- Try to find the match covering current_pos; if the column is off (e.g.
+	-- ugrep reports visual columns rather than byte offsets), fall back to the
+	-- nearest match on the line, preferring the closest one.
+	local best_s, best_e, best_dist
+	for ti = 1, #lowered do
+		local term = lowered[ti]
+		local start = 1
+		while true do
+			local s, e = lower:find(term, start, true)
+			-- stylua: ignore
+			if not s then break end
+			if col >= s - 1 and col < e then
+				best_s, best_e = s, e
+				best_dist = 0
+				break
+			end
+			local dist = math.abs((s - 1) - col)
+			if not best_dist or dist < best_dist then
+				best_s, best_e, best_dist = s, e, dist
+			end
+			start = s + 1
+		end
+		if best_dist == 0 then
+			break
+		end
+	end
+
+	if best_s then
+		pcall(vim.api.nvim_buf_set_extmark, buf, CURRENT_NS, row, best_s - 1, {
+			end_col = best_e,
+			hl_group = "BeastFinderPreviewCurrentMatch",
+			priority = 5500,
+		})
+	end
 end
 
 --- Clear match highlights from a buffer.
@@ -264,6 +319,7 @@ end
 function M.clear(buf)
 	list_state[buf] = nil
 	preview_state[buf] = nil
+	pcall(vim.api.nvim_buf_clear_namespace, buf, CURRENT_NS, 0, -1)
 end
 
 return M

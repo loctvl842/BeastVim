@@ -27,6 +27,7 @@ local function ensure_cmd(text, cwd)
 			"--smart-case",
 			"--hidden",
 			"--exclude-dir=.git",
+			"--tabs=1",
 			"--",
 			text,
 			cwd,
