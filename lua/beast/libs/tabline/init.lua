@@ -79,6 +79,7 @@ local function ensure_autocmds()
 		"BufAdd",
 		"BufDelete",
 		"BufModifiedSet",
+		"BufFilePost",
 		"VimResized",
 		"TabEnter",
 		"ColorScheme",
