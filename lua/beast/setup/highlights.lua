@@ -20,6 +20,7 @@ local M = {}
 ---@type string[]
 M.highlight_modules = {
 	"beast.palette.highlights",
+	"beast.palette.blink",
 	"beast.libs.confirm.highlights",
 	"beast.libs.explorer.highlights",
 	"beast.libs.finder.highlights",

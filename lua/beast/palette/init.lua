@@ -142,6 +142,7 @@ end
 
 function M.setup()
 	require("beast").apply_highlights("beast.palette.highlights")
+	require("beast").apply_highlights("beast.palette.blink")
 end
 
 return M
