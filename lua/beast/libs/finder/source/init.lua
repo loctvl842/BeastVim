@@ -6,7 +6,7 @@
 ---@field args? string[]
 ---@field cancel? fun()
 
----@alias Beast.Finder.Source "files"|"buffers"|"live_grep"|"colorschemes"|"help_tags"
+---@alias Beast.Finder.Source "files"|"buffers"|"live_grep"|"colorschemes"|"help_tags"|"lsp_definitions"|"lsp_references"|"lsp_declarations"|"lsp_implementations"
 
 ---@class Beast.Finder.SourceRegistry
 ---@field [Beast.Finder.Source] Beast.Finder.ASource

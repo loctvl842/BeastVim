@@ -203,4 +203,10 @@ function M.help_tags(item)
 	return result
 end
 
+-- LSP sources surface file:line + snippet, identical to live_grep.
+M.lsp_definitions = M.live_grep
+M.lsp_references = M.live_grep
+M.lsp_declarations = M.live_grep
+M.lsp_implementations = M.live_grep
+
 return M

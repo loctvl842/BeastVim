@@ -67,6 +67,23 @@ function M.setup(opts)
 	-- calls from anywhere downstream resolve correctly).
 	Lsp.setup(cfg.lsp or {})
 
+	-- Buffer-local LSP navigation keymaps backed by the finder picker.
+	-- Each is gated on the attached client supporting the corresponding method.
+	Lsp.on_attach(function(client, bufnr)
+		local bind = function(lhs, method, source, desc)
+			if not client:supports_method(method) then
+				return
+			end
+			Key.safe_set("n", lhs, function()
+				require("beast.libs.finder").open(source)
+			end, { buffer = bufnr, desc = desc, group = "LSP" })
+		end
+		bind("gd", "textDocument/definition", "lsp_definitions", "Goto definition")
+		bind("gr", "textDocument/references", "lsp_references", "Goto references")
+		bind("gD", "textDocument/declaration", "lsp_declarations", "Goto declaration")
+		bind("gi", "textDocument/implementation", "lsp_implementations", "Goto implementation")
+	end)
+
 	local packer = require("beast.libs.packer")
 
 	-- stylua: ignore

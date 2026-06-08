@@ -3,6 +3,7 @@
 ---@field search string seed passed to live sources (e.g. grep term)
 ---@field cwd string normalized working directory
 ---@field buf? number restrict to buffer
+---@field lsp? {results: Beast.Finder.Item[], symbol?: string} pre-fetched LSP results
 local M = setmetatable({}, {
 	__call = function(t, ...)
 		return t:new(...)
@@ -10,7 +11,7 @@ local M = setmetatable({}, {
 })
 M.__index = M
 
----@param opts? {cwd?: string, buf?: number, search?: string}
+---@param opts? {cwd?: string, buf?: number, search?: string, lsp?: {results: Beast.Finder.Item[], symbol?: string}}
 ---@return Beast.Finder.Filter
 function M:new(opts)
 	opts = opts or {}
@@ -19,6 +20,7 @@ function M:new(opts)
 		search = opts.search or "",
 		cwd = opts.cwd or Util.root(),
 		buf = opts.buf,
+		lsp = opts.lsp,
 	}, self)
 end
 

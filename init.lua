@@ -103,10 +103,10 @@ Lsp.register("lua_ls", {
 	},
 	keys = {
 		{ "K", vim.lsp.buf.hover, desc = "Hover", cond = "textDocument/hover" },
-		{ "gd", vim.lsp.buf.definition, desc = "Go to definition", cond = "textDocument/definition" },
-		{ "gD", vim.lsp.buf.declaration, desc = "Go to declaration", cond = "textDocument/declaration" },
-		{ "gr", vim.lsp.buf.references, desc = "References", cond = "textDocument/references" },
-		{ "gi", vim.lsp.buf.implementation, desc = "Implementation", cond = "textDocument/implementation" },
+		-- { "gd", vim.lsp.buf.definition, desc = "Go to definition", cond = "textDocument/definition" },
+		-- { "gD", vim.lsp.buf.declaration, desc = "Go to declaration", cond = "textDocument/declaration" },
+		-- { "gr", vim.lsp.buf.references, desc = "References", cond = "textDocument/references" },
+		-- { "gi", vim.lsp.buf.implementation, desc = "Implementation", cond = "textDocument/implementation" },
 		{ "<leader>rn", vim.lsp.buf.rename, desc = "Rename", cond = "textDocument/rename" },
 		{
 			"<leader>ca",

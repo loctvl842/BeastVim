@@ -16,6 +16,7 @@ local ui = require("beast.libs.finder.ui")
 ---@field buf? number
 ---@field positions? number[]
 ---@field pos? {[1]: number, [2]: number}
+---@field end_pos? {[1]: number, [2]: number}
 ---@field grep_text? string
 ---@field help_tag? string
 ---@field is_readme? boolean
@@ -52,6 +53,7 @@ M.__index = M
 ---@field preview? boolean preview window enabled
 ---@field on_preview? fun(item: Beast.Finder.Item)
 ---@field on_close? fun()
+---@field lsp? {results: Beast.Finder.Item[], symbol?: string} pre-fetched LSP results
 
 ---@param source_name Beast.Finder.Source
 ---@param opts? Beast.Finder.QueryOpts
@@ -68,7 +70,7 @@ function M:new(source_name, opts)
 	local query = setmetatable({
 		items = {},
 		matched = {},
-		filter = Filter({ cwd = opts.cwd }),
+		filter = Filter({ cwd = opts.cwd, lsp = opts.lsp }),
 		main_win = View.win.find_normal(),
 		source = source_name,
 		_preview = has_preview,

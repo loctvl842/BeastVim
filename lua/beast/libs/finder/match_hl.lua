@@ -13,6 +13,7 @@ local M = {}
 
 local MATCH_NS = vim.api.nvim_create_namespace("beast-finder-match")
 local CURRENT_NS = vim.api.nvim_create_namespace("beast-finder-current-match")
+local RANGE_NS = vim.api.nvim_create_namespace("beast-finder-lsp-range")
 
 -- =========================================================================
 -- Per-buffer state
@@ -23,6 +24,7 @@ local CURRENT_NS = vim.api.nvim_create_namespace("beast-finder-current-match")
 
 ---@class Beast.Finder.MatchHL.PreviewState
 ---@field terms string[]  lowercased substrings to highlight (plain, no patterns)
+---@field hl_group? string highlight group (defaults to `BeastFinderPreviewMatch`)
 
 ---@type table<integer, Beast.Finder.MatchHL.ListState>
 local list_state = {}
@@ -165,18 +167,17 @@ local function install_provider()
 			local lst = list_state[buf]
 			if lst then
 				local row_ranges = lst.ranges_by_row[row]
-				-- stylua: ignore
-				if row_ranges == nil then return end
-				for i = 1, #row_ranges do
-					local r = row_ranges[i]
-					vim.api.nvim_buf_set_extmark(buf, MATCH_NS, row, r[1], {
-						end_col = r[2],
-						hl_group = "BeastFinderListMatch",
-						ephemeral = true,
-						priority = 5000,
-					})
+				if row_ranges ~= nil then
+					for i = 1, #row_ranges do
+						local r = row_ranges[i]
+						vim.api.nvim_buf_set_extmark(buf, MATCH_NS, row, r[1], {
+							end_col = r[2],
+							hl_group = "BeastFinderListMatch",
+							ephemeral = true,
+							priority = 5000,
+						})
+					end
 				end
-				return
 			end
 
 			local prv = preview_state[buf]
@@ -186,6 +187,7 @@ local function install_provider()
 				if line == nil or line == "" then return end
 				local lower = line:lower()
 				local terms = prv.terms
+				local hl_group = prv.hl_group or "BeastFinderPreviewMatch"
 				for ti = 1, #terms do
 					local term = terms[ti]
 					local start = 1
@@ -195,7 +197,7 @@ local function install_provider()
 						if not s then break end
 						vim.api.nvim_buf_set_extmark(buf, MATCH_NS, row, s - 1, {
 							end_col = e,
-							hl_group = "BeastFinderPreviewMatch",
+							hl_group = hl_group,
 							ephemeral = true,
 							priority = 5000,
 						})
@@ -314,12 +316,67 @@ function M.apply_preview(buf, query, current_pos)
 	end
 end
 
+--- Highlight an exact byte range in a buffer (typically a preview window
+--- showing the file of an LSP reference). Positions follow the finder's
+--- convention: `pos = {lnum (1-based), col (0-based byte)}`.
+---
+--- Replaces any previous LSP range mark in the buffer.
+---@param buf integer
+---@param pos integer[]|nil  {lnum, col}
+---@param end_pos integer[]|nil  {end_lnum, end_col}
+---@param hl_group? string defaults to `BeastFinderPreviewCurrentMatch`
+function M.apply_lsp_range(buf, pos, end_pos, hl_group)
+	pcall(vim.api.nvim_buf_clear_namespace, buf, RANGE_NS, 0, -1)
+	if not pos or not pos[1] then
+		return
+	end
+	local start_row = math.max(0, pos[1] - 1)
+	local start_col = pos[2] or 0
+	local end_row, end_col
+	if end_pos and end_pos[1] then
+		end_row = math.max(0, end_pos[1] - 1)
+		end_col = end_pos[2] or start_col
+	else
+		end_row = start_row
+		end_col = start_col + 1
+	end
+	-- Guard against ranges past EOL — set_extmark fails hard on those.
+	pcall(vim.api.nvim_buf_set_extmark, buf, RANGE_NS, start_row, start_col, {
+		end_row = end_row,
+		end_col = end_col,
+		hl_group = hl_group or "BeastFinderPreviewCurrentMatch",
+		priority = 5500,
+	})
+end
+
 --- Clear match highlights from a buffer.
 ---@param buf integer
 function M.clear(buf)
 	list_state[buf] = nil
 	preview_state[buf] = nil
 	pcall(vim.api.nvim_buf_clear_namespace, buf, CURRENT_NS, 0, -1)
+	pcall(vim.api.nvim_buf_clear_namespace, buf, RANGE_NS, 0, -1)
+end
+
+--- Apply plain, case-insensitive substring highlights to any buffer using a
+--- custom highlight group. Used for LSP-style symbol highlighting that should
+--- coexist with both the list's fuzzy match positions and the preview window.
+---
+--- Pass `nil` or empty `terms` to clear.
+---@param buf integer buffer handle
+---@param terms string[]|nil substrings to highlight (plain)
+---@param hl_group string highlight group to use
+function M.apply_terms(buf, terms, hl_group)
+	install_provider()
+	if not terms or #terms == 0 then
+		preview_state[buf] = nil
+		return
+	end
+	local lowered = {}
+	for i = 1, #terms do
+		lowered[i] = terms[i]:lower()
+	end
+	preview_state[buf] = { terms = lowered, hl_group = hl_group }
 end
 
 return M

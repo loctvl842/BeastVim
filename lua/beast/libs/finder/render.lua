@@ -31,6 +31,14 @@ function M.schedule_preview(query)
 						match_hl.apply_preview(query.preview_view.buf, query.filter.pattern, item.pos)
 						vim.cmd("redraw")
 					end
+
+					-- LSP sources: highlight the EXACT range the server returned
+					-- for this reference (not a substring of the symbol — that
+					-- false-matches inside `module`, `modify`, etc.).
+					if query.filter and query.filter.lsp and query.preview_view:is_valid() then
+						match_hl.apply_lsp_range(query.preview_view.buf, item.pos, item.end_pos)
+						vim.cmd("redraw")
+					end
 				end
 
 				if query._on_preview then
