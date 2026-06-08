@@ -1,5 +1,9 @@
 # Dev Spec: Beast Autopairs Library
 
+> **Completed:** 2026-06-08. All three phases shipped.
+> Commits: Phase 1 `f348436`, Phase 2 `2c893d0`, Phase 3 (this commit).
+> Tests: `tests/test-autopairs-engine.lua` (53/53), `tests/test-autopairs-skip.lua` (28/28).
+
 ## Summary
 
 Native autopairs library at `lua/beast/libs/autopairs/` that owns the entire

@@ -18,6 +18,7 @@ M.reload_highlights = hl.reload_highlights
 ---@field scroll? Beast.Scroll.Config
 ---@field starter? Beast.Starter.Config
 ---@field window? Beast.Window.Config
+---@field autopairs? Beast.Autopairs.Config
 ---@field lsp? Beast.LSP.Config
 local defaults = {
 	key = {},
@@ -252,6 +253,24 @@ function M.setup(opts)
 		},
 		setup = function(window)
 			window.setup(cfg.window or {})
+		end,
+	})
+
+	-- Autopairs (lazy — install mappings on first InsertEnter)
+	packer.lazy("beast.libs.autopairs", {
+		event = { name = "InsertEnter", defer = false },
+    -- stylua: ignore
+		keys = {
+			{ "<leader>up", function() require("beast.libs.autopairs").toggle() end, desc = "Toggle autopairs", group = "Autopairs" },
+		},
+		setup = function(autopairs)
+			autopairs.setup(cfg.autopairs or {
+				skip_next = [=[[%w%%%'%[%"%.%`%$]]=],
+				skip_ts = { "string" },
+				skip_unbalanced = true,
+				markdown = true,
+			})
+			autopairs.enable()
 		end,
 	})
 

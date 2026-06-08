@@ -201,6 +201,28 @@ API: `confirm(msg, "&Yes\n&No", 1)` → integer (0=dismissed, 1..N=choice)
 
 ---
 
+## autopairs — Insert-Mode Autopairs (native, no plugin)
+
+```
+autopairs/
+├── init.lua       ← setup/enable/disable/toggle/is_installed; state owner (registry, installed)
+├── config.lua     ← frozen-config metatable; default pair table () [] {} "" '' ``
+├── pairs.lua      ← pure: neigh_matches, is_symmetric, iter_active
+├── actions.lua    ← open/close/closeopen/bs/cr — return keystroke strings (pre-decoded termcodes)
+├── skip.lua       ← skip_next / skip_ts / skip_unbalanced / markdown vetoes
+├── keymap.lua     ← install/uninstall <expr> mappings via Key.safe_set; per-mode + per-keystroke ctx
+└── health.lua     ← :checkhealth provider (API contract, mapping presence, config dump)
+```
+
+API: `autopairs.setup(opts)`, `autopairs.enable()`, `autopairs.disable()`,
+`autopairs.toggle()` (flips `vim.g.beast_autopairs_disable`), `autopairs.is_installed()`.
+Per-buffer opt-out: `vim.b.beast_autopairs_disable = true`.
+Loaded via: `packer.lazy()` on `InsertEnter` + `<leader>up` toggle.
+
+Tests: `tests/test-autopairs-engine.lua` (53), `tests/test-autopairs-skip.lua` (28).
+
+---
+
 ## packer — Plugin Loader
 
 ```
