@@ -62,6 +62,7 @@ local function open_float(row, col, width, initial, on_confirm, on_cancel, clean
 	local input_buf = vim.api.nvim_create_buf(false, true)
 	vim.bo[input_buf].buftype = "nofile"
 	vim.bo[input_buf].bufhidden = "wipe"
+	vim.bo[input_buf].filetype = "beast-explorer-prompt"
 
 	if initial and initial ~= "" then
 		vim.api.nvim_buf_set_lines(input_buf, 0, -1, false, { initial })
