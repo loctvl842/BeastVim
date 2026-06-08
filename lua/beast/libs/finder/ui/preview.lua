@@ -17,6 +17,25 @@ local M = {}
 
 local MAX_PREVIEW_LINES = 500
 
+--- Move the cursor to (line, col) in the preview window, centring vertically
+--- (`zz`) and horizontally (leftcol pan) so long lines remain visible. Vertical
+--- centring also ensures the smooth-scroll lib sees a topline change to animate
+--- when cycling between hits inside the same viewport.
+---@param view Beast.Finder.PreviewView
+---@param line integer 1-based row
+---@param col integer 0-based byte column
+local function set_cursor_centered(view, line, col)
+	pcall(vim.api.nvim_win_set_cursor, view.win, { line, col })
+	pcall(vim.api.nvim_win_call, view.win, function()
+		vim.cmd("normal! zz")
+		local win_w = vim.api.nvim_win_get_width(view.win)
+		-- Subtract a rough text-area offset for the 'number' column.
+		local text_w = math.max(1, win_w - 6)
+		local leftcol = math.max(0, col - math.floor(text_w / 2))
+		vim.fn.winrestview({ leftcol = leftcol })
+	end)
+end
+
 ---@param win_row integer
 ---@param win_col integer
 ---@param win_w integer
@@ -55,7 +74,7 @@ function M.show(view, item)
 	if item.file and view.loaded_file == item.file then
 		if item.pos then
 			local line = math.max(1, math.min(item.pos[1], math.max(1, view.loaded_line_count)))
-			pcall(vim.api.nvim_win_set_cursor, view.win, { line, item.pos[2] or 0 })
+			set_cursor_centered(view, line, item.pos[2] or 0)
 		else
 			pcall(vim.api.nvim_win_set_cursor, view.win, { 1, 0 })
 		end
@@ -104,7 +123,7 @@ function M.show(view, item)
 	-- Jump to the item's line if provided
 	if item.pos and view:is_valid() then
 		local line = math.max(1, math.min(item.pos[1], math.max(1, #lines)))
-		pcall(vim.api.nvim_win_set_cursor, view.win, { line, item.pos[2] or 0 })
+		set_cursor_centered(view, line, item.pos[2] or 0)
 	else
 		pcall(vim.api.nvim_win_set_cursor, view.win, { 1, 0 })
 	end
