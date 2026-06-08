@@ -2,24 +2,79 @@
 -- M.get() returns the BeastTl* group table. M.post_apply() reruns the style
 -- resolver and pushes it to icons.lua (which needs sp/underline per state) and
 -- forces a tabline redraw.
+--
+-- Appearance (colors, underlines, bold, separator glyphs, fill bg) is
+-- intentionally hardcoded here — it's tightly coupled to the palette tokens
+-- and NOT user-configurable. To tweak the look, edit the APPEARANCE builder
+-- below; everything downstream reads from it.
 
-local config = require("beast.libs.tabline.config")
 local icons = require("beast.libs.tabline.icons")
 
----@param style table       The user-configured state style (selected/visible/normal)
----@param defaults table    Palette-derived fallbacks { fg, bg, sp }
-local function resolve(style, defaults)
-	local fg = style.fg or defaults.fg
+-- =============================================================================
+-- APPEARANCE — single source of truth for tabline styling.
+-- =============================================================================
+-- `APPEARANCE(p)` returns the palette-derived part (colors, underlines, bold).
+-- Called fresh on every reload so ColorScheme changes flow through.
+--
+-- `DIAG_RATIOS` is the static part — severity-color blend ratios toward each
+-- state's cell bg. Kept as a module-level constant so the appearance table
+-- stays a single homogeneous shape (no mixed string/number leaves) and the
+-- type checker doesn't have to widen `a[k][state]` to `any`.
+
+-- Severity-color blend ratios. `diag_text` colors the buffer name; `diag_count`
+-- colors the count badge. Both blend toward each state's cell background.
+local DIAG_RATIOS = {
+	diag_text  = { selected = 1.0,  visible = 0.6,        normal = 0.4 },
+	diag_count = { selected = 0.75, visible = 0.75 * 0.6, normal = 0.75 * 0.4 },
+}
+
+---@param p Beast.Palette
+local function APPEARANCE(p)
+	local active_bg   = p.background
+	local inactive_bg = Util.colors.lighten(p.background, 15)
+	local inactive_fg = Util.colors.blend(p.text, 0.4, active_bg)
+	local normal_fg   = Util.colors.blend(p.text, 0.4, inactive_bg)
+	local sep_alt     = Util.colors.blend(p.text, 0.4, active_bg)
+
 	return {
-		fg = fg,
-		bg = style.bg or defaults.bg,
-		sp = style.sp or fg or defaults.sp or fg,
-		underline = style.underline,
-		bold = style.bold or nil,
+		-- Per-state styles: applied to text, icon underline, modified dot,
+		-- close button, separator underline, diagnostic count, tabpage label.
+		selected = { fg = p.text,      bg = active_bg,   sp = p.accent3, underline = false, bold = true },
+		visible  = { fg = inactive_fg, bg = active_bg,   sp = sep_alt,   underline = true,  bold = false },
+		normal   = { fg = normal_fg,   bg = inactive_bg, sp = sep_alt,   underline = true,  bold = false },
+
+		-- Right-side gap + TruncMarker + ToggleButton (continuous bottom rule).
+		fill = { bg = p.dark1, underline = true, sp = sep_alt },
+
+		-- Glyph fg between buffer cells; underline inherited from adjacent cell.
+		separator = {
+			fg          = p.dimmed3,
+			fg_visible  = sep_alt,
+			fg_selected = sep_alt,
+		},
+
+		tab = {
+			selected = { fg = p.text,      bg = active_bg,   bold = true },
+			visible  = { fg = inactive_fg, bg = inactive_bg, bold = true },
+		},
+
+		offset = {
+			body      = { fg = p.dimmed1, bg = Util.colors.darken(p.dark1, 3) },
+			separator = { fg = p.background, bg = p.background },
+		},
+
+		toggle_button = { fg = p.dimmed1 },
+
+		diagnostics = {
+			Error = p.accent1,
+			Warn  = p.accent2,
+			Info  = p.accent5,
+			Hint  = p.accent5,
+		},
 	}
 end
 
----@param base table  Resolved state style
+---@param base table  Resolved state style { fg, bg, sp, underline, bold? }
 ---@param overrides? table  Extra fields (e.g., custom fg for severity, bold for diagnostics)
 local function with(base, overrides)
 	local hl = vim.tbl_extend("force", {}, base)
@@ -34,92 +89,56 @@ end
 -- Resolve everything needed for both M.get() (group table) and M.post_apply()
 -- (icons.set_state_styles). Called once per reload from each entry point.
 local function compute()
-	local p = Palette.get()
-	local a = config.appearance
+	local a = APPEARANCE(Palette.get())
+	local sel, vis, nor, fill = a.selected, a.visible, a.normal, a.fill
 
-	local active_bg = p.background
-	local inactive_bg = Util.colors.lighten(p.background, 15)
-	local inactive_fg = Util.colors.blend(p.text, 0.4, active_bg)
-	local normal_fg = Util.colors.blend(p.text, 0.4, inactive_bg)
-	local fill_bg_default = p.dark1
-	local sep_fg_default = p.dimmed3
-	local sep_alt_default = Util.colors.blend(p.text, 0.4, active_bg)
-
-	local sel = resolve(a.selected, { fg = p.accent3, bg = active_bg, sp = p.accent3 })
-	local vis = resolve(a.visible, { fg = inactive_fg, bg = active_bg, sp = sep_alt_default })
-	local nor = resolve(a.normal, { fg = normal_fg, bg = inactive_bg, sp = sep_alt_default })
-
-	local fill = {
-		bg = a.fill.bg or fill_bg_default,
-		underline = a.fill.underline,
-		sp = a.fill.sp or sep_alt_default,
-	}
-
-	local sep_fg = a.separator.fg or sep_fg_default
-	local sep_fg_vis = a.separator.fg_visible or sep_alt_default
-	local sep_fg_sel = a.separator.fg_selected or sep_alt_default
-
-	local function diag_text(severity_color, state)
-		if state == "selected" then
-			return severity_color
-		elseif state == "visible" then
-			return Util.colors.blend(severity_color, 0.6, active_bg)
-		else
-			return Util.colors.blend(severity_color, 0.4, inactive_bg)
+	-- Severity color, blended toward each state's cell bg.
+	---@param kind '"diag_text"'|'"diag_count"'
+	---@param severity_color string
+	---@param state '"selected"'|'"visible"'|'"normal"'
+	local function blend_sev(kind, severity_color, state)
+		if kind == "diag_text" and state == "selected" then
+			return severity_color -- selected uses raw severity color
 		end
+		local ratio = DIAG_RATIOS[kind][state]
+		local bg = (state == "normal") and nor.bg or sel.bg
+		return Util.colors.blend(severity_color, ratio, bg)
 	end
-
-	local function diag_count(severity_color, state)
-		if state == "selected" then
-			return Util.colors.blend(severity_color, 0.75, active_bg)
-		elseif state == "visible" then
-			return Util.colors.blend(severity_color, 0.75 * 0.6, active_bg)
-		else
-			return Util.colors.blend(severity_color, 0.75 * 0.4, inactive_bg)
-		end
-	end
-
-	local sev = {
-		Error = p.accent1,
-		Warn = p.accent2,
-		Info = p.accent5,
-		Hint = p.accent5,
-	}
 
 	local groups = {
 		BufferSelected = with(sel),
-		BufferVisible = with(vis),
-		Buffer = with(nor),
+		BufferVisible  = with(vis),
+		Buffer         = with(nor),
 
 		ModifiedSelected = with(sel),
-		ModifiedVisible = with(vis, { fg = sel.fg }),
-		Modified = with(nor, { fg = sel.fg }),
+		ModifiedVisible  = with(vis, { fg = sel.fg }),
+		Modified         = with(nor, { fg = sel.fg }),
 
 		CloseButton = with(sel),
 
-		Separator = with(nor, { fg = sep_fg }),
-		SeparatorVisible = with(vis, { fg = sep_fg_vis }),
-		SeparatorSelected = with(sel, { fg = sep_fg_sel }),
+		Separator         = with(nor, { fg = a.separator.fg }),
+		SeparatorVisible  = with(vis, { fg = a.separator.fg_visible }),
+		SeparatorSelected = with(sel, { fg = a.separator.fg_selected }),
 
-		TabSelected = { fg = sel.fg, bg = sel.bg, bold = sel.bold or nil },
-		TabVisible = { fg = inactive_fg, bg = inactive_bg, bold = true },
+		TabSelected = a.tab.selected,
+		TabVisible  = a.tab.visible,
 
-		Offset = { fg = p.dimmed1, bg = Util.colors.darken(p.dark1, 3) },
-		OffsetSeparator = { fg = p.background, bg = p.background },
+		Offset          = a.offset.body,
+		OffsetSeparator = a.offset.separator,
 
-		TruncMarker = { fg = sep_fg_default, bg = active_bg, underline = fill.underline, sp = fill.sp },
-		Fill = { bg = fill.bg, underline = fill.underline, sp = fill.sp },
-		ToggleButton = { fg = p.dimmed1, bg = fill.bg, underline = fill.underline, sp = fill.sp },
+		TruncMarker  = { fg = a.separator.fg,    bg = sel.bg,  underline = fill.underline, sp = fill.sp },
+		Fill         = { bg = fill.bg,                         underline = fill.underline, sp = fill.sp },
+		ToggleButton = { fg = a.toggle_button.fg, bg = fill.bg, underline = fill.underline, sp = fill.sp },
 	}
 
-	for sev_name, sev_color in pairs(sev) do
-		groups["BufferSelected" .. sev_name] = with(sel, { fg = diag_text(sev_color, "selected") })
-		groups["BufferVisible" .. sev_name] = with(vis, { fg = diag_text(sev_color, "visible") })
-		groups["Buffer" .. sev_name] = with(nor, { fg = diag_text(sev_color, "normal") })
+	for sev_name, sev_color in pairs(a.diagnostics) do
+		groups["BufferSelected" .. sev_name] = with(sel, { fg = blend_sev("diag_text", sev_color, "selected") })
+		groups["BufferVisible"  .. sev_name] = with(vis, { fg = blend_sev("diag_text", sev_color, "visible") })
+		groups["Buffer"         .. sev_name] = with(nor, { fg = blend_sev("diag_text", sev_color, "normal") })
 
-		groups["Diag" .. sev_name .. "Selected"] = with(sel, { fg = diag_count(sev_color, "selected"), bold = true })
-		groups["Diag" .. sev_name .. "Visible"] = with(vis, { fg = diag_count(sev_color, "visible"), bold = true })
-		groups["Diag" .. sev_name] = with(nor, { fg = diag_count(sev_color, "normal"), bold = true })
+		groups["Diag" .. sev_name .. "Selected"] = with(sel, { fg = blend_sev("diag_count", sev_color, "selected"), bold = true })
+		groups["Diag" .. sev_name .. "Visible"]  = with(vis, { fg = blend_sev("diag_count", sev_color, "visible"),  bold = true })
+		groups["Diag" .. sev_name]               = with(nor, { fg = blend_sev("diag_count", sev_color, "normal"),   bold = true })
 	end
 
 	return groups, sel, vis, nor
