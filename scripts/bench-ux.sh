@@ -552,6 +552,10 @@ spawn_pane() {
 quit_pane() {
   send_cmd "BenchQuit"
   sleep 0.8
+  # Force-close the pane: wezterm's `exit_behavior` defaults vary by user
+  # config ("Hold" leaves the pane open after the child exits). kill-pane
+  # is idempotent — silently no-ops if the pane already closed.
+  [ -n "${PANE:-}" ] && wezterm cli kill-pane --pane-id "$PANE" 2>/dev/null || true
 }
 
 # ── scenarios ────────────────────────────────────────────────────────────
