@@ -25,6 +25,7 @@ local api = vim.api
 local uv = vim.uv or vim.loop
 
 local config = require("beast.libs.git.config")
+local conflict = require("beast.libs.git.conflict")
 local diff = require("beast.libs.git.diff")
 local hunks_mod = require("beast.libs.git.hunks")
 local repo = require("beast.libs.git.repo")
@@ -91,6 +92,10 @@ local function recompute(buf, st)
 	if not api.nvim_buf_is_valid(buf) then
 		return
 	end
+	-- Conflict markers can appear in any buffer (tracked or not) — paint
+	-- them first so the highlights show even for untracked files we bail
+	-- out on below.
+	conflict.scan(buf)
 	-- Untracked files (no index entry → path_data nil) have no diff to show.
 	-- Rendering every line as an "add" hunk (gitsigns-style) is misleading:
 	-- there's no prior version to diff against. Clear signs and bail.
@@ -345,6 +350,7 @@ function M.detach(buf)
 	state[buf] = nil
 	repo.invalidate(buf)
 	signs.clear(buf)
+	conflict.clear(buf)
 	require("beast.libs.git.current_line_blame").detach(buf)
 end
 
