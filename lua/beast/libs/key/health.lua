@@ -27,6 +27,7 @@ function M.check()
 		pcall(vim.keymap.del, "n", test_lhs)
 		local test_id = vim.api.nvim_replace_termcodes(test_lhs, true, true, true) .. " (n)"
 		core.managed[test_id] = nil
+		core.forget_conflict(test_id)
 	else
 		health.error("safe_set() failed: " .. tostring(set_err))
 	end
@@ -66,38 +67,94 @@ function M.check()
 	pcall(api_mod.cycle_mode)
 
 	-- =========================================================================
-	-- Duplication: managed lhs colliding with other registrations
+	-- Duplication: set-time history of (mode, lhs) registrations
+	--
+	-- `core.conflicts[id]` records every call to `set()` for global keymaps,
+	-- so we can surface overwrites that `nvim_get_keymap` cannot show (the
+	-- later `vim.keymap.set` silently replaces the earlier one).
 	-- =========================================================================
 	health.start("beast.libs.key — duplication")
 
-	local modes = { "n", "i", "v", "x", "s", "o", "t", "c" }
-	local collisions = {}
-
-	for _, mode in ipairs(modes) do
-		-- Group all keymaps in this mode by lhs (termcode-normalized)
-		local by_lhs = {}
-		for _, km in ipairs(vim.api.nvim_get_keymap(mode)) do
-			local norm = vim.api.nvim_replace_termcodes(km.lhs, true, true, true)
-			by_lhs[norm] = (by_lhs[norm] or 0) + 1
+	local duplicates = {}
+	for id, bucket in pairs(core.conflicts or {}) do
+		if #bucket.calls > 1 then
+			duplicates[#duplicates + 1] = { id = id, bucket = bucket }
 		end
+	end
 
-		-- For each managed key in this mode, check global count
-		for id, km in pairs(core.managed) do
-			if km.mode == mode then
-				local norm = vim.api.nvim_replace_termcodes(km.lhs, true, true, true)
-				if (by_lhs[norm] or 0) > 1 then
-					collisions[#collisions + 1] = string.format("%s in mode '%s'", km.lhs, mode)
-				end
+	if #duplicates == 0 then
+		health.ok(string.format("No duplicate lhs across %d managed keymaps", vim.tbl_count(core.managed)))
+	else
+		health.warn(string.format("%d keymap(s) registered more than once (later overwrites earlier):", #duplicates))
+		table.sort(duplicates, function(a, b) return a.bucket.lhs < b.bucket.lhs end)
+		for _, d in ipairs(duplicates) do
+			local b = d.bucket
+			health.warn(string.format("  • `%s` (mode: %s)", b.lhs, b.mode))
+			for i, site in ipairs(b.calls) do
+				local marker = (i == #b.calls) and "active   " or "shadowed "
+				health.info(string.format(
+					"      [%s] %s:%d  %s",
+					marker,
+					site.source,
+					site.line,
+					site.desc and ('"' .. site.desc .. '"') or ""
+				))
 			end
 		end
 	end
 
-	if #collisions == 0 then
-		health.ok(string.format("No duplicate lhs across %d managed keymaps", vim.tbl_count(core.managed)))
+	-- =========================================================================
+	-- Prefix conflicts: a shorter immediate-action lhs forces `timeoutlen` ms
+	-- of waiting on every longer lhs sharing the prefix. With the press-and-
+	-- wait hint enabled this is especially visible — pressing the short key
+	-- either triggers its action or stalls the hint loop.
+	--
+	-- Example: `<leader>c` (Colorschemes) blocks `<leader>ca` (Code action).
+	-- =========================================================================
+	health.start("beast.libs.key — prefix conflicts")
+
+	local prefix_conflicts = {}
+	for _, pair in pairs(core.prefix_conflicts or {}) do
+		local short_bucket = core.conflicts[pair.short_id]
+		local long_bucket = core.conflicts[pair.long_id]
+		if short_bucket and long_bucket then
+			prefix_conflicts[#prefix_conflicts + 1] = {
+				mode = pair.mode,
+				short = short_bucket,
+				long = long_bucket,
+			}
+		end
+	end
+
+	if #prefix_conflicts == 0 then
+		health.ok("No prefix conflicts detected")
 	else
-		health.warn(string.format("%d managed lhs collide with other registrations:", #collisions))
-		for _, msg in ipairs(collisions) do
-			health.warn("  • " .. msg)
+		health.warn(string.format(
+			"%d prefix conflict(s) — shorter key delays the longer key by `timeoutlen` (%dms):",
+			#prefix_conflicts,
+			vim.o.timeoutlen
+		))
+		table.sort(prefix_conflicts, function(a, b)
+			if a.short.lhs == b.short.lhs then return a.long.lhs < b.long.lhs end
+			return a.short.lhs < b.short.lhs
+		end)
+		for _, pc in ipairs(prefix_conflicts) do
+			health.warn(string.format(
+				"  • `%s` blocks `%s` (mode: %s)",
+				pc.short.lhs,
+				pc.long.lhs,
+				pc.mode
+			))
+			local s = pc.short.calls[#pc.short.calls]
+			local l = pc.long.calls[#pc.long.calls]
+			health.info(string.format(
+				'      prefix   %s:%d  %s',
+				s.source, s.line, s.desc and ('"' .. s.desc .. '"') or ""
+			))
+			health.info(string.format(
+				'      longer   %s:%d  %s',
+				l.source, l.line, l.desc and ('"' .. l.desc .. '"') or ""
+			))
 		end
 	end
 end

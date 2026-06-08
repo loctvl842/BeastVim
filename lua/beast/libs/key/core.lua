@@ -35,6 +35,166 @@ local EVENTS = {
 M.managed = {}
 
 -- =============================================================================
+-- Conflict tracking
+-- =============================================================================
+-- When two `set()` calls share the same (mode, lhs), the later one silently
+-- overwrites the former in Neovim's keymap table. `M.managed` also collapses
+-- to a single entry, so post-hoc duplicate scans (e.g. via
+-- `nvim_get_keymap`) cannot detect the collision.
+--
+-- We catch it at set-time instead: every registration is recorded into
+-- `M.conflicts[id]` with caller info. Any id whose history length > 1 is a
+-- duplicate. A single deferred warning is emitted so the user knows to run
+-- `:checkhealth beast.libs.key` for full details.
+--
+-- Buffer-local maps ARE recorded (so LSP `keys` like `<leader>ca` show up in
+-- the prefix-conflict scan), but registrations from the same (source, line)
+-- are deduped — the LSP attach handler attaching the same spec to many
+-- buffers is not a conflict.
+-- =============================================================================
+
+---@class Beast.Keymap.CallSite
+---@field source string  Source file path (from debug.getinfo)
+---@field line integer   Line number of the call
+---@field desc? string
+
+---@class Beast.Keymap.Conflict
+---@field lhs string     Original lhs as written (preserves `<leader>` etc.)
+---@field mode string
+---@field calls Beast.Keymap.CallSite[]
+
+---@type table<string, Beast.Keymap.Conflict>
+M.conflicts = {}
+
+---@class Beast.Keymap.PrefixPair
+---@field short_id string  id of the shorter (prefix) lhs
+---@field long_id string   id of the longer lhs
+---@field mode string
+
+---@type table<string, Beast.Keymap.PrefixPair>
+M.prefix_conflicts = {}
+
+local conflict_notify_scheduled = false
+
+local function schedule_conflict_notify()
+	if conflict_notify_scheduled then return end
+	conflict_notify_scheduled = true
+	vim.schedule(function()
+		local dups = 0
+		for _, b in pairs(M.conflicts) do
+			if #b.calls > 1 then dups = dups + 1 end
+		end
+		local prefixes = vim.tbl_count(M.prefix_conflicts)
+		if dups + prefixes > 0 then
+			local parts = {}
+			if dups > 0 then parts[#parts + 1] = string.format("%d duplicate", dups) end
+			if prefixes > 0 then parts[#parts + 1] = string.format("%d prefix", prefixes) end
+			vim.notify(
+				string.format(
+					"Keymap conflicts detected (%s) \nRun `:checkhealth beast.libs.key` for details",
+					table.concat(parts, ", ")
+				),
+				vim.log.levels.WARN,
+				{ timeout = 10000, title = "beast.libs.key" }
+			)
+		end
+		conflict_notify_scheduled = false
+	end)
+end
+
+---Resolve the first user-land caller, skipping internal key/* frames and C frames
+---(e.g. `__call` metamethod on `core` when invoked as `map(...)`).
+---@return Beast.Keymap.CallSite
+local function resolve_call_site(desc)
+	for level = 2, 20 do
+		local info = debug.getinfo(level, "Sl")
+		if not info then break end
+		local src = info.source or ""
+		local is_c = info.what == "C" or src == "=[C]" or src:sub(1, 2) == "=["
+		local is_internal = src:find("lua/beast/libs/key/", 1, true) ~= nil
+		if not is_c and not is_internal and src ~= "" then
+			return { source = src:gsub("^@", ""), line = info.currentline or 0, desc = desc }
+		end
+	end
+	return { source = "?", line = 0, desc = desc }
+end
+
+---Scan existing managed maps in the same mode for a prefix relationship with
+---`new_id` (termcode-normalized lhs `new_norm`). Records any new pair into
+---`M.prefix_conflicts` keyed by "short_id\0long_id" (so the same pair isn't
+---reported twice across set calls).
+---@param new_id string
+---@param new_norm string
+---@param mode string
+---@return boolean added Whether at least one new pair was recorded
+local function scan_prefix(new_id, new_norm, mode)
+	local added = false
+	for other_id, other in pairs(M.conflicts) do
+		if other_id ~= new_id and other.mode == mode then
+			local other_norm = vim.api.nvim_replace_termcodes(other.lhs, true, true, true)
+			local short_id, long_id
+			if #other_norm < #new_norm and new_norm:sub(1, #other_norm) == other_norm then
+				short_id, long_id = other_id, new_id
+			elseif #new_norm < #other_norm and other_norm:sub(1, #new_norm) == new_norm then
+				short_id, long_id = new_id, other_id
+			end
+			if short_id then
+				local pair_key = short_id .. "\0" .. long_id
+				if not M.prefix_conflicts[pair_key] then
+					M.prefix_conflicts[pair_key] = { short_id = short_id, long_id = long_id, mode = mode }
+					added = true
+				end
+			end
+		end
+	end
+	return added
+end
+
+---@param id string
+---@param km Beast.Keymap
+local function record_call(id, km)
+	local site = resolve_call_site(km.desc)
+	local bucket = M.conflicts[id]
+	local is_new = bucket == nil
+	local dup_added = false
+
+	if is_new then
+		M.conflicts[id] = { lhs = km.lhs, mode = km.mode, calls = { site } }
+	else
+		-- Dedupe by (source, line): the same call site re-registering (e.g. an
+		-- LSP `keys` entry attaching across many buffers) is not a conflict.
+		local last = bucket.calls[#bucket.calls]
+		if last.source == site.source and last.line == site.line then
+			return
+		end
+		bucket.calls[#bucket.calls + 1] = site
+		dup_added = true
+	end
+
+	local prefix_added = false
+	if is_new then
+		local norm = vim.api.nvim_replace_termcodes(km.lhs, true, true, true)
+		prefix_added = scan_prefix(id, norm, km.mode)
+	end
+
+	if dup_added or prefix_added then
+		schedule_conflict_notify()
+	end
+end
+
+---Forget conflict history for an id (called from M.del and from tests/health).
+---Also removes any prefix-conflict pairs that referenced this id.
+---@param id string
+function M.forget_conflict(id)
+	M.conflicts[id] = nil
+	for pair_key, pair in pairs(M.prefix_conflicts) do
+		if pair.short_id == id or pair.long_id == id then
+			M.prefix_conflicts[pair_key] = nil
+		end
+	end
+end
+
+-- =============================================================================
 -- BeastKeysChanged
 -- =============================================================================
 -- A `User` autocommand fired (deferred via `vim.schedule`) whenever a managed
@@ -110,6 +270,7 @@ end
 function M.del(keys, buffer)
 	local ok, _ = pcall(vim.keymap.del, keys.mode, keys.lhs, { buffer = buffer })
 	M.managed[keys.id] = nil
+	M.forget_conflict(keys.id)
 	emit_changed(EVENTS.DEL, keys, buffer)
 	return ok
 end
@@ -140,6 +301,7 @@ function M.set(keys, buffer)
 
 	-- Store the full keymap object for later export
 	M.managed[keys.id] = keys
+	record_call(keys.id, keys)
 	emit_changed(EVENTS.SET, keys, buffer)
 end
 
