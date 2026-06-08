@@ -118,6 +118,8 @@ function M.get()
 		-- fold line reads as "present but inactive" without competing with code.
 		Folded = { bg = blend(p.accent5, 0.10, p.background) },
 		FoldColumn = { fg = p.dimmed1, bg = p.background },
+
+		WinSeparator = { fg = Util.colors.blend(p.text, 0.4, p.background) },
 	}
 end
 
