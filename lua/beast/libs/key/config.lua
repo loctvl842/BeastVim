@@ -13,13 +13,13 @@
 ---@field title_pos "left"|"center"|"right"
 
 ---@class Beast.Key.HintConfig
----@field enabled boolean
----@field triggers string[]
----@field modes string[]
----@field delay integer -- ms before hint appears (0 = immediate; default 50 avoids window-flash on held trigger and on fast key sequences)
----@field win Beast.Key.HintWinConfig
----@field auto_derive_subtriggers boolean -- on fast-typed prefixes, drain typeahead and open hint at the deepest matched subtree
----@field show_group_headers boolean -- render "── Group ──" separator rows between groups
+---@field enabled? boolean
+---@field triggers? string[]
+---@field modes? string[]
+---@field delay? integer -- ms before hint appears (0 = immediate; default 50 avoids window-flash on held trigger and on fast key sequences)
+---@field win? Beast.Key.HintWinConfig
+---@field auto_derive_subtriggers? boolean -- on fast-typed prefixes, drain typeahead and open hint at the deepest matched subtree
+---@field show_group_headers? boolean -- render "── Group ──" separator rows between groups
 
 ---@class Beast.Key.VimBuiltinsConfig
 ---@field enabled boolean
@@ -35,7 +35,7 @@ local defaults = {
 	},
 	hint = {
 		enabled = true,
-		triggers = { "<leader>", "<localleader>", "[", "]", "c" },
+		triggers = { "<leader>", "<localleader>" },
 		modes = { "n", "x" },
 		delay = 50,
 		win = {
