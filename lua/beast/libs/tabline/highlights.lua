@@ -24,42 +24,42 @@ local icons = require("beast.libs.tabline.icons")
 -- Severity-color blend ratios. `diag_text` colors the buffer name; `diag_count`
 -- colors the count badge. Both blend toward each state's cell background.
 local DIAG_RATIOS = {
-	diag_text  = { selected = 1.0,  visible = 0.6,        normal = 0.4 },
+	diag_text = { selected = 1.0, visible = 0.6, normal = 0.4 },
 	diag_count = { selected = 0.75, visible = 0.75 * 0.6, normal = 0.75 * 0.4 },
 }
 
 ---@param p Beast.Palette
 local function APPEARANCE(p)
-	local active_bg   = p.background
+	local active_bg = p.background
 	local inactive_bg = Util.colors.lighten(p.background, 15)
 	local inactive_fg = Util.colors.blend(p.text, 0.4, active_bg)
-	local normal_fg   = Util.colors.blend(p.text, 0.4, inactive_bg)
-	local sep_alt     = Util.colors.blend(p.text, 0.4, active_bg)
+	local normal_fg = Util.colors.blend(p.text, 0.4, inactive_bg)
+	local sep_alt = Util.colors.blend(p.text, 0.4, active_bg)
 
 	return {
 		-- Per-state styles: applied to text, icon underline, modified dot,
 		-- close button, separator underline, diagnostic count, tabpage label.
-		selected = { fg = p.text,      bg = active_bg,   sp = p.accent3, underline = false, bold = true },
-		visible  = { fg = inactive_fg, bg = active_bg,   sp = sep_alt,   underline = true,  bold = false },
-		normal   = { fg = normal_fg,   bg = inactive_bg, sp = sep_alt,   underline = true,  bold = false },
+		selected = { fg = p.text, bg = active_bg, sp = p.accent3, underline = false, bold = true },
+		visible = { fg = inactive_fg, bg = active_bg, sp = sep_alt, underline = true, bold = false },
+		normal = { fg = normal_fg, bg = inactive_bg, sp = sep_alt, underline = true, bold = false },
 
 		-- Right-side gap + TruncMarker + ToggleButton (continuous bottom rule).
 		fill = { bg = p.dark1, underline = true, sp = sep_alt },
 
 		-- Glyph fg between buffer cells; underline inherited from adjacent cell.
 		separator = {
-			fg          = p.dimmed3,
-			fg_visible  = sep_alt,
+			fg = p.dimmed3,
+			fg_visible = sep_alt,
 			fg_selected = sep_alt,
 		},
 
 		tab = {
-			selected = { fg = p.text,      bg = active_bg,   bold = true },
-			visible  = { fg = inactive_fg, bg = inactive_bg, bold = true },
+			selected = { fg = p.text, bg = active_bg, bold = true },
+			visible = { fg = inactive_fg, bg = inactive_bg, bold = true },
 		},
 
 		offset = {
-			body      = { fg = p.dimmed1, bg = Util.colors.darken(p.dark1, 3) },
+			body = { fg = p.dimmed1, bg = Util.colors.darken(p.dark1, 3) },
 			separator = { fg = p.background, bg = p.background },
 		},
 
@@ -67,9 +67,9 @@ local function APPEARANCE(p)
 
 		diagnostics = {
 			Error = p.accent1,
-			Warn  = p.accent2,
-			Info  = p.accent5,
-			Hint  = p.accent5,
+			Warn = p.accent2,
+			Info = p.accent5,
+			Hint = p.accent5,
 		},
 	}
 end
@@ -107,38 +107,38 @@ local function compute()
 
 	local groups = {
 		BufferSelected = with(sel),
-		BufferVisible  = with(vis),
-		Buffer         = with(nor),
+		BufferVisible = with(vis),
+		Buffer = with(nor),
 
 		ModifiedSelected = with(sel),
-		ModifiedVisible  = with(vis, { fg = sel.fg }),
-		Modified         = with(nor, { fg = sel.fg }),
+		ModifiedVisible = with(vis, { fg = sel.fg }),
+		Modified = with(nor, { fg = sel.fg }),
 
 		CloseButton = with(sel),
 
-		Separator         = with(nor, { fg = a.separator.fg }),
-		SeparatorVisible  = with(vis, { fg = a.separator.fg_visible }),
+		Separator = with(nor, { fg = a.separator.fg }),
+		SeparatorVisible = with(vis, { fg = a.separator.fg_visible }),
 		SeparatorSelected = with(sel, { fg = a.separator.fg_selected }),
 
 		TabSelected = a.tab.selected,
-		TabVisible  = a.tab.visible,
+		TabVisible = a.tab.visible,
 
-		Offset          = a.offset.body,
+		Offset = a.offset.body,
 		OffsetSeparator = a.offset.separator,
 
-		TruncMarker  = { fg = a.separator.fg,    bg = sel.bg,  underline = fill.underline, sp = fill.sp },
-		Fill         = { bg = fill.bg,                         underline = fill.underline, sp = fill.sp },
+		TruncMarker = { fg = a.separator.fg, bg = sel.bg, underline = fill.underline, sp = fill.sp },
+		Fill = { bg = fill.bg, underline = fill.underline, sp = fill.sp },
 		ToggleButton = { fg = a.toggle_button.fg, bg = fill.bg, underline = fill.underline, sp = fill.sp },
 	}
 
 	for sev_name, sev_color in pairs(a.diagnostics) do
 		groups["BufferSelected" .. sev_name] = with(sel, { fg = blend_sev("diag_text", sev_color, "selected") })
-		groups["BufferVisible"  .. sev_name] = with(vis, { fg = blend_sev("diag_text", sev_color, "visible") })
-		groups["Buffer"         .. sev_name] = with(nor, { fg = blend_sev("diag_text", sev_color, "normal") })
+		groups["BufferVisible" .. sev_name] = with(vis, { fg = blend_sev("diag_text", sev_color, "visible") })
+		groups["Buffer" .. sev_name] = with(nor, { fg = blend_sev("diag_text", sev_color, "normal") })
 
 		groups["Diag" .. sev_name .. "Selected"] = with(sel, { fg = blend_sev("diag_count", sev_color, "selected"), bold = true })
-		groups["Diag" .. sev_name .. "Visible"]  = with(vis, { fg = blend_sev("diag_count", sev_color, "visible"),  bold = true })
-		groups["Diag" .. sev_name]               = with(nor, { fg = blend_sev("diag_count", sev_color, "normal"),   bold = true })
+		groups["Diag" .. sev_name .. "Visible"] = with(vis, { fg = blend_sev("diag_count", sev_color, "visible"), bold = true })
+		groups["Diag" .. sev_name] = with(nor, { fg = blend_sev("diag_count", sev_color, "normal"), bold = true })
 	end
 
 	return groups, sel, vis, nor

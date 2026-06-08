@@ -1,3 +1,5 @@
+local p = Palette.get()
+
 ---@class Beast.Tabline.Config
 local defaults = {
 	-- Buffer cell appearance
@@ -24,6 +26,38 @@ local defaults = {
 	-- Left: " N <icon> " (e.g. " 3 … ")   Right: " <icon> N " (e.g. " … 2 ")
 	left_trunc_icon = "",
 	right_trunc_icon = "",
+	-- Visual styling. Each per-state table is a single style applied to ALL
+	-- elements of that state (text, icon underline, modified dot, close button,
+	-- separator underline, diagnostic count, tabpage label). Any field left nil
+	-- falls back to a value derived from the active Palette.
+	--
+	---@class Beast.Tabline.StateStyle
+	---@field fg?        string  Main accent for the state
+	---@field bg?        string  Cell background
+	---@field underline? boolean Underline the entire cell row
+	---@field sp?        string  Underline color (defaults to fg)
+	---@field bold?      boolean
+	appearance = {
+		selected = { fg = p.text, bg = nil, underline = false, sp = nil, bold = true },
+		visible = { fg = nil, bg = nil, underline = true, sp = nil, bold = false },
+		normal = { fg = nil, bg = nil, underline = true, sp = nil, bold = false },
+
+		-- Right-side fill (gap between buffers and tabpages). Also drives
+		-- TruncMarker and ToggleButton underline so the bottom rule stays continuous.
+		fill = {
+			bg = nil,
+			underline = true,
+			sp = nil,
+		},
+
+		-- Separator glyph between buffer cells. Underline color is inherited
+		-- from each adjacent cell's state; only the glyph `fg` lives here.
+		separator = {
+			fg = nil, -- normal-state separator
+			fg_visible = nil,
+			fg_selected = nil,
+		},
+	},
 }
 
 ---@type Beast.Tabline.Config

@@ -86,19 +86,15 @@ function M.check()
 		health.ok(string.format("No duplicate lhs across %d managed keymaps", vim.tbl_count(core.managed)))
 	else
 		health.warn(string.format("%d keymap(s) registered more than once (later overwrites earlier):", #duplicates))
-		table.sort(duplicates, function(a, b) return a.bucket.lhs < b.bucket.lhs end)
+		table.sort(duplicates, function(a, b)
+			return a.bucket.lhs < b.bucket.lhs
+		end)
 		for _, d in ipairs(duplicates) do
 			local b = d.bucket
 			health.warn(string.format("  • `%s` (mode: %s)", b.lhs, b.mode))
 			for i, site in ipairs(b.calls) do
 				local marker = (i == #b.calls) and "active   " or "shadowed "
-				health.info(string.format(
-					"      [%s] %s:%d  %s",
-					marker,
-					site.source,
-					site.line,
-					site.desc and ('"' .. site.desc .. '"') or ""
-				))
+				health.info(string.format("      [%s] %s:%d  %s", marker, site.source, site.line, site.desc and ('"' .. site.desc .. '"') or ""))
 			end
 		end
 	end
@@ -129,32 +125,21 @@ function M.check()
 	if #prefix_conflicts == 0 then
 		health.ok("No prefix conflicts detected")
 	else
-		health.warn(string.format(
-			"%d prefix conflict(s) — shorter key delays the longer key by `timeoutlen` (%dms):",
-			#prefix_conflicts,
-			vim.o.timeoutlen
-		))
+		health.warn(
+			string.format("%d prefix conflict(s) — shorter key delays the longer key by `timeoutlen` (%dms):", #prefix_conflicts, vim.o.timeoutlen)
+		)
 		table.sort(prefix_conflicts, function(a, b)
-			if a.short.lhs == b.short.lhs then return a.long.lhs < b.long.lhs end
+			if a.short.lhs == b.short.lhs then
+				return a.long.lhs < b.long.lhs
+			end
 			return a.short.lhs < b.short.lhs
 		end)
 		for _, pc in ipairs(prefix_conflicts) do
-			health.warn(string.format(
-				"  • `%s` blocks `%s` (mode: %s)",
-				pc.short.lhs,
-				pc.long.lhs,
-				pc.mode
-			))
+			health.warn(string.format("  • `%s` blocks `%s` (mode: %s)", pc.short.lhs, pc.long.lhs, pc.mode))
 			local s = pc.short.calls[#pc.short.calls]
 			local l = pc.long.calls[#pc.long.calls]
-			health.info(string.format(
-				'      prefix   %s:%d  %s',
-				s.source, s.line, s.desc and ('"' .. s.desc .. '"') or ""
-			))
-			health.info(string.format(
-				'      longer   %s:%d  %s',
-				l.source, l.line, l.desc and ('"' .. l.desc .. '"') or ""
-			))
+			health.info(string.format("      prefix   %s:%d  %s", s.source, s.line, s.desc and ('"' .. s.desc .. '"') or ""))
+			health.info(string.format("      longer   %s:%d  %s", l.source, l.line, l.desc and ('"' .. l.desc .. '"') or ""))
 		end
 	end
 end

@@ -92,6 +92,14 @@ function M.setup(opts)
 		end,
 	})
 
+	-- Breadcrumb / winbar (lazy — deferred past first screen update)
+	packer.lazy("beast.libs.breadcrumb", {
+		event = { name = "BufEnter", defer = true },
+		setup = function(breadcrumb)
+			breadcrumb.setup(cfg.breadcrumb or {})
+		end,
+	})
+
 	-- Tabline (lazy — deferred past first screen update)
 	packer.lazy("beast.libs.tabline", {
 		event = { name = "VimEnter", defer = true },
