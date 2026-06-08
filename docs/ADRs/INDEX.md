@@ -33,3 +33,4 @@
 | [029](029-native-lsp-infra-no-lspconfig.md) | BeastVim-Native LSP Infra over `vim.lsp.config` / `vim.lsp.enable` | Accepted | 2026-06-08 |
 | [030](030-lsp-server-registry-ownership-extensions.md) | LSP Server Registry Owned by `BeastVim/<Lang>` Extensions | Accepted | 2026-06-08 |
 | [031](031-lsp-register-api-keys-on-attach-extensions.md) | `Lsp.register(name, cfg)` API with `keys`/`on_attach` Extensions | Accepted | 2026-06-08 |
+| [032](032-native-autopairs-library.md) | Native Autopairs Library (`mini.pairs` Rejected After Same-Day Trial) | Accepted | 2026-06-08 |
