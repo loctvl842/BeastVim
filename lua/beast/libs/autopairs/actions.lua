@@ -9,7 +9,9 @@
 --- moves, text insertion) happen via Neovim's keystroke replay of the
 --- returned string.
 
+local config = require("beast.libs.autopairs.config")
 local pairs_mod = require("beast.libs.autopairs.pairs")
+local skip = require("beast.libs.autopairs.skip")
 
 local M = {}
 
@@ -28,12 +30,21 @@ local function is_disabled()
 end
 
 --- Open action — insert the literal opener, then `<close><Left>` if and only
---- if the neighborhood pattern matches.
+--- if (a) no skip rule vetoes and (b) the neighborhood pattern matches. A
+--- skip rule may also return an override keystroke string (used by the
+--- markdown fence rule).
 ---
----@param ctx { open: string, close: string, neigh_pattern: string, before: string, after: string }
+---@param ctx { open: string, close: string, neigh_pattern: string, before: string, after: string, line: string, before_full: string, row: integer, col: integer }
 ---@return string keystrokes
 function M.open(ctx)
 	if is_disabled() then
+		return ctx.open
+	end
+	local skipped, override = skip.should_skip(config.get(), ctx)
+	if override then
+		return override
+	end
+	if skipped then
 		return ctx.open
 	end
 	if pairs_mod.neigh_matches(ctx.neigh_pattern, ctx.before, ctx.after) then
