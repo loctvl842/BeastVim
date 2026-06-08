@@ -82,10 +82,15 @@ local function set_expr(mode, lhs, rhs_fn, desc, registry)
 	end
 	-- replace_keycodes = false: action functions return pre-decoded raw bytes
 	-- (via nvim_replace_termcodes), not `<CR>`-style literals.
+	--
+	-- silent: insert mode only. In cmdline mode, `silent = true` suppresses
+	-- the cmdline echo so the typed characters never appear visually — even
+	-- though they *are* in the buffer (`:` would show empty but `<CR>` still
+	-- runs `()` and reports `E492`).
 	Key.safe_set(mode, lhs, rhs_fn, {
 		expr = true,
 		replace_keycodes = false,
-		silent = true,
+		silent = mode ~= "c",
 		noremap = true,
 		desc = desc,
 		group = "Autopairs",
