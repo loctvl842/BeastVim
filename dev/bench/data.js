@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780895449169,
+  "lastUpdate": 1780920905290,
   "repoUrl": "https://github.com/loctvl842/BeastVim",
   "entries": {
     "BeastVim Startup": [
@@ -395,6 +395,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "BeastVim startup (warm) max",
             "value": 39.607155000000006,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "committer": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "distinct": true,
+          "id": "abb5874cacd5432cd3038e7362283161fae9b004",
+          "message": "fix(tabline): invalidate cache on BufFilePost (rename of opened file)\n\nRenaming an opened file from the explorer calls nvim_buf_set_name,\nwhich fires BufFilePre / BufFilePost / BufNew — none of which the\ntabline was listening to. Result: state.dirty stayed false, render()\nreturned the cached string with the old basename, and the cell looked\n\"frozen\" or visually mismatched against the new buffer state.\n\nAdd BufFilePost to the layout-change autocmd list so the cache is\ninvalidated and the next render rebuilds with vim.api.nvim_buf_get_name's\nnew value.\n\nVerified: before rename tabline shows old basename, after\nnvim_buf_set_name + 50ms wait the next render() returns the new\nbasename and the cache string differs.",
+          "timestamp": "2026-06-08T19:14:11+07:00",
+          "tree_id": "70e671a4fb05c19de613b3cb7ee0560020aa01c3",
+          "url": "https://github.com/loctvl842/BeastVim/commit/abb5874cacd5432cd3038e7362283161fae9b004"
+        },
+        "date": 1780920904434,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "BeastVim startup (warm) mean",
+            "value": 32.4176199,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) stddev",
+            "value": 1.5521251975335688,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) min",
+            "value": 30.684275,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) max",
+            "value": 35.995048000000004,
             "unit": "ms"
           }
         ]
