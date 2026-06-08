@@ -6,6 +6,10 @@
 ---@field status table<string, Beast.Explorer.GitStatus>|nil      -- abs_path → {kind, phase} for files/dirs git reported directly
 ---@field dir_status table<string, Beast.Explorer.GitStatus>|nil  -- abs_dir → merged {kind, phase} aggregated from descendants in `status`
 
+---@class Beast.Explorer.DiagnosticsState
+---@field status table<string, integer>|nil      -- abs_path → highest-priority severity (lower = worse)
+---@field dir_status table<string, integer>|nil  -- abs_dir → highest-priority severity aggregated from descendants
+
 ---@class Beast.Explorer.State
 ---@field tree Beast.Explorer.Tree|nil
 ---@field view Beast.Explorer.View|nil
@@ -16,6 +20,7 @@
 ---@field clipboard Beast.Explorer.Clipboard|nil
 ---@field watchers table<string, uv.uv_fs_event_t>
 ---@field git Beast.Explorer.GitState
+---@field diagnostics Beast.Explorer.DiagnosticsState
 local M = {
 	tree = nil,
 	view = nil,
@@ -26,6 +31,7 @@ local M = {
 	clipboard = nil,
 	watchers = {},
 	git = { status = nil, dir_status = nil },
+	diagnostics = { status = nil, dir_status = nil },
 }
 
 -- ================================
@@ -63,6 +69,7 @@ function M.reset()
 	M.augroup = nil
 	M.watchers = {}
 	M.git = { status = nil, dir_status = nil }
+	M.diagnostics = { status = nil, dir_status = nil }
 end
 
 return M

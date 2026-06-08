@@ -1,6 +1,7 @@
 local Tree = require("beast.libs.explorer.tree")
 local autocmds = require("beast.libs.explorer.autocmds")
 local config = require("beast.libs.explorer.config")
+local diagnostics = require("beast.libs.explorer.diagnostics")
 local git = require("beast.libs.explorer.git")
 local keymaps = require("beast.libs.explorer.keymaps")
 local state = require("beast.libs.explorer.state")
@@ -66,10 +67,14 @@ function M.open(dir)
 		ui.flush()
 		sticky.refresh()
 	end)
+	-- Initial diagnostic scan: stamp severities from any already-loaded buffers.
+	diagnostics.refresh()
+	ui.flush()
 end
 
 function M.close()
 	git.stop()
+	diagnostics.stop()
 	watch.stop_all()
 	sticky.close()
 	ui.close()

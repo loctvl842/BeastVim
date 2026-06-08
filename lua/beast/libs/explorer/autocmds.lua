@@ -1,4 +1,5 @@
 local config = require("beast.libs.explorer.config")
+local diagnostics = require("beast.libs.explorer.diagnostics")
 local git = require("beast.libs.explorer.git")
 local state = require("beast.libs.explorer.state")
 local sticky = require("beast.libs.explorer.sticky")
@@ -314,6 +315,20 @@ function M.mount()
 					sticky.refresh()
 				end,
 			})
+		end,
+	})
+
+	-- Diagnostic badges: refresh on every DiagnosticChanged (debounced so the
+	-- usual burst on attach / save coalesces into one rescan).
+	vim.api.nvim_create_autocmd("DiagnosticChanged", {
+		group = state.augroup,
+		callback = function()
+			-- stylua: ignore
+			if not (state.tree and state.view and state.view:is_valid()) then return end
+			diagnostics.schedule_refresh(function()
+				ui.flush()
+				sticky.refresh()
+			end)
 		end,
 	})
 

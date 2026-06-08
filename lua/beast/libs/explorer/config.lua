@@ -30,6 +30,18 @@ local defaults = {
 			untracked = "U",
 			ignored = "!",
 		},
+		-- Per-severity glyph for the right-aligned diagnostic badge. Keyed by
+		-- `vim.diagnostic.severity` constants (ERROR/WARN/INFO/HINT).
+		-- Behavior:
+		--   * Empty string ("") hides the badge for that severity.
+		--   * Unset keys fall through to defaults via tbl_deep_extend.
+		--   * Highlights use Neovim's built-in DiagnosticError/Warn/Info/Hint groups.
+		diagnostic = {
+			[vim.diagnostic.severity.ERROR] = (Icon and Icon.diagnostics and Icon.diagnostics.error) or "E",
+			[vim.diagnostic.severity.WARN] = (Icon and Icon.diagnostics and Icon.diagnostics.warn) or "W",
+			[vim.diagnostic.severity.INFO] = (Icon and Icon.diagnostics and Icon.diagnostics.info) or "I",
+			[vim.diagnostic.severity.HINT] = (Icon and Icon.diagnostics and Icon.diagnostics.hint) or "H",
+		},
 	},
 	mappings = {
 		["<CR>"] = "open",

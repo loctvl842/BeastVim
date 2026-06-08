@@ -47,6 +47,37 @@ local function git_icon(status)
 	return glyph
 end
 
+local DIAGNOSTIC_HL = {
+	[vim.diagnostic.severity.ERROR] = "DiagnosticError",
+	[vim.diagnostic.severity.WARN] = "DiagnosticWarn",
+	[vim.diagnostic.severity.INFO] = "DiagnosticInfo",
+	[vim.diagnostic.severity.HINT] = "DiagnosticHint",
+}
+
+--- Resolve the user-configured icon for a diagnostic severity. Returns nil
+--- when severity is nil/unknown or the user mapped it to an empty string.
+---@param severity? integer
+---@return string?
+local function diagnostic_icon(severity)
+	-- stylua: ignore
+	if not severity then return nil end
+	local icons = config.icon and config.icon.diagnostic
+	local glyph = icons and icons[severity]
+	if glyph == nil or glyph == "" then
+		return nil
+	end
+	return glyph
+end
+
+--- Resolve the highlight group for a diagnostic severity.
+---@param severity? integer
+---@return string?
+local function diagnostic_hl(severity)
+	-- stylua: ignore
+	if not severity then return nil end
+	return DIAGNOSTIC_HL[severity]
+end
+
 --- Resolve the highlight group for a git status. Selected by `kind`, with
 --- a dim variant for staged-only files (phase == "staged"). Returns nil
 --- when status is nil or its kind is unrecognized.
@@ -138,11 +169,11 @@ end
 --- Build the lines and highlight specs for the current tree state.
 --- Line 1 is always the root header; nodes occupy lines 2..N.
 ---@param nodes Beast.Explorer.Node[]
----@return string[], {line:integer,col_s:integer,col_e:integer,group:string}[], {line:integer,text:string,hl:string}[]
+---@return string[], {line:integer,col_s:integer,col_e:integer,group:string}[], {line:integer,chunks:{[1]:string,[2]:string?}[]}[]
 function M.build(nodes)
 	local lines = {} ---@type string[]
 	local hls = {} ---@type {line:integer,col_s:integer,col_e:integer,group:string}[]
-	local badges = {} ---@type {line:integer,text:string,hl:string}[]
+	local badges = {} ---@type {line:integer,chunks:{[1]:string,[2]:string?}[]}[]
 
 	-- Root header: " UPPERCASE-BASENAME" — no icon, plain text, visually distinct
 	local root_name = string.upper(vim.fn.fnamemodify(state.tree.root.path, ":t"))
@@ -213,14 +244,29 @@ function M.build(nodes)
 			end
 		end
 
-		-- Git badge (right-aligned virt_text)
+		-- Right-aligned badges: diagnostic icon (leftmost) then git icon.
+		-- Combined into a single virt_text so both stay visible on the same line.
 		do
+			local chunks = {} ---@type {[1]:string,[2]:string?}[]
+
+			local diag_glyph = diagnostic_icon(node.diagnostic)
+			if diag_glyph then
+				chunks[#chunks + 1] = { diag_glyph, diagnostic_hl(node.diagnostic) }
+			end
+
 			local git_hl = M.git_hl(node.git_status)
 			if git_hl then
 				local glyph = git_icon(node.git_status)
 				if glyph then
-					badges[#badges + 1] = { line = line_idx, text = glyph, hl = git_hl }
+					if #chunks > 0 then
+						chunks[#chunks + 1] = { " ", nil }
+					end
+					chunks[#chunks + 1] = { glyph, git_hl }
 				end
+			end
+
+			if #chunks > 0 then
+				badges[#badges + 1] = { line = line_idx, chunks = chunks }
 			end
 		end
 		-- Dim hidden files/dirs
@@ -242,7 +288,7 @@ end
 --- Write lines and highlights atomically to the explorer buffer.
 ---@param lines string[]
 ---@param hls {line:integer,col_s:integer,col_e:integer,group:string}[]
----@param badges? {line:integer,text:string,hl:string}[]
+---@param badges? {line:integer,chunks:{[1]:string,[2]:string?}[]}[]
 function M.write(lines, hls, badges)
 	-- Write lines + highlights atomically; ignore errors from a race-closed window
 	pcall(function()
@@ -258,12 +304,17 @@ function M.write(lines, hls, badges)
 			})
 		end
 
-		-- Git status badges as right-aligned virtual text
+		-- Right-aligned virtual text badges (diagnostic + git, combined)
 		if badges then
 			local rpad = string.rep(" ", config.padding_right or 0)
 			for _, b in ipairs(badges) do
+				local virt = {}
+				for _, c in ipairs(b.chunks) do
+					virt[#virt + 1] = c
+				end
+				virt[#virt + 1] = { rpad }
 				pcall(vim.api.nvim_buf_set_extmark, state.view.buf, state.view.ns, b.line, 0, {
-					virt_text = { { b.text, b.hl }, { rpad } },
+					virt_text = virt,
 					virt_text_pos = "right_align",
 					hl_mode = "combine",
 				})

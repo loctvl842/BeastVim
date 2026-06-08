@@ -13,6 +13,7 @@
 ---@field depth      integer
 ---@field last       boolean
 ---@field git_status? Beast.Explorer.GitStatus
+---@field diagnostic? integer
 ---@field children   table<string, string>
 ---@field parent?    string
 local Node = setmetatable({}, {
@@ -28,6 +29,7 @@ Node.__index = Node
 ---@field depth? integer
 ---@field last? boolean
 ---@field git_status? Beast.Explorer.GitStatus
+---@field diagnostic? integer
 
 ---@param path string
 ---@param name string
@@ -51,6 +53,7 @@ function Node:new(path, name, ftype, parent, opts)
 		depth = opts.depth or (parent and parent.depth + 1 or 0),
 		last = opts.last or false,
 		git_status = opts.git_status,
+		diagnostic = opts.diagnostic,
 		children = {},
 		parent = parent and parent.path or nil,
 	}, Node)
@@ -130,6 +133,13 @@ function M:ensure_child(parent, name, ftype)
 	-- down to newly-materialized descendants on expand.
 	if state.git.status then
 		node.git_status = require("beast.libs.explorer.git").resolve(path, parent.path)
+	end
+
+	-- Same for diagnostics: stamp from the cached maps so newly-materialized
+	-- descendants of a dirty directory get their badges on expand without
+	-- waiting for the next DiagnosticChanged.
+	if state.diagnostics.status then
+		node.diagnostic = require("beast.libs.explorer.diagnostics").resolve(path)
 	end
 
 	parent.children[name] = path
