@@ -17,7 +17,7 @@
 ---@field skip_unbalanced boolean       -- Phase 2: skip when line has more closers than openers
 ---@field markdown boolean              -- Phase 2: smart ``` fence expansion
 
--- Neighborhood patterns mirror mini.pairs defaults:
+-- Default neighborhood patterns:
 --   * brackets: forbid pairing right after a backslash
 --   * quotes:   forbid pairing adjacent to word-like text or escaped quotes
 local BRACKET_NEIGH = "[^\\]."

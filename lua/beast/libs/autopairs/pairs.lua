@@ -9,16 +9,10 @@ local M = {}
 --- Match a neighborhood pattern against a 2-character context.
 ---
 --- The pattern is anchored on both sides — it must match the full 2-char
---- string `before .. after`. Either side may be `""` at the start/end of
---- the line; both are passed through verbatim, so a pattern of `"[^\\]."`
---- against `before = "", after = "x"` will match (`"x"` has length 1 and the
---- anchored pattern is 2-char, so this returns false unless we substitute a
---- placeholder).
----
---- We substitute a single space for empty edges, matching mini.pairs'
---- behavior — this gives well-defined results at line boundaries (space is
---- never a "wordy" character in the default quote pattern, never a
---- backslash in the default bracket pattern).
+--- string `before .. after`. At BOL/EOL the corresponding side is `""`;
+--- we substitute a single space so 2-char anchored patterns still match.
+--- Space is never wordy in the default quote pattern and never a
+--- backslash in the default bracket pattern, so the substitution is safe.
 ---
 ---@param neigh_pattern string  Lua pattern, exactly 2 characters wide after anchoring
 ---@param before string         single char to the left of cursor, or ""
