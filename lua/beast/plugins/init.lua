@@ -119,20 +119,18 @@ return {
 						["<CR>"] = { "fallback" },
 						["<C-y>"] = { "select_and_accept" },
 					},
-					sources = {
-						default = function()
-							local type = vim.fn.getcmdtype()
-							-- Search forward and backward
-							if type == "/" or type == "?" then
-								return { "buffer" }
-							end
-							-- Commands
-							if type == ":" or type == "@" then
-								return { "cmdline" }
-							end
-							return {}
-						end,
-					},
+					sources = function()
+						local t = vim.fn.getcmdtype()
+						-- Forward + backward search → completion from buffer text.
+						if t == "/" or t == "?" then
+							return { "buffer" }
+						end
+						-- Ex commands → cmdline source (commands, options, args).
+						if t == ":" or t == "@" then
+							return { "cmdline" }
+						end
+						return {}
+					end,
 					completion = {
 						trigger = {
 							show_on_blocked_trigger_characters = {},
