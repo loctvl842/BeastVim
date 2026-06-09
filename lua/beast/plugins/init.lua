@@ -1,3 +1,4 @@
+---@type Beast.Packer.PluginSpec[]
 return {
 	{ import = "beast.plugins.colorscheme" },
 	{
@@ -18,69 +19,6 @@ return {
 		end,
 	},
 
-	{
-		name = "mini.pairs",
-		src = gh("nvim-mini/mini.pairs"),
-		lazy = { event = { "InsertEnter", "CmdlineEnter" } },
-		config = function()
-			local opts = {
-				modes = { insert = true, command = true, terminal = false },
-				-- Skip autopair when the next character matches this pattern.
-				skip_next = [=[[%w%%%'%[%"%.%`%$]]=],
-				-- Skip autopair when the cursor is inside these treesitter captures.
-				skip_ts = { "string" },
-				-- Skip autopair when next char is the closing pair and the line
-				-- already has more closers than openers.
-				skip_unbalanced = true,
-				-- Expand ``` into a fenced code block in markdown.
-				markdown = true,
-			}
-
-			local pairs = require("mini.pairs")
-			pairs.setup(opts)
-
-			local open = pairs.open
-			pairs.open = function(pair, neigh_pattern)
-				if vim.fn.getcmdline() ~= "" then
-					return open(pair, neigh_pattern)
-				end
-				local o, c = pair:sub(1, 1), pair:sub(2, 2)
-				local line = vim.api.nvim_get_current_line()
-				local cursor = vim.api.nvim_win_get_cursor(0)
-				local next = line:sub(cursor[2] + 1, cursor[2] + 1)
-				local before = line:sub(1, cursor[2])
-
-				if opts.markdown and o == "`" and vim.bo.filetype == "markdown" and before:match("^%s*``") then
-					return "`\n```" .. vim.api.nvim_replace_termcodes("<up>", true, true, true)
-				end
-
-				if opts.skip_next and next ~= "" and next:match(opts.skip_next) then
-					return o
-				end
-
-				if opts.skip_ts and #opts.skip_ts > 0 then
-					local ok, captures =
-						pcall(vim.treesitter.get_captures_at_pos, 0, cursor[1] - 1, math.max(cursor[2] - 1, 0))
-					for _, capture in ipairs(ok and captures or {}) do
-						if vim.tbl_contains(opts.skip_ts, capture.capture) then
-							return o
-						end
-					end
-				end
-
-				if opts.skip_unbalanced and next == c and c ~= o then
-					local _, count_open = line:gsub(vim.pesc(o), "")
-					local _, count_close = line:gsub(vim.pesc(c), "")
-					if count_close > count_open then
-						return o
-					end
-				end
-
-				return open(pair, neigh_pattern)
-			end
-		end,
-	},
-
 	-- Snippet data for the snippets source. Loaded via dependency chain.
 	{
 		name = "friendly-snippets",
@@ -94,7 +32,24 @@ return {
 		-- (which has no tagged releases) and uses a separate download() API.
 		version = vim.version.range("1"),
 		dependencies = { "friendly-snippets" },
-		lazy = { event = { "InsertEnter", "CmdlineEnter" } },
+		lazy = {
+			event = {
+				{
+					name = "InsertEnter",
+					defer = false,
+					cond = function()
+						return vim.bo.buftype == "" and vim.api.nvim_buf_get_name(0) ~= ""
+					end,
+				},
+				{
+					name = "CmdlineEnter",
+					defer = false,
+					cond = function()
+						return vim.bo.buftype == "" and vim.api.nvim_buf_get_name(0) ~= ""
+					end,
+				},
+			},
+		},
 		config = function()
 			local function capitalize(s)
 				if not s or s == "" then

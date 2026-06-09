@@ -73,7 +73,7 @@ return {
 	{
 		name = "tokyonight.nvim",
 		-- lazy = nil,
-		lazy = { event = "UIEnter" },
+		-- lazy = { event = "UIEnter" },
 		src = gh("folke/tokyonight.nvim"),
 		config = function()
 			require("tokyonight").setup()
