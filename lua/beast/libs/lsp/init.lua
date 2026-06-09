@@ -19,11 +19,11 @@ M._initialized = false
 
 -- BeastVim-specific fields that are NOT part of vim.lsp.Config and must be
 -- stripped before passing to `vim.lsp.config()`. They are forwarded to the
--- attach dispatcher instead.
-local BEAST_FIELDS = { keys = true, on_attach = true }
+-- attach dispatcher instead. `enabled` is a preflight predicate (see register).
+local BEAST_FIELDS = { keys = true, on_attach = true, enabled = true }
 
 ---Split a registration spec into the native `vim.lsp.Config` fields and the
----BeastVim extension fields (`keys`, `on_attach`).
+---BeastVim extension fields (`keys`, `on_attach`, `enabled`).
 ---@param cfg table
 ---@return table lsp_cfg
 ---@return table extras
@@ -94,21 +94,52 @@ end
 ---Accepts the full `vim.lsp.Config` shape plus BeastVim extensions:
 ---  - `keys`      — buffer-local keymaps bound on LspAttach (see keys.lua)
 ---  - `on_attach` — per-server hook, runs before global subscribers
+---  - `enabled`   — preflight `fun(): boolean`; if it returns false, the
+---                  server is recorded but not enabled (cheap binary checks,
+---                  project-marker gates, etc.)
 ---
----If `capabilities` is omitted, the merged result of `M.capabilities()` is used.
+---Capabilities default to a deferred thunk that resolves `M.capabilities()`
+---at client-start time, so contributors registered later (e.g. blink.cmp on
+---InsertEnter) are picked up by any server that hasn't started yet.
+---
+---Re-registering the same name re-stamps the dispatcher extras and re-runs
+---`vim.lsp.config` (which deep-merges into the existing entry — Neovim has no
+---public "clear" path, so removed keys from the prior cfg persist; overwritten
+---keys are replaced as expected).
 ---@param name string
 ---@param cfg table
 function M.register(name, cfg)
 	local lsp_cfg, extras = split_spec(cfg or {})
 
+	local disp = require("beast.libs.lsp.attach")
+
+	if extras.enabled and extras.enabled() == false then
+		disp.register_server(name, extras)
+		return
+	end
+
 	if lsp_cfg.capabilities == nil then
-		lsp_cfg.capabilities = M.capabilities()
+		lsp_cfg.capabilities = function()
+			return M.capabilities()
+		end
 	end
 
 	vim.lsp.config(name, lsp_cfg)
 	vim.lsp.enable(name)
 
-	require("beast.libs.lsp.attach").register_server(name, extras)
+	disp.register_server(name, extras)
+end
+
+---Tear down a previously registered server. Stops the auto-start FileType
+---autocmd and removes the dispatcher extras. Does NOT stop already-attached
+---clients — use `:lsp stop <name>` (Neovim 0.12) for that. The stored
+---`vim.lsp.config[name]` entry is left intact (no public clear in Neovim),
+---so re-enabling later with the same name will resume the prior cfg unless
+---a fresh `register()` overwrites it.
+---@param name string
+function M.unregister(name)
+	vim.lsp.enable(name, false)
+	require("beast.libs.lsp.attach").servers[name] = nil
 end
 
 ---Merged client capabilities (base + all contributors).
