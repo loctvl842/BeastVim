@@ -1,6 +1,7 @@
 ---@type Beast.Packer.PluginSpec[]
 return {
 	{ import = "beast.plugins.colorscheme" },
+	{ import = "beast.plugins.development" },
 	{
 		name = "nvim-web-devicons",
 		src = gh("nvim-tree/nvim-web-devicons"),
