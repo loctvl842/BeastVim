@@ -1,4 +1,4 @@
-<!-- Generated: 2026-06-08 | Files scanned: 183 | Token estimate: ~2900 -->
+<!-- Generated: 2026-06-09 | Files scanned: 183 | Token estimate: ~2900 -->
 
 # Libraries
 
@@ -265,18 +265,20 @@ Loaded via: `packer.lazy()` on FileType (deferred)
 
 ```
 lsp/
-├── init.lua          ← setup, register(name, cfg), capabilities, add_capabilities, on_attach, :BeastLspInfo
-├── config.lua        ← diagnostics defaults (Icon.diagnostics.*), read-only metatable
-├── capabilities.lua  ← base() + contributors + get() (deep-merged at register time)
+├── init.lua          ← setup, register(name, cfg), unregister(name), capabilities, add_capabilities, on_attach, :BeastLspInfo
+├── config.lua        ← diagnostics defaults (Icon.diagnostics.*), inlay_hints/codelens/fold toggles, read-only metatable
+├── capabilities.lua  ← base() + contributors + get(); first_client_seen flag for late-add warning
 ├── diagnostics.lua   ← vim.diagnostic.config(cfg.diagnostics)
-├── attach.lua        ← single LspAttach autocmd on BeastVim-lsp augroup; servers map + subscribers list
+├── attach.lua        ← single LspAttach autocmd on BeastVim-lsp augroup; servers map + subscribers list; apply_fold/inlay_hints/codelens
 ├── keys.lua          ← Key.safe_set per buffer; cond gating via client:supports_method
-└── health.lua        ← :checkhealth beast.libs.lsp (version, init, servers + cmd[1] PATH, contributors, attached clients)
+└── health.lua        ← :checkhealth beast.libs.lsp (version, init, servers + cmd[1] PATH, contributors, attached clients, toggle status)
 ```
 
-API: `Lsp.setup(opts)`, `Lsp.register(name, cfg)`, `Lsp.capabilities()`, `Lsp.add_capabilities(contrib)`, `Lsp.on_attach(fn)`
-`cfg` is a `vim.lsp.Config` augmented with `keys` (with optional `cond` LSP-method gating) and `on_attach`.
-Loaded **eagerly** from `beast/init.lua` between `confirm.setup()` and `packer.setup` — `vim.lsp.enable` must run before the first `FileType` autocmd. Global: `_G.Lsp`. Dispatch order: per-server keys → per-server on_attach → global subscribers. Per-server configs live in external `BeastVim/<Lang>` repos (see ADR-030).
+API: `Lsp.setup(opts)`, `Lsp.register(name, cfg)`, `Lsp.unregister(name)`, `Lsp.capabilities()`, `Lsp.add_capabilities(contrib)`, `Lsp.on_attach(fn)`
+`cfg` is a `vim.lsp.Config` augmented with `keys` (with optional `cond` LSP-method gating), `on_attach`, and `enabled` (preflight `fun(): boolean`; false skips `vim.lsp.config`/`vim.lsp.enable` but still records dispatcher extras).
+`cfg.capabilities` defaults to a **deferred thunk** (`function() return M.capabilities() end`) — resolved at `vim.lsp.start_client()` time, so contributors registered later (e.g. blink.cmp on InsertEnter) reach any server that hasn't started yet. Contributors added after the first `LspAttach` emit a one-shot WARN via `vim.notify`.
+Loaded **eagerly** from `beast/init.lua` between `confirm.setup()` and `packer.setup` — `vim.lsp.enable` must run before the first `FileType` autocmd. Global: `_G.Lsp`. Dispatch order: per-server keys → per-server on_attach → apply_fold/inlay_hints/codelens → global subscribers. Per-server configs live in external `BeastVim/<Lang>` repos (see ADR-030).
+Bench: `scripts/bench-lsp.lua` measures capabilities resolution (50-contributor stress, 1 ms threshold). Tests: `tests/test-lsp.lua` (15 assertions covering register/unregister/thunk/toggles/warning).
 
 ---
 
