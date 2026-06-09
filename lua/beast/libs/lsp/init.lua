@@ -98,9 +98,12 @@ end
 ---                  server is recorded but not enabled (cheap binary checks,
 ---                  project-marker gates, etc.)
 ---
----Capabilities default to a deferred thunk that resolves `M.capabilities()`
----at client-start time, so contributors registered later (e.g. blink.cmp on
----InsertEnter) are picked up by any server that hasn't started yet.
+---Capabilities default to a snapshot of `M.capabilities()` taken at register
+---time (Neovim's vim.lsp validator strictly requires a table). To pick up
+---contributors registered later (e.g. blink.cmp on InsertEnter), we also
+---install a `before_init` hook that re-resolves `M.capabilities()` and
+---assigns it to the outgoing `initialize` request's params. Any caller-
+---provided `before_init` is chained, not replaced.
 ---
 ---Re-registering the same name re-stamps the dispatcher extras and re-runs
 ---`vim.lsp.config` (which deep-merges into the existing entry — Neovim has no
@@ -119,8 +122,17 @@ function M.register(name, cfg)
 	end
 
 	if lsp_cfg.capabilities == nil then
-		lsp_cfg.capabilities = function()
-			return M.capabilities()
+		-- Snapshot so vim.lsp.start_client's validator accepts the cfg.
+		lsp_cfg.capabilities = M.capabilities()
+		-- Re-resolve at initialize-request time so late contributors win.
+		local user_before_init = lsp_cfg.before_init
+		lsp_cfg.before_init = function(params, conf)
+			local resolved = M.capabilities()
+			params.capabilities = resolved
+			conf.capabilities = resolved
+			if user_before_init then
+				user_before_init(params, conf)
+			end
 		end
 	end
 

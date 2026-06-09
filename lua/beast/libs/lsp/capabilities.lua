@@ -31,8 +31,8 @@ function M.add(contrib)
 	if M.first_client_seen then
 		vim.notify(
 			"beast.libs.lsp: capabilities contributor added after a client connected; "
-				.. "existing clients won't see it. Register contributors before the first LspAttach "
-				.. "(typically in beast/init.lua).",
+				.. "already-attached clients won't see it (servers started later still will, via before_init). "
+				.. "Register contributors before the first LspAttach (typically in beast/init.lua).",
 			vim.log.levels.WARN
 		)
 	end

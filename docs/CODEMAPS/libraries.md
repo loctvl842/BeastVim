@@ -276,9 +276,9 @@ lsp/
 
 API: `Lsp.setup(opts)`, `Lsp.register(name, cfg)`, `Lsp.unregister(name)`, `Lsp.capabilities()`, `Lsp.add_capabilities(contrib)`, `Lsp.on_attach(fn)`
 `cfg` is a `vim.lsp.Config` augmented with `keys` (with optional `cond` LSP-method gating), `on_attach`, and `enabled` (preflight `fun(): boolean`; false skips `vim.lsp.config`/`vim.lsp.enable` but still records dispatcher extras).
-`cfg.capabilities` defaults to a **deferred thunk** (`function() return M.capabilities() end`) — resolved at `vim.lsp.start_client()` time, so contributors registered later (e.g. blink.cmp on InsertEnter) reach any server that hasn't started yet. Contributors added after the first `LspAttach` emit a one-shot WARN via `vim.notify`.
+`cfg.capabilities` defaults to a **snapshot taken at `register()` time** (Neovim's `vim.lsp` validator strictly requires a `table`). To pick up contributors registered later (e.g. blink.cmp on InsertEnter), `register()` also installs a `before_init` hook that re-resolves `M.capabilities()` and assigns it to the outgoing `initialize` request — so any server that hasn't started yet still receives late additions. Caller-supplied `before_init` is chained, not replaced. Contributors added after the first `LspAttach` emit a one-shot WARN via `vim.notify` (already-attached clients won't see the new contribution).
 Loaded **eagerly** from `beast/init.lua` between `confirm.setup()` and `packer.setup` — `vim.lsp.enable` must run before the first `FileType` autocmd. Global: `_G.Lsp`. Dispatch order: per-server keys → per-server on_attach → apply_fold/inlay_hints/codelens → global subscribers. Per-server configs live in external `BeastVim/<Lang>` repos (see ADR-030).
-Bench: `scripts/bench-lsp.lua` measures capabilities resolution (50-contributor stress, 1 ms threshold). Tests: `tests/test-lsp.lua` (15 assertions covering register/unregister/thunk/toggles/warning).
+Bench: `scripts/bench-lsp.lua` measures capabilities resolution (50-contributor stress, 1 ms threshold). Tests: `tests/test-lsp.lua` (19 assertions covering register/unregister/capabilities snapshot+`before_init`/toggles/warning).
 
 ---
 

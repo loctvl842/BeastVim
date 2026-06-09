@@ -1,6 +1,8 @@
 # Dev Spec: LSP Infra Hardening
 
 > **Status:** ✅ Completed 2026-06-09 (all 5 phases shipped — commits `656c7b3`, `f828859`, `a52b4ac`, plus Phase 4 bench/test scaffolding and Phase 5 docs).
+>
+> **Postscript 2026-06-09:** Phase 1's "deferred capabilities resolution via function thunk" approach was **incorrect** — Neovim 0.12's `vim.lsp` validator strictly requires `capabilities` to be a `table` (`runtime/lua/vim/lsp/client.lua:331`: `validate('capabilities', config.capabilities, 'table', true)`). The thunk caused `capabilities: expected table, got function` at server start. Fixed by stamping a snapshot table at `register()` time **and** installing a chained `before_init` hook that re-resolves `M.capabilities()` at the moment the `initialize` request is sent. Net behaviour matches the original spec intent (late contributors reach not-yet-started servers); a new test asserts `vim.validate("capabilities", stored.capabilities, "table", true)` so this class of regression is caught by `tests/test-lsp.lua` going forward.
 
 ## Summary
 

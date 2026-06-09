@@ -6,8 +6,9 @@
 --
 -- Covers the Phase 1–3 behaviors of docs/dev-specs/lsp-infra-hardening.md:
 --   1. enabled=false short-circuits vim.lsp.config / vim.lsp.enable
---   2. capabilities defaults to a deferred thunk (not a snapshot)
---   3. late-added contributors reach the thunk on the next resolution
+--   2. capabilities defaults to a snapshot table (passes vim.lsp validator)
+--      AND a before_init hook re-resolves contributors at request time
+--   3. late-added contributors reach before_init's resolution
 --   4. unregister clears the dispatcher entry
 --   5. inlay_hints / codelens / fold toggles are honored on LspAttach
 --   6. capabilities.add warns when called after first_client_seen
@@ -95,15 +96,35 @@ Lsp.register("fake_disabled", {
 assert_true("enabled=false records dispatcher extras", disp.servers.fake_disabled ~= nil)
 assert_true("enabled=false skips vim.lsp.config(cmd)", vim.lsp.config.fake_disabled == nil or vim.lsp.config.fake_disabled.cmd == nil)
 
--- capabilities thunk
-Lsp.register("fake_thunk", { cmd = { "/bin/true" }, filetypes = { "x_thunk" } })
-local stored = vim.lsp.config.fake_thunk
-assert_eq("capabilities is a function thunk", type(stored.capabilities), "function")
+-- capabilities: snapshot table + before_init re-resolves at request time
+Lsp.register("fake_caps", { cmd = { "/bin/true" }, filetypes = { "x_thunk" } })
+local stored = vim.lsp.config.fake_caps
+assert_eq("capabilities is a table (vim.lsp validator requires this)", type(stored.capabilities), "table")
+assert_eq("before_init installed for late resolution", type(stored.before_init), "function")
 
--- Late add reaches the thunk
+-- vim.lsp.start_client validates capabilities is table-or-nil; make sure
+-- our snapshot would pass that gate so the runtime path doesn't blow up.
+local val_ok, val_err = pcall(vim.validate, "capabilities", stored.capabilities, "table", true)
+assert_true("snapshot passes vim.lsp capabilities validator", val_ok, val_err)
+
+-- Late add must reach before_init's resolution
 Lsp.add_capabilities({ _testMarker = "late_added" })
-local resolved = stored.capabilities()
-assert_eq("late contributor reaches thunk", resolved._testMarker, "late_added")
+local params = { capabilities = stored.capabilities }
+stored.before_init(params, stored)
+assert_eq("late contributor reaches before_init", params.capabilities._testMarker, "late_added")
+assert_eq("before_init updates conf.capabilities too", stored.capabilities._testMarker, "late_added")
+
+-- Caller-supplied before_init must be chained, not clobbered
+local user_called = false
+Lsp.register("fake_chain", {
+	cmd = { "/bin/true" },
+	filetypes = { "x_chain" },
+	before_init = function()
+		user_called = true
+	end,
+})
+vim.lsp.config.fake_chain.before_init({ capabilities = {} }, vim.lsp.config.fake_chain)
+assert_true("user before_init is chained", user_called)
 
 -- enabled field stripped from vim.lsp.config passthrough
 Lsp.register("fake_strip", {
@@ -116,8 +137,8 @@ Lsp.register("fake_strip", {
 assert_true("enabled stripped from native cfg", vim.lsp.config.fake_strip.enabled == nil)
 
 -- unregister
-Lsp.unregister("fake_thunk")
-assert_true("unregister clears dispatcher entry", disp.servers.fake_thunk == nil)
+Lsp.unregister("fake_caps")
+assert_true("unregister clears dispatcher entry", disp.servers.fake_caps == nil)
 
 -- =========================================================================
 -- Phase 2
