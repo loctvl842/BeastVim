@@ -12,6 +12,11 @@ local M = {}
 ---@type Beast.LSP.CapabilitiesContrib[]
 M.contributors = {}
 
+---Set true by the dispatcher on the first LspAttach. Used by `M.add` to
+---warn callers that contributors added after this point won't reach
+---already-connected clients.
+M.first_client_seen = false
+
 ---Base capabilities table from Neovim core.
 ---@return table
 function M.base()
@@ -23,6 +28,14 @@ end
 ---@param contrib Beast.LSP.CapabilitiesContrib
 function M.add(contrib)
 	table.insert(M.contributors, contrib)
+	if M.first_client_seen then
+		vim.notify(
+			"beast.libs.lsp: capabilities contributor added after a client connected; "
+				.. "existing clients won't see it. Register contributors before the first LspAttach "
+				.. "(typically in beast/init.lua).",
+			vim.log.levels.WARN
+		)
+	end
 end
 
 ---Merged capabilities: base + all contributors (deep, force).

@@ -121,6 +121,8 @@ function M.setup()
 				return
 			end
 
+			require("beast.libs.lsp.capabilities").first_client_seen = true
+
 			local server = M.servers[client.name]
 			if server then
 				if server.keys then

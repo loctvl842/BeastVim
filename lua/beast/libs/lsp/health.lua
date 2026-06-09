@@ -58,10 +58,19 @@ function M.check()
 	-- Subscriber count
 	health.info(string.format("Global LspAttach subscribers: %d", #disp.subscribers))
 
+	-- Feature toggles
+	local cfg = require("beast.libs.lsp.config")
+	health.info(string.format("inlay_hints.enabled: %s", tostring(cfg.inlay_hints and cfg.inlay_hints.enabled)))
+	health.info(string.format("codelens.enabled:    %s", tostring(cfg.codelens and cfg.codelens.enabled)))
+	health.info(string.format("fold.enabled:        %s", tostring(cfg.fold and cfg.fold.enabled)))
+
 	-- Capability contributors
 	local ok_caps, caps = pcall(require, "beast.libs.lsp.capabilities")
 	if ok_caps then
 		health.info(string.format("Capability contributors: %d", #caps.contributors))
+		if #caps.contributors > 0 and caps.first_client_seen then
+			health.info("Tip: register capability contributors before the first LspAttach (typically in beast/init.lua)")
+		end
 	end
 
 	-- Attached clients on current buffer
