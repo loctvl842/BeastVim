@@ -457,7 +457,8 @@ end
 ---@param hunk_lines table<integer, boolean>  set of buffer lines covered by matched hunks
 ---@param hunk_min integer  smallest line covered by matched hunks
 ---@param hunk_max integer  largest line covered by matched hunks
-local function wire_close(buf, source_buf, source_win, hunk_lines, hunk_min, hunk_max)
+---@param recompute_width fun(): integer  re-derive float width from current source window
+local function wire_close(buf, source_buf, source_win, hunk_lines, hunk_min, hunk_max, recompute_width)
 	vim.keymap.set("n", "q", M.close, { buffer = buf, nowait = true, silent = true })
 	vim.keymap.set("n", "<Esc>", M.close, { buffer = buf, nowait = true, silent = true })
 
@@ -515,6 +516,32 @@ local function wire_close(buf, source_buf, source_win, hunk_lines, hunk_min, hun
 				bufpos = { visible - 1, 0 },
 				row = 1,
 				col = -textoff,
+			})
+		end,
+	})
+	-- Recompute float width when the source window itself is resized
+	-- (e.g. new split halves its width). WinScrolled doesn't fire on pure
+	-- horizontal resizes, so width would otherwise stay stale.
+	api.nvim_create_autocmd("WinResized", {
+		group = group,
+		callback = function()
+			if not (current and current.win and api.nvim_win_is_valid(current.win)) then
+				return
+			end
+			if not api.nvim_win_is_valid(source_win) then
+				return
+			end
+			if not vim.tbl_contains(vim.v.event.windows or {}, source_win) then
+				return
+			end
+			local textoff = (vim.fn.getwininfo(source_win)[1] or {}).textoff or 0
+			pcall(api.nvim_win_set_config, current.win, {
+				relative = "win",
+				win = source_win,
+				bufpos = { hunk_min - 1, 0 },
+				row = 1,
+				col = -textoff,
+				width = recompute_width(),
 			})
 		end,
 	})
@@ -762,12 +789,16 @@ function M.open_for_range(range_start, range_end, opts)
 	local source_ft = vim.bo[source_buf].filetype
 	local source_win = api.nvim_get_current_win()
 	local hunk_lines, hunk_min, hunk_max = compute_hunk_extent(matched, plan.project)
-	local width = compute_width(preview_cfg.width, body, gutter_w, source_win)
+	local width_mode = preview_cfg.width
+	local recompute_width = function()
+		return compute_width(width_mode, body, gutter_w, source_win)
+	end
+	local width = recompute_width()
 
 	M.close()
 	local buf, win = open_float(body, hls, gutters, width, gutter_w, source_ft, source_win, hunk_min, plan.title)
 	current = PreviewView(buf, win)
-	wire_close(buf, source_buf, source_win, hunk_lines, hunk_min, hunk_max)
+	wire_close(buf, source_buf, source_win, hunk_lines, hunk_min, hunk_max, recompute_width)
 end
 
 -- Test-only seam — exposes pure helpers for unit tests.
