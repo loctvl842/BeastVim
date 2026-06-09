@@ -185,6 +185,7 @@ function M.setup(opts)
 			stc.setup({})
 		end,
 	})
+
 	-- Git (lazy — attaches per buffer on BufReadPost)
 	packer.lazy("beast.libs.git", {
 		event = { name = "BufReadPost", defer = true },
@@ -211,6 +212,8 @@ function M.setup(opts)
 			return
 		end
 
+		---@type string
+		---@diagnostic disable-next-line: assign-type-mismatch
 		local path = vim.fn.argv(0)
 		if vim.fn.isdirectory(path) == 1 then
 			return vim.fn.fnamemodify(path, ":p"):gsub("/$", "")
@@ -330,7 +333,7 @@ function M.setup(opts)
 	-- Window auto-resize + maximize (lazy — needs a second window to be useful)
 	packer.lazy("beast.libs.window", {
 		event = { name = "WinNew", defer = true },
-    -- stylua: ignore
+	  -- stylua: ignore
 		keys = {
 			{ "<leader>zz",  function() require("beast.libs.window").maximize() end, desc = "Zoom window", group = "Window" },
 			{ "<leader>z=", function() require("beast.libs.window").equalize() end, desc = "Equalize windows", group = "Window" },
@@ -343,7 +346,7 @@ function M.setup(opts)
 	-- Autopairs (lazy — install mappings on first InsertEnter)
 	packer.lazy("beast.libs.autopairs", {
 		event = { name = "InsertEnter", defer = false },
-    -- stylua: ignore
+	  -- stylua: ignore
 		keys = {
 			{ "<leader>up", function() require("beast.libs.autopairs").toggle() end, desc = "Toggle autopairs", group = "Autopairs" },
 		},

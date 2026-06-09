@@ -97,6 +97,16 @@ local methods = {}
 ---@param opts? Beast.Statuscolumn.Config
 function methods.setup(opts)
 	cfg = vim.tbl_deep_extend("force", vim.deepcopy(defaults), opts or {})
+
+	-- -- Must enable opts
+	vim.opt.number = true -- set numbered lines
+	vim.opt.signcolumn = "yes" -- always show the sign column, otherwise it would shift the text each time
+	-- -- use fold
+	vim.opt.foldlevel = 99
+	vim.opt.foldmethod = "indent"
+	vim.opt.foldenable = true
+	vim.opt.foldcolumn = "1"
+	vim.opt.foldtext = ""
 end
 
 local M = setmetatable({}, {

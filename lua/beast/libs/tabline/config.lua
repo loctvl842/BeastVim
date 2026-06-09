@@ -34,6 +34,9 @@ local methods = {}
 ---@param opts? Beast.Tabline.Config
 function methods.setup(opts)
 	cfg = vim.tbl_deep_extend("force", vim.deepcopy(defaults), opts or {})
+
+	-- Must enable opts
+	vim.opt.showtabline = 2 -- always show tabline
 end
 
 local M = setmetatable({}, {
