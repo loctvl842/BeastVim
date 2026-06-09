@@ -1,5 +1,5 @@
 ---@class Beast.Packer.Lazy
----@field event? string|string[] Event(s) to trigger lazy loading (e.g., "BufRead", "VimEnter")
+---@field event? string|string[]|Beast.Packer.EventSpec|Beast.Packer.EventSpec[] Event(s) to trigger lazy loading. Plain string ("BufRead"), list of strings, or EventSpec form ({ name, pattern?, defer?, cond? }) — see Beast.Packer.EventSpec for the rich form (per-event defer + soft cond gate).
 ---@field cmd? string|string[] Command(s) to trigger lazy loading (e.g., "Telescope")
 ---@field keys? Beast.KeymapSpec|Beast.KeymapSpec[]|string|string[] Keymap(s) to trigger lazy loading
 ---@field module? string|string[] Module name(s) that trigger lazy loading on require()
@@ -34,7 +34,14 @@ local M = {
 	installed_plugins = {}, ---@type table<string, boolean> Plugins that have been installed
 	loaded_plugins = {}, ---@type table<string, boolean> Plugins that have been loaded
 	module_to_plugin = {}, ---@type table<string, string> Map module names to plugin names
+	libs = {}, ---@type table<string, Beast.Packer.LibEntry> Beast libraries registered via packer.lazy()
+	loaded_libs = {}, ---@type table<string, boolean> Libraries that have been loaded
 }
+
+---@class Beast.Packer.LibEntry
+---@field name string Lua module path (also used as registry key)
+---@field lazy Beast.Packer.LazyLibOpts Trigger spec passed to packer.lazy()
+---@field load fun() Closure that performs require(mod) + setup(lib); idempotent via internal flag
 
 -- Track plugins currently being loaded (for circular dependency detection)
 local loading_stack = {} ---@type string[] Array for ordered tracking
@@ -125,6 +132,28 @@ function M.total()
 		total = total + 1
 	end
 	return total
+end
+
+--- Get total number of libraries registered via packer.lazy()
+---@return integer
+function M.lib_total()
+	local total = 0
+	for _ in pairs(M.libs) do
+		total = total + 1
+	end
+	return total
+end
+
+--- Load a Beast library registered via packer.lazy(). Idempotent via the
+--- entry's internal closure flag; safe to call from manual triggers (UI).
+---@param lib_name string
+function M.load_lib(lib_name)
+	local entry = M.libs[lib_name]
+	if not entry then
+		vim.notify("packer: unknown lib '" .. lib_name .. "'", vim.log.levels.WARN, { title = "BeastVim" })
+		return
+	end
+	entry.load()
 end
 
 --- Install the module loader into package.loaders

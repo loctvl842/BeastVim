@@ -35,6 +35,7 @@ local defaults = {
 			dependencies = " ", -- dependency icon
 
 			path = "󰉓 ", -- folder/path icon
+			lib = "󰂖 ", -- beast lib badge (distinguishes packer.lazy() libs from plugins)
 
 			-- Operation status icons
 			success = "✓",

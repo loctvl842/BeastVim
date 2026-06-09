@@ -470,24 +470,52 @@ function M.lazy(mod, opts)
 		if loaded then return end
 		loaded = true
 
-		local lib = require(mod)
-		if opts.setup then
-			opts.setup(lib)
+		local lib
+		local ok_req, err_req = profile.measure(mod, "packadd_ms", function()
+			lib = require(mod)
+		end)
+		if not ok_req then
+			vim.notify("Error loading lib " .. mod .. ": " .. tostring(err_req), vim.log.levels.ERROR, { title = "BeastVim" })
+			return
 		end
+
+		if opts.setup then
+			local ok_setup, err_setup = profile.measure(mod, "config_ms", function()
+				opts.setup(lib)
+			end)
+			if not ok_setup then
+				vim.notify("Error in setup for lib " .. mod .. ": " .. tostring(err_setup), vim.log.levels.ERROR, { title = "BeastVim" })
+				return
+			end
+		end
+
+		state.loaded_libs[mod] = true
+		profile.set_reason(mod, { type = "manual", detail = nil })
 	end
+
+	state.libs[mod] = { name = mod, lazy = opts, load = do_load }
 
 	local spec = { name = mod }
 
 	if opts.event then
-		event_trigger.setup(spec, opts.event, do_load)
+		event_trigger.setup(spec, opts.event, function(_, reason)
+			profile.set_reason(mod, reason)
+			do_load()
+		end)
 	end
 
 	if opts.keys then
-		keys_trigger.setup(spec, opts.keys, do_load)
+		keys_trigger.setup(spec, opts.keys, function(_, reason)
+			profile.set_reason(mod, reason)
+			do_load()
+		end)
 	end
 
 	if opts.filetype then
-		filetype_trigger().setup(spec, opts.filetype, do_load)
+		filetype_trigger().setup(spec, opts.filetype, function(_, reason)
+			profile.set_reason(mod, reason)
+			do_load()
+		end)
 	end
 end
 
