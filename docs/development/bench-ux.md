@@ -46,8 +46,24 @@ The difference between key-in and redraw-out is the closest proxy for perceived 
 | `scroll` | redraw amplification, TS parse per `<C-d>` (§2.1, §2.9) |
 | `bufswitch` | `BufEnter`/`WinEnter` autocmd scans, FOR_ALL_BUFFERS (§2.11) |
 | `extmarks` | marktree lookup, decoration redraw, inline virt_text (§2.1, §2.15, §4) |
+| `keymaps` | BeastVim-specific — drives every binding in `lua/beast/init.lua` |
 | `longsession` | extmark / autocmd / Lua ref growth over time (§2.6, §2.12) |
-| `all` | runs the four short ones (skips longsession) |
+| `all` | runs keypress+scroll+bufswitch+extmarks+keymaps (skips longsession) |
+
+> `keymaps` is BeastVim-only. When `NVIM_APPNAME` points at any other config (e.g. `LazyVim`), `all` will skip it automatically — those keybindings don't exist and pressing them corrupts the `:BenchMark` event log.
+
+### Comparing across configs (BeastVim vs LazyVim)
+
+Only the config-agnostic scenarios (`keypress`, `scroll`, `bufswitch`, `extmarks`) are valid for cross-config comparisons. Run them with `LOAD_USER_CONFIG=1` against each `NVIM_APPNAME`:
+
+```
+LOAD_USER_CONFIG=1 NVIM_APPNAME=BeastVim FIXTURE_LANG=lua FIXTURE_GIT=1 \
+  ./scripts/bench-ux.sh all                       # 'all' will skip keymaps for non-BeastVim
+LOAD_USER_CONFIG=1 NVIM_APPNAME=LazyVim  FIXTURE_LANG=lua FIXTURE_GIT=1 \
+  ./scripts/bench-ux.sh all
+```
+
+Diff the resulting `BENCH` lines (p50/p99) per scenario.
 
 ### Env knobs (full matrix)
 

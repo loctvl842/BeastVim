@@ -462,6 +462,15 @@ run_keymaps() {
     [ -z "${NVIM_APPNAME:-}" ] && NVIM_APPNAME="BeastVim"
     export NVIM_APPNAME
   fi
+  # This scenario is BeastVim-specific: it drives bindings registered in
+  # lua/beast/init.lua. Under any other config the keys fall through to
+  # random normal/insert-mode behaviour, corrupting :BenchMark args and
+  # producing meaningless latency numbers. Refuse rather than mislead.
+  if [ "${NVIM_APPNAME:-BeastVim}" != "BeastVim" ]; then
+    echo "  SKIP: 'keymaps' is BeastVim-specific (NVIM_APPNAME=$NVIM_APPNAME)."
+    echo "        Use keypress/scroll/bufswitch/extmarks for cross-config comparisons."
+    return 0
+  fi
   write_init_keymaps
   spawn_pane "$WORK/init-keymaps.lua" "$WORK/keymaps.log" "$WORK/keymaps" || return $?
   # Extra settle time: lazy loaders register on first event/key.

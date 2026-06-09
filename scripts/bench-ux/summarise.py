@@ -37,7 +37,12 @@ def parse(path):
             elif line.startswith("evt "):
                 parts = line.split()
                 if len(parts) >= 3:
-                    evts.append((parts[1], float(parts[2])))
+                    try:
+                        evts.append((parts[1], float(parts[2])))
+                    except ValueError:
+                        # Malformed evt line (e.g. extra keystrokes leaked into
+                        # the :BenchMark arg). Skip rather than crashing the run.
+                        continue
     # Strip the placeholder None from paints for backwards compat with callers.
     paints = [p[0] for p in paints]
     return paints, snaps, evts
