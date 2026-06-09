@@ -104,15 +104,22 @@ function M.setup(opts)
 
 	-- Breadcrumb / winbar (lazy — deferred past first screen update)
 	packer.lazy("beast.libs.breadcrumb", {
-		event = { name = "BufEnter", defer = true },
-		setup = function(breadcrumb)
-			breadcrumb.setup(cfg.breadcrumb or {})
-		end,
-	})
-
-	-- Breadcrumb / winbar (lazy — deferred past first screen update)
-	packer.lazy("beast.libs.breadcrumb", {
-		event = { name = "BufEnter", defer = true },
+		event = {
+			{
+				name = "BufWinEnter",
+				defer = true,
+				cond = function()
+					return vim.bo.buftype == "" and vim.api.nvim_buf_get_name(0) ~= ""
+				end,
+			},
+			{
+				name = "BufWritePost",
+				defer = true,
+				cond = function()
+					return vim.bo.buftype == "" and vim.api.nvim_buf_get_name(0) ~= ""
+				end,
+			},
+		},
 		setup = function(breadcrumb)
 			breadcrumb.setup(cfg.breadcrumb or {})
 		end,
@@ -120,12 +127,30 @@ function M.setup(opts)
 
 	-- Tabline (lazy — deferred past first screen update)
 	packer.lazy("beast.libs.tabline", {
-		event = { name = "VimEnter", defer = true },
+		event = {
+			{
+				name = "BufWinEnter",
+				defer = true,
+				cond = function()
+					return vim.bo.buftype == "" and vim.api.nvim_buf_get_name(0) ~= ""
+				end,
+			},
+			{
+				name = "BufWritePost",
+				defer = true,
+				cond = function()
+					return vim.bo.buftype == "" and vim.api.nvim_buf_get_name(0) ~= ""
+				end,
+			},
+		},
     -- stylua: ignore
 		keys = {
 			{ "[B", function() require("beast.libs.tabline").move_prev() end, mode = "n", desc = "Move buffer prev", group = "Tabline" },
       { "]B", function() require("beast.libs.tabline").move_next() end, mode = "n", desc = "Move buffer next", group = "Tabline" },
 		},
+		init = function()
+			vim.opt.showtabline = 0 -- (0: never, 1: always, 2: when there are multiple tabs) - defer to 'tabline'
+		end,
 		setup = function(tabline)
 			tabline.setup({
 				max_name_width = 30,
@@ -140,7 +165,22 @@ function M.setup(opts)
 
 	-- Statuscolumn (lazy — deferred past first screen update)
 	packer.lazy("beast.libs.statuscolumn", {
-		event = { name = "VimEnter", defer = true },
+		event = {
+			{
+				name = "BufWinEnter",
+				defer = true,
+				cond = function()
+					return vim.bo.buftype == "" and vim.api.nvim_buf_get_name(0) ~= ""
+				end,
+			},
+			{
+				name = "BufWritePost",
+				defer = true,
+				cond = function()
+					return vim.bo.buftype == "" and vim.api.nvim_buf_get_name(0) ~= ""
+				end,
+			},
+		},
 		setup = function(stc)
 			stc.setup({})
 		end,
@@ -166,6 +206,16 @@ function M.setup(opts)
 		end,
 	})
 
+	local function startup_dir()
+		if vim.fn.argc() ~= 1 then
+			return
+		end
+
+		local path = vim.fn.argv(0)
+		if vim.fn.isdirectory(path) == 1 then
+			return vim.fn.fnamemodify(path, ":p"):gsub("/$", "")
+		end
+	end
 	-- Explorer (lazy — deferred to first <leader>e press or VimEnter with no file)
 	packer.lazy("beast.libs.explorer", {
 		keys = {
@@ -178,30 +228,41 @@ function M.setup(opts)
 				group = "Explorer",
 			},
 		},
-		event = { name = "VimEnter", defer = true },
+		event = {
+			name = "VimEnter",
+			defer = true,
+			cond = function()
+				return startup_dir() ~= nil
+			end,
+		},
 		setup = function(explorer)
 			explorer.setup(cfg.explorer)
-			-- Detect directory buffers from startup (e.g. `nvim ~/Downloads`),
-			-- capture the path and wipe the buffer before opening the explorer.
-			for _, buf in ipairs(vim.api.nvim_list_bufs()) do
-				local name = vim.api.nvim_buf_get_name(buf)
-				if name ~= "" and vim.fn.isdirectory(name) == 1 then
-					local dir = vim.fn.fnamemodify(name, ":p"):gsub("/$", "")
-					pcall(vim.api.nvim_buf_delete, buf, { force = true })
-					explorer.open(dir)
-					return
-				end
+
+			local dir = startup_dir()
+			if dir then
+				explorer.open(dir)
 			end
-			-- -- No directory buffer found — auto-open when nvim started with no file
-			-- if vim.fn.argc() == 0 and vim.api.nvim_buf_get_name(0) == "" then
-			-- 	explorer.open()
-			-- end
 		end,
 	})
 
 	-- Indent scope indicator (lazy — activate on first buffer with content)
 	packer.lazy("beast.libs.indent", {
-		event = { name = "BufReadPost", defer = true },
+		event = {
+			{
+				name = "BufReadPost",
+				defer = true,
+				cond = function()
+					return vim.bo.buftype == "" and vim.api.nvim_buf_get_name(0) ~= ""
+				end,
+			},
+			{
+				name = "BufWritePost",
+				defer = true,
+				cond = function()
+					return vim.bo.buftype == "" and vim.api.nvim_buf_get_name(0) ~= ""
+				end,
+			},
+		},
 		setup = function(indent)
 			indent.setup(cfg.indent or {})
 		end,
@@ -209,7 +270,13 @@ function M.setup(opts)
 
 	-- Treesitter (lazy — enable builtin highlighting + fold on FileType)
 	packer.lazy("beast.libs.treesitter", {
-		event = { name = "FileType", defer = true },
+		event = {
+			name = "FileType",
+			defer = true,
+			cond = function()
+				return vim.bo.buftype == "" and vim.api.nvim_buf_get_name(0) ~= ""
+			end,
+		},
 		setup = function(ts)
 			ts.setup(cfg.treesitter)
 			ts.enable()
