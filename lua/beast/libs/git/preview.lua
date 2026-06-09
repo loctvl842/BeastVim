@@ -478,6 +478,10 @@ local function wire_close(buf, source_buf, source_win, hunk_lines, hunk_min, hun
 		group = group,
 		buffer = source_buf,
 		callback = function()
+			if not api.nvim_win_is_valid(source_win) then
+				M.close()
+				return
+			end
 			local lnum = api.nvim_win_get_cursor(source_win)[1]
 			if not hunk_lines[lnum] then
 				M.close()
