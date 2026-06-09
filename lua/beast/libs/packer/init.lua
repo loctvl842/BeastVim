@@ -433,6 +433,7 @@ end
 
 ---@class Beast.Packer.LazyLibOpts
 ---@field cond? fun(): boolean Skip registering triggers when it returns false. Matches PluginSpec semantics.
+---@field init? fun() Runs eagerly during `M.lazy` (after `cond` passes, before triggers register). Use for keymaps / autocmds / globals that must exist before the lib loads.
 ---@field event? string|string[]|Beast.Packer.EventSpec|Beast.Packer.EventSpec[] Event trigger(s). Per-event `defer = true` available — see Beast.Packer.EventSpec.
 ---@field keys? Beast.KeymapSpec|Beast.KeymapSpec[]|string|string[] Key trigger(s). Always sync — user is actively waiting.
 ---@field filetype? string|string[] Filetype trigger(s). Always sync — render-critical.
@@ -449,6 +450,15 @@ end
 function M.lazy(mod, opts)
 	-- stylua: ignore
 	if opts.cond and not opts.cond() then return end
+
+	if opts.init then
+		local ok, err = pcall(function()
+			profile.measure(mod, "config_ms", opts.init)
+		end)
+		if not ok then
+			vim.notify("Error in init for " .. mod .. ": " .. tostring(err), vim.log.levels.ERROR, { title = "BeastVim" })
+		end
+	end
 
 	local loaded = false
 

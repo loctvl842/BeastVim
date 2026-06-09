@@ -6,6 +6,11 @@ local M = {}
 ---@field defer? boolean Wrap load in `vim.schedule()` (default: false).
 ---  Use for cosmetic libs that can paint one frame after the event fires.
 ---  Never set this for keys/cmd/module triggers — those are handled separately.
+---@field cond? fun(ev: table): boolean Soft gate. When provided, the autocmd
+---  stays registered until `cond(ev)` returns true; only then is the load
+---  fired and the autocmd removed. Use for conditions that flip from false
+---  to true mid-session (e.g. "the current buffer becomes a real file").
+---  Distinct from `PluginSpec.cond`, which is a hard one-shot check at setup.
 
 --- Normalize the user-provided event spec to a list of EventSpec tables.
 --- Accepted forms (mix-and-match permitted):
@@ -57,15 +62,20 @@ function M.setup(plugin_spec, events, load_fn)
 		local fire = function(ev)
 			load_fn(plugin_spec.name, { type = "event", detail = ev.event })
 		end
-		local callback = fire
-		if e.defer then
-			callback = function(ev)
+		local cond = e.cond
+		local defer = e.defer
+		local callback = function(ev)
+			-- stylua: ignore
+			if cond and not cond(ev) then return false end
+			if defer then
 				vim.schedule(function() fire(ev) end)
+			else
+				fire(ev)
 			end
+			return true -- self-delete: equivalent to `once = true` once cond passes
 		end
 		vim.api.nvim_create_autocmd(e.name, {
 			pattern = e.pattern,
-			once = true,
 			callback = callback,
 		})
 	end
