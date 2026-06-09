@@ -20,6 +20,9 @@ local M = setmetatable({}, {
 	end,
 })
 
+---@type Beast.Lib.Meta
+M.meta = { name = "toast", description = "Transient toast notifications" }
+
 function M.setup(opts)
 	config.setup(opts)
 	require("beast").apply_highlights("beast.libs.toast.highlights")

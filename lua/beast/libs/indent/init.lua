@@ -7,6 +7,9 @@ local augroup = nil
 
 local M = {}
 
+---@type Beast.Lib.Meta
+M.meta = { name = "indent", description = "Indent guides and scope highlighting" }
+
 ---@param buf integer
 ---@return boolean
 local function is_excluded(buf)

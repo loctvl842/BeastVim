@@ -1,5 +1,8 @@
 local M = {}
 
+---@type Beast.Lib.Meta
+M.meta = { name = "animate", description = "Animation primitives (lerp, easing, frame loop) for UI tweens" }
+
 local FPS = 30
 local FRAME_MS = math.floor(1000 / FPS)
 

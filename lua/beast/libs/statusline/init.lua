@@ -253,6 +253,9 @@ end
 
 local M = {}
 
+---@type Beast.Lib.Meta
+M.meta = { name = "statusline", description = "Statusline renderer" }
+
 ---@param opts? Beast.Statusline.Config
 function M.setup(opts)
 	config.setup(opts)

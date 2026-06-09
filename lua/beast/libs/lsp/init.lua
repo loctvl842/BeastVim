@@ -12,6 +12,9 @@ local config = require("beast.libs.lsp.config")
 
 local M = {}
 
+---@type Beast.Lib.Meta
+M.meta = { name = "lsp", description = "LSP configuration and lifecycle infrastructure" }
+
 M._initialized = false
 
 -- BeastVim-specific fields that are NOT part of vim.lsp.Config and must be

@@ -4,6 +4,9 @@ local filepath = require("beast.libs.breadcrumb.filepath")
 
 local M = {}
 
+---@type Beast.Lib.Meta
+M.meta = { name = "breadcrumb", description = "Winbar breadcrumb showing file path and code context" }
+
 -- =========================================================================
 -- State (only this file mutates it)
 -- =========================================================================

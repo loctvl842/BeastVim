@@ -33,6 +33,9 @@ local signs = require("beast.libs.git.signs")
 
 local M = {}
 
+---@type Beast.Lib.Meta
+M.meta = { name = "git", description = "Git signs, hunks, blame, diff, and conflict tools" }
+
 ---@class Beast.Git.BufState
 ---@field ctx Beast.Git.RepoCtx
 ---@field path_data Beast.Git.PathData? Path metadata for patch headers (lazy)

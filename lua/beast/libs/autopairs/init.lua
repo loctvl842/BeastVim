@@ -11,6 +11,9 @@ local keymap = require("beast.libs.autopairs.keymap")
 
 local M = {}
 
+---@type Beast.Lib.Meta
+M.meta = { name = "autopairs", description = "Auto-insert and balance matching brackets, quotes, and tags" }
+
 -- Module state.
 ---@type table<string, { mode: string, lhs: string }>
 local registry = {}

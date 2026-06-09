@@ -15,6 +15,9 @@ local M = setmetatable({}, {
 	end,
 })
 
+---@type Beast.Lib.Meta
+M.meta = { name = "explorer", description = "File tree explorer" }
+
 ---@param dir? string
 local function ensure_explorer(dir)
 	dir = dir and vim.fn.fnamemodify(dir, ":p"):gsub("/$", "") or Util.root()

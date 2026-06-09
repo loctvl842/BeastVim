@@ -54,6 +54,9 @@ end
 
 local M = {}
 
+---@type Beast.Lib.Meta
+M.meta = { name = "async", description = "Cooperative async scheduler over libuv (coroutines, time-budgeted execution)" }
+
 ---@class Beast.Async.Task
 ---@field _co thread
 local Task = {}

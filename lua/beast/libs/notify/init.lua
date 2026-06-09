@@ -18,6 +18,9 @@ local M = setmetatable({}, {
 	end,
 })
 
+---@type Beast.Lib.Meta
+M.meta = { name = "notify", description = "Notification stack with history" }
+
 function M.setup(opts)
 	require("beast").apply_highlights("beast.libs.notify.highlights")
 	config.setup(opts)

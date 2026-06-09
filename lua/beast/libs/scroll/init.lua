@@ -34,6 +34,9 @@ local EASINGS = {
 
 local M = {}
 
+---@type Beast.Lib.Meta
+M.meta = { name = "scroll", description = "Smooth scrolling with easing" }
+
 ---@param win integer
 ---@param current vim.fn.winsaveview.ret
 ---@param target vim.fn.winsaveview.ret

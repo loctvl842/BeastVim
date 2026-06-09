@@ -2,6 +2,9 @@ local config = require("beast.libs.starter.config")
 
 local M = {}
 
+---@type Beast.Lib.Meta
+M.meta = { name = "starter", description = "Dashboard / start screen" }
+
 local ns = vim.api.nvim_create_namespace("BeastStarter")
 local augroup ---@type integer|nil
 

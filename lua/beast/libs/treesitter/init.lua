@@ -2,6 +2,9 @@ local config = require("beast.libs.treesitter.config")
 
 local M = {}
 
+---@type Beast.Lib.Meta
+M.meta = { name = "treesitter", description = "Treesitter parser management and auto-install" }
+
 M.enabled = false
 
 local augroup

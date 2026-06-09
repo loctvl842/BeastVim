@@ -2,6 +2,9 @@ local Query = require("beast.libs.finder.query")
 
 local M = {}
 
+---@type Beast.Lib.Meta
+M.meta = { name = "finder", description = "Fuzzy finder picker (files, grep, LSP, commands)" }
+
 local query ---@type Beast.Finder.Query
 local initialized = false
 

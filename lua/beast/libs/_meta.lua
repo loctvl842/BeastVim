@@ -1,0 +1,18 @@
+---@meta
+--
+-- Shared type definitions for the libs registry.
+--
+-- This file is LuaLS-only (`---@meta`); it is never `require`d at runtime.
+-- Every lib under `lua/beast/libs/<name>/init.lua` (or `lua/beast/libs/<name>.lua`
+-- for single-file libs) MUST expose an `M.meta` table matching `Beast.Lib.Meta`.
+--
+-- The metadata is consumed by:
+--   - the packer UI / dashboard for display
+--   - notification helpers, so callers can write `meta.name` instead of
+--     hard-coding "beast.libs.<lib name>" everywhere
+--
+-- See `docs/development/lib-conventions.md` § 1.5 for the rule.
+
+---@class Beast.Lib.Meta
+---@field name string         Lib name. MUST equal the folder/file basename under `lua/beast/libs/`.
+---@field description string  Short, human-readable, single-sentence description. Shown verbatim in UI surfaces.

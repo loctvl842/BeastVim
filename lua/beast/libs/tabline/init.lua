@@ -9,6 +9,9 @@ local toggle_button = require("beast.libs.tabline.sections.toggle_button")
 
 local M = {}
 
+---@type Beast.Lib.Meta
+M.meta = { name = "tabline", description = "Tabline with buffer list and tabpages" }
+
 ---@class Beast.Tabline.State
 ---@field last_active_bufnr? integer
 ---@field augroup? integer

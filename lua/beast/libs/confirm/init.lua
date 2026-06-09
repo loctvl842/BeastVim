@@ -103,6 +103,9 @@ local M = setmetatable({}, {
 	end,
 })
 
+---@type Beast.Lib.Meta
+M.meta = { name = "confirm", description = "Modern async drop-in for `vim.fn.confirm`" }
+
 ---@param opts? Beast.Confirm.Config
 function M.setup(opts)
 	require("beast").apply_highlights("beast.libs.confirm.highlights")

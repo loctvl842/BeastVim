@@ -27,6 +27,9 @@ local path_trigger      = _lazy("beast.libs.packer.triggers.path")
 
 local M = {}
 
+---@type Beast.Lib.Meta
+M.meta = { name = "packer", description = "Plugin manager with lazy-loading triggers" }
+
 -- ================================
 -- Utils
 -- ================================

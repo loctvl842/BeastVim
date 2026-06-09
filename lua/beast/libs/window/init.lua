@@ -6,6 +6,9 @@ local api = vim.api
 
 local M = {}
 
+---@type Beast.Lib.Meta
+M.meta = { name = "window", description = "Window layout, maximize, and resize animation" }
+
 ---Per-tab maximize snapshot, keyed by tabpage handle.
 ---@type table<integer, Beast.Window.WinResizeData[]>
 local maximized = {}

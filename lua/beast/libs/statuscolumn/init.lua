@@ -20,6 +20,9 @@ local state = {
 
 local M = {}
 
+---@type Beast.Lib.Meta
+M.meta = { name = "statuscolumn", description = "Statuscolumn renderer (signs, numbers, folds)" }
+
 -- =========================================================================
 -- Producer dispatch
 -- =========================================================================

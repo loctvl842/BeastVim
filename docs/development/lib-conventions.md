@@ -22,6 +22,28 @@ libs/<name>/
 - File names are lowercase, single-word when possible (`state`, `render`,
   `loop`, `window`). Avoid suffixes like `_state`, `_helpers`.
 
+## 1.5. Metadata (`M.meta`)
+
+**Every lib MUST expose a `Beast.Lib.Meta` table at `M.meta` in its top-level
+`init.lua`** (or top-level `.lua` for single-file libs like `animate`, `async`).
+
+```lua
+---@type Beast.Lib.Meta
+M.meta = { name = "<lib>", description = "Short single-sentence description." }
+```
+
+Rules:
+
+- `name` MUST equal the folder/file basename under `lua/beast/libs/`.
+- `description` is a short, human-readable sentence; shown verbatim in UI
+  surfaces (dashboard, packer UI) and usable as a notification title so call
+  sites can write `Notify.error(meta.name .. ": ...")` instead of hard-coding
+  `"beast.libs.<lib>"`.
+- Place `M.meta = {...}` immediately after the `local M = {}` (or
+  `setmetatable(...)`) declaration, before any other field/function on `M`.
+- The shared type lives in `lua/beast/libs/_meta.lua` (LuaLS `---@meta`
+  stub, never required at runtime).
+
 ## 2. Config (`config.lua`)
 
 **One config module per lib. It is the single source of truth.**
@@ -172,6 +194,8 @@ Not every lib needs every file — only what the responsibility justifies.
 
 ## Quick PR checklist
 
+- [ ] `M.meta = { name, description }` present at top of `init.lua`; `name`
+      matches folder/file basename
 - [ ] `config.lua` follows the read-only proxy pattern; no extra
       `setup(cfg)` in submodules
 - [ ] All submodules read shared config via `require("beast.libs.<name>.config")`

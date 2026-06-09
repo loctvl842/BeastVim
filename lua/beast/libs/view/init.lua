@@ -19,6 +19,9 @@ setmetatable(M, {
 	end,
 })
 
+---@type Beast.Lib.Meta
+M.meta = { name = "view", description = "Window + buffer wrapper toolkit (`Beast.View`)" }
+
 ---@param buf integer
 ---@param win integer
 ---@return Beast.View
