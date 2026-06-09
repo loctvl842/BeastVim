@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780920905290,
+  "lastUpdate": 1780999539834,
   "repoUrl": "https://github.com/loctvl842/BeastVim",
   "entries": {
     "BeastVim Startup": [
@@ -439,6 +439,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "BeastVim startup (warm) max",
             "value": 35.995048000000004,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "committer": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "distinct": true,
+          "id": "5d563d96b9b2674e0180edf15a18d4ca8e94579e",
+          "message": "feat(git/preview): recompute float width on source window resize\n\nFloat width was computed once when the preview opened and never updated.\nOpening a new split (which halves the source window) left the float\noverflowing its parent.\n\nAdd a WinResized autocmd that:\n  - guards on float + source_win validity\n  - filters via vim.v.event.windows so unrelated splits are ignored\n  - reapplies window config with a freshly computed width and textoff\n\nWidth is recomputed via a closure captured at open-time so the resize\nhandler reuses the same compute_width + body + gutter inputs.",
+          "timestamp": "2026-06-09T17:04:44+07:00",
+          "tree_id": "d750c6c5b2a1de25c1b195f76725cfeb602f4656",
+          "url": "https://github.com/loctvl842/BeastVim/commit/5d563d96b9b2674e0180edf15a18d4ca8e94579e"
+        },
+        "date": 1780999539007,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "BeastVim startup (warm) mean",
+            "value": 34.38565559999999,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) stddev",
+            "value": 2.3010909349642104,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) min",
+            "value": 32.729393,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) max",
+            "value": 41.547977,
             "unit": "ms"
           }
         ]
