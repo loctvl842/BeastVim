@@ -65,6 +65,49 @@ local function apply_fold(client, buf)
 	end
 end
 
+---Enable buffer-scoped inlay hints when the client supports them.
+---@param client vim.lsp.Client
+---@param buf integer
+local function apply_inlay_hints(client, buf)
+	local cfg = require("beast.libs.lsp.config")
+	if not (cfg.inlay_hints and cfg.inlay_hints.enabled) then
+		return
+	end
+	if not client:supports_method("textDocument/inlayHint") then
+		return
+	end
+	vim.lsp.inlay_hint.enable(true, { bufnr = buf })
+end
+
+---Wire codelens refresh autocmds for `buf` when the client supports codelens.
+---Guarded by a buffer-local flag so re-attach on the same buffer (another
+---client of the same kind) doesn't double-register the refresh autocmd.
+---@param client vim.lsp.Client
+---@param buf integer
+local function apply_codelens(client, buf)
+	local cfg = require("beast.libs.lsp.config")
+	if not (cfg.codelens and cfg.codelens.enabled) then
+		return
+	end
+	if not client:supports_method("textDocument/codeLens") then
+		return
+	end
+	if vim.b[buf].beast_lsp_codelens_armed then
+		vim.lsp.codelens.refresh({ bufnr = buf })
+		return
+	end
+	vim.b[buf].beast_lsp_codelens_armed = true
+	local events = cfg.codelens.events or { "BufEnter", "CursorHold", "InsertLeave" }
+	vim.api.nvim_create_autocmd(events, {
+		group = augroup,
+		buffer = buf,
+		callback = function()
+			vim.lsp.codelens.refresh({ bufnr = buf })
+		end,
+	})
+	vim.lsp.codelens.refresh({ bufnr = buf })
+end
+
 ---Install the single dispatching autocmd. Idempotent — re-creates the
 ---augroup with `clear = true` on each call.
 function M.setup()
@@ -89,6 +132,8 @@ function M.setup()
 			end
 
 			apply_fold(client, ev.buf)
+			apply_inlay_hints(client, ev.buf)
+			apply_codelens(client, ev.buf)
 
 			for _, fn in ipairs(M.subscribers) do
 				fn(client, ev.buf)

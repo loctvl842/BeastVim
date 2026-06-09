@@ -14,6 +14,7 @@
 
 ---@class Beast.LSP.Codelens
 ---@field enabled? boolean
+---@field events? string[]  Autocmd events that trigger `vim.lsp.codelens.refresh()`; defaults to BufEnter/CursorHold/InsertLeave when omitted.
 
 ---@class Beast.LSP.Fold
 ---@field enabled? boolean
