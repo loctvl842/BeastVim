@@ -59,6 +59,10 @@ local defaults = {
 		["y"] = "copy_to_clipboard",
 		["p"] = "paste_from_clipboard",
 		["i"] = "debug_node",
+		["]d"] = "next_diag_file",
+		["[d"] = "prev_diag_file",
+		["]c"] = "next_git_file",
+		["[c"] = "prev_git_file",
 	},
 }
 
