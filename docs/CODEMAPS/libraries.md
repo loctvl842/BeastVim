@@ -1,4 +1,4 @@
-<!-- Generated: 2026-06-09 | Files scanned: 183 | Token estimate: ~2900 -->
+<!-- Generated: 2026-06-10 | Files scanned: 246 | Token estimate: ~2950 -->
 
 # Libraries
 
@@ -241,7 +241,11 @@ packer/
 ```
 
 API: `packer.setup(opts)`, `packer.lazy(mod, opts)` — deferred lib loading
-with event/keys triggers, highlight registration, and `defer` (vim.schedule).
+with `event` / `keys` / `filetype` / `module` triggers, highlight registration,
+and `defer` (vim.schedule). The `module` trigger registers a `package.searchers`
+hook so a direct `require("beast.libs.X")` from a keymap body triggers
+`setup(lib)` before returning — closes the half-init hole when keys aren't
+the only entry point.
 
 ---
 
@@ -282,13 +286,38 @@ Bench: `scripts/bench-lsp.lua` measures capabilities resolution (50-contributor 
 
 ---
 
-## buf — Buffer Utilities
+## view — Buffer + Window Wrapper Toolkit
 
 ```
-libs/buf.lua  ← M.delete(opts), M.new(filetype)
+view/
+├── init.lua    ← Beast.View instance class + Beast.View.Module
+│                 View(buf, win), :is_valid, :close, View:extend(init)
+├── buf.lua     ← View.buf.new(filetype), View.buf.delete({ buf, force })
+└── win.lua     ← View.win.wo, View.win.find_normal()
 ```
 
-API: `Buffer.delete({ buf, force })` — smart delete with confirm prompt
+API: `View(buf, win)`, `View:extend(init)` for subclasses (every UI lib's
+`*View`), `View.buf.new(filetype)`, `View.buf.delete({ buf, force })` —
+smart delete with confirm prompt. `View.win.wo(win, k, v)` cross-version-
+safe local opt setter. `View.win.find_normal()` finds the most recent
+non-beast-UI window (used by explorer + finder to target file opens).
+
+NOTE: legacy `Buffer` global removed — call `View.buf.delete(...)` directly.
+
+---
+
+## starter — Native Intro Screen Extensions
+
+```
+starter/
+├── init.lua    ← setup(cfg), VimEnter autocmd, key-hint row renderer
+└── config.lua  ← keys: { { verb, key, desc }, ... }
+```
+
+API: `starter.setup({ keys = { { verb = "press", key = "<leader>p", desc = "to manage plugins" }, ... } })`
+Loaded **eagerly** from `beast/init.lua` (must register VimEnter autocmd before VimEnter fires).
+Opt-in: only renders the BeastVim key rows when the user explicitly provides
+`cfg.starter.keys` — otherwise falls through to the bare native intro.
 
 ---
 

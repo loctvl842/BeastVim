@@ -1,4 +1,4 @@
-<!-- Generated: 2026-06-08 | Files scanned: 180 | Token estimate: ~1060 -->
+<!-- Generated: 2026-06-10 | Files scanned: 246 | Token estimate: ~1100 -->
 
 # Architecture
 
@@ -12,139 +12,172 @@ init.lua → require("beast").setup()
 
 ```
 lua/beast/
-├── init.lua              ← top-level setup, wires all libs + globals,
-│                           registers M.highlight_modules for ColorScheme refresh
+├── init.lua              ← top-level setup; registers globals + wires every
+│                           lib through packer.lazy()
 ├── option.lua            ← vim options
-├── icon.lua              ← icon definitions
-├── profile.lua           ← startup profiling
-├── palette/
-│   ├── init.lua          ← theme palette (resolves accent1, …), is_builtin_colorscheme()
-│   └── highlights.lua    ← BeastPalette* base groups
+├── icon.lua              ← icon definitions (Beast.Icon)
+├── profile.lua           ← lightweight profiler (per-fn count/total/self stats)
+├── hl_reload.lua         ← M.highlight_modules registry + apply_highlights /
+│                           reload_highlights + ColorScheme autocmd dispatcher
+├── theme/
+│   ├── init.lua          ← Theme.get / Theme.refresh / Theme.is_builtin_colorscheme()
+│   ├── highlights.lua    ← BeastTheme* base groups (builtin-only)
+│   └── blink.lua         ← blink.cmp highlight overrides
 ├── util/
-│   ├── init.lua          ← Util.wo, Util.create_scratch_buf, Util.hrtime
-│   ├── colors.lua        ← Util.colors.set_hl
+│   ├── init.lua          ← Util.wo, Util.mod, Util.hrtime, find_normal_win, ...
+│   ├── colors.lua        ← Util.colors.{set_hl, blend, lighten, inspect}
 │   └── root.lua          ← project root detection
 ├── libs/
-│   ├── view.lua          ← Beast.View base class (buf+win pair)
-│   ├── animate.lua       ← shared animation engine (pure math)
-│   ├── buf.lua           ← Beast.View.Buf (buffer delete, scratch buf)
-│   ├── confirm/          ← vim.fn.confirm drop-in UI
-│   ├── explorer/         ← file explorer (split panel + sticky headers + git status)
-│   ├── finder/           ← fuzzy finder (files, buffers, grep, help, colorschemes)
-│   ├── indent/           ← indent guides + scope highlighting (decoration provider)
+│   ├── _meta.lua         ← ---@meta-only: Beast.Lib.Meta type contract
+│   ├── view/             ← Beast.View instance + Beast.View.Module
+│   │   ├── init.lua      ← View(buf, win), View:extend(init)
+│   │   ├── buf.lua       ← View.buf.new / View.buf.delete
+│   │   └── win.lua       ← View.win.wo / View.win.find_normal()
+│   ├── animate.lua       ← shared animation engine (pure math, M.tween)
+│   ├── async.lua         ← cooperative coroutine scheduler (uv check loop)
+│   ├── autopairs/        ← native insert-mode autopairs (no plugin)
 │   ├── breadcrumb/       ← winbar breadcrumb (filepath + treesitter context)
-│   ├── key/              ← keybinding viewer/manager
+│   ├── confirm/          ← vim.fn.confirm drop-in (lazy via module trigger)
+│   ├── explorer/         ← file explorer (split panel + sticky headers + git)
+│   ├── finder/           ← fuzzy finder (files, buffers, grep, help, …)
+│   ├── git/              ← native git signs / preview / stage / blame
+│   ├── indent/           ← indent guides + scope (decoration provider)
+│   ├── key/              ← keybinding registry, cheatsheet, press-and-wait hint
+│   ├── lsp/              ← Lsp.register / capabilities / on_attach dispatcher
 │   ├── notify/           ← floating notification stack
-│   ├── packer/           ← plugin loader with lazy triggers + packer.lazy()
-│   ├── statusline/       ← native %! statusline (+ per-lib health.lua for :checkhealth)
+│   ├── packer/           ← plugin loader + packer.lazy() (event/keys/
+│   │                       filetype/module/cmd/path triggers)
+│   ├── scroll/           ← smooth viewport scrolling
+│   ├── starter/          ← native intro screen extensions (key hint rows)
+│   ├── statuscolumn/     ← native %! statuscolumn
+│   ├── statusline/       ← native %! statusline + per-lib health.lua
 │   ├── tabline/          ← native %! tabline
 │   ├── toast/            ← toast notification stack
-│   ├── lsp/              ← LSP infra: register(name, cfg), capabilities, LspAttach dispatch
-│   └── treesitter/       ← treesitter setup, parser install, scope queries
+│   ├── treesitter/       ← parser install + scope queries
+│   └── window/           ← auto-width + maximize/restore splits
 └── plugins/
     ├── init.lua           ← plugin spec imports
-    └── colorscheme.lua    ← colorscheme plugin spec
+    ├── colorscheme.lua    ← colorscheme plugin spec
+    └── development.lua    ← dev-only plugin specs
 ```
 
 ## Globals Registered at Setup
 
 | Global | Module | Purpose |
 |--------|--------|---------|
-| `Util` | beast.util | Window opts, scratch buf, colors |
+| `Util` | beast.util | Window opts, scratch buf, colors, `mod()` fast loader |
+| `Theme` | beast.theme | Theme palette (accent1…, dimmed1…); replaces old `Palette` |
 | `Key` | beast.libs.key | Keymap registration + viewer |
-| `Buffer` | beast.libs.buf | Buffer delete helper |
+| `View` | beast.libs.view | View instance constructor + `.buf`/`.win` submodules |
 | `Icon` | beast.icon | Icon lookup |
-| `Toast` | beast.libs.toast | Toast notifications |
-| `Theme` | beast.theme | Theme palette (resolves accent1, …) |
+| `Toast` | beast.libs.toast | Toast notifications (registered when toast loads) |
 | `Lsp` | beast.libs.lsp | LSP infra: register, capabilities, on_attach |
+| `gh` | (closure) | `gh("user/repo") → "https://github.com/user/repo"` for plugin specs |
+
+Note: legacy `Buffer` global removed — use `View.buf.delete` instead.
 
 ## Setup Flow
 
 ```
 beast.setup(opts)
-  1. require("beast.option")
-  2. Register globals: Util, Theme, Key, Buffer, Icon
-  3. Register ColorScheme autocmd → Theme.refresh() + reload_highlights()
-  4. Key.setup() + default keymaps
-  5. notify.setup() + toast.setup() → Toast global
-  6. confirm.setup()
-  7. Lsp.setup(cfg.lsp or {}) → eager (vim.lsp.enable must run before FileType)
-  8. packer.setup() → git-clone + lazy-load plugins
-  9. statusline.setup() → native %! with component specs
- 10. packer.lazy("beast.libs.breadcrumb") → deferred VimEnter (winbar)
- 11. packer.lazy("beast.libs.tabline") → deferred VimEnter
- 12. packer.lazy("beast.libs.explorer") → deferred VimEnter + <leader>e
- 13. packer.lazy("beast.libs.indent") → deferred VimEnter (decoration provider)
- 14. packer.lazy("beast.libs.treesitter") → deferred FileType
- 15. packer.lazy("beast.libs.finder") → deferred keys (<leader>f/b/g/c/h)
- 16. Theme.refresh() + reload_highlights()
+  1.  require beast.libs.packer + beast.option
+  2.  Register globals: Util, Theme, Key, View, Icon
+  3.  packer.lazy("beast.theme", VimEnter+defer) → Theme.setup() +
+        hl_reload.setup() + Theme.refresh() + reload_highlights()
+  4.  packer.lazy notify / toast (VimEnter+defer; toast sets _G.Toast)
+  5.  packer.lazy confirm (module trigger: beast.libs.confirm)
+  6.  packer.lazy statusline (VimEnter+defer) — uses components registry
+  7.  packer.lazy breadcrumb / tabline / statuscolumn (VimEnter+defer)
+  8.  packer.lazy git (event-driven) — exposes ]c/[c/<leader>g* keymaps
+  9.  packer.lazy explorer (VimEnter+defer + <leader>e)
+  10. packer.lazy indent (VimEnter+defer; decoration provider)
+  11. packer.lazy treesitter (FileType)
+  12. packer.lazy finder (keys: <leader>f/b/F/h/c)
+  13. packer.lazy scroll (event)
+  14. packer.lazy window (keys: <leader>zz/<leader>z=)
+  15. packer.lazy autopairs (InsertEnter)
+  16. packer.lazy key (VimEnter) — eager Key.setup + <leader>d/<leader>n/<leader>p
+  17. Lsp.setup(cfg.lsp) — EAGER (must register vim.lsp.enable before FileType)
+        + Lsp.on_attach binds gd/gr/gD/gi via finder picker
+  18. packer.setup(cfg.packer) — git-clone + lazy-load plugins
+  19. starter.setup(cfg.starter) — EAGER (registers VimEnter autocmd)
 ```
 
 ## Lazy Lib Loading (`packer.lazy`)
 
-Explorer, tabline, treesitter, and finder load via `packer.lazy(mod, opts)`, not `require()` in setup.
-Triggers: `event`, `keys`. Options: `defer` (vim.schedule), `highlights` (auto-registers
-in `M.highlight_modules`), `setup(lib)` callback.
+Every lib above (except `theme.setup`'s eager pieces, `lsp`, and `starter`)
+loads via `packer.lazy(mod, opts)`. Trigger types:
+
+| Trigger | Field | Sync? | Use case |
+|---------|-------|-------|----------|
+| event | `event` | per-event `defer` flag | VimEnter, InsertEnter, FileType |
+| keys | `keys` | always sync | user-initiated, must load before keystroke |
+| filetype | `filetype` | always sync | render-critical |
+| module | `module` | always sync | direct `require("beast.libs.X")` from keymap bodies |
+
+`module` is the newest addition — closes the half-init hole where a keymap
+body's `require()` could return the lib before `setup()` ran. See
+`lua/beast/libs/packer/triggers/module.lua`.
 
 ## Shared Modules
 
 ```
-Beast.View (view.lua)
-  └── extended by: notify, toast, explorer, key, finder (InputView, ListView, PreviewView)
+Beast.View / Beast.View.Module (view/init.lua + buf.lua + win.lua)
+  └── extended by: notify, toast, explorer, key, finder
+                   (InputView, ListView, PreviewView, ...)
 
-animate.lua
-  └── used by: notify/ui.lua, toast/ui.lua, scroll (easings inline)
+animate.lua  (M.tween primitive)
+  └── used by: notify/ui.lua, toast/ui.lua, scroll, indent
 
-Util.create_scratch_buf
-  └── used by: confirm, explorer, key, notify, toast
+async.lua    (coroutine scheduler, 10 ms time budget per tick)
+  └── used by: finder, explorer, git
 
 Util.colors.set_hl
-  └── used by: all libs with highlights.lua
+  └── used by: every lib with highlights.lua
 
 Theme.get / Theme.refresh
-  └── used by: statusline/hlgroup.lua, tabline/icons.lua, all libs' highlights.lua
+  └── used by: statusline/hlgroup.lua, tabline/icons.lua,
+               all libs' highlights.lua
 ```
 
 ## ColorScheme Refresh Pipeline
 
 ```
 :colorscheme X
-  → ColorScheme autocmd
+  → ColorScheme autocmd (registered by hl_reload.setup)
     → Theme.refresh()
       → M.reload_highlights()
-        ├── collect: for each module in M.highlight_modules
+        ├── for each module in M.highlight_modules:
         │     skip if parent lib not loaded
-        │     skip builtin-only highlights (treesitter) when colorscheme is third-party
-        │     mod = Util.mod(m)                ← fast loader, bypasses package.loaded
+        │     skip builtin-only highlights (treesitter) on third-party schemes
+        │     mod = Util.mod(m)               ← fast loader, bypasses package.loaded
         │     merge mod.get() into `merged`
         │     queue mod.post_apply (if defined)
-        ├── apply: vim.api.nvim_set_hl(0, group, hl) for every entry in merged
-        └── post:  run queued post_apply hooks (redrawstatus, icon cache reset, …)
+        ├── apply: single nvim_set_hl batch pass
+        └── post:  run queued post_apply hooks (redrawstatus, icon cache, …)
 ```
 
 Each `<lib>/highlights.lua` exposes a pure `M.get(): table<string, hl>` and
-optionally `M.post_apply()` for non-set_hl side effects (statusline cache
-clear, breadcrumb redraw, tabline icon cache + redrawtabline). The dispatcher
-applies all highlights in a single batched `nvim_set_hl` pass.
+optional `M.post_apply()`. See ADR-026 for the contract.
 
-Lib `setup()` calls `require("beast").apply_highlights("X.highlights")` for the
-first-load apply, which reuses the same get → set_hl → post_apply pipeline for
-a single module.
-
-`M.highlight_modules` includes: palette, confirm, explorer, finder, key,
-notify, packer, statusline, breadcrumb, tabline, toast, indent, treesitter,
-statuscolumn, git. Builtin-only (gated by `Theme.is_builtin_colorscheme()`):
-treesitter.
+`M.highlight_modules` includes: `beast.theme.highlights`, `beast.theme.blink`,
+plus `<lib>.highlights` for confirm, explorer, finder, key, notify, packer,
+statusline, breadcrumb, tabline, toast, indent, treesitter, statuscolumn, git.
+Builtin-only (gated by `Theme.is_builtin_colorscheme()`): treesitter,
+theme.highlights, theme.blink.
 
 ## Patterns
 
 - **State ownership**: only `init.lua` per library holds mutable state
 - **Config**: readonly metatable with `setup(opts)` merge
-- **Highlights**: `Beast<Lib>*` namespaced groups in `highlights.lua`
+- **Highlights**: `Beast<Lib>*` namespaced groups in `highlights.lua` (ADR-026)
+- **Lib metadata**: every `lua/beast/libs/<lib>/init.lua` exposes `M.meta`
+  matching `Beast.Lib.Meta` (`_meta.lua`)
 - **Netrw replacement**: explorer auto-opens on directory BufEnter
 - **vim.notify override**: notify.setup() replaces `vim.notify`
-- **Statusline = `%!`**: component-based, file_bound caching, priority truncation
-- **Tabline = `%!`**: event-driven cache, 3-state highlights, anchor-based truncation
-- **Transient UI buffers**: `IGNORED_FILETYPES` table (beast-* only)
-- **Secure-mode safety**: statusline defers `redrawstatus` via `vim.schedule` (avoids E12)
-- **Per-lib health checks**: `<lib>/health.lua` exposes `M.check()` for `:checkhealth beast.libs.<lib>`
+- **Statusline / Tabline = `%!`**: native, no third-party framework (ADR-009)
+- **Transient UI buffers**: `beast-*` filetype convention
+- **Secure-mode safety**: deferred redraws via `vim.schedule` (avoids E12)
+- **Per-lib health checks**: `:checkhealth beast.libs.<lib>`
+- See AGENTS.md §§ *Shared Modules Registry*, *Type Naming*, *View Pattern*
+  for the long form.
