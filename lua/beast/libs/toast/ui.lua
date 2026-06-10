@@ -68,14 +68,33 @@ function M.render(view)
 
 	local r = view.record
 
-	local msg_str = config.normalize_message(r.message)
 	local title_str = r.title or ""
 	local title_w = (title_str ~= "" and (1 + vim.fn.strdisplaywidth(title_str)) or 0)
 	local icon_str = r.icon or ""
 	local icon_w = (icon_str ~= "" and (1 + vim.fn.strdisplaywidth(icon_str)) or 0)
 	local width, _ = r:dimensions()
 	local inner_w = math.max(0, width - (title_w + icon_w))
-	local msg_fit = trim_to_width(msg_str, inner_w)
+
+	-- Build the body (fitted text + per-segment paint list).
+	-- segs_painted: { { hl, start_byte, end_byte } } applied after the line is set.
+	local body_text, segs_painted = "", {}
+	if r.segments then
+		local remaining = inner_w
+		for _, seg in ipairs(r.segments) do
+			-- stylua: ignore
+			if remaining <= 0 then break end
+			local fit = trim_to_width(seg.text or "", remaining)
+			local fit_w = vim.fn.strdisplaywidth(fit)
+			if fit_w > 0 then
+				local start_byte = #body_text
+				body_text = body_text .. fit
+				segs_painted[#segs_painted + 1] = { seg.hl or "BeastToastBody", start_byte, #body_text }
+				remaining = remaining - fit_w
+			end
+		end
+	else
+		body_text = trim_to_width(config.normalize_message(r.message), inner_w)
+	end
 
 	-- Float width may need to grow/shrink for in-place updates (e.g. progress toasts).
 	local cur = vim.api.nvim_win_get_config(view.win)
@@ -90,8 +109,9 @@ function M.render(view)
 		})
 	end
 
-	local pad = math.max(0, inner_w - vim.fn.strdisplaywidth(msg_fit))
-	local line = msg_fit .. string.rep(" ", pad)
+	local body_w = vim.fn.strdisplaywidth(body_text)
+	local pad = math.max(0, inner_w - body_w)
+	local line = body_text .. string.rep(" ", pad)
 	if title_str ~= "" then
 		line = line .. " " .. title_str
 	end
@@ -100,17 +120,24 @@ function M.render(view)
 	end
 	pcall(vim.api.nvim_buf_set_lines, view.buf, 0, -1, false, { line })
 
-	-- Apply highlight
+	-- Apply highlights.
 	local ns = vim.api.nvim_create_namespace("beastvim_toast_hl")
 	vim.api.nvim_buf_clear_namespace(view.buf, ns, 0, -1)
-	local msg_bytes = #msg_fit + pad
-	if msg_bytes > 0 then
-		local body_hl = r.dim and "Comment" or "BeastToastBody"
-		vim.api.nvim_buf_set_extmark(view.buf, ns, 0, 0, { end_row = 0, end_col = msg_bytes, hl_group = body_hl })
+
+	if r.segments then
+		for _, p in ipairs(segs_painted) do
+			vim.api.nvim_buf_set_extmark(view.buf, ns, 0, p[2], { end_row = 0, end_col = p[3], hl_group = p[1] })
+		end
+	else
+		local body_bytes = #body_text + pad
+		if body_bytes > 0 then
+			local body_hl = r.dim and "Comment" or "BeastToastBody"
+			vim.api.nvim_buf_set_extmark(view.buf, ns, 0, 0, { end_row = 0, end_col = body_bytes, hl_group = body_hl })
+		end
 	end
 
 	local hl_title = "BeastToastTitle" .. r.level
-	local col = msg_bytes
+	local col = #body_text + pad
 	if title_str ~= "" then
 		local tbytes = #(" " .. title_str)
 		vim.api.nvim_buf_set_extmark(view.buf, ns, 0, col, { end_row = 0, end_col = col + tbytes, hl_group = hl_title })

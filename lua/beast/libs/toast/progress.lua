@@ -37,16 +37,6 @@ local timer_running = false
 -- HELPERS
 -- =============================================================================
 
----Unicode block bar: [████████░░░░░░░░░░░░]
----@param pct integer  0..100
----@param width integer
----@return string
-local function bar(pct, width)
-	pct = math.max(0, math.min(100, pct or 0))
-	local done = math.floor(pct / 100 * width + 0.5)
-	return "[" .. string.rep("█", done) .. string.rep("░", width - done) .. "]"
-end
-
 ---Time-derived spinner frame. No per-entry state.
 ---@return string
 local function spinner()
@@ -57,27 +47,63 @@ local function spinner()
 	return frames[idx]
 end
 
----Build the single-line toast message for an entry.
+---Build the segment list for an entry. The plain-text message is derived
+---from the segments via table.concat so the two can never drift.
 ---Shapes:
 ---  with percentage: "<title>  ⠹  [████░░░░░░░░░░░░░░░░] 42%  <message>"
 ---  no percentage:   "<title>  ⠹  <message>"
----  done:            "<title>  ✔  done"
----Note: the client name is rendered separately as the toast's `title` field.
+---  done:            "<title>  ✔  <message>"
 ---@param entry Beast.Toast.Progress.Entry
----@return string
+---@return string text
+---@return Beast.Toast.Fragment[] segments
 local function format_line(entry)
 	local title = entry.title or ""
 	local msg = entry.message or ""
+	local segs
 
 	if entry.kind == "end" then
-		return ("%s  ✔  %s"):format(title, msg ~= "" and msg or "done")
+		segs = {
+			{ text = title, hl = "BeastToastProgressTitle" },
+			{ text = "  " },
+			{ text = "✔", hl = "BeastToastProgressDone" },
+			{ text = "  " },
+			{ text = msg ~= "" and msg or "done", hl = "BeastToastProgressMessage" },
+		}
+	else
+		local spin = spinner()
+		if entry.percentage ~= nil then
+			local width = config.progress.bar_width
+			local pct = math.max(0, math.min(100, entry.percentage))
+			local done = math.floor(pct / 100 * width + 0.5)
+			segs = {
+				{ text = title, hl = "BeastToastProgressTitle" },
+				{ text = "  " },
+				{ text = spin, hl = "BeastToastProgressSpinner" },
+				{ text = "  " },
+				{ text = "[", hl = "BeastToastProgressBracket" },
+				{ text = string.rep("█", done), hl = "BeastToastProgressBarDone" },
+				{ text = string.rep("░", width - done), hl = "BeastToastProgressBarTodo" },
+				{ text = "] ", hl = "BeastToastProgressBracket" },
+				{ text = ("%d%%"):format(pct), hl = "BeastToastProgressPercent" },
+				{ text = "  " },
+				{ text = msg, hl = "BeastToastProgressMessage" },
+			}
+		else
+			segs = {
+				{ text = title, hl = "BeastToastProgressTitle" },
+				{ text = "  " },
+				{ text = spin, hl = "BeastToastProgressSpinner" },
+				{ text = "  " },
+				{ text = msg, hl = "BeastToastProgressMessage" },
+			}
+		end
 	end
 
-	local spin = spinner()
-	if entry.percentage ~= nil then
-		return ("%s  %s  %s %d%%  %s"):format(title, spin, bar(entry.percentage, config.progress.bar_width), entry.percentage, msg)
+	local parts = {}
+	for i, s in ipairs(segs) do
+		parts[i] = s.text
 	end
-	return ("%s  %s  %s"):format(title, spin, msg)
+	return table.concat(parts), segs
 end
 
 -- =============================================================================
@@ -113,9 +139,11 @@ local function on_event(client_id, params)
 			percentage = value.percentage,
 			kind = value.kind or "begin",
 		}
-		local record = toast(format_line(entry), "INFO", {
+		local text, segs = format_line(entry)
+		local record = toast(text, "INFO", {
 			title = entry.client_name,
 			timeout = false,
+			segments = segs,
 		})
 		-- toast() returns {} when filtered by level; bail without registering.
 		if not record or not record.id then
@@ -138,7 +166,9 @@ local function on_event(client_id, params)
 
 	-- Repaint immediately so the begin/end frame is visible even if the timer
 	-- has not yet fired (or is about to stop).
-	entry.record.message = format_line(entry)
+	local text, segs = format_line(entry)
+	entry.record.message = text
+	entry.record.segments = segs
 	toast.update(entry.record)
 
 	if entry.kind == "end" then
@@ -178,7 +208,9 @@ local function tick()
 				toast.dismiss_id(entry.record.id)
 				tokens[id] = nil
 			else
-				entry.record.message = format_line(entry)
+				local text, segs = format_line(entry)
+				entry.record.message = text
+				entry.record.segments = segs
 				toast.update(entry.record)
 			end
 		end
