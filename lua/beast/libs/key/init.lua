@@ -1,5 +1,6 @@
 local config = require("beast.libs.key.config")
 
+---@class Beast.Key
 local M = setmetatable({}, {
 	__index = function(_, key)
 		return require("beast.libs.key.core")[key]

@@ -10,6 +10,7 @@
 
 local config = require("beast.libs.lsp.config")
 
+---@class Beast.Lsp
 local M = {}
 
 ---@type Beast.Lib.Meta

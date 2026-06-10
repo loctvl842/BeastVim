@@ -119,6 +119,7 @@ function M.get()
 		Folded = { bg = blend(p.accent5, 0.10, p.background) },
 		FoldColumn = { fg = p.dimmed1, bg = p.background },
 
+		NormalFloat = { bg = p.background, fg = p.dimmed2 },
 		WinSeparator = { fg = Util.colors.blend(p.text, 0.4, p.background) },
 	}
 end

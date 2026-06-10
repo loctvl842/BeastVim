@@ -1,3 +1,4 @@
+---@class Beast.Icon
 local M = {
 	beast = {
 		vim = "",

@@ -15,6 +15,7 @@
 ---@field dimmed4 string
 ---@field dimmed5 string
 
+---@class Beast.Theme
 local M = {}
 
 ---@type Beast.Palette
