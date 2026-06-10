@@ -110,7 +110,7 @@ Lsp.register("lua_ls", {
 		-- { "gi", vim.lsp.buf.implementation, desc = "Implementation", cond = "textDocument/implementation" },
 		{ "<leader>rn", vim.lsp.buf.rename, desc = "Rename", cond = "textDocument/rename" },
 		{
-			"<leader>ca",
+			"<leader>la",
 			vim.lsp.buf.code_action,
 			mode = { "n", "v" },
 			desc = "Code action",
