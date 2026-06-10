@@ -1,13 +1,13 @@
 local confirm = require("beast.libs.confirm")
 
----@class Beast.Buf
+---@class Beast.View.Buf
 local M = {}
 
----@class Beast.Buf.DeleteOpts
+---@class Beast.View.Buf.DeleteOpts
 ---@field buf? integer Buffer to delete (default: current buffer)
 ---@field force? boolean Force deletion (default: false)
 
----@param opts? number|Beast.Buf.DeleteOpts
+---@param opts? number|Beast.View.Buf.DeleteOpts
 function M.delete(opts)
 	opts = opts or {}
 	opts = type(opts) == "number" and { buf = opts } or opts

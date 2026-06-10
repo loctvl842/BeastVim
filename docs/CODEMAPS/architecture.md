@@ -27,7 +27,7 @@ lua/beast/
 ├── libs/
 │   ├── view.lua          ← Beast.View base class (buf+win pair)
 │   ├── animate.lua       ← shared animation engine (pure math)
-│   ├── buf.lua           ← Beast.Buf (buffer delete, scratch buf)
+│   ├── buf.lua           ← Beast.View.Buf (buffer delete, scratch buf)
 │   ├── confirm/          ← vim.fn.confirm drop-in UI
 │   ├── explorer/         ← file explorer (split panel + sticky headers + git status)
 │   ├── finder/           ← fuzzy finder (files, buffers, grep, help, colorschemes)

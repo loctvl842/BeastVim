@@ -12,7 +12,7 @@ function M.run()
 	_G.Util = require("beast.util") ---@type Beast.Util
 	_G.Theme = Util.mod("beast.theme") ---@type Beast.Theme
 	_G.Key = Util.mod("beast.libs.key") ---@type Beast.Key
-	_G.View = Util.mod("beast.libs.view") ---@type Beast.View
+	_G.View = Util.mod("beast.libs.view") ---@type Beast.View.Module
 	_G.Icon = Util.mod("beast.icon") ---@type Beast.Icon
 	_G.Lsp = Util.mod("beast.libs.lsp") ---@type Beast.Lsp
 
