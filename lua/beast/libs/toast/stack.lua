@@ -73,12 +73,16 @@ function M.drain(state)
 	end
 
 	state.draining = true
-	show(state, record)
-
-	vim.defer_fn(function()
-		state.draining = false
-		M.drain(state)
-	end, config.stagger)
+	-- Always schedule: nvim_open_win is forbidden in fast events AND in
+	-- textlock contexts (BufRead, CmdwinEnter, etc.). vim.in_fast_event()
+	-- doesn't detect textlock, so guarding only there leaks E565.
+	vim.schedule(function()
+		show(state, record)
+		vim.defer_fn(function()
+			state.draining = false
+			M.drain(state)
+		end, config.stagger)
+	end)
 end
 
 ---Queue a toast to be shown with staggered delay.
