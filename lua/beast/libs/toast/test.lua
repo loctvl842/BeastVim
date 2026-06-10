@@ -127,6 +127,31 @@ function M.test_update()
 	end, 1800)
 end
 
+---Smoke test for the LSP progress adapter — fakes a sequence of LspProgress
+---events without needing an actual LSP server.
+function M.test_progress()
+	require("beast.libs.toast.progress").setup()
+
+	local client_id = 1
+	local token = "fake-progress"
+
+	local function fire(value)
+		vim.api.nvim_exec_autocmds("LspProgress", {
+			data = { client_id = client_id, params = { token = token, value = value } },
+		})
+	end
+
+	fire({ kind = "begin", title = "Indexing", message = "scanning", percentage = 0 })
+	for i = 1, 9 do
+		vim.defer_fn(function()
+			fire({ kind = "report", message = "file #" .. (i * 10), percentage = i * 10 })
+		end, i * 250)
+	end
+	vim.defer_fn(function()
+		fire({ kind = "end", message = "done" })
+	end, 2500)
+end
+
 M.burst()
 
 return M

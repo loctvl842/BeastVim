@@ -19,6 +19,14 @@ local defaults = {
 		DEBUG = "",
 		TRACE = "",
 	},
+	progress = {
+		enabled = true,
+		throttle = 100,
+		done_linger = 1000,
+		bar_width = 20,
+		spinner = { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" },
+		spinner_interval = 100,
+	},
 }
 
 ---@type Beast.Toast.Config

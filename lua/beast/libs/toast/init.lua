@@ -26,6 +26,9 @@ M.meta = { name = "toast", description = "Transient toast notifications" }
 function M.setup(opts)
 	config.setup(opts)
 	require("beast").apply_highlights("beast.libs.toast.highlights")
+	if config.progress and config.progress.enabled then
+		require("beast.libs.toast.progress").setup()
+	end
 end
 
 function M.dismiss()

@@ -147,11 +147,12 @@ API: `notify(message, level, opts)` — also `vim.notify` override
 
 ```
 toast/
-├── init.lua     ← toast(msg, level, opts), dismiss(), setup()
-├── config.lua   ← level, timeout, width, position
+├── init.lua     ← toast(msg, level, opts), update(record), dismiss/dismiss_id, setup()
+├── config.lua   ← level, timeout, width, position, progress block
 ├── state.lua    ← State class (views[], next_id)
-├── stack.lua    ← push/dismiss, layout management
+├── stack.lua    ← push/update/dismiss, layout management
 ├── record.lua   ← Record factory
+├── progress.lua ← LspProgress → in-place toast adapter (bar + spinner)
 └── ui.lua       ← create/render/close views
 ```
 
