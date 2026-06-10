@@ -32,6 +32,31 @@ function M.dismiss()
 	stack.dismiss(state)
 end
 
+---Re-render an existing sticky toast with updated record fields (message,
+---title, icon, etc.). No-op if the toast was already dismissed.
+---@param record Beast.Toast.Record
+function M.update(record)
+	if vim.in_fast_event() then
+		vim.schedule(function()
+			stack.update(state, record)
+		end)
+		return
+	end
+	stack.update(state, record)
+end
+
+---Dismiss a single toast by id (the id field of the Record returned by toast()).
+---@param id integer
+function M.dismiss_id(id)
+	if vim.in_fast_event() then
+		vim.schedule(function()
+			stack.remove(state, id)
+		end)
+		return
+	end
+	stack.remove(state, id)
+end
+
 ---@param message string|string[]
 ---@param level? string|integer
 ---@param opts? Beast.Toast.Options

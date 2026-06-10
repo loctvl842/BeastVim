@@ -99,6 +99,34 @@ function M.dismiss_midway()
 	end, 900)
 end
 
+---Smoke test for the update-in-place + dismiss-by-id API.
+---Pushes a sticky toast, mutates its message twice, then dismisses it.
+function M.test_update()
+	local record = toast("starting work...", "INFO", {
+		title = "test_update",
+		timeout = false,
+	})
+	if not record or not record.id then
+		print("test_update: toast did not return a record (filtered by level?)")
+		return
+	end
+
+	vim.defer_fn(function()
+		record.message = "working on a longer message to force a resize..."
+		toast.update(record)
+	end, 400)
+
+	vim.defer_fn(function()
+		record.message = "done!"
+		toast.update(record)
+	end, 1000)
+
+	vim.defer_fn(function()
+		toast.dismiss_id(record.id)
+		print("test_update: dismissed")
+	end, 1800)
+end
+
 M.burst()
 
 return M

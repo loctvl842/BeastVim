@@ -77,6 +77,19 @@ function M.render(view)
 	local inner_w = math.max(0, width - (title_w + icon_w))
 	local msg_fit = trim_to_width(msg_str, inner_w)
 
+	-- Float width may need to grow/shrink for in-place updates (e.g. progress toasts).
+	local cur = vim.api.nvim_win_get_config(view.win)
+	if cur.width ~= width then
+		pcall(vim.api.nvim_win_set_config, view.win, {
+			relative = "editor",
+			anchor = "SE",
+			row = cur.row,
+			col = cur.col,
+			width = width,
+			height = 1,
+		})
+	end
+
 	local pad = math.max(0, inner_w - vim.fn.strdisplaywidth(msg_fit))
 	local line = msg_fit .. string.rep(" ", pad)
 	if title_str ~= "" then

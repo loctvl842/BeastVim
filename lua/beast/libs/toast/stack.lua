@@ -89,6 +89,19 @@ function M.push(state, record)
 	M.drain(state)
 end
 
+---Re-render an existing toast in place (e.g. for live progress updates).
+---No-op if the record has no open view (already dismissed or never shown).
+---@param state Beast.Toast.State
+---@param record Beast.Toast.Record
+function M.update(state, record)
+	local _, view = state:find(record.id)
+	-- stylua: ignore
+	if not view then return end
+	view.record = record
+	ui.render(view)
+	M.reflow(state)
+end
+
 ---Fade out one toast, close it, reflow the rest.
 ---@param state Beast.Toast.State
 ---@param id integer
