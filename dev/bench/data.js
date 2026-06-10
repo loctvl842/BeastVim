@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781089603327,
+  "lastUpdate": 1781094958519,
   "repoUrl": "https://github.com/loctvl842/BeastVim",
   "entries": {
     "BeastVim Startup": [
@@ -571,6 +571,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "BeastVim startup (warm) max",
             "value": 70.97093800000002,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "committer": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "distinct": true,
+          "id": "c4e3f7e969d77cee64954403ee5a4666a96b0178",
+          "message": "fix(blink): early load for CmdlineEnter",
+          "timestamp": "2026-06-10T19:35:18+07:00",
+          "tree_id": "e34fdd83f87d3144cb39c5c4c9908254b3054823",
+          "url": "https://github.com/loctvl842/BeastVim/commit/c4e3f7e969d77cee64954403ee5a4666a96b0178"
+        },
+        "date": 1781094957579,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "BeastVim startup (warm) mean",
+            "value": 24.78069925,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) stddev",
+            "value": 0.6044218182005255,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) min",
+            "value": 24.017533,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) max",
+            "value": 26.333374000000003,
             "unit": "ms"
           }
         ]
