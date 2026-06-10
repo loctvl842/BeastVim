@@ -8,11 +8,15 @@ local sticky = require("beast.libs.explorer.sticky")
 -- VIEW
 -- =============================================================================
 
----@class Beast.Explorer.View : Beast.View
+---@class Beast.Explorer.View : Beast.View.Instance
 ---@field ns integer
-local ExplorerView = View:extend(function(obj, ns)
-	obj.ns = ns
-end)
+---@overload fun(buf?: integer, win?: integer, ns: integer): Beast.Explorer.View
+local ExplorerView = View:extend(
+	---@param obj Beast.Explorer.View
+	function(obj, ns)
+		obj.ns = ns
+	end
+)
 
 -- =============================================================================
 -- MODULE

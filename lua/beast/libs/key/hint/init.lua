@@ -30,7 +30,7 @@ local M = {}
 ---@field register? string       -- captured v:register at start
 ---@field done? boolean          -- set by window.close so deferred callbacks no-op
 ---@field delay_timer? uv.uv_timer_t  -- libuv timer used for cfg.delay
----@field view? Beast.View
+---@field view? Beast.View.Instance
 
 -- =============================================================================
 -- Small helpers

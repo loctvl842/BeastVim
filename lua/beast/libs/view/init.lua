@@ -1,88 +1,59 @@
----@class Beast.View
----@field buf integer|false   -- buffer handle; `false` once :close() has run
----@field win integer|false   -- window handle; `false` once :close() has run
+-- ============================================================================
+-- Instance prototype
+--
+-- All View instances (and every subclass) inherit from this table. It holds
+-- ONLY methods — no namespace fields — so `instance.buf` / `instance.win`
+-- always resolve to the integer handles set in `:new`, with no risk of
+-- cascading into the lazy submodule namespace below.
+-- ============================================================================
 
----@class Beast.View.Module
----@field buf Beast.View.Buf  -- buffer submodule (View.buf.new, View.buf.delete)
----@field win Beast.View.Win  -- window submodule (View.win.wo, View.win.find_normal)
----@field meta Beast.Lib.Meta
----@overload fun(buf: integer, win: integer): Beast.View  -- View(buf, win) constructor
-local M = {}
-M.__index = M
-
--- TODO(view-types): `M` currently plays three roles — module table, instance
--- metatable (instances have `__index = M` so they inherit `:is_valid`/`:close`),
--- AND lazy submodule namespace (via the metatable below for `.buf` / `.win`).
--- LuaLS cannot express all three with one class, which forces the
--- `--[[@as table]]` / `--[[@as Beast.View]]` casts you see below and in
--- `M:extend().new`. The clean fix is to split the instance class off from the
--- module table:
---   * `Beast.View`         — instance only (`buf`, `win`, `:is_valid`, `:close`)
---   * `Beast.View.Module`  — module only (`.buf`, `.win`, `.new`, `.extend`,
---                            callable via __overload)
--- Give instances their own metatable (not `M`) so the inheritance chain is
--- typed, and re-export the class-bound methods on `Beast.View` directly.
--- Touches every `View:extend(...)` call site's inferred return type, so it's
--- worth a small dev spec rather than a drive-by edit.
-
--- Namespace metatable: lets callers do `Beast.View.buf` / `Beast.View.win` to
--- get the submodules lazily. Attached to M itself, NOT to its instance __index
--- chain, so `instance.buf` returns nil (not the submodule) when unset.
-setmetatable(M --[[@as table]], {
-	__call = function(t, ...)
-		return t:new(...)
-	end,
-	__index = function(_, k)
-		local ok, mod = pcall(require, "beast.libs.view." .. k)
-		if ok then
-			return mod
-		end
-	end,
-})
-
----@type Beast.Lib.Meta
-M.meta = { name = "view", description = "Window + buffer wrapper toolkit (`Beast.View`)" }
+---@class Beast.View.Instance
+---@field buf integer|false   -- buffer handle; `false` after :close()
+---@field win integer|false   -- window handle; `false` after :close()
+local Instance = {}
+Instance.__index = Instance
 
 ---@param buf integer
 ---@param win integer
----@return Beast.View
-function M:new(buf, win)
-	-- Store `false` rather than `nil` for missing buf/win so subsequent reads
-	-- of `instance.buf`/`.win` do NOT cascade through the namespace metatable
-	-- to the buf/win submodules (which would return tables instead of falsy).
-	local obj = { buf = buf or false, win = win or false }
-	return setmetatable(obj, { __index = M }) --[[@as Beast.View]]
+---@return Beast.View.Instance
+function Instance:new(buf, win)
+	return setmetatable({ buf = buf or false, win = win or false }, self)
 end
 
----@param self Beast.View
 ---@return boolean
-function M:is_valid()
-	local buf = rawget(self, "buf")
-	local win = rawget(self, "win")
-	if not buf or not win then
+function Instance:is_valid()
+	if not self.buf or not self.win then
 		return false
 	end
-	return vim.api.nvim_buf_is_valid(buf) and vim.api.nvim_win_is_valid(win)
+	return vim.api.nvim_buf_is_valid(self.buf) and vim.api.nvim_win_is_valid(self.win)
 end
 
----@param self Beast.View
-function M:close()
-	local win = rawget(self, "win")
-	if win and vim.api.nvim_win_is_valid(win) then
-		vim.api.nvim_win_close(win, true)
+function Instance:close()
+	if self.win and vim.api.nvim_win_is_valid(self.win) then
+		vim.api.nvim_win_close(self.win, true)
 	end
-	-- Use `false` (not `nil`) so subsequent reads of `instance.buf`/`.win` do
-	-- NOT cascade through the namespace metatable to the buf/win submodules.
+	-- Mark closed with `false` (not `nil`) so guards like `if v.buf then` read falsy.
 	self.buf = false
 	self.win = false
 end
 
---- Create a subclass of Beast.View. `init(obj, ...)` runs after construction
---- so callers can attach extra state (namespace ids, records, etc.) to each
---- subclass instance. The returned table is itself callable (`Sub(buf, win, …)`).
----@param init? fun(obj: Beast.View, ...: any)
----@return Beast.View.Module
-function M:extend(init)
+--- Create a subclass. `init(obj, ...)` runs after construction so callers can
+--- attach extra state (namespace ids, records, etc.). The returned table is
+--- itself a class: callable (`Sub(buf, win, …)`), with its own `:new` / `:extend`.
+---
+--- Pair with a class declaration so LuaLS types the result correctly:
+---
+---   ---@class Beast.Toast.View : Beast.View.Instance
+---   ---@field ns integer
+---   ---@overload fun(buf?: integer, win?: integer, ns: integer): Beast.Toast.View
+---   local ToastView = View:extend(
+---     ---@param obj Beast.Toast.View
+---     function(obj, ns) obj.ns = ns end
+---   )
+---@generic T : Beast.View.Instance
+---@param init? fun(obj: T, ...: any)
+---@return T
+function Instance:extend(init)
 	local parent = self
 
 	local cls = setmetatable({}, {
@@ -97,7 +68,7 @@ function M:extend(init)
 		local obj = setmetatable({
 			buf = buf or false,
 			win = win or false,
-		}, { __index = cls }) --[[@as Beast.View]]
+		}, cls)
 
 		if init then
 			init(obj, ...)
@@ -107,6 +78,57 @@ function M:extend(init)
 	end
 
 	return cls
+end
+
+-- ============================================================================
+-- Module / namespace
+--
+-- `Beast.View` exposes the submodules (`.buf` / `.win`), the `meta` block, and
+-- forwards `:new` / `:extend` to the Instance prototype so existing call sites
+-- keep working unchanged. Lazy `__index` is safe here because instances do NOT
+-- inherit from `M` — they inherit from `Instance`.
+-- ============================================================================
+
+---@class Beast.View
+---@field buf Beast.View.Buf    -- buffer submodule (View.buf.new, View.buf.delete)
+---@field win Beast.View.Win    -- window submodule (View.win.wo, View.win.find_normal)
+---@field Instance Beast.View.Instance
+---@field meta Beast.Lib.Meta
+---@overload fun(buf: integer, win: integer): Beast.View.Instance
+local M = {
+	Instance = Instance,
+}
+
+---@type Beast.Lib.Meta
+M.meta = { name = "view", description = "Window + buffer wrapper toolkit (`Beast.View`)" }
+
+setmetatable(M --[[@as table]], {
+	__call = function(_, ...)
+		return Instance:new(...)
+	end,
+	__index = function(_, k)
+		local ok, mod = pcall(require, "beast.libs.view." .. k)
+		if ok then
+			return mod
+		end
+	end,
+})
+
+-- Pass-throughs: keep `View:new(...)` and `View:extend(...)` working without
+-- callers having to learn about `View.Instance`.
+
+---@param buf integer
+---@param win integer
+---@return Beast.View.Instance
+function M:new(buf, win)
+	return Instance:new(buf, win)
+end
+
+---@generic T : Beast.View.Instance
+---@param init? fun(obj: T, ...: any)
+---@return T
+function M:extend(init)
+	return Instance:extend(init)
 end
 
 return M

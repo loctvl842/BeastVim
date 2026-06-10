@@ -17,7 +17,8 @@ local View = require("beast.libs.view")
 
 local M = {}
 
----@class Beast.Git.PreviewView : Beast.View
+---@class Beast.Git.PreviewView : Beast.View.Instance
+---@overload fun(buf?: integer, win?: integer): Beast.Git.PreviewView
 local PreviewView = View:extend()
 
 ---@type Beast.Git.PreviewView?

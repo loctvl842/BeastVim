@@ -79,9 +79,9 @@ function M.check()
 	health.start("beast.libs.git — preview")
 	local ok_view, _ = pcall(require, "beast.libs.view")
 	if ok_view then
-		health.ok("Beast.View base class loadable")
+		health.ok("Beast.View.Instance base class loadable")
 	else
-		health.error("Beast.View base class missing — preview cannot open")
+		health.error("Beast.View.Instance base class missing — preview cannot open")
 	end
 	if require("beast.libs.git.config").keymaps then
 		health.info("default keymaps enabled: ]c, [c, <leader>gp (buffer-local on attach)")

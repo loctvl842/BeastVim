@@ -1,11 +1,15 @@
 local View = require("beast.libs.view")
 local config = require("beast.libs.key.config")
 
----@class Beast.Key.Cheatsheet.ActionView : Beast.View
+---@class Beast.Key.Cheatsheet.ActionView : Beast.View.Instance
 ---@field ns integer
-local ActionView = View:extend(function(obj, ns)
-	obj.ns = ns
-end)
+---@overload fun(buf?: integer, win?: integer, ns: integer): Beast.Key.Cheatsheet.ActionView
+local ActionView = View:extend(
+	---@param obj Beast.Key.Cheatsheet.ActionView
+	function(obj, ns)
+		obj.ns = ns
+	end
+)
 
 local M = {}
 

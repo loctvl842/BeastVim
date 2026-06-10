@@ -1,7 +1,7 @@
 local View = require("beast.libs.view")
 local config = require("beast.libs.finder.config")
 
----@class Beast.Finder.ListView : Beast.View
+---@class Beast.Finder.ListView : Beast.View.Instance
 ---@field ns integer
 ---@field prefix_ns integer namespace for selection prefix extmarks
 ---@field items Beast.Finder.Item[]
@@ -9,15 +9,19 @@ local config = require("beast.libs.finder.config")
 ---@field _format_fn fun(item: Beast.Finder.Item): Beast.Finder.Highlight[]
 ---@field _offset integer 0-based index of the first visible item
 ---@field _win_height integer height of the window (viewport size)
-local ListView = View:extend(function(obj, ns)
-	obj.ns = ns
-	obj.prefix_ns = vim.api.nvim_create_namespace("")
-	obj.items = {}
-	obj.cursor = 1
-	obj._format_fn = nil
-	obj._offset = 0
-	obj._win_height = 0
-end)
+---@overload fun(buf?: integer, win?: integer, ns: integer): Beast.Finder.ListView
+local ListView = View:extend(
+	---@param obj Beast.Finder.ListView
+	function(obj, ns)
+		obj.ns = ns
+		obj.prefix_ns = vim.api.nvim_create_namespace("")
+		obj.items = {}
+		obj.cursor = 1
+		obj._format_fn = nil
+		obj._offset = 0
+		obj._win_height = 0
+	end
+)
 
 ---@class Beast.Finder.UI.List
 local M = {}

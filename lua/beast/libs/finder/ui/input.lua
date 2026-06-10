@@ -9,19 +9,23 @@ local spinner_sets = {
 }
 local SPINNER_INTERVAL_MS = 80
 
----@class Beast.Finder.InputView : Beast.View
+---@class Beast.Finder.InputView : Beast.View.Instance
 ---@field ns integer
 ---@field _debounced Beast.Util.Debouncer|nil
 ---@field _spinner_timer uv.uv_timer_t|nil
 ---@field _spinner_frame integer
 ---@field _spinner_extmark integer|nil
-local InputView = View:extend(function(obj, ns)
-	obj.ns = ns
-	obj._debounced = nil
-	obj._spinner_timer = nil
-	obj._spinner_frame = 0
-	obj._spinner_extmark = nil
-end)
+---@overload fun(buf?: integer, win?: integer, ns: integer): Beast.Finder.InputView
+local InputView = View:extend(
+	---@param obj Beast.Finder.InputView
+	function(obj, ns)
+		obj.ns = ns
+		obj._debounced = nil
+		obj._spinner_timer = nil
+		obj._spinner_frame = 0
+		obj._spinner_extmark = nil
+	end
+)
 
 ---@class Beast.Finder.UI.Input
 local M = {}

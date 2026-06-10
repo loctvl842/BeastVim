@@ -3,15 +3,19 @@ local config = require("beast.libs.confirm.config")
 
 ---@alias BeastConfirmAlign "left"|"center"|"right"
 
----@class Beast.Confirm.UI.MainView : Beast.View
+---@class Beast.Confirm.UI.MainView : Beast.View.Instance
 ---@field parsed Beast.Confirm.Parsed
 ---@field ns integer
----@field backdrop Beast.View
-local MainView = View:extend(function(obj, parsed, ns, backdrop)
-	obj.parsed = parsed
-	obj.ns = ns
-	obj.backdrop = backdrop
-end)
+---@field backdrop Beast.View.Instance
+---@overload fun(buf?: integer, win?: integer, parsed: Beast.Confirm.Parsed, ns: integer, backdrop: Beast.View.Instance): Beast.Confirm.UI.MainView
+local MainView = View:extend(
+	---@param obj Beast.Confirm.UI.MainView
+	function(obj, parsed, ns, backdrop)
+		obj.parsed = parsed
+		obj.ns = ns
+		obj.backdrop = backdrop
+	end
+)
 
 local HIDDEN_CURSOR = "a:block-BeastExplorerCursor"
 local saved_cursor = nil

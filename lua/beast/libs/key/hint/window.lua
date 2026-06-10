@@ -1,7 +1,8 @@
 local View = require("beast.libs.view")
 local config = require("beast.libs.key.config")
 
----@class Beast.Key.HintView : Beast.View
+---@class Beast.Key.HintView : Beast.View.Instance
+---@overload fun(buf?: integer, win?: integer): Beast.Key.HintView
 local HintView = View:extend()
 
 local M = {}

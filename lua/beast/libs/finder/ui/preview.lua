@@ -1,16 +1,20 @@
 local View = require("beast.libs.view")
 
----@class Beast.Finder.PreviewView : Beast.View
+---@class Beast.Finder.PreviewView : Beast.View.Instance
 ---@field ns integer
 ---@field visible boolean
 ---@field loaded_file? string  absolute path of the file currently shown in the buffer
 ---@field loaded_line_count integer  line count of the loaded file (for cursor clamping)
-local PreviewView = View:extend(function(obj, ns)
-	obj.ns = ns
-	obj.visible = true
-	obj.loaded_file = nil
-	obj.loaded_line_count = 0
-end)
+---@overload fun(buf?: integer, win?: integer, ns: integer): Beast.Finder.PreviewView
+local PreviewView = View:extend(
+	---@param obj Beast.Finder.PreviewView
+	function(obj, ns)
+		obj.ns = ns
+		obj.visible = true
+		obj.loaded_file = nil
+		obj.loaded_line_count = 0
+	end
+)
 
 ---@class Beast.Finder.UI.Preview
 local M = {}

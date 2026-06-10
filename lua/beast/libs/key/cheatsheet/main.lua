@@ -2,13 +2,17 @@ local View = require("beast.libs.view")
 local api = require("beast.libs.key.api")
 local config = require("beast.libs.key.config")
 
----@class Beast.Key.Cheatsheet.MainView : Beast.View
+---@class Beast.Key.Cheatsheet.MainView : Beast.View.Instance
 ---@field ns integer
----@field backdrop Beast.View
-local MainView = View:extend(function(obj, ns, backdrop)
-	obj.ns = ns
-	obj.backdrop = backdrop
-end)
+---@field backdrop Beast.View.Instance
+---@overload fun(buf?: integer, win?: integer, ns: integer, backdrop: Beast.View.Instance): Beast.Key.Cheatsheet.MainView
+local MainView = View:extend(
+	---@param obj Beast.Key.Cheatsheet.MainView
+	function(obj, ns, backdrop)
+		obj.ns = ns
+		obj.backdrop = backdrop
+	end
+)
 
 local M = {}
 

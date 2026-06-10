@@ -2,13 +2,17 @@ local View = require("beast.libs.view")
 local animate = require("beast.libs.animate")
 local config = require("beast.libs.toast.config")
 
----@class Beast.Toast.View : Beast.View
+---@class Beast.Toast.View : Beast.View.Instance
 ---@field ns integer
 ---@field record Beast.Toast.Record
-local ToastView = View:extend(function(obj, ns, record)
-	obj.ns = ns
-	obj.record = record
-end)
+---@overload fun(buf?: integer, win?: integer, ns: integer, record: Beast.Toast.Record): Beast.Toast.View
+local ToastView = View:extend(
+	---@param obj Beast.Toast.View
+	function(obj, ns, record)
+		obj.ns = ns
+		obj.record = record
+	end
+)
 
 -- =============================================================================
 -- UTILS

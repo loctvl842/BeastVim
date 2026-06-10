@@ -21,29 +21,37 @@ local spinner_index = 1
 -- Declared here so stop_refresh_timer/start_refresh_timer (defined later) share the same upvalue
 local refresh_timer = nil
 
----@class Beast.Packer.UI.MainView : Beast.View
+---@class Beast.Packer.UI.MainView : Beast.View.Instance
 ---@field ns integer Namespace for extmarks
----@field backdrop Beast.View Backdrop window for dimming background
+---@field backdrop Beast.View.Instance Backdrop window for dimming background
 ---@field sort_mode? "name"|"time"
 ---@field view_mode? "main"|"profile"|"help"
 ---@field profile_sort? "total"|"packadd"|"config"|"name"|"chrono"
 ---@field profile_filter_ms? number
 ---@field profile_group_by_reason? boolean
-local MainView = View:extend(function(obj, ns, backdrop, sort_mode, view_mode)
-	obj.ns = ns
-	obj.backdrop = backdrop
-	obj.sort_mode = sort_mode or "name"
-	obj.view_mode = view_mode or "main"
-	obj.profile_sort = "total"
-	obj.profile_filter_ms = 0
-	obj.profile_group_by_reason = false
-end)
+---@overload fun(buf?: integer, win?: integer, ns: integer, backdrop: Beast.View.Instance, sort_mode?: "name"|"time", view_mode?: "main"|"profile"|"help"): Beast.Packer.UI.MainView
+local MainView = View:extend(
+	---@param obj Beast.Packer.UI.MainView
+	function(obj, ns, backdrop, sort_mode, view_mode)
+		obj.ns = ns
+		obj.backdrop = backdrop
+		obj.sort_mode = sort_mode or "name"
+		obj.view_mode = view_mode or "main"
+		obj.profile_sort = "total"
+		obj.profile_filter_ms = 0
+		obj.profile_group_by_reason = false
+	end
+)
 
----@class Beast.Packer.UI.ActionView : Beast.View
+---@class Beast.Packer.UI.ActionView : Beast.View.Instance
 ---@field ns integer
-local ActionView = View:extend(function(obj, ns)
-	obj.ns = ns
-end)
+---@overload fun(buf?: integer, win?: integer, ns: integer): Beast.Packer.UI.ActionView
+local ActionView = View:extend(
+	---@param obj Beast.Packer.UI.ActionView
+	function(obj, ns)
+		obj.ns = ns
+	end
+)
 
 local M = {}
 

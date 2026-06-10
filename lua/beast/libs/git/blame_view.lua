@@ -27,13 +27,14 @@ local M = {}
 
 local NS = api.nvim_create_namespace("beast_git_blame_view")
 
----@class Beast.Git.BlameView : Beast.View
+---@class Beast.Git.BlameView : Beast.View.Instance
 ---@field source_buf integer
 ---@field source_win integer
 ---@field revision string? Currently displayed revision (nil = HEAD)
 ---@field augroup integer
 ---@field source_scrollbind_prev boolean Captured at open so close can restore it
 ---@field blame table<integer, Beast.Git.BlameInfo>?
+---@overload fun(buf?: integer, win?: integer): Beast.Git.BlameView
 local BlameView = View:extend()
 
 ---@type Beast.Git.BlameView?

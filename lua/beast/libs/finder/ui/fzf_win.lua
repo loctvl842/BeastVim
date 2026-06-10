@@ -1,12 +1,16 @@
 local View = require("beast.libs.view")
 
----@class Beast.Finder.FzfView : Beast.View
+---@class Beast.Finder.FzfView : Beast.View.Instance
 ---@field ns integer
 ---@field job_id integer|nil
-local FzfView = View:extend(function(obj, ns)
-	obj.ns = ns
-	obj.job_id = nil
-end)
+---@overload fun(buf?: integer, win?: integer, ns: integer): Beast.Finder.FzfView
+local FzfView = View:extend(
+	---@param obj Beast.Finder.FzfView
+	function(obj, ns)
+		obj.ns = ns
+		obj.job_id = nil
+	end
+)
 
 ---@class Beast.Finder.UI.FzfWin
 local M = {}

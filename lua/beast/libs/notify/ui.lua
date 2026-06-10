@@ -2,13 +2,17 @@ local View = require("beast.libs.view")
 local animate = require("beast.libs.animate")
 local config = require("beast.libs.notify.config")
 
----@class Beast.Notify.View : Beast.View
+---@class Beast.Notify.View : Beast.View.Instance
 ---@field ns integer
 ---@field record Beast.Notify.Record
-local NotifView = View:extend(function(obj, ns, record)
-	obj.ns = ns
-	obj.record = record
-end)
+---@overload fun(buf?: integer, win?: integer, ns: integer, record: Beast.Notify.Record): Beast.Notify.View
+local NotifView = View:extend(
+	---@param obj Beast.Notify.View
+	function(obj, ns, record)
+		obj.ns = ns
+		obj.record = record
+	end
+)
 
 -- =============================================================================
 -- UTILS

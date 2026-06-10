@@ -18,11 +18,15 @@ local state = require("beast.libs.explorer.state")
 -- VIEW
 -- =============================================================================
 
----@class Beast.Explorer.StickyView : Beast.View
+---@class Beast.Explorer.StickyView : Beast.View.Instance
 ---@field ns integer
-local StickyView = View:extend(function(obj, ns)
-	obj.ns = ns
-end)
+---@overload fun(buf?: integer, win?: integer, ns: integer): Beast.Explorer.StickyView
+local StickyView = View:extend(
+	---@param obj Beast.Explorer.StickyView
+	function(obj, ns)
+		obj.ns = ns
+	end
+)
 
 -- =============================================================================
 -- HELPERS
