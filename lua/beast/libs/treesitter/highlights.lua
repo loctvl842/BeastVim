@@ -31,7 +31,7 @@
 local M = {}
 
 function M.get()
-	local p = Palette.get()
+	local p = Theme.get()
 	return {
 		-- Identifiers ---------------------------------------------------------
 		["@variable"] = { fg = p.text },

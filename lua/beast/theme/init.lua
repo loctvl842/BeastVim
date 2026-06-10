@@ -1,4 +1,4 @@
----@class Beast.Palette
+---@class Beast.Theme.Palette
 ---@field dark2 string
 ---@field dark1 string
 ---@field background string
@@ -18,7 +18,7 @@
 ---@class Beast.Theme
 local M = {}
 
----@type Beast.Palette
+---@type Beast.Theme.Palette
 local defaults = {
 	dark2 = "#4f5258",
 	dark1 = "#2c2e33",
@@ -37,7 +37,7 @@ local defaults = {
 	dimmed5 = "#2c2e33",
 }
 
----@type Beast.Palette
+---@type Beast.Theme.Palette
 local cache = vim.deepcopy(defaults)
 
 ---@param group string
@@ -61,7 +61,7 @@ end
 --- these names — use them as the source of truth instead of extracting from
 --- syntax groups (which may be unstyled, linked, or re-styled by our own
 --- highlight modules, creating feedback loops on refresh).
----@return Beast.Palette
+---@return Beast.Theme.Palette
 local function extract_builtin()
 	local background = extract("Normal", "bg", defaults.background)
 	local text = extract("Normal", "fg", defaults.text)
@@ -101,7 +101,7 @@ local function extract_builtin()
 end
 
 --- Extraction map for third-party colorschemes with rich highlight definitions.
----@return Beast.Palette
+---@return Beast.Theme.Palette
 local function extract_custom()
 	return {
 		dark2 = extract("StatusLine", "bg", defaults.dark2),
@@ -136,14 +136,14 @@ function M.refresh()
 end
 
 --- Get the current palette (read-only snapshot).
----@return Beast.Palette
+---@return Beast.Theme.Palette
 function M.get()
 	return cache
 end
 
 function M.setup()
-	require("beast").apply_highlights("beast.palette.highlights")
-	require("beast").apply_highlights("beast.palette.blink")
+	require("beast").apply_highlights("beast.theme.highlights")
+	require("beast").apply_highlights("beast.theme.blink")
 end
 
 return M

@@ -1,7 +1,7 @@
 local M = {}
 
 function M.get()
-	local p = Palette.get()
+	local p = Theme.get()
 	local out = Util.colors.build("BeastBc", {
 		Dir = { fg = p.dimmed3 },
 		Sep = { fg = p.dimmed3 },

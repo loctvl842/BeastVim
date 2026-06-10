@@ -218,7 +218,7 @@ local function ensure_autocmds()
 
 	-- NOTE: ColorScheme refresh is intentionally NOT handled here. The Beast highlight
 	-- registry (see beast/init.lua) re-requires beast.libs.statusline.highlights AFTER
-	-- Palette.refresh() runs, which clears our caches at the right moment.
+	-- Theme.refresh() runs, which clears our caches at the right moment.
 
 	-- Free per-buffer / per-window cache slots when their owners go away.
 	-- Always redrawstatus afterwards: Neovim caches the `%!` result string, so without an

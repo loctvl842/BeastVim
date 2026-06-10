@@ -1,7 +1,7 @@
 local M = {}
 
 function M.get()
-	local p = Palette.get()
+	local p = Theme.get()
 	local blend = Util.colors.blend
 	return Util.colors.build("BeastStc", {
 		DiagError = { link = "DiagnosticSignError" },

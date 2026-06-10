@@ -345,7 +345,16 @@ function M.setup(opts)
 
 	-- Autopairs (lazy — install mappings on first InsertEnter)
 	packer.lazy("beast.libs.autopairs", {
-		event = { name = "InsertEnter", defer = false },
+		event = {
+			{
+				name = "InsertEnter",
+				defer = false,
+				cond = function()
+					return vim.bo.buftype == "" and vim.api.nvim_buf_get_name(0) ~= ""
+				end,
+			},
+			{ name = "CmdlineEnter", defer = false },
+		},
 	  -- stylua: ignore
 		keys = {
 			{ "<leader>up", function() require("beast.libs.autopairs").toggle() end, desc = "Toggle autopairs", group = "Autopairs" },
@@ -361,8 +370,8 @@ function M.setup(opts)
 		end,
 	})
 
-	-- Initial palette extraction (colorscheme should be loaded by packer)
-	Palette.refresh()
+	-- Initial theme extraction (colorscheme should be loaded by packer)
+	Theme.refresh()
 	M.reload_highlights()
 end
 

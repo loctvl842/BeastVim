@@ -1,7 +1,7 @@
 local M = {}
 
 function M.get()
-	local p = Palette.get()
+	local p = Theme.get()
 	return Util.colors.build("BeastToast", {
 		Normal = { bg = nil, fg = p.text },
 		Body = { fg = p.dimmed2 },

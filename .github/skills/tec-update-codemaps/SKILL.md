@@ -79,7 +79,7 @@ Output two files under `docs/CODEMAPS/`. Match the existing shape exactly — do
 |---------|----------|
 | Entry Point | `init.lua → require("beast").setup()` |
 | Module Tree | ASCII tree of `lua/beast/` with one-line descriptions per file/dir. Match the depth of the existing file. |
-| Globals Registered at Setup | Table: `Util`, `Key`, `Buffer`, `Icon`, `Toast`, `Palette`, etc. → module → purpose. Source of truth: `lua/beast/init.lua`. |
+| Globals Registered at Setup | Table: `Util`, `Key`, `Buffer`, `Icon`, `Toast`, `Theme`, etc. → module → purpose. Source of truth: `lua/beast/init.lua`. |
 | Setup Flow | Numbered list, what runs in what order during `beast.setup()`. Important for understanding why some libs require others. |
 | ColorScheme Reload Contract | List of modules whose `*.highlights` are reset on `ColorScheme` autocmd (`package.loaded[...] = nil` pattern). Cross-reference ADR-008. |
 | Plugin Loading Strategy | `beast.libs.packer` loading phases — which plugins load when and how. |

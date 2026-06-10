@@ -8,7 +8,7 @@
 vim.opt.runtimepath:prepend(vim.fn.getcwd())
 package.path = "./lua/?.lua;./lua/?/init.lua;" .. package.path
 
-_G.Palette = {
+_G.Theme = {
 	get = function()
 		return setmetatable({}, {
 			__index = function()

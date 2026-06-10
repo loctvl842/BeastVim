@@ -146,7 +146,7 @@ package.path = "$BEAST_PATH/lua/?.lua;$BEAST_PATH/lua/?/init.lua;" .. package.pa
 vim.o.termguicolors = true; vim.o.swapfile = false; vim.o.signcolumn = "yes"
 dofile("$WORK/probe.lua")
 -- Stub globals beast.libs.git.highlights references (colours irrelevant here).
-_G.Palette = { get = function() return setmetatable({}, { __index = function() return "#808080" end }) end }
+_G.Theme = { get = function() return setmetatable({}, { __index = function() return "#808080" end }) end }
 _G.Util = { colors = { set_hl = function() end, blend = function(c) return c end } }
 require("beast.libs.git").setup({ debounce_ms = tonumber(os.getenv("BENCH_DEBOUNCE") or "50") })
 _G.bench_set_ns("^beast_git_signs_unstaged\$")

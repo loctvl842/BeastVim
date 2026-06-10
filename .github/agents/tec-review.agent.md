@@ -24,7 +24,7 @@ For each change, check these five axes:
 
 ### 3. Pattern Compliance
 - Does it follow existing codebase patterns? (Check `docs/CODEMAPS/` for the architectural shape, `AGENTS.md` § *BeastVim Library Conventions* for the explicit rules — File Structure, Type Naming, View Pattern, Component Tables vs Classes, Config Pattern, Animation Pattern, Code Style.)
-- Does it use existing utilities (`Util.*`, `Beast.View`, `Beast.Palette`, etc.) instead of writing new ones? Cross-check against `AGENTS.md` § *Shared Modules Registry* — anything listed there must be reused, not reimplemented.
+- Does it use existing utilities (`Util.*`, `Beast.View`, `Beast.Theme`, etc.) instead of writing new ones? Cross-check against `AGENTS.md` § *Shared Modules Registry* — anything listed there must be reused, not reimplemented.
 - Does it match the project's naming conventions, config patterns, error handling?
 - Does it introduce a pattern that already appears in `AGENTS.md` § *Known DRY Opportunities*? If so, the implementation should have **extracted first** — flag this as a BLOCK.
 

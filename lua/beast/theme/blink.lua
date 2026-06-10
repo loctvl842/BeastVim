@@ -2,7 +2,7 @@
 -- ColorScheme-reload pipeline as every other lib (see setup/highlights.lua).
 --
 -- Maps blink kind groups to the same semantic accents used by
--- beast.palette.highlights so the popup reads as part of the buffer, not as
+-- beast.theme.highlights so the popup reads as part of the buffer, not as
 -- a foreign overlay:
 --
 --   accent4 cyan   → callables  (Function, Method, Constructor)
@@ -20,7 +20,7 @@
 local M = {}
 
 function M.get()
-	local p = Palette.get()
+	local p = Theme.get()
 
 	local callables = p.accent4 -- cyan  → Function / Method / Constructor
 	local structure = p.accent5 -- sky   → Variable / Field / Property / Module

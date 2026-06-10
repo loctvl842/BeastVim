@@ -31,7 +31,7 @@
 local M = {}
 
 function M.get()
-	local p = Palette.get()
+	local p = Theme.get()
 	local blend = Util.colors.blend
 	return {
 		-- :h group-name --------------------------------------------------------

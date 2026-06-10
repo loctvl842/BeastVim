@@ -1,7 +1,7 @@
 local M = {}
 
 function M.get()
-	local p = Palette.get()
+	local p = Theme.get()
 	return Util.colors.build("BeastIndent", {
 		Guide = { fg = p.dimmed5 },
 		Scope = { fg = p.dimmed3 },

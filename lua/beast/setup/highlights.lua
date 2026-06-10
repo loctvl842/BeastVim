@@ -8,7 +8,7 @@
 --      merges the results, and applies them in a single `nvim_set_hl` pass.
 --      See ADR-026 for the contract.
 --   3. `M.setup()` — registers the `ColorScheme` autocmd that wires
---      `Palette.refresh()` + `M.reload_highlights()` together.
+--      `Theme.refresh()` + `M.reload_highlights()` together.
 --
 -- Each lib's `setup()` calls `require("beast").apply_highlights("X.highlights")`
 -- at first-load (beast/init.lua re-exports `apply_highlights` from here).
@@ -19,8 +19,8 @@ local M = {}
 --- Lazy-loaded libs register their highlights dynamically via packer.lazy().
 ---@type string[]
 M.highlight_modules = {
-	"beast.palette.highlights",
-	"beast.palette.blink",
+	"beast.theme.highlights",
+	"beast.theme.blink",
 	"beast.libs.confirm.highlights",
 	"beast.libs.explorer.highlights",
 	"beast.libs.finder.highlights",
@@ -73,7 +73,7 @@ end
 --- from every gated module first, then push them via a single nvim_set_hl
 --- pass, then run any post_apply hooks (statusline redraw, icon cache, etc.).
 function M.reload_highlights()
-	local is_builtin = Palette.is_builtin_colorscheme()
+	local is_builtin = Theme.is_builtin_colorscheme()
 	local merged = {}
 	local post_hooks = {}
 	for _, mod_name in ipairs(M.highlight_modules) do
@@ -104,14 +104,14 @@ function M.reload_highlights()
 	end
 end
 
---- Register the ColorScheme autocmd. Deferred via `vim.schedule` so palette
+--- Register the ColorScheme autocmd. Deferred via `vim.schedule` so theme
 --- refresh + apply happen after the colorscheme command finishes drawing.
 function M.setup()
 	vim.api.nvim_create_autocmd("ColorScheme", {
-		group = vim.api.nvim_create_augroup("BeastPalette", { clear = true }),
+		group = vim.api.nvim_create_augroup("BeastTheme", { clear = true }),
 		callback = function()
 			vim.schedule(function()
-				Palette.refresh()
+				Theme.refresh()
 				M.reload_highlights()
 			end)
 		end,

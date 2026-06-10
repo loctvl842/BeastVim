@@ -1,7 +1,7 @@
 local M = {}
 
 function M.get()
-	local p = Palette.get()
+	local p = Theme.get()
 	return Util.colors.build("BeastFinder", {
 		-- Shared
 		Backdrop = { bg = "#000000" },

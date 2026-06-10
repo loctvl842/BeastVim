@@ -1,7 +1,7 @@
 local M = {}
 
 function M.get()
-	local p = Palette.get()
+	local p = Theme.get()
 	return Util.colors.build("BeastGit", {
 		PreviewNormal = { bg = p.dark1, fg = p.dimmed1 },
 		PreviewBorder = { fg = p.dark1, bg = p.dark1 },

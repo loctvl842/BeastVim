@@ -25,9 +25,9 @@ local function resolve_color(value)
 	if value == "NONE" or value == "none" then
 		return "NONE"
 	end
-	-- Palette alias lookup. Palette.get() returns a frozen snapshot.
+	-- Theme alias lookup. Theme.get() returns a frozen snapshot.
 	local ok, palette = pcall(function()
-		return Palette.get()
+		return Theme.get()
 	end)
 	if not ok or not palette then
 		return value

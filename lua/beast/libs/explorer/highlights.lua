@@ -1,7 +1,7 @@
 local M = {}
 
 function M.get()
-	local p = Palette.get()
+	local p = Theme.get()
 	return Util.colors.build("BeastExplorer", {
 		-- Sidebar base
 		Normal = { fg = p.dimmed2, bg = Util.colors.darken(p.dark1, 5) },

@@ -28,7 +28,7 @@ local DIAG_RATIOS = {
 	diag_count = { selected = 0.75, visible = 0.75 * 0.6, normal = 0.75 * 0.4 },
 }
 
----@param p Beast.Palette
+---@param p Beast.Theme.Palette
 local function APPEARANCE(p)
 	local active_bg = p.background
 	local inactive_bg = Util.colors.lighten(p.background, 15)
@@ -89,7 +89,7 @@ end
 -- Resolve everything needed for both M.get() (group table) and M.post_apply()
 -- (icons.set_state_styles). Called once per reload from each entry point.
 local function compute()
-	local a = APPEARANCE(Palette.get())
+	local a = APPEARANCE(Theme.get())
 	local sel, vis, nor, fill = a.selected, a.visible, a.normal, a.fill
 
 	-- Severity color, blended toward each state's cell bg.

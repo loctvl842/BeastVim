@@ -23,7 +23,7 @@ vim.opt.runtimepath:prepend(vim.fn.getcwd())
 package.path = "./lua/?.lua;./lua/?/init.lua;" .. package.path
 
 -- Stub globals so highlights resolve (real config not loaded).
-_G.Palette = {
+_G.Theme = {
 	get = function()
 		return setmetatable({}, {
 			__index = function()

@@ -5,7 +5,7 @@
 ## If it's a component (single lib, isolated)
 
 1. Copy `scripts/bench-statuscolumn.lua` as a template. It's the cleanest example.
-2. Stub the BeastVim globals the lib needs (`_G.Palette`, `_G.Util`, etc.) so the test runs under `--clean`.
+2. Stub the BeastVim globals the lib needs (`_G.Theme`, `_G.Util`, etc.) so the test runs under `--clean`.
 3. Define `FAIL_THRESHOLD_*` and `WARN_THRESHOLD_*` near the top.
 4. Use `vim.uv.hrtime()` for timing; never `os.clock()` or `os.time()`.
 5. Run RUNS=3 inner loops × ITERS_PER_RUN renders; report median of medians (resistant to outliers).
@@ -29,7 +29,7 @@
 The `nvim --clean` env has no plugins, no colors, no palette. If your lib touches any of these, stub them:
 
 ```lua
-_G.Palette = { get = function() return setmetatable({}, {
+_G.Theme = { get = function() return setmetatable({}, {
   __index = function() return "#ffffff" end
 }) end }
 _G.Util = { colors = { set_hl = function() end, blend = function(c) return c end } }

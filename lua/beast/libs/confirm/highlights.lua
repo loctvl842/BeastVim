@@ -1,7 +1,7 @@
 local M = {}
 
 function M.get()
-	local p = Palette.get()
+	local p = Theme.get()
 	return Util.colors.build("BeastConfirm", {
 		Backdrop = { bg = "#000000" },
 		Normal = { bg = p.dark1, fg = p.dimmed1 },

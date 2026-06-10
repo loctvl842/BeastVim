@@ -35,7 +35,7 @@ function M.ensure(icon_color, is_selected, is_visible)
 		style = is_selected and state_styles.selected or (is_visible and state_styles.visible or state_styles.normal)
 	else
 		-- Fallback (should not happen in practice — highlights.lua runs at setup)
-		local p = Palette.get()
+		local p = Theme.get()
 		local active_bg = p.background
 		local inactive_bg = Util.colors.lighten(p.background, 15)
 		style = is_selected and { bg = active_bg, sp = p.accent3, underline = true }

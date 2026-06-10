@@ -55,7 +55,7 @@ lua/beast/
 | `Buffer` | beast.libs.buf | Buffer delete helper |
 | `Icon` | beast.icon | Icon lookup |
 | `Toast` | beast.libs.toast | Toast notifications |
-| `Palette` | beast.palette | Theme palette (resolves accent1, …) |
+| `Theme` | beast.theme | Theme palette (resolves accent1, …) |
 | `Lsp` | beast.libs.lsp | LSP infra: register, capabilities, on_attach |
 
 ## Setup Flow
@@ -63,8 +63,8 @@ lua/beast/
 ```
 beast.setup(opts)
   1. require("beast.option")
-  2. Register globals: Util, Palette, Key, Buffer, Icon
-  3. Register ColorScheme autocmd → Palette.refresh() + reload_highlights()
+  2. Register globals: Util, Theme, Key, Buffer, Icon
+  3. Register ColorScheme autocmd → Theme.refresh() + reload_highlights()
   4. Key.setup() + default keymaps
   5. notify.setup() + toast.setup() → Toast global
   6. confirm.setup()
@@ -77,7 +77,7 @@ beast.setup(opts)
  13. packer.lazy("beast.libs.indent") → deferred VimEnter (decoration provider)
  14. packer.lazy("beast.libs.treesitter") → deferred FileType
  15. packer.lazy("beast.libs.finder") → deferred keys (<leader>f/b/g/c/h)
- 16. Palette.refresh() + reload_highlights()
+ 16. Theme.refresh() + reload_highlights()
 ```
 
 ## Lazy Lib Loading (`packer.lazy`)
@@ -101,7 +101,7 @@ Util.create_scratch_buf
 Util.colors.set_hl
   └── used by: all libs with highlights.lua
 
-Palette.get / Palette.refresh
+Theme.get / Theme.refresh
   └── used by: statusline/hlgroup.lua, tabline/icons.lua, all libs' highlights.lua
 ```
 
@@ -110,7 +110,7 @@ Palette.get / Palette.refresh
 ```
 :colorscheme X
   → ColorScheme autocmd
-    → Palette.refresh()
+    → Theme.refresh()
       → M.reload_highlights()
         ├── collect: for each module in M.highlight_modules
         │     skip if parent lib not loaded
@@ -133,7 +133,7 @@ a single module.
 
 `M.highlight_modules` includes: palette, confirm, explorer, finder, key,
 notify, packer, statusline, breadcrumb, tabline, toast, indent, treesitter,
-statuscolumn, git. Builtin-only (gated by `Palette.is_builtin_colorscheme()`):
+statuscolumn, git. Builtin-only (gated by `Theme.is_builtin_colorscheme()`):
 treesitter.
 
 ## Patterns
