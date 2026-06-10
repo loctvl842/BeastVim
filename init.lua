@@ -22,6 +22,7 @@ end
 
 require("beast").setup({
 	key = {
+		hint = { triggers = { "<leader>", "<localleader>", "f", "z", "g", "[", "]" } },
 		mappings = {
 			{ "fd", "zd", desc = "Delete fold under cursor" },
 			{ "fo", "zo", desc = "Open fold under cursor" },
