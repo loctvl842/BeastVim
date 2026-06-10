@@ -34,6 +34,7 @@ local M = {
 	installed_plugins = {}, ---@type table<string, boolean> Plugins that have been installed
 	loaded_plugins = {}, ---@type table<string, boolean> Plugins that have been loaded
 	module_to_plugin = {}, ---@type table<string, string> Map module names to plugin names
+	module_to_lib = {}, ---@type table<string, string> Map module names to Beast lib names (lazy() entries)
 	libs = {}, ---@type table<string, Beast.Packer.LibEntry> Beast libraries registered via packer.lazy()
 	loaded_libs = {}, ---@type table<string, boolean> Libraries that have been loaded
 }
@@ -41,7 +42,7 @@ local M = {
 ---@class Beast.Packer.LibEntry
 ---@field name string Lua module path (also used as registry key)
 ---@field lazy Beast.Packer.LazyLibOpts Trigger spec passed to packer.lazy()
----@field load fun() Closure that performs require(mod) + setup(lib); idempotent via internal flag
+---@field load fun(reason?: Beast.Packer.LoadReason) Closure that performs require(mod) + setup(lib); idempotent via internal flag. `reason` is forwarded to profile.set_reason so the UI shows what triggered the load.
 
 -- Track plugins currently being loaded (for circular dependency detection)
 local loading_stack = {} ---@type string[] Array for ordered tracking
@@ -147,19 +148,20 @@ end
 --- Load a Beast library registered via packer.lazy(). Idempotent via the
 --- entry's internal closure flag; safe to call from manual triggers (UI).
 ---@param lib_name string
-function M.load_lib(lib_name)
+---@param reason? Beast.Packer.LoadReason  Forwarded to do_load → profile.set_reason
+function M.load_lib(lib_name, reason)
 	local entry = M.libs[lib_name]
 	if not entry then
 		vim.notify("packer: unknown lib '" .. lib_name .. "'", vim.log.levels.WARN, { title = "BeastVim" })
 		return
 	end
-	entry.load()
+	entry.load(reason)
 end
 
 --- Install the module loader into package.loaders
 ---@param module_trigger table The module trigger module
 function M.install_module_loader(module_trigger)
-	module_trigger.install(M.load)
+	module_trigger.install(M.load, M.load_lib)
 end
 
 return M

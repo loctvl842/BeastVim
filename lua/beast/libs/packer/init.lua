@@ -440,6 +440,7 @@ end
 ---@field event? string|string[]|Beast.Packer.EventSpec|Beast.Packer.EventSpec[] Event trigger(s). Per-event `defer = true` available — see Beast.Packer.EventSpec.
 ---@field keys? Beast.KeymapSpec|Beast.KeymapSpec[]|string|string[] Key trigger(s). Always sync — user is actively waiting.
 ---@field filetype? string|string[] Filetype trigger(s). Always sync — render-critical.
+---@field module? string|string[] Module trigger(s). When any listed modname is `require()`d, `setup(lib)` runs first via the module-loader hook. Common case: the lib's own module path, so direct `require("beast.libs.X")` calls from keymap bodies still trigger `setup`.
 ---@field setup fun(lib: table) Called after require(mod), receives the module
 
 --- Lazy-load a Beast library using the same trigger infrastructure as plugins.
@@ -465,10 +466,16 @@ function M.lazy(mod, opts)
 
 	local loaded = false
 
-	local function do_load()
+	---@param reason? Beast.Packer.LoadReason
+	local function do_load(reason)
 		-- stylua: ignore
 		if loaded then return end
 		loaded = true
+		-- Mark loaded BEFORE require(mod) so the module-loader hook does NOT
+		-- re-enter do_load when this lib registered itself as a module trigger
+		-- (e.g. opts.module = "beast.libs.X"). Mirrors state.load for plugins,
+		-- which sets loaded_plugins[name] = true before vim.cmd.packadd.
+		state.loaded_libs[mod] = true
 
 		local lib
 		local ok_req, err_req = profile.measure(mod, "packadd_ms", function()
@@ -489,8 +496,7 @@ function M.lazy(mod, opts)
 			end
 		end
 
-		state.loaded_libs[mod] = true
-		profile.set_reason(mod, { type = "manual", detail = nil })
+		profile.set_reason(mod, reason or { type = "manual", detail = nil })
 	end
 
 	state.libs[mod] = { name = mod, lazy = opts, load = do_load }
@@ -499,23 +505,29 @@ function M.lazy(mod, opts)
 
 	if opts.event then
 		event_trigger.setup(spec, opts.event, function(_, reason)
-			profile.set_reason(mod, reason)
-			do_load()
+			do_load(reason)
 		end)
 	end
 
 	if opts.keys then
 		keys_trigger.setup(spec, opts.keys, function(_, reason)
-			profile.set_reason(mod, reason)
-			do_load()
+			do_load(reason)
 		end)
 	end
 
 	if opts.filetype then
 		filetype_trigger().setup(spec, opts.filetype, function(_, reason)
-			profile.set_reason(mod, reason)
-			do_load()
+			do_load(reason)
 		end)
+	end
+
+	if opts.module then
+		---@type string[]
+		---@diagnostic disable-next-line: assign-type-mismatch
+		local modules = type(opts.module) == "string" and { opts.module } or opts.module
+		for _, m in ipairs(modules) do
+			module_trigger.register_lib(m, mod)
+		end
 	end
 end
 
