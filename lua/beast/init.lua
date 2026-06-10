@@ -1,7 +1,6 @@
 local M = {}
 
-local hl = require("beast.setup.highlights")
-M.highlight_modules = hl.highlight_modules
+local hl = require("beast.hl_reload")
 M.apply_highlights = hl.apply_highlights
 M.reload_highlights = hl.reload_highlights
 

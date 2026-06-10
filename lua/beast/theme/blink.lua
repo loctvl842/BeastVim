@@ -1,5 +1,5 @@
 -- BeastVim blink.cmp highlights — palette-driven, applied through the same
--- ColorScheme-reload pipeline as every other lib (see setup/highlights.lua).
+-- ColorScheme-reload pipeline as every other lib (see beast/hl_reload.lua).
 --
 -- Maps blink kind groups to the same semantic accents used by
 -- beast.theme.highlights so the popup reads as part of the buffer, not as
