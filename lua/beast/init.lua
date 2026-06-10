@@ -19,15 +19,7 @@ M.reload_highlights = hl.reload_highlights
 ---@field window? Beast.Window.Config
 ---@field autopairs? Beast.Autopairs.Config
 ---@field lsp? Beast.LSP.Config
-local defaults = {
-	key = {},
-	notify = {},
-	toast = {},
-	explorer = {},
-	packer = {},
-	treesitter = {},
-	starter = {},
-}
+local defaults = {}
 
 ---@param opts? Beast.Config
 function M.setup(opts)
@@ -36,69 +28,66 @@ function M.setup(opts)
 	-- Opt-in: only render the BeastVim key rows when the user explicitly
 	-- provided `starter.keys`. Otherwise fall through to the bare native intro.
 	if user_starter_keys == nil then
+		cfg.starter = cfg.starter or {}
 		cfg.starter.keys = {}
 	end
 
-	require("beast.setup.globals").run()
-
-	hl.setup()
-
-	Key.setup(cfg.key)
-
-	Key.safe_set("n", "<leader>d", View.buf.delete, { desc = "Close current buffer", group = "Buffer" })
-
-	-- Notification
-	local notify = require("beast.libs.notify")
-	notify.setup(cfg.notify)
-	local toast = require("beast.libs.toast")
-	toast.setup(cfg.toast)
-	_G.Toast = toast
-
-	Key.safe_set("n", "<leader>n", function()
-		notify.dismiss()
-		toast.dismiss()
-	end, { desc = "Dismiss all notifications", group = "Notify" })
-
-	require("beast.libs.confirm").setup()
-
-	-- LSP infrastructure (eager — must register diagnostics + LspAttach
-	-- dispatcher before any FileType autocmd fires, so server `register()`
-	-- calls from anywhere downstream resolve correctly).
-	Lsp.setup(cfg.lsp or {})
-
-	-- Buffer-local LSP navigation keymaps backed by the finder picker.
-	-- Each is gated on the attached client supporting the corresponding method.
-	Lsp.on_attach(function(client, bufnr)
-		local bind = function(lhs, method, source, desc)
-			if not client:supports_method(method) then
-				return
-			end
-			Key.safe_set("n", lhs, function()
-				require("beast.libs.finder").open(source)
-			end, { buffer = bufnr, desc = desc, group = "LSP" })
-		end
-		bind("gd", "textDocument/definition", "lsp_definitions", "Goto definition")
-		bind("gr", "textDocument/references", "lsp_references", "Goto references")
-		bind("gD", "textDocument/declaration", "lsp_declarations", "Goto declaration")
-		bind("gi", "textDocument/implementation", "lsp_implementations", "Goto implementation")
-	end)
-
 	local packer = require("beast.libs.packer")
 
-	-- stylua: ignore
-	_G.gh = function(x) return "https://github.com/" .. x end
-	---@type Beast.Packer.Config
-	packer.setup(cfg.packer)
-  -- stylua: ignore
-	Key.safe_set("n", "<leader>p", function() require("beast.libs.packer.ui").open() end, { desc = "Open packer UI", group = "Packer" })
-	cfg.starter.keys[#cfg.starter.keys + 1] = { verb = "press", key = "<leader>p", desc = "to manage plugins" }
+	require("beast.option")
+
+	_G.Util = require("beast.util") ---@type Beast.Util
+	_G.Theme = Util.mod("beast.theme") ---@type Beast.Theme
+	_G.Key = Util.mod("beast.libs.key") ---@type Beast.Key
+	_G.View = Util.mod("beast.libs.view") ---@type Beast.View.Module
+	_G.Icon = Util.mod("beast.icon") ---@type Beast.Icon
+
+	packer.lazy("beast.theme", {
+		event = { name = "VimEnter", defer = true },
+		init = function()
+			_G.Theme = Util.mod("beast.theme")
+		end,
+		setup = function()
+			Theme.setup()
+			hl.setup()
+			-- Initial theme extraction (colorscheme should be loaded by packer)
+			Theme.refresh()
+			M.reload_highlights()
+		end,
+	})
+
+	-- Notification
+	packer.lazy("beast.libs.notify", {
+		event = { name = "VimEnter", defer = true },
+		setup = function(notify)
+			notify.setup(cfg.notify or {})
+		end,
+	})
+	packer.lazy("beast.libs.toast", {
+		event = { name = "VimEnter", defer = true },
+		setup = function(toast)
+			_G.Toast = toast
+			toast.setup(cfg.toast or {})
+		end,
+	})
+
+	packer.lazy("beast.libs.confirm", {
+		module = "beast.libs.confirm",
+		setup = function(confirm)
+			confirm.setup()
+		end,
+	})
 
 	-- Statusline (declarative components, native %! evaluation)
-	local stl = require("beast.libs.statusline")
-	local cpn = require("beast.libs.statusline.components")
-	stl.setup({
-		left = { cpn.git_branch, cpn.diagnostics },
-		right = { cpn.macro, cpn.git_commit, cpn.position, cpn.filetype, cpn.shiftwidth, cpn.encoding, cpn.mode },
+	packer.lazy("beast.libs.statusline", {
+		event = { name = "VimEnter", defer = true },
+		setup = function(stl)
+			local cpn = require("beast.libs.statusline.components")
+			stl.setup({
+				left = { cpn.git_branch, cpn.diagnostics },
+				right = { cpn.macro, cpn.git_commit, cpn.position, cpn.filetype, cpn.shiftwidth, cpn.encoding, cpn.mode },
+			})
+		end,
 	})
 
 	-- Breadcrumb / winbar (lazy — deferred past first screen update)
@@ -142,7 +131,7 @@ function M.setup(opts)
 				end,
 			},
 		},
-    -- stylua: ignore
+	  -- stylua: ignore
 		keys = {
 			{ "[B", function() require("beast.libs.tabline").move_prev() end, mode = "n", desc = "Move buffer prev", group = "Tabline" },
       { "]B", function() require("beast.libs.tabline").move_next() end, mode = "n", desc = "Move buffer next", group = "Tabline" },
@@ -188,19 +177,19 @@ function M.setup(opts)
 	-- Git (lazy — attaches per buffer on BufReadPost)
 	packer.lazy("beast.libs.git", {
 		event = { name = "BufReadPost", defer = true },
-    -- stylua: ignore
-    keys = {
-      { "]c", function() require("beast.libs.git").next_hunk({ target = "all" }) end, mode = "n", desc = "Next hunk", group = "Git" },
-      { "[c", function() require("beast.libs.git").prev_hunk({ target = "all" }) end, mode = "n", desc = "Previous hunk", group = "Git" },
-      { "<leader>gp", function() require("beast.libs.git").preview_hunk() end, mode = { "n", "x" }, desc = "Preview hunk(s)", group = "Git" },
-      { "<leader>gs", function() require("beast.libs.git").stage_hunk() end, mode = { "n", "x" }, desc = "Stage hunk (toggle)", group = "Git" },
-      { "<leader>gu", function() require("beast.libs.git").unstage_hunk() end, mode = { "n", "x" }, desc = "Unstage hunk (explicit)", group = "Git" },
-      { "<leader>gr", function() require("beast.libs.git").reset_hunk() end, mode = { "n", "x" }, desc = "Reset hunk", group = "Git" },
-      { "<leader>g.", function() require("beast.libs.git").repeat_action() end, mode = "n", desc = "Repeat last git action", group = "Git" },
-      { "<leader>gb", function() require("beast.libs.git").blame_line() end, mode = "n", desc = "Blame current line", group = "Git" },
-      { "<leader>gB", function() require("beast.libs.git").blame() end, mode = "n", desc = "Blame file (side window)", group = "Git" },
-      { "<leader>gtb", function() require("beast.libs.git").toggle_current_line_blame() end, mode = "n", desc = "Toggle current-line blame", group = "Git" },
-    },
+	    -- stylua: ignore
+	    keys = {
+	      { "]c", function() require("beast.libs.git").next_hunk({ target = "all" }) end, mode = "n", desc = "Next hunk", group = "Git" },
+	      { "[c", function() require("beast.libs.git").prev_hunk({ target = "all" }) end, mode = "n", desc = "Previous hunk", group = "Git" },
+	      { "<leader>gp", function() require("beast.libs.git").preview_hunk() end, mode = { "n", "x" }, desc = "Preview hunk(s)", group = "Git" },
+	      { "<leader>gs", function() require("beast.libs.git").stage_hunk() end, mode = { "n", "x" }, desc = "Stage hunk (toggle)", group = "Git" },
+	      { "<leader>gu", function() require("beast.libs.git").unstage_hunk() end, mode = { "n", "x" }, desc = "Unstage hunk (explicit)", group = "Git" },
+	      { "<leader>gr", function() require("beast.libs.git").reset_hunk() end, mode = { "n", "x" }, desc = "Reset hunk", group = "Git" },
+	      { "<leader>g.", function() require("beast.libs.git").repeat_action() end, mode = "n", desc = "Repeat last git action", group = "Git" },
+	      { "<leader>gb", function() require("beast.libs.git").blame_line() end, mode = "n", desc = "Blame current line", group = "Git" },
+	      { "<leader>gB", function() require("beast.libs.git").blame() end, mode = "n", desc = "Blame file (side window)", group = "Git" },
+	      { "<leader>gtb", function() require("beast.libs.git").toggle_current_line_blame() end, mode = "n", desc = "Toggle current-line blame", group = "Git" },
+	    },
 		setup = function(g)
 			g.setup({})
 		end,
@@ -238,7 +227,7 @@ function M.setup(opts)
 			end,
 		},
 		setup = function(explorer)
-			explorer.setup(cfg.explorer)
+			explorer.setup(cfg.explorer or {})
 
 			local dir = startup_dir()
 			if dir then
@@ -280,7 +269,7 @@ function M.setup(opts)
 			end,
 		},
 		setup = function(ts)
-			ts.setup(cfg.treesitter)
+			ts.setup(cfg.treesitter or {})
 			ts.enable()
 		end,
 	})
@@ -289,14 +278,14 @@ function M.setup(opts)
 		setup = function(finder)
 			finder.setup(cfg.finder or {})
 		end,
-    -- stylua: ignore
+	   -- stylua: ignore
 		keys = {
 			{ "<leader>f", function() require("beast.libs.finder").open("files") end, desc = "Find files" },
 			{ "<leader>b", function() require("beast.libs.finder").open("buffers") end, desc = "Find buffers" },
 			{ "<leader>F", function() require("beast.libs.finder").open("live_grep") end, desc = "Live grep" },
 			{ "<leader>h", function() require("beast.libs.finder").open("help_tags") end, desc = "Help tags" },
 			{
-				"<leader>C",
+				"<leader>c",
 				function()
 					local original = vim.g.colors_name or "default"
 					local confirmed = false
@@ -316,10 +305,6 @@ function M.setup(opts)
 			},
 		},
 	})
-	cfg.starter.keys[#cfg.starter.keys + 1] = { verb = "press", key = "<leader>f", desc = "to find files" }
-
-	-- Starter screen (eager — must register VimEnter autocmd before VimEnter fires)
-	require("beast.libs.starter").setup(cfg.starter)
 
 	-- Smooth viewport scrolling (lazy — activate after first buffer read)
 	packer.lazy("beast.libs.scroll", {
@@ -332,11 +317,11 @@ function M.setup(opts)
 	-- Window auto-resize + maximize (lazy — needs a second window to be useful)
 	packer.lazy("beast.libs.window", {
 		event = { name = "WinNew", defer = true },
-	  -- stylua: ignore
-		keys = {
-			{ "<leader>zz",  function() require("beast.libs.window").maximize() end, desc = "Zoom window", group = "Window" },
-			{ "<leader>z=", function() require("beast.libs.window").equalize() end, desc = "Equalize windows", group = "Window" },
-		},
+	   -- stylua: ignore
+	 	keys = {
+	 		{ "<leader>zz",  function() require("beast.libs.window").maximize() end, desc = "Zoom window", group = "Window" },
+	 		{ "<leader>z=", function() require("beast.libs.window").equalize() end, desc = "Equalize windows", group = "Window" },
+	 	},
 		setup = function(window)
 			window.setup(cfg.window or {})
 		end,
@@ -354,7 +339,7 @@ function M.setup(opts)
 			},
 			{ name = "CmdlineEnter", defer = false },
 		},
-	  -- stylua: ignore
+    -- stylua: ignore
 		keys = {
 			{ "<leader>up", function() require("beast.libs.autopairs").toggle() end, desc = "Toggle autopairs", group = "Autopairs" },
 		},
@@ -369,9 +354,54 @@ function M.setup(opts)
 		end,
 	})
 
-	-- Initial theme extraction (colorscheme should be loaded by packer)
-	Theme.refresh()
-	M.reload_highlights()
+	packer.lazy("beast.libs.key", {
+		event = "VimEnter",
+		init = function()
+			_G.Key = Util.mod("beast.libs.key") ---@type Beast.Key
+		end,
+		setup = function()
+			Key.setup(cfg.key or {})
+			Key.safe_set("n", "<leader>d", View.buf.delete, { desc = "Close current buffer", group = "Buffer" })
+			Key.safe_set("n", "<leader>n", function()
+				require("beast.libs.notify").dismiss()
+				require("beast.libs.toast").dismiss()
+			end, { desc = "Dismiss all notifications", group = "Notify" })
+      -- stylua: ignore
+      Key.safe_set("n", "<leader>p", function() require("beast.libs.packer.ui").open() end, { desc = "Open packer UI", group = "Packer" })
+		end,
+	})
+
+	_G.Lsp = Util.mod("beast.libs.lsp") ---@type Beast.Lsp
+	-- LSP infrastructure (eager — must register diagnostics + LspAttach
+	-- dispatcher before any FileType autocmd fires, so server `register()`
+	-- calls from anywhere downstream resolve correctly).
+	Lsp.setup(cfg.lsp or {})
+	-- Buffer-local LSP navigation keymaps backed by the finder picker.
+	-- Each is gated on the attached client supporting the corresponding method.
+	Lsp.on_attach(function(client, bufnr)
+		local bind = function(lhs, method, source, desc)
+			if not client:supports_method(method) then
+				return
+			end
+			Key.safe_set("n", lhs, function()
+				require("beast.libs.finder").open(source)
+			end, { buffer = bufnr, desc = desc, group = "LSP" })
+		end
+		bind("gd", "textDocument/definition", "lsp_definitions", "Goto definition")
+		bind("gr", "textDocument/references", "lsp_references", "Goto references")
+		bind("gD", "textDocument/declaration", "lsp_declarations", "Goto declaration")
+		bind("gi", "textDocument/implementation", "lsp_implementations", "Goto implementation")
+	end)
+
+	-- stylua: ignore
+	_G.gh = function(x) return "https://github.com/" .. x end
+
+	packer.setup(cfg.packer or {})
+
+	cfg.starter.keys[#cfg.starter.keys + 1] = { verb = "press", key = "<leader>p", desc = "to manage plugins" }
+	cfg.starter.keys[#cfg.starter.keys + 1] = { verb = "press", key = "<leader>f", desc = "to find files" }
+	-- Starter screen (eager — must register VimEnter autocmd before VimEnter fires)
+	require("beast.libs.starter").setup(cfg.starter)
 end
 
 return M
