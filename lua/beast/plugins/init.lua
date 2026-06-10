@@ -45,9 +45,6 @@ return {
 				{
 					name = "CmdlineEnter",
 					defer = false,
-					cond = function()
-						return vim.bo.buftype == "" and vim.api.nvim_buf_get_name(0) ~= ""
-					end,
 				},
 			},
 		},
