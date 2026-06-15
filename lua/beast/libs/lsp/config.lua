@@ -1,29 +1,4 @@
----@class Beast.LSP.Diagnostics.Signs
----@field text? table<integer, string>
-
----@class Beast.LSP.Diagnostics
----@field virtual_text? boolean|table
----@field severity_sort? boolean
----@field update_in_insert? boolean
----@field underline? boolean
----@field float? table
----@field signs? Beast.LSP.Diagnostics.Signs
-
----@class Beast.LSP.InlayHints
----@field enabled? boolean
-
----@class Beast.LSP.Codelens
----@field enabled? boolean
----@field events? string[]  Autocmd events that trigger `vim.lsp.codelens.refresh()`; defaults to BufEnter/CursorHold/InsertLeave when omitted.
-
----@class Beast.LSP.Fold
----@field enabled? boolean
-
----@class Beast.LSP.Config
----@field diagnostics? Beast.LSP.Diagnostics
----@field inlay_hints? Beast.LSP.InlayHints
----@field codelens? Beast.LSP.Codelens
----@field fold? Beast.LSP.Fold
+---@class Beast.Lsp.Config
 local defaults = {
 	diagnostics = {
 		virtual_text = {
@@ -40,10 +15,10 @@ local defaults = {
 		},
 		signs = {
 			text = {
-				[vim.diagnostic.severity.ERROR] = Icon.diagnostics.error,
-				[vim.diagnostic.severity.WARN] = Icon.diagnostics.warn,
-				[vim.diagnostic.severity.HINT] = Icon.diagnostics.hint,
-				[vim.diagnostic.severity.INFO] = Icon.diagnostics.info,
+				[vim.diagnostic.severity.ERROR] = (Icon and Icon.diagnostics and Icon.diagnostics.error) or "E",
+				[vim.diagnostic.severity.WARN] = (Icon and Icon.diagnostics and Icon.diagnostics.warn) or "W",
+				[vim.diagnostic.severity.INFO] = (Icon and Icon.diagnostics and Icon.diagnostics.info) or "I",
+				[vim.diagnostic.severity.HINT] = (Icon and Icon.diagnostics and Icon.diagnostics.hint) or "H",
 			},
 		},
 	},
@@ -63,12 +38,12 @@ local defaults = {
 	},
 }
 
----@type Beast.LSP.Config
+---@type Beast.Lsp.Config
 local cfg = vim.deepcopy(defaults)
 
 local methods = {}
 
----@param opts? Beast.LSP.Config
+---@param opts? Beast.Lsp.Config
 function methods.setup(opts)
 	cfg = vim.tbl_deep_extend("force", vim.deepcopy(defaults), opts or {})
 end

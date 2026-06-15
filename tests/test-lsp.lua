@@ -150,17 +150,17 @@ print("Phase 2: inlay hints / codelens config wiring")
 -- so mutate config directly via its public setup().
 cfg.setup({
 	inlay_hints = { enabled = true },
-	codelens = { enabled = true, events = { "BufEnter" } },
+	codelens = { enabled = true },
 })
 assert_eq("inlay_hints.enabled honored", cfg.inlay_hints.enabled, true)
 assert_eq("codelens.enabled honored", cfg.codelens.enabled, true)
-assert_eq("codelens.events override honored", cfg.codelens.events[1], "BufEnter")
 
--- Static check: dispatcher source contains the apply_* call sites.
+-- Static check: dispatcher source contains the apply_* call sites and uses
+-- vim.lsp.codelens.enable (replaced the manual autocmd + armed-flag guard).
 local src = table.concat(vim.fn.readfile("lua/beast/libs/lsp/attach.lua"), "\n")
 assert_true("dispatcher calls apply_inlay_hints", src:find("apply_inlay_hints%(client") ~= nil)
 assert_true("dispatcher calls apply_codelens", src:find("apply_codelens%(client") ~= nil)
-assert_true("codelens re-attach guard present", src:find("beast_lsp_codelens_armed") ~= nil)
+assert_true("codelens uses vim.lsp.codelens.enable", src:find("vim%.lsp%.codelens%.enable") ~= nil)
 
 -- =========================================================================
 -- Phase 3

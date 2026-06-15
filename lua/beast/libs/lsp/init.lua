@@ -75,8 +75,7 @@ local function install_commands()
 	end, { desc = "Show BeastVim LSP state for current buffer" })
 end
 
----Initialize the LSP lib. Idempotent.
----@param opts? Beast.LSP.Config
+---@param opts? Beast.Lsp.Config
 function M.setup(opts)
 	if M._initialized then
 		return
@@ -84,7 +83,7 @@ function M.setup(opts)
 	M._initialized = true
 
 	config.setup(opts)
-	require("beast.libs.lsp.diagnostics").setup()
+	vim.diagnostic.config(config.diagnostics)
 	require("beast.libs.lsp.attach").setup()
 	install_commands()
 end

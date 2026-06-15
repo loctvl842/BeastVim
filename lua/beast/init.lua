@@ -18,7 +18,7 @@ M.reload_highlights = hl.reload_highlights
 ---@field starter? Beast.Starter.Config
 ---@field window? Beast.Window.Config
 ---@field autopairs? Beast.Autopairs.Config
----@field lsp? Beast.LSP.Config
+---@field lsp? Beast.Lsp.Config
 local defaults = {}
 
 ---@param opts? Beast.Config

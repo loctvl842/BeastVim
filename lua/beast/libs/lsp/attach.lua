@@ -14,34 +14,24 @@
 
 local M = {}
 
-local View = require("beast.libs.view")
-
----@class Beast.LSP.Registered
----@field keys? table[] Buffer-local keymap specs (see keys.lua)
----@field on_attach? fun(client: vim.lsp.Client, bufnr: integer)
-
----@type table<string, Beast.LSP.Registered>
+---@type table<string, Beast.Lsp.Registered>
 M.servers = {}
 
 ---@type fun(client: vim.lsp.Client, bufnr: integer)[]
 M.subscribers = {}
 
 local augroup
+-- Reference to the wrapped registerCapability handler so re-running setup()
+-- (after `package.loaded[...] = nil`) doesn't chain wrappers on top of an
+-- already-wrapped handler. Compared by identity.
+local register_capability_handler
 
----Store the BeastVim-extension fields for a server. The native LSP fields
----are handled by `vim.lsp.config()` directly; this table only holds what
----the dispatcher needs at attach time.
----@param name string
----@param extras Beast.LSP.Registered
-function M.register_server(name, extras)
-	M.servers[name] = extras
-end
+---@class Beast.Lsp.KeySpec : Beast.KeymapSpec
+---@field cond? string LSP method (e.g. "textDocument/definition") gating bind
 
----Add a global LspAttach subscriber. Runs after per-server handlers.
----@param fn fun(client: vim.lsp.Client, bufnr: integer)
-function M.subscribe(fn)
-	table.insert(M.subscribers, fn)
-end
+---@class Beast.Lsp.Registered
+---@field keys? Beast.Lsp.KeySpec[]|Beast.Lsp.KeySpec Buffer-local keymap specs; single spec or array
+---@field on_attach? fun(client: vim.lsp.Client, bufnr: integer)
 
 ---Apply LSP foldexpr to all windows currently showing `buf` if the client
 ---supports `textDocument/foldingRange`. No-op if disabled in config or
@@ -79,9 +69,9 @@ local function apply_inlay_hints(client, buf)
 	vim.lsp.inlay_hint.enable(true, { bufnr = buf })
 end
 
----Wire codelens refresh autocmds for `buf` when the client supports codelens.
----Guarded by a buffer-local flag so re-attach on the same buffer (another
----client of the same kind) doesn't double-register the refresh autocmd.
+---Enable buffer-scoped code lens when the client supports it.
+---`vim.lsp.codelens.enable` wires up auto-refresh internally and is
+---idempotent per (buffer, client), so no arming flag is needed.
 ---@param client vim.lsp.Client
 ---@param buf integer
 local function apply_codelens(client, buf)
@@ -92,24 +82,38 @@ local function apply_codelens(client, buf)
 	if not client:supports_method("textDocument/codeLens") then
 		return
 	end
-	if vim.b[buf].beast_lsp_codelens_armed then
-		vim.lsp.codelens.refresh({ bufnr = buf })
-		return
-	end
-	vim.b[buf].beast_lsp_codelens_armed = true
-	local events = cfg.codelens.events or { "BufEnter", "CursorHold", "InsertLeave" }
-	vim.api.nvim_create_autocmd(events, {
-		group = augroup,
-		buffer = buf,
-		callback = function()
-			vim.lsp.codelens.refresh({ bufnr = buf })
-		end,
-	})
-	vim.lsp.codelens.refresh({ bufnr = buf })
+	vim.lsp.codelens.enable(true, { bufnr = buf })
+end
+
+---Run the per-attach side-effects (fold/inlay/codelens) for a given
+---(client, buffer). Extracted so we can re-apply on dynamic capability
+---registration as well as on LspAttach.
+---@param client vim.lsp.Client
+---@param buf integer
+local function apply_capabilities(client, buf)
+	apply_fold(client, buf)
+	apply_inlay_hints(client, buf)
+	apply_codelens(client, buf)
+end
+
+---Store the BeastVim-extension fields for a server. The native LSP fields
+---are handled by `vim.lsp.config()` directly; this table only holds what
+---the dispatcher needs at attach time.
+---@param name string
+---@param extras Beast.Lsp.Registered
+function M.register_server(name, extras)
+	M.servers[name] = extras
+end
+
+---Add a global LspAttach subscriber. Runs after per-server handlers.
+---@param fn fun(client: vim.lsp.Client, bufnr: integer)
+function M.subscribe(fn)
+	table.insert(M.subscribers, fn)
 end
 
 ---Install the single dispatching autocmd. Idempotent — re-creates the
----augroup with `clear = true` on each call.
+---augroup with `clear = true` on each call, and wraps the
+---`client/registerCapability` handler exactly once across the process.
 function M.setup()
 	augroup = vim.api.nvim_create_augroup("BeastVim-lsp", { clear = true })
 
@@ -126,22 +130,53 @@ function M.setup()
 			local server = M.servers[client.name]
 			if server then
 				if server.keys then
-					require("beast.libs.lsp.keys").bind(server.keys, client, ev.buf)
+					-- Normalize to an array: callers may pass a single spec.
+					---@type Beast.Lsp.KeySpec[]
+					local specs = (type(server.keys[1]) == "table") and server.keys or { server.keys }
+					for _, spec in ipairs(specs) do
+						if not spec.cond or client:supports_method(spec.cond) then
+							Key.safe_set(spec.mode or "n", spec[1], spec[2], {
+								buffer = ev.buf,
+								desc = spec.desc,
+								group = spec.group or "LSP",
+							})
+						end
+					end
 				end
 				if server.on_attach then
 					server.on_attach(client, ev.buf)
 				end
 			end
 
-			apply_fold(client, ev.buf)
-			apply_inlay_hints(client, ev.buf)
-			apply_codelens(client, ev.buf)
+			apply_capabilities(client, ev.buf)
 
 			for _, fn in ipairs(M.subscribers) do
 				fn(client, ev.buf)
 			end
 		end,
 	})
+
+	-- Some servers (tsserver/vtsls, denols, eslint, …) announce capabilities
+	-- like codeLens or inlayHint *after* the initial handshake via
+	-- `client/registerCapability`. Re-apply the capability-gated side-effects
+	-- so those features aren't silently missed.
+	--
+	-- Reload-safe: if the currently-installed handler is the one we wrapped
+	-- last time, don't wrap it again (avoids stacked wrappers on reload).
+	if vim.lsp.handlers["client/registerCapability"] ~= register_capability_handler then
+		local default_register = vim.lsp.handlers["client/registerCapability"]
+		register_capability_handler = function(err, res, ctx)
+			local ret = default_register(err, res, ctx)
+			local client = vim.lsp.get_client_by_id(ctx.client_id)
+			if client then
+				for buf in pairs(client.attached_buffers) do
+					apply_capabilities(client, buf)
+				end
+			end
+			return ret
+		end
+		vim.lsp.handlers["client/registerCapability"] = register_capability_handler
+	end
 end
 
 return M

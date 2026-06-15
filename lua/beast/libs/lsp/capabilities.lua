@@ -7,9 +7,9 @@
 
 local M = {}
 
----@alias Beast.LSP.CapabilitiesContrib table|fun(): table
+---@alias Beast.Lsp.CapabilitiesContrib table|fun(): table
 
----@type Beast.LSP.CapabilitiesContrib[]
+---@type Beast.Lsp.CapabilitiesContrib[]
 M.contributors = {}
 
 ---Set true by the dispatcher on the first LspAttach. Used by `M.add` to
@@ -25,7 +25,7 @@ end
 
 ---Register a capabilities contribution. Accepts a table or a function
 ---returning a table. Functions are evaluated each time `get()` runs.
----@param contrib Beast.LSP.CapabilitiesContrib
+---@param contrib Beast.Lsp.CapabilitiesContrib
 function M.add(contrib)
 	table.insert(M.contributors, contrib)
 	if M.first_client_seen then
