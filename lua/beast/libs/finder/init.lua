@@ -162,6 +162,7 @@ function M.open(source, opts)
 	end
 	---@type Beast.Finder.Query
 	query = Query(source, opts)
+  M.query = query
 end
 
 return M

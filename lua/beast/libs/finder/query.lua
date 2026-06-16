@@ -31,7 +31,7 @@ local ui = require("beast.libs.finder.ui")
 ---@field input_view Beast.Finder.InputView
 ---@field list_view Beast.Finder.ListView
 ---@field preview_view Beast.Finder.PreviewView|nil
----@field _backdrop_win integer
+---@field _backdrop_win? integer
 ---@field source Beast.Finder.Source
 ---@field _preview boolean -- whether to show preview window
 ---@field highlight_preview boolean -- true for stream sources (grep) — highlights pattern in preview
@@ -134,11 +134,6 @@ function M:close()
 	end
 	render.cleanup(self)
 	ui.input.stop_spinner(self.input_view)
-	if self.input_view._timer then
-		self.input_view._timer:stop()
-		self.input_view._timer:close()
-		self.input_view._timer = nil
-	end
 	if self.preview_view then
 		self.preview_view:close()
 	end
