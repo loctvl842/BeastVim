@@ -38,6 +38,7 @@ local ui = require("beast.libs.finder.ui")
 ---@field _augroup integer
 ---@field _on_preview? fun(item: Beast.Finder.Item)
 ---@field _on_close? fun()
+---@field _closed? boolean -- guards against double-close (stale picker re-closed on next open)
 local M = setmetatable({}, {
 	__call = function(t, ...)
 		return t:new(...)
@@ -113,6 +114,15 @@ function M:new(source_name, opts)
 end
 
 function M:close()
+	-- Idempotent: the module-level picker may be closed once on selection
+	-- (keymaps/WinEnter) and then re-closed by the next M.open. Re-running the
+	-- focus restore would steal the cursor from the user's current window
+	-- before find_normal() captures it.
+	if self._closed then
+		return
+	end
+	self._closed = true
+
 	if self._on_close then
 		self._on_close()
 	end

@@ -15,8 +15,11 @@ function M.wo(win, k, v)
 end
 
 --- Find the most recent normal (non-beast-UI) window.
---- Tries the alternate window first, then the current window, then all
---- non-floating windows in the current tabpage.
+--- Prioritizes the current window (the one holding the cursor), then the
+--- alternate window, then all non-floating windows in the current tabpage.
+--- Callers capture this before opening a beast float, so the current window
+--- is reliably the cursor's window — unlike winnr("#"), which flip-flops as
+--- floats open and close.
 ---@return integer? win  A valid window id, or nil if none found
 function M.find_normal()
 	local function is_normal(win)
@@ -32,16 +35,16 @@ function M.find_normal()
 		return not ft:find("^beast%-")
 	end
 
-	-- 1. Alternate window (winnr("#")) — the window you were in before
-	local alt = vim.fn.win_getid(vim.fn.winnr("#"))
-	if alt ~= 0 and is_normal(alt) then
-		return alt
-	end
-
-	-- 2. Current window
+	-- 1. Current window (winnr(".")) — the window the cursor is in
 	local cur = vim.api.nvim_get_current_win()
 	if is_normal(cur) then
 		return cur
+	end
+
+	-- 2. Alternate window (winnr("#")) — the window you were in before
+	local alt = vim.fn.win_getid(vim.fn.winnr("#"))
+	if alt ~= 0 and is_normal(alt) then
+		return alt
 	end
 
 	-- 3. Scan all windows in current tabpage
