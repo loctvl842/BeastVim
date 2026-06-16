@@ -22,8 +22,8 @@ function M.get()
 		-- Preview
 		PreviewBorder = { fg = p.dimmed3, bg = p.dark1 },
 		PreviewTitle = { bg = p.dark1, fg = p.accent3, bold = true },
-		PreviewMatch = { bg = Util.colors.blend(p.text, 0.15, p.dark1), bold = true, underline = true },
-		PreviewCurrentMatch = { reverse = true, bold = true },
+		PreviewMatch = { bg = Util.colors.blend(p.accent4, 0.1, p.dark1), bold = true, underline = true },
+		PreviewCurrentMatch = { bg = Util.colors.blend(p.accent4, 0.25, p.dark1), bold = true },
 	})
 end
 
