@@ -11,18 +11,22 @@ M.args = {}
 -- Maximum results to collect before stopping the process
 local RESULT_LIMIT = 10000
 
--- Whether the active command uses NUL byte as filename separator
-local use_nul_sep = false
+-- Output parser for the active command: "ug" (custom --format) or "rg" (--json)
+local parse_mode = "ug"
 
 ---@param text string search query
 ---@param cwd string
 local function ensure_cmd(text, cwd)
 	if vim.fn.executable("ug") == 1 then
 		M.cmd = "ug"
-		use_nul_sep = false
+		parse_mode = "ug"
+		-- %d (match byte-length) prefixes %o (matched text) so we can split it
+		-- off the front of %O (full line) without a delimiter that could collide
+		-- with line content. The matched literal lets the preview highlight the
+		-- exact text grep matched, even for regex/escaped queries like `require\(`.
 		M.args = {
 			"-r",
-			"--format=%f:%n:%k:%O%~",
+			"--format=%f:%n:%k:%d:%o%O%~",
 			"--color=never",
 			"--smart-case",
 			"--hidden",
@@ -34,19 +38,15 @@ local function ensure_cmd(text, cwd)
 		}
 	elseif vim.fn.executable("rg") == 1 then
 		M.cmd = "rg"
-		use_nul_sep = true
+		parse_mode = "rg"
+		-- --json reports submatch byte offsets and the matched text, so the
+		-- preview can highlight exactly what rg matched (same as ug) — no need
+		-- to re-derive the literal from a regex query.
 		M.args = {
-			"--color=never",
-			"--no-heading",
-			"--with-filename",
-			"--line-number",
-			"--column",
+			"--json",
 			"--smart-case",
 			"--hidden",
-			"--max-columns=500",
-			"--max-columns-preview",
 			"--glob=!.git",
-			"-0",
 			"--",
 			text,
 			cwd,
@@ -83,27 +83,62 @@ local function make_abs(cwd, path)
 	return cwd_prefix .. path
 end
 
---- Parse a grep output line
---- With NUL sep (rg -0): file\0line:col:text
---- Without (ug/rg default): file:line:col:text
+--- Parse a grep output line into zero or more match records.
+--- A record is `{ file, lnum, col (0-based byte), text (full line), match_text }`.
+--- ug emits one match per output line; rg --json emits one object per matching
+--- line that may contain several submatches (one record each).
+---@param line string
+---@return { file: string, lnum: integer, col: integer, text: string, match_text: string? }[]
 local function parse_line(line)
-	if use_nul_sep then
-		local nul = line:find("\0")
-		if not nul then
-			return nil
+	if parse_mode == "rg" then
+		local ok, obj = pcall(vim.json.decode, line)
+		if not ok or type(obj) ~= "table" or obj.type ~= "match" then
+			return {}
 		end
-		local file = line:sub(1, nul - 1)
-		local lnum, col, text = line:sub(nul + 1):match("^(%d+):(%d+):(.*)$")
-		if not lnum then
-			return nil
+		local data = obj.data
+		-- Non-UTF-8 content is reported as base64 `bytes` with no `text`; skip it.
+		if not data or not data.lines or not data.lines.text or not data.path then
+			return {}
 		end
-		return file, tonumber(lnum), tonumber(col) - 1, text
+		local file = data.path.text
+		local lnum = data.line_number
+		if not file or not lnum then
+			return {}
+		end
+		local text = data.lines.text:gsub("[\r\n]+$", "")
+		local records = {}
+		for _, sm in ipairs(data.submatches or {}) do
+			local match_text = sm.match and sm.match.text
+			if not match_text and sm.start and sm["end"] then
+				match_text = text:sub(sm.start + 1, sm["end"])
+			end
+			records[#records + 1] = {
+				file = file,
+				lnum = lnum,
+				col = sm.start or 0,
+				text = text,
+				match_text = match_text,
+			}
+		end
+		return records
 	end
-	local file, lnum, col, text = line:match("^(.+):(%d+):(%d+):(.*)$")
+
+	-- ug: file:line:col:matchlen:<matched_text><line_text>
+	local file, lnum, col, mlen, rest = line:match("^(.+):(%d+):(%d+):(%d+):(.*)$")
 	if not file then
-		return nil
+		return {}
 	end
-	return file, tonumber(lnum), tonumber(col) - 1, text
+	mlen = tonumber(mlen)
+	-- `rest` is the matched text (mlen bytes) prepended to the full line text.
+	return {
+		{
+			file = file,
+			lnum = tonumber(lnum),
+			col = tonumber(col) - 1,
+			text = rest:sub(mlen + 1),
+			match_text = rest:sub(1, mlen),
+		},
+	}
 end
 
 ---@type uv.uv_process_t|nil
@@ -173,20 +208,22 @@ function M.get(filter, cb)
 			local line = vim.trim(prev)
 			prev = ""
 			if line ~= "" then
-				local file, lnum, col, text = parse_line(line)
-				if file and idx < RESULT_LIMIT then
-					idx = idx + 1
-					local abs = make_abs(cwd, file)
-					local rel = make_rel(cwd, abs)
-					cb({
-						idx = idx,
-						score = 0,
-						text = rel .. ":" .. lnum .. ": " .. text,
-						file = abs,
-						pos = { lnum, col },
-						cwd = cwd,
-						grep_text = text,
-					})
+				for _, rec in ipairs(parse_line(line)) do
+					if idx < RESULT_LIMIT then
+						idx = idx + 1
+						local abs = make_abs(cwd, rec.file)
+						local rel = make_rel(cwd, abs)
+						cb({
+							idx = idx,
+							score = 0,
+							text = rel .. ":" .. rec.lnum .. ": " .. rec.text,
+							file = abs,
+							pos = { rec.lnum, rec.col },
+							cwd = cwd,
+							grep_text = rec.text,
+							match_text = rec.match_text,
+						})
+					end
 				end
 			end
 		end
@@ -230,8 +267,7 @@ function M.get(filter, cb)
 			end
 
 			if line ~= "" then
-				local file, lnum, col, text = parse_line(line)
-				if file then
+				for _, rec in ipairs(parse_line(line)) do
 					idx = idx + 1
 					if idx > RESULT_LIMIT then
 						completed = true
@@ -244,16 +280,17 @@ function M.get(filter, cb)
 						end)
 						return
 					end
-					local abs = make_abs(cwd, file)
+					local abs = make_abs(cwd, rec.file)
 					local rel = make_rel(cwd, abs)
 					batch[#batch + 1] = {
 						idx = idx,
 						score = 0,
-						text = rel .. ":" .. lnum .. ": " .. text,
+						text = rel .. ":" .. rec.lnum .. ": " .. rec.text,
 						file = abs,
-						pos = { lnum, col },
+						pos = { rec.lnum, rec.col },
 						cwd = cwd,
-						grep_text = text,
+						grep_text = rec.text,
+						match_text = rec.match_text,
 					}
 				end
 			end

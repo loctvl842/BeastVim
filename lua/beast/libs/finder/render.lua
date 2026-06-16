@@ -28,7 +28,7 @@ function M.schedule_preview(query)
 
 					-- Apply match highlights on preview for stream sources (grep)
 					if query.highlight_preview and query.preview_view:is_valid() and query.filter.pattern ~= "" then
-						match_hl.apply_preview(query.preview_view.buf, query.filter.pattern, item.pos)
+						match_hl.apply_preview(query.preview_view.buf, item.match_text, item.pos)
 						vim.cmd("redraw")
 					end
 

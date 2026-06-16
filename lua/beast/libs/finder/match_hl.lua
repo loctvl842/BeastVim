@@ -59,31 +59,6 @@ local function positions_to_ranges(positions)
 	return ranges
 end
 
---- Extract highlightable terms from a pattern string.
----@param pattern string
----@return string[]
-local function extract_terms(pattern)
-	local terms = {}
-	for term in pattern:gmatch("%S+") do
-		if term:sub(1, 1) == "!" then
-			-- skip inverse
-		elseif term:sub(1, 1) == "'" then
-			terms[#terms + 1] = term:sub(2)
-		elseif term:sub(1, 1) == "^" then
-			terms[#terms + 1] = term:sub(2)
-		elseif term:sub(-1) == "$" then
-			terms[#terms + 1] = term:sub(1, -2)
-		else
-			for part in term:gmatch("[^|]+") do
-				if part ~= "" then
-					terms[#terms + 1] = part
-				end
-			end
-		end
-	end
-	return terms
-end
-
 --- Compute {buf_row → ranges} for the visible item slice. Mirrors the
 --- offset arithmetic of the old `apply_list` body verbatim.
 ---@param items Beast.Finder.Item[]
@@ -238,33 +213,27 @@ function M.apply_list(buf, items, format_fn, from, to)
 	list_state[buf] = { ranges_by_row = compute_list_ranges(items, format_fn, from, to) }
 end
 
---- Apply substring match highlights to preview buffer.
---- Terms are extracted from the query pattern; matching is plain + case-insensitive.
---- When `current_pos` is provided ({lnum, col}; lnum 1-based, col 0-based byte),
---- the match covering that column on that row uses `BeastFinderPreviewCurrentMatch`.
+--- Apply substring match highlights to the preview buffer.
+--- `match_text` is the exact literal grep reported it matched for the selected
+--- item, so highlighting works for regex/escaped queries (e.g. `require\(`
+--- matches `require(`) without re-deriving anything from the raw query.
+--- Every case-insensitive occurrence of the literal on visible lines is
+--- highlighted; when `current_pos` ({lnum, col}; lnum 1-based, col 0-based byte)
+--- is provided, the match covering that column uses `BeastFinderPreviewCurrentMatch`.
 ---@param buf integer buffer handle
----@param query string current search query
+---@param match_text? string literal text grep matched for the selected item
 ---@param current_pos? integer[]  {lnum, col} of the currently selected match
-function M.apply_preview(buf, query, current_pos)
+function M.apply_preview(buf, match_text, current_pos)
 	install_provider()
 	-- Always clear the previous current-match mark first.
 	pcall(vim.api.nvim_buf_clear_namespace, buf, CURRENT_NS, 0, -1)
 
-	if not query or query == "" then
+	if not match_text or match_text == "" then
 		preview_state[buf] = nil
 		return
 	end
 
-	local terms = extract_terms(query)
-	if #terms == 0 then
-		preview_state[buf] = nil
-		return
-	end
-
-	local lowered = {}
-	for i = 1, #terms do
-		lowered[i] = terms[i]:lower()
-	end
+	local lowered = { match_text:lower() }
 	preview_state[buf] = { terms = lowered }
 
 	-- Stamp a persistent extmark over the match covering current_pos so that

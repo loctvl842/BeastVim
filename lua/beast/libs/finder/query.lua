@@ -18,6 +18,7 @@ local ui = require("beast.libs.finder.ui")
 ---@field pos? {[1]: number, [2]: number}
 ---@field end_pos? {[1]: number, [2]: number}
 ---@field grep_text? string
+---@field match_text? string  literal text grep actually matched (for preview highlight)
 ---@field help_tag? string
 ---@field is_readme? boolean
 ---@field _lower? string cached lowercased text for matcher
