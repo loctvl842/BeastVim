@@ -13,7 +13,7 @@ local defaults = {
 	-- conditional, loop, …) of the node under the cursor once their header
 	-- scrolls out of view. Cursor mode only; no separator.
 	context = {
-		enable = false,
+		enable = true,
 		-- Keep a context overlay in every eligible split simultaneously, so it
 		-- persists in unfocused windows. Set false to only show it in the
 		-- currently focused window.
