@@ -31,6 +31,23 @@ function M.check()
 	health.info(string.format("highlight.enable = %s", tostring(config.highlight.enable)))
 	health.info(string.format("fold.enable = %s", tostring(config.fold.enable)))
 
+	-- Sticky context
+	health.info(string.format("context.enable = %s", tostring(config.context.enable)))
+	local ctx = package.loaded["beast.libs.treesitter.context"]
+	if ctx and ctx.enabled then
+		health.ok("Sticky context enabled")
+	elseif config.context.enable then
+		health.warn("Sticky context configured but not yet enabled (enables on first treesitter activation)")
+	else
+		health.info("Sticky context disabled")
+	end
+	local langs = require("beast.libs.treesitter.context.query").languages()
+	if #langs == 0 then
+		health.info("No context query files installed yet (downloaded on demand per language)")
+	else
+		health.info(string.format("Context queries installed for %d languages: %s", #langs, table.concat(langs, ", ")))
+	end
+
 	-- Check ensure_installed parsers
 	local ensure = config.ensure_installed
 	if #ensure == 0 then

@@ -7,6 +7,10 @@ local M = {}
 local QUERY_FILES = { "highlights.scm", "folds.scm", "indents.scm", "injections.scm", "locals.scm" }
 local NVIM_TS_QUERY_BASE = "https://raw.githubusercontent.com/nvim-treesitter/nvim-treesitter/main/runtime/queries"
 
+--- Sticky-context queries live in a separate repo (nvim-treesitter-context), not
+--- in nvim-treesitter, so they are fetched from their own base URL.
+local NVIM_TS_CONTEXT_QUERY_BASE = "https://raw.githubusercontent.com/nvim-treesitter/nvim-treesitter-context/master/queries"
+
 --- Default parser install directory (prepended to runtimepath).
 ---@return string
 function M.get_install_dir()
@@ -33,8 +37,98 @@ local function async_cmd(cmd, opts, on_done)
 	end)
 end
 
+--- Download a single query file, cleaning up empty/failed results (e.g. a 404
+--- for a language that has no such query upstream) so the install dir never
+--- shadows a builtin query with an empty file. `on_done(ok)` reports whether a
+--- non-empty file now exists at `target`.
+---@param url string
+---@param target string
+---@param on_done fun(ok: boolean)
+local function download_query(url, target, on_done)
+	async_cmd({ "curl", "--silent", "--fail", "-L", url, "--output", target }, nil, function(ok)
+		local st = uv.fs_stat(target)
+		if not ok or not st or st.size == 0 then
+			pcall(uv.fs_unlink, target)
+			on_done(false)
+			return
+		end
+		on_done(true)
+	end)
+end
+
+--- Download the sticky-context query for a single language into the install
+--- dir's `queries/<lang>/context.scm`. `on_done(ok)` reports whether a non-empty
+--- file now exists.
+---@param lang string
+---@param on_done? fun(ok: boolean)
+function M.install_context_query(lang, on_done)
+	on_done = on_done or function() end
+	local query_dst = fs.joinpath(M.get_install_dir(), "queries", lang)
+	vim.fn.mkdir(query_dst, "p")
+	download_query(string.format("%s/%s/context.scm", NVIM_TS_CONTEXT_QUERY_BASE, lang), fs.joinpath(query_dst, "context.scm"), on_done)
+end
+
+-- Languages whose query set has already been ensured this session, so we only
+-- probe/download once per language.
+---@type table<string, true>
+local ensured = {}
+
+--- Ensure the full upstream query set (highlights/folds/indents/injections/
+--- locals + context) exists in the install dir for `lang`, downloading any
+--- missing files from nvim-treesitter. This lets beast use the richer upstream
+--- queries instead of Neovim's bundled subset, even for parsers Neovim ships
+--- built-in (where the per-parser install path never runs). `on_done(changed)`
+--- reports whether any new file was written, so callers can refresh consumers.
+---@param lang string
+---@param on_done? fun(changed: boolean)
+function M.ensure_queries(lang, on_done)
+	on_done = on_done or function() end
+	if ensured[lang] then
+		on_done(false)
+		return
+	end
+	ensured[lang] = true
+
+	local query_dst = fs.joinpath(M.get_install_dir(), "queries", lang)
+
+	-- Collect the files that are not already present.
+	local pending = {} ---@type { url: string, target: string }[]
+	for _, filename in ipairs(QUERY_FILES) do
+		local target = fs.joinpath(query_dst, filename)
+		if vim.fn.filereadable(target) ~= 1 then
+			pending[#pending + 1] = { url = string.format("%s/%s/%s", NVIM_TS_QUERY_BASE, lang, filename), target = target }
+		end
+	end
+	local need_context = vim.fn.filereadable(fs.joinpath(query_dst, "context.scm")) ~= 1
+
+	if #pending == 0 and not need_context then
+		on_done(false)
+		return
+	end
+
+	vim.fn.mkdir(query_dst, "p")
+
+	local changed = false
+	local remaining = #pending + (need_context and 1 or 0)
+	local function tick(ok)
+		changed = changed or ok
+		remaining = remaining - 1
+		if remaining == 0 then
+			on_done(changed)
+		end
+	end
+
+	for _, item in ipairs(pending) do
+		download_query(item.url, item.target, tick)
+	end
+	if need_context then
+		M.install_context_query(lang, tick)
+	end
+end
+
 --- Download comprehensive query files from nvim-treesitter, falling back to grammar repo queries.
---- Downloads all QUERY_FILES in parallel; when all finish, calls on_done.
+--- Downloads all QUERY_FILES (plus the sticky-context query) in parallel; when
+--- all finish, calls on_done.
 ---@param lang string
 ---@param compile_dir string Path to the extracted grammar source (has queries/ subdir)
 ---@param on_done fun()
@@ -50,18 +144,24 @@ local function install_queries(lang, compile_dir, on_done)
 		end
 	end
 
-	-- Then overlay with nvim-treesitter's more comprehensive queries (parallel downloads)
-	local remaining = #QUERY_FILES
+	-- Then overlay with nvim-treesitter's more comprehensive queries plus the
+	-- sticky-context query (parallel downloads).
+	local remaining = #QUERY_FILES + 1
+	local function tick()
+		remaining = remaining - 1
+		if remaining == 0 then
+			-- Mark ensured so a later ensure_queries() call is a no-op.
+			ensured[lang] = true
+			on_done()
+		end
+	end
+
 	for _, filename in ipairs(QUERY_FILES) do
 		local url = string.format("%s/%s/%s", NVIM_TS_QUERY_BASE, lang, filename)
 		local target = fs.joinpath(query_dst, filename)
-		async_cmd({ "curl", "--silent", "--fail", "-L", url, "--output", target }, nil, function()
-			remaining = remaining - 1
-			if remaining == 0 then
-				on_done()
-			end
-		end)
+		download_query(url, target, tick)
 	end
+	M.install_context_query(lang, tick)
 end
 
 --- Install a parser for a language from a GitHub URL.

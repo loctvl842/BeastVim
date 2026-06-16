@@ -39,6 +39,7 @@ Each runs in `nvim --clean --headless -l <file>`, stubs out the parts of BeastVi
 | `bench-statusline.lua` | `beast.libs.statusline` | full-bar render p50 | **< 1000 µs** (warn: 50 µs) | compares against lualine if installed |
 | `bench-tabline.lua` | `beast.libs.tabline` | full-bar render p50 | **< 1000 µs** (warn: 50 µs) | compares against bufferline if installed |
 | `bench-key-hint.lua` | `beast.libs.key.hint` | `hint_open` p50 + `index_build` p50 | open **< 5 ms**, index **< 500 µs** | trigger → window-visible proxy |
+| `bench-context.lua` | `beast.libs.treesitter.context` | single-window refresh p50 (get + full render) | **< 2000 µs** (warn: 800 µs) | sticky-context cost per `WinScrolled`/`CursorMoved` (throttled ≤2×/150ms); also reports no-change render + multiwindow tick |
 
 ### End-to-end benches (real wezterm pane, real keystrokes)
 

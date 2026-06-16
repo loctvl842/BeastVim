@@ -35,6 +35,7 @@ M.highlight_modules = {
 	"beast.libs.toast.highlights",
 	"beast.libs.indent.highlights",
 	"beast.libs.treesitter.highlights",
+	"beast.libs.treesitter.context.highlights",
 }
 
 --- Highlight modules that are only needed for builtin colorschemes

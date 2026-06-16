@@ -116,6 +116,32 @@ start_buf = function(buf)
 	end
 
 	started[buf] = true
+
+	-- Pull the richer upstream query set (highlights/injections/indents/locals
+	-- + context) into the install dir, even for parsers Neovim ships built-in.
+	-- When new files land, bust Neovim's treesitter query cache (via an rtp
+	-- touch — see its `OptionSet runtimepath` handler) and restart highlighting
+	-- so the upstream queries replace the cached builtin ones immediately.
+	require("beast.libs.treesitter.install").ensure_queries(lang, function(changed)
+		-- stylua: ignore
+		if not changed then return end
+		vim.schedule(function()
+			pcall(vim.api.nvim_set_option_value, "runtimepath", vim.o.runtimepath, {})
+			for b in pairs(started) do
+				if vim.api.nvim_buf_is_valid(b) and get_lang(b) == lang then
+					pcall(vim.treesitter.stop, b)
+					if config.highlight.enable then
+						pcall(vim.treesitter.start, b, lang)
+					end
+				end
+			end
+			if package.loaded["beast.libs.treesitter.context"] then
+				pcall(function()
+					require("beast.libs.treesitter.context").refresh()
+				end)
+			end
+		end)
+	end)
 end
 
 -- =============================================================================
@@ -125,6 +151,7 @@ end
 function M.setup(opts)
 	config.setup(opts)
 	require("beast").apply_highlights("beast.libs.treesitter.highlights")
+	require("beast").apply_highlights("beast.libs.treesitter.context.highlights")
 end
 
 function M.enable()
@@ -155,6 +182,10 @@ function M.enable()
 			start_buf(buf)
 		end
 	end
+
+	if config.context.enable then
+		require("beast.libs.treesitter.context").enable()
+	end
 end
 
 function M.disable()
@@ -165,6 +196,10 @@ function M.disable()
 	if augroup then
 		vim.api.nvim_del_augroup_by_id(augroup)
 		augroup = nil
+	end
+
+	if package.loaded["beast.libs.treesitter.context"] then
+		require("beast.libs.treesitter.context").disable()
 	end
 
 	-- Stop treesitter on all tracked buffers
