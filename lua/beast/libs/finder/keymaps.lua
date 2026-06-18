@@ -13,7 +13,7 @@ local function move_cursor(query, delta)
 	ui.list.move(query.list_view, delta)
 	-- Re-apply match highlights when viewport scrolled to new rows
 	if query.list_view._offset ~= old_offset and not query.highlight_preview and query.list_view:is_valid() then
-		local format_fn = require("beast.libs.finder.format")[query.source] or require("beast.libs.finder.format").filename
+		local format_fn = require("beast.libs.finder.format")[query.source.name] or require("beast.libs.finder.format").filename
 		local from, to = ui.list.visible_range(query.list_view)
 		match_hl.apply_list(query.list_view.buf, query.matched, format_fn, from, to)
 	end

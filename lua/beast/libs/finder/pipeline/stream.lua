@@ -1,7 +1,6 @@
 --- Stream pipeline: re-run external command on each keystroke, results are pre-filtered.
 --- Used by: live_grep.
 local render = require("beast.libs.finder.render")
-local source_registry = require("beast.libs.finder.source")
 local ui = require("beast.libs.finder.ui")
 
 local uv = vim.uv or vim.loop
@@ -44,7 +43,7 @@ end
 --- Kills previous subprocess, clears state, starts new subprocess with adaptive render polling.
 ---@param query Beast.Finder.Query
 function M.reload(query)
-	local source = source_registry[query.source]
+	local source = query.source
 	-- stylua: ignore
 	if not source then return end
 
@@ -128,7 +127,7 @@ function M.abort(query)
 			s.render_check:close()
 		end
 	end
-	local source = source_registry[query.source]
+	local source = query.source
 	if source and source.cancel then
 		source.cancel()
 	end

@@ -32,7 +32,7 @@ local ui = require("beast.libs.finder.ui")
 ---@field list_view Beast.Finder.ListView
 ---@field preview_view Beast.Finder.PreviewView|nil
 ---@field _backdrop_win? integer
----@field source Beast.Finder.Source
+---@field source Beast.Finder.ASource
 ---@field _preview boolean -- whether to show preview window
 ---@field highlight_preview boolean -- true for stream sources (grep) — highlights pattern in preview
 ---@field pipeline table -- active pipeline module (match or stream)
@@ -74,7 +74,7 @@ function M:new(source_name, opts)
 		matched = {},
 		filter = Filter({ cwd = opts.cwd, lsp = opts.lsp }),
 		main_win = View.win.find_normal(),
-		source = source_name,
+		source = source,
 		_preview = has_preview,
 		highlight_preview = is_live,
 		pipeline = is_live and stream_pipeline or match_pipeline,

@@ -1,4 +1,5 @@
 ---@class Beast.Finder.ASource
+---@field name Beast.Finder.Source  registry key, injected on resolve
 ---@field live boolean
 ---@field async boolean
 ---@field get fun(filter: Beast.Finder.Filter, cb: fun(item: Beast.Finder.Item|nil))
@@ -15,6 +16,7 @@ local M = {}
 setmetatable(M, {
 	__index = function(_, k)
 		local mod = require("beast.libs.finder.source." .. k)
+		mod.name = k
 		return mod
 	end,
 })

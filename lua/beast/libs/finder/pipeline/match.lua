@@ -4,7 +4,6 @@ local async = require("beast.libs.async")
 local config = require("beast.libs.finder.config")
 local matcher = require("beast.libs.finder.matcher")
 local render = require("beast.libs.finder.render")
-local source_registry = require("beast.libs.finder.source")
 local ui = require("beast.libs.finder.ui")
 
 local M = {}
@@ -41,9 +40,9 @@ end
 --- Load items from the source (sync or async), then score.
 ---@param query Beast.Finder.Query
 function M.load(query)
-	local source = source_registry[query.source]
+	local source = query.source
 	if not source then
-		vim.notify("beast.libs.finder: unknown source '" .. query.source .. "'", vim.log.levels.ERROR)
+		vim.notify("beast.libs.finder: query has no source", vim.log.levels.ERROR)
 		return
 	end
 

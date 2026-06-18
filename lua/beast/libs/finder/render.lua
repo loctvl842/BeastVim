@@ -68,7 +68,7 @@ end
 --- Format items → write to list buffer → apply match highlights → trigger preview → redraw.
 ---@param query Beast.Finder.Query
 function M.render(query)
-	local raw_format = format[query.source] or format.filename
+	local raw_format = format[query.source.name] or format.filename
 	-- Wrap format function to pass available width for path trimming
 	local list_width = query.list_view:is_valid() and vim.api.nvim_win_get_width(query.list_view.win) or 80
 	local format_fn = function(item)
