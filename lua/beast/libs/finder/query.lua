@@ -34,7 +34,6 @@ M.__index = M
 -- ---------------------------------------------------------------------------
 ---@class Beast.Finder.QueryOpts
 ---@field cwd? string
----@field lsp? {results: Beast.Finder.Item[], symbol?: string} pre-fetched LSP results
 
 ---@param source Beast.Finder.ASource
 ---@param opts? Beast.Finder.QueryOpts
@@ -47,7 +46,7 @@ function M:new(source, opts)
 	local query = setmetatable({
 		items = {},
 		matched = {},
-		filter = Filter({ cwd = opts.cwd, lsp = opts.lsp }),
+		filter = Filter({ cwd = opts.cwd }),
 		source = source,
 		highlight_preview = is_live,
 	}, self)

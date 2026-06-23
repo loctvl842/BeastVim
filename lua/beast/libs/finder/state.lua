@@ -42,7 +42,7 @@ function M:new(source_name, opts)
 	end
 	opts = opts or {}
 	local source = source_registry[source_name]
-	local query = Query(source, { cwd = opts.cwd, lsp = opts.lsp })
+	local query = Query(source, { cwd = opts.cwd })
 	local is_live = source.live
 	---@type Beast.Finder.Pipeline.Match|Beast.Finder.Pipeline.Stream
 	local pipeline = is_live and pipeline_registry.stream or pipeline_registry.match

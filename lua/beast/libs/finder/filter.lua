@@ -4,7 +4,6 @@
 ---@field cwd string normalized working directory
 ---@field cur_win integer current window
 ---@field buf? number restrict to buffer
----@field lsp? {results: Beast.Finder.Item[], symbol?: string} pre-fetched LSP results
 local M = setmetatable({}, {
 	__call = function(t, ...)
 		return t:new(...)
@@ -12,7 +11,7 @@ local M = setmetatable({}, {
 })
 M.__index = M
 
----@param opts? {cwd?: string, buf?: number, search?: string, lsp?: {results: Beast.Finder.Item[], symbol?: string}}
+---@param opts? {cwd?: string, buf?: number, search?: string}
 ---@return Beast.Finder.Filter
 function M:new(opts)
 	opts = opts or {}
@@ -22,7 +21,6 @@ function M:new(opts)
 		cwd = opts.cwd or Util.root(),
 		cur_win = vim.api.nvim_get_current_win(),
 		buf = opts.buf,
-		lsp = opts.lsp,
 	}, self)
 end
 

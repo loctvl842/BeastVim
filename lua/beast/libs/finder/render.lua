@@ -35,7 +35,7 @@ function M.schedule_preview(state)
 					-- LSP sources: highlight the EXACT range the server returned
 					-- for this reference (not a substring of the symbol — that
 					-- false-matches inside `module`, `modify`, etc.).
-					if state.query.filter and state.query.filter.lsp and state.view.preview:is_valid() then
+					if state.query.source.name:match("^lsp_") and state.view.preview:is_valid() then
 						match_hl.apply_lsp_range(state.view.preview.buf, item.pos, item.end_pos)
 						vim.cmd("redraw")
 					end
