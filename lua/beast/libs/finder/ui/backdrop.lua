@@ -1,8 +1,10 @@
 ---@class Beast.Finder.UI.Backdrop
 local M = {}
 
+---@class Beast.Finder.BackdropView : Beast.View.Instance
+local BackdropView = View:extend()
+
 ---@param backdrop integer?
----@return integer? win handle of the backdrop window, or nil if disabled
 function M.create(backdrop)
 	local buf = View.buf.new("beast-finder-backdrop")
 
@@ -20,14 +22,7 @@ function M.create(backdrop)
 	View.win.wo(win, "winhl", "Normal:BeastFinderBackdrop")
 	View.win.wo(win, "winblend", backdrop or 60)
 
-	return win
-end
-
----@param win integer|nil backdrop window handle
-function M.close(win)
-	if win and vim.api.nvim_win_is_valid(win) then
-		vim.api.nvim_win_close(win, true)
-	end
+	return BackdropView(buf, win)
 end
 
 return M

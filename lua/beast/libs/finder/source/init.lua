@@ -2,7 +2,8 @@
 ---@field name Beast.Finder.Source  registry key, injected on resolve
 ---@field live boolean
 ---@field async boolean
----@field get fun(filter: Beast.Finder.Filter, cb: fun(item: Beast.Finder.Item|nil))
+---@field auto_select boolean  Jump to the item immediately if it's the only one
+---@field get fun(filter: Beast.Finder.Filter, cb?: fun(item: Beast.Finder.Item|nil))
 ---@field cmd? string
 ---@field args? string[]
 ---@field cancel? fun()

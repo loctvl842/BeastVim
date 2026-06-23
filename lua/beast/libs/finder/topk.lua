@@ -9,6 +9,7 @@
 ---@field _data Beast.Finder.Item[]
 ---@field _size integer
 ---@field _capacity integer
+---@overload fun(capacity: integer): Beast.Finder.TopK
 local M = setmetatable({}, {
 	__call = function(t, ...)
 		return t:new(...)

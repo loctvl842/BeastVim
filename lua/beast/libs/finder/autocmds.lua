@@ -30,67 +30,67 @@ local function restore_cursor()
 	cursor_hidden = false
 end
 
----@param query Beast.Finder.Query
-function M.mount(query)
+---@param state Beast.Finder.State
+function M.mount(state)
 	-- Autocmds augroup for picker lifetime
-	query._augroup = vim.api.nvim_create_augroup("BeastFinderPicker", { clear = true })
+	state.augroup = vim.api.nvim_create_augroup("BeastFinderPicker", { clear = true })
 	-- Hide cursor when entering the list buffer
 	vim.api.nvim_create_autocmd("BufEnter", {
-		group = query._augroup,
-		buffer = query.list_view.buf,
+		group = state.augroup,
+		buffer = state.view.list.buf,
 		callback = hide_cursor,
 	})
 	-- Restore cursor when leaving the list buffer
 	vim.api.nvim_create_autocmd("BufLeave", {
-		group = query._augroup,
-		buffer = query.list_view.buf,
+		group = state.augroup,
+		buffer = state.view.list.buf,
 		callback = restore_cursor,
 	})
 
 	-- Sync view.cursor when user moves cursor natively in the list window
 	vim.api.nvim_create_autocmd("CursorMoved", {
-		group = query._augroup,
-		buffer = query.list_view.buf,
+		group = state.augroup,
+		buffer = state.view.list.buf,
 		callback = function()
 			-- stylua: ignore
-			if not query.list_view:is_valid() then return end
-			local buf_row = vim.api.nvim_win_get_cursor(query.list_view.win)[1]
+			if not state.view.list:is_valid() then return end
+			local buf_row = vim.api.nvim_win_get_cursor(state.view.list.win)[1]
 			-- Translate buffer row to item index (virtual rendering offset)
-			local item_idx = query.list_view._offset + buf_row
-			if item_idx ~= query.list_view.cursor then
-				ui.list.set_cursor(query.list_view, item_idx)
+			local item_idx = state.view.list._offset + buf_row
+			if item_idx ~= state.view.list.cursor then
+				ui.list.set_cursor(state.view.list, item_idx)
 				vim.cmd("redraw")
-				render.schedule_preview(query)
+				render.schedule_preview(state)
 			end
 		end,
 	})
 
 	-- Relayout on terminal resize
 	vim.api.nvim_create_autocmd("VimResized", {
-		group = query._augroup,
+		group = state.augroup,
 		callback = function()
-			query:relayout()
+			state:relayout()
 		end,
 	})
 
 	-- Close when focus moves to a window outside the finder
 	vim.api.nvim_create_autocmd("WinEnter", {
-		group = query._augroup,
+		group = state.augroup,
 		callback = function()
 			local current = vim.api.nvim_get_current_win()
 			local finder_wins = {
-				query.input_view.win,
-				query.list_view.win,
+				state.view.input.win,
+				state.view.list.win,
 			}
-			if query.preview_view then
-				finder_wins[#finder_wins + 1] = query.preview_view.win
+			if state.view.preview then
+				finder_wins[#finder_wins + 1] = state.view.preview.win
 			end
 			for _, w in ipairs(finder_wins) do
 				if current == w then
 					return
 				end
 			end
-			query:close()
+			state:reset()
 		end,
 	})
 end

@@ -2,6 +2,7 @@
 ---@field _data any[]
 ---@field _first number
 ---@field _last number
+---@overload fun(): Beast.Finder.Queue
 local M = setmetatable({}, {
 	__call = function(t, ...)
 		return t:new(...)

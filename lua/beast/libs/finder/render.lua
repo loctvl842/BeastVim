@@ -12,45 +12,45 @@ local M = {}
 local preview_debouncers = {}
 
 --- Debounce preview window updates — waits N ms after cursor moves before loading file content.
----@param query Beast.Finder.Query
-function M.schedule_preview(query)
-	local debounced = preview_debouncers[query]
+---@param state Beast.Finder.State
+function M.schedule_preview(state)
+	local debounced = preview_debouncers[state.query]
 	if not debounced then
 		debounced = Util.debounce(config.debounce.preview_ms, function()
 			-- stylua: ignore
-			if not query.list_view:is_valid() then return end
+			if not state.view.list:is_valid() then return end
 
-			local item = ui.list.selected(query.list_view)
+			local item = ui.list.selected(state.view.list)
 
 			if item then
-				if query.preview_view then
-					ui.preview.show(query.preview_view, item)
+				if state.view.preview then
+					ui.preview.show(state.view.preview, item)
 
 					-- Apply match highlights on preview for stream sources (grep)
-					if query.highlight_preview and query.preview_view:is_valid() and query.filter.pattern ~= "" then
-						match_hl.apply_preview(query.preview_view.buf, item.match_text, item.pos)
+					if state.query.highlight_preview and state.view.preview:is_valid() and state.query.filter.pattern ~= "" then
+						match_hl.apply_preview(state.view.preview.buf, item.match_text, item.pos)
 						vim.cmd("redraw")
 					end
 
 					-- LSP sources: highlight the EXACT range the server returned
 					-- for this reference (not a substring of the symbol — that
 					-- false-matches inside `module`, `modify`, etc.).
-					if query.filter and query.filter.lsp and query.preview_view:is_valid() then
-						match_hl.apply_lsp_range(query.preview_view.buf, item.pos, item.end_pos)
+					if state.query.filter and state.query.filter.lsp and state.view.preview:is_valid() then
+						match_hl.apply_lsp_range(state.view.preview.buf, item.pos, item.end_pos)
 						vim.cmd("redraw")
 					end
 				end
 
-				if query._on_preview then
-					query._on_preview(item)
+				if state.on_preview then
+					state.on_preview(item)
 				end
 			else
-				if query.preview_view then
-					ui.preview.clear(query.preview_view)
+				if state.view.preview then
+					ui.preview.clear(state.view.preview)
 				end
 			end
 		end)
-		preview_debouncers[query] = debounced
+		preview_debouncers[state.query] = debounced
 	end
 	debounced()
 end
@@ -66,21 +66,21 @@ function M.cleanup(query)
 end
 
 --- Format items → write to list buffer → apply match highlights → trigger preview → redraw.
----@param query Beast.Finder.Query
-function M.render(query)
-	local raw_format = format[query.source.name] or format.filename
+---@param state Beast.Finder.State
+function M.render(state)
+	local raw_format = format[state.query.source.name] or format.filename
 	-- Wrap format function to pass available width for path trimming
-	local list_width = query.list_view:is_valid() and vim.api.nvim_win_get_width(query.list_view.win) or 80
+	local list_width = state.view.list:is_valid() and vim.api.nvim_win_get_width(state.view.list.win) or 80
 	local format_fn = function(item)
 		return raw_format(item, list_width)
 	end
-	ui.list.render(query.list_view, query.matched, format_fn)
+	ui.list.render(state.view.list, state.query.matched, format_fn)
 	-- Apply fuzzy match highlights to list (match pipeline only, visible rows)
-	if not query.highlight_preview and query.list_view:is_valid() then
-		local from, to = ui.list.visible_range(query.list_view)
-		match_hl.apply_list(query.list_view.buf, query.matched, format_fn, from, to)
+	if not state.query.highlight_preview and state.view.list:is_valid() then
+		local from, to = ui.list.visible_range(state.view.list)
+		match_hl.apply_list(state.view.list.buf, state.query.matched, format_fn, from, to)
 	end
-	M.schedule_preview(query)
+	M.schedule_preview(state)
 	vim.cmd("redraw")
 end
 

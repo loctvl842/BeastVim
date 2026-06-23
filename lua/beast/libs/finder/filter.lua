@@ -2,6 +2,7 @@
 ---@field pattern string fuzzy pattern driving the matcher
 ---@field search string seed passed to live sources (e.g. grep term)
 ---@field cwd string normalized working directory
+---@field cur_win integer current window
 ---@field buf? number restrict to buffer
 ---@field lsp? {results: Beast.Finder.Item[], symbol?: string} pre-fetched LSP results
 local M = setmetatable({}, {
@@ -19,6 +20,7 @@ function M:new(opts)
 		pattern = "",
 		search = opts.search or "",
 		cwd = opts.cwd or Util.root(),
+		cur_win = vim.api.nvim_get_current_win(),
 		buf = opts.buf,
 		lsp = opts.lsp,
 	}, self)

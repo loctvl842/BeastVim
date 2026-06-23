@@ -6,70 +6,77 @@ local matcher = require("beast.libs.finder.matcher")
 local render = require("beast.libs.finder.render")
 local ui = require("beast.libs.finder.ui")
 
+---@class Beast.Finder.Pipeline.Match
 local M = {}
 
 --- Per-query pipeline state (keyed by query reference).
----@type table<Beast.Finder.Query, { match_state: Beast.Finder.MatchState?, finder_task: Beast.Async.Task?, matcher_task: Beast.Async.Task? }>
-local state = setmetatable({}, { __mode = "k" })
+--- `loader_task` streams items from the source (set once by `load`);
+--- `matcher_task` re-scores cached items (replaced on every `run`). They use
+--- separate slots so a keystroke's `run` never aborts an in-flight loader.
+---@type table<Beast.Finder.Query, { match_state: Beast.Finder.MatchState?, loader_task: Beast.Async.Task?, matcher_task: Beast.Async.Task? }>
+local registry = setmetatable({}, { __mode = "k" })
 
 ---@param query Beast.Finder.Query
 local function get(query)
-	if not state[query] then
-		state[query] = {}
+	if not registry[query] then
+		registry[query] = {}
 	end
-	return state[query]
+	return registry[query]
 end
 
 --- Re-score all cached items against the current pattern.
---- Aborts any previous scorer to avoid stale work consuming CPU.
----@param query Beast.Finder.Query
-function M.rescore(query)
-	local s = get(query)
+--- Aborts any previous scorer to avoid stale work consuming CPU. Never touches
+--- the loader — if items are still streaming in, the loader re-runs `run` (or
+--- renders the full empty-pattern list) on completion, so the final result is
+--- correct even when a keystroke lands mid-load.
+---@param state Beast.Finder.State
+function M.run(state)
+	local s = get(state.query)
 	if s.matcher_task then
 		s.matcher_task:abort()
 	end
-	s.matcher_task = matcher.run(query.items, query.filter, config.matcher, function(matched, match_state)
-		query.matched = matched
+	s.matcher_task = matcher.run(state.query.items, state.query.filter, config.matcher, function(matched, match_state)
+		state.query.matched = matched
 		if match_state then
 			s.match_state = match_state
 		end
-		render.render(query)
+		render.render(state)
 	end, s.match_state)
 end
 
 --- Load items from the source (sync or async), then score.
----@param query Beast.Finder.Query
-function M.load(query)
-	local source = query.source
+---@param state Beast.Finder.State
+function M.load(state)
+	local source = state.query.source
 	if not source then
 		vim.notify("beast.libs.finder: query has no source", vim.log.levels.ERROR)
 		return
 	end
 
-	local s = get(query)
+	local s = get(state.query)
 
 	if source.async then
-		query.items = {}
-		ui.input.start_spinner(query.input_view)
+		state.query.items = {}
+		ui.input.start_spinner(state.view.input)
 		collectgarbage("stop")
 
 		local finder_done = false
-		local items = query.items
+		local items = state.query.items
 
 		-- Items arrive via cb()
-		source.get(query.filter, function(item)
+		source.get(state.query.filter, function(item)
 			if item == nil then
 				finder_done = true
 				return
 			end
 			items[#items + 1] = item
-			if s.matcher_task then
-				s.matcher_task:resume()
+			if s.loader_task then
+				s.loader_task:resume()
 			end
 		end)
 
 		-- Concurrent coroutine: collect items into TopK during streaming
-		s.matcher_task = async.spawn(function()
+		s.loader_task = async.spawn(function()
 			local TopK = require("beast.libs.finder.topk")
 			local yield = async.yielder(1)
 			local match_idx = 0
@@ -89,9 +96,9 @@ function M.load(query)
 				end
 
 				if match_idx > 0 then
-					query.matched = topk:sorted()
+					state.query.matched = topk:sorted()
 					vim.schedule(function()
-						render.render(query)
+						render.render(state)
 					end)
 				end
 
@@ -100,42 +107,42 @@ function M.load(query)
 				end
 			end
 
-			query.matched = topk:sorted()
+			state.query.matched = topk:sorted()
 			vim.schedule(function()
-				render.render(query)
-				ui.input.stop_spinner(query.input_view)
+				render.render(state)
+				ui.input.stop_spinner(state.view.input)
 				collectgarbage("restart")
 			end)
 
-			if query.filter.pattern ~= "" then
+			if state.query.filter.pattern ~= "" then
 				vim.schedule(function()
-					M.rescore(query)
+					M.run(state)
 				end)
 			end
 		end)
 	else
 		-- Synchronous sources (buffers, help_tags, colorschemes)
-		local result = source.get(query.filter)
-		query.items = result or {}
-		M.rescore(query)
+		local result = source.get(state.query.filter)
+		state.query.items = result or {}
+		M.run(state)
 	end
 end
 
 --- Abort all running tasks for this query.
 ---@param query Beast.Finder.Query
 function M.abort(query)
-	local s = state[query]
+	local s = registry[query]
 	-- stylua: ignore
 	if not s then return end
-	if s.finder_task then
-		s.finder_task:abort()
-		s.finder_task = nil
+	if s.loader_task then
+		s.loader_task:abort()
+		s.loader_task = nil
 	end
 	if s.matcher_task then
 		s.matcher_task:abort()
 		s.matcher_task = nil
 	end
-	state[query] = nil
+	registry[query] = nil
 end
 
 return M

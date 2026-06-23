@@ -1,23 +1,23 @@
 local M = {}
 
----@param query Beast.Finder.Query
+---@param state Beast.Finder.State
 ---@param item Beast.Finder.Item
-function M.open(query, item)
-	if query.source.name == "help_tags" then
-		return M.open_help(query, item)
-	elseif query.source.name == "colorschemes" then
+function M.open(state, item)
+	if state.query.source.name == "help_tags" then
+		return M.open_help(state, item)
+	elseif state.query.source.name == "colorschemes" then
 		pcall(vim.cmd.colorscheme, item.text)
 		return
 	end
-	M.open_file(query, item)
+	M.open_file(state, item)
 end
 
----@param query Beast.Finder.Query
+---@param state Beast.Finder.State
 ---@param item Beast.Finder.Item
-function M.open_help(query, item)
+function M.open_help(state, item)
 	-- stylua: ignore
 	if not item or not item.help_tag then return end
-	local win = query.main_win
+	local win = state.main_win
 	if win and vim.api.nvim_win_is_valid(win) then
 		vim.api.nvim_set_current_win(win)
 	end
@@ -31,12 +31,12 @@ function M.open_help(query, item)
 	end
 end
 
----@param query Beast.Finder.Query
+---@param state Beast.Finder.State
 ---@param item Beast.Finder.Item
-function M.open_file(query, item)
+function M.open_file(state, item)
 	-- stylua: ignore
 	if not item or not item.file then return end
-	local win = query.main_win
+	local win = state.main_win
 	if win and vim.api.nvim_win_is_valid(win) then
 		vim.api.nvim_set_current_win(win)
 	end
@@ -47,24 +47,24 @@ function M.open_file(query, item)
 	end
 end
 
----@param query Beast.Finder.Query
+---@param state Beast.Finder.State
 ---@param item Beast.Finder.Item
-function M.open_split(query, item)
+function M.open_split(state, item)
 	-- stylua: ignore
 	if not item or not item.file then return end
-	local win = query.main_win
+	local win = state.main_win
 	if win and vim.api.nvim_win_is_valid(win) then
 		vim.api.nvim_set_current_win(win)
 	end
 	vim.cmd("split " .. vim.fn.fnameescape(item.file))
 end
 
----@param query Beast.Finder.Query
+---@param state Beast.Finder.State
 ---@param item Beast.Finder.Item
-function M.open_vsplit(query, item)
+function M.open_vsplit(state, item)
 	-- stylua: ignore
 	if not item or not item.file then return end
-	local win = query.main_win
+	local win = state.main_win
 	if win and vim.api.nvim_win_is_valid(win) then
 		vim.api.nvim_set_current_win(win)
 	end
