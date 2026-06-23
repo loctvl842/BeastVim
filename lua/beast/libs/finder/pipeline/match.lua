@@ -108,6 +108,22 @@ function M.load(state)
 			end
 
 			state.query.matched = topk:sorted()
+
+			-- auto_select: when the source yields exactly one item, jump straight
+			-- to it without showing the picker (e.g. LSP go-to-definition with a
+			-- single location). reset() refocuses main_win, so action.open edits
+			-- in a normal window rather than the floating input.
+			if source.auto_select and #state.query.matched == 1 then
+				local item = state.query.matched[1]
+				vim.schedule(function()
+					ui.input.stop_spinner(state.view.input)
+					collectgarbage("restart")
+					state:reset()
+					require("beast.libs.finder.action").open(state, item)
+				end)
+				return
+			end
+
 			vim.schedule(function()
 				render.render(state)
 				ui.input.stop_spinner(state.view.input)
