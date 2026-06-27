@@ -69,12 +69,18 @@ end
 ---@param state Beast.Finder.State
 function M.render(state)
 	local raw_format = format[state.query.source.name] or format.filename
+	local raw_header = format[state.query.source.name .. "_header"]
 	-- Wrap format function to pass available width for path trimming
 	local list_width = state.view.list:is_valid() and vim.api.nvim_win_get_width(state.view.list.win) or 80
 	local format_fn = function(item)
 		return raw_format(item, list_width)
 	end
-	ui.list.render(state.view.list, state.query.matched, format_fn)
+	-- Grouped sources (grep/LSP) define a `<name>_header` formatter: matches are
+	-- grouped under a single file-path header instead of repeating the path.
+	local header_fn = raw_header and function(item)
+		return raw_header(item, list_width)
+	end or nil
+	ui.list.render(state.view.list, state.query.matched, format_fn, header_fn)
 	-- Apply fuzzy match highlights to list (match pipeline only, visible rows)
 	if not state.query.highlight_preview and state.view.list:is_valid() then
 		local from, to = ui.list.visible_range(state.view.list)

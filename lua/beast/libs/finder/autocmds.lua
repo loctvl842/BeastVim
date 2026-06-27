@@ -55,9 +55,9 @@ function M.mount(state)
 			-- stylua: ignore
 			if not state.view.list:is_valid() then return end
 			local buf_row = vim.api.nvim_win_get_cursor(state.view.list.win)[1]
-			-- Translate buffer row to item index (virtual rendering offset)
-			local item_idx = state.view.list._offset + buf_row
-			if item_idx ~= state.view.list.cursor then
+			-- Translate buffer row to item index (accounts for group header rows)
+			local item_idx = ui.list.item_at_row(state.view.list, buf_row)
+			if item_idx and item_idx ~= state.view.list.cursor then
 				ui.list.set_cursor(state.view.list, item_idx)
 				vim.cmd("redraw")
 				render.schedule_preview(state)

@@ -112,47 +112,6 @@ function M.filename(item, max_width)
 end
 
 ---@param item Beast.Finder.Item
----@param max_width? integer available column width for trimming
----@return Beast.Finder.Highlight[]
-function M.live_grep(item, max_width)
-	local path = item.file or ""
-	local cwd = item.cwd or vim.fn.getcwd()
-
-	local rel = path
-	if path:sub(1, #cwd) == cwd then
-		rel = path:sub(#cwd + 2)
-	end
-
-	local base = rel:match("[^/]+$") or rel
-	local lnum = item.pos and item.pos[1] or 0
-	local text = item.grep_text or ""
-
-	-- Trim the path portion if max_width provided
-	local display_path = rel
-	if max_width then
-		local suffix = ":" .. lnum .. ": "
-		local path_budget = max_width - #suffix - math.min(#text, 30)
-		if path_budget > 0 and #rel > path_budget then
-			local dir, fname = trim_path(rel, path_budget)
-			display_path = (dir ~= "" and dir .. "/" or "") .. fname
-		end
-	end
-
-	local result = {}
-
-	local icon, icon_hl = get_icon(base)
-	if icon then
-		result[#result + 1] = { text = icon .. " ", hl = icon_hl }
-	end
-
-	result[#result + 1] = { text = display_path .. ":" .. lnum, hl = "BeastFinderListDir" }
-	result[#result + 1] = { text = ": ", hl = "BeastFinderNormal" }
-	result[#result + 1] = { text = text, hl = "BeastFinderListFile" }
-
-	return result
-end
-
----@param item Beast.Finder.Item
 ---@return Beast.Finder.Highlight[]
 function M.buffers(item)
 	local name = item.file or ""
@@ -203,10 +162,73 @@ function M.help_tags(item)
 	return result
 end
 
+--- Match line for a grouped grep/LSP list: "lnum:col  text" (no path — the
+--- path is shown once in the group header). Indented so matches sit under their
+--- file header. The line is not truncated; the list window clips it (nowrap).
+---@param item Beast.Finder.Item
+---@param max_width? integer unused (kept for the shared formatter signature)
+---@return Beast.Finder.Highlight[]
+function M.live_grep(item, max_width)
+	local lnum = item.pos and item.pos[1] or 0
+	local col = (item.pos and item.pos[2] or 0) + 1 -- col is 0-based byte; show 1-based
+	local text = item.grep_text or ""
+	local location = lnum .. ":" .. col
+
+	return {
+		{ text = "  ", hl = nil },
+		{ text = location, hl = "BeastFinderListDir" },
+		{ text = "  ", hl = nil },
+		{ text = text, hl = "BeastFinderListFile" },
+	}
+end
+
+--- File-group header for grouped grep/LSP lists: "<icon> base  dir". Shown once
+--- per file, above its matches.
+---@param item Beast.Finder.Item
+---@param max_width? integer available column width for trimming
+---@return Beast.Finder.Highlight[]
+function M.live_grep_header(item, max_width)
+	local path = item.file or ""
+	local cwd = item.cwd or vim.fn.getcwd()
+	local rel = path
+	if path:sub(1, #cwd) == cwd then
+		rel = path:sub(#cwd + 2)
+	end
+	local base = rel:match("[^/]+$") or rel
+	local dir = rel:match("^(.+)/[^/]+$")
+
+	local result = {}
+	local icon, icon_hl = get_icon(base)
+	if icon then
+		result[#result + 1] = { text = icon .. " ", hl = icon_hl }
+	end
+	result[#result + 1] = { text = base, hl = "BeastFinderListFile" }
+	if dir and dir ~= "" then
+		if max_width then
+			local used = (icon and 2 or 0) + vim.fn.strdisplaywidth(base) + 2
+			local budget = math.max(1, max_width - used)
+			if #dir > budget then
+				local trimmed = trim_path(dir, budget)
+				if trimmed ~= "" then
+					dir = trimmed
+				end
+			end
+		end
+		result[#result + 1] = { text = "  " .. dir, hl = "BeastFinderListDir" }
+	end
+	return result
+end
+
 -- LSP sources surface file:line + snippet, identical to live_grep.
 M.lsp_definitions = M.live_grep
 M.lsp_references = M.live_grep
 M.lsp_declarations = M.live_grep
 M.lsp_implementations = M.live_grep
+
+-- Grouped-list headers for grep + LSP sources.
+M.lsp_definitions_header = M.live_grep_header
+M.lsp_references_header = M.live_grep_header
+M.lsp_declarations_header = M.live_grep_header
+M.lsp_implementations_header = M.live_grep_header
 
 return M

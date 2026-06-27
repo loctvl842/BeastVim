@@ -7,8 +7,12 @@ local config = require("beast.libs.finder.config")
 ---@field items Beast.Finder.Item[]
 ---@field cursor integer 1-based index into items
 ---@field _format_fn fun(item: Beast.Finder.Item): Beast.Finder.Highlight[]
+---@field _header_fn? fun(item: Beast.Finder.Item): Beast.Finder.Highlight[] optional group header (grouped sources)
 ---@field _offset integer 0-based index of the first visible item
 ---@field _win_height integer height of the window (viewport size)
+---@field _item_to_row table<integer, integer> visible item index -> 1-based buffer row of its match line
+---@field _row_to_item table<integer, integer> 1-based buffer row -> item index (match rows only)
+---@field _visible_last integer last visible item index
 ---@overload fun(buf?: integer, win?: integer, ns: integer): Beast.Finder.ListView
 local ListView = View:extend(
 	---@param obj Beast.Finder.ListView
@@ -18,8 +22,12 @@ local ListView = View:extend(
 		obj.items = {}
 		obj.cursor = 1
 		obj._format_fn = nil
+		obj._header_fn = nil
 		obj._offset = 0
 		obj._win_height = 0
+		obj._item_to_row = {}
+		obj._row_to_item = {}
+		obj._visible_last = 0
 	end
 )
 
@@ -49,6 +57,7 @@ function M.create(win_row, win_col, win_w, win_h, border)
 
 	View.win.wo(win, "cursorline", true)
 	View.win.wo(win, "scrolloff", 0)
+	View.win.wo(win, "wrap", false)
 	View.win.wo(win, "winhl", "Normal:BeastFinderNormal,FloatBorder:BeastFinderBorder,CursorLine:BeastFinderListCursorLine")
 
 	return ListView(buf, win, ns)
@@ -58,28 +67,122 @@ end
 -- Virtual rendering internals
 -- ---------------------------------------------------------------------------
 
+--- How many buffer rows item `idx` occupies: 1 for the match line, plus 1 for a
+--- group header when grouping is active and this item starts a new file group.
+---@param view Beast.Finder.ListView
+---@param idx integer 1-based item index
+---@return integer 1 or 2
+local function item_cost(view, idx)
+	if not view._header_fn then
+		return 1
+	end
+	local items = view.items
+	if idx == 1 or items[idx].file ~= items[idx - 1].file then
+		return 2
+	end
+	return 1
+end
+
+--- Last item index visible when the viewport starts at `offset` (0-based),
+--- accounting for header rows.
+---@param view Beast.Finder.ListView
+---@param offset integer
+---@return integer
+local function last_visible(view, offset)
+	local total = #view.items
+	local rows, idx = 0, offset + 1
+	while idx <= total do
+		local cost = item_cost(view, idx)
+		if rows + cost > view._win_height and rows > 0 then
+			break
+		end
+		rows = rows + cost
+		idx = idx + 1
+	end
+	return math.max(offset, idx - 1)
+end
+
+--- Smallest offset (0-based) such that `cursor` is the last fully-visible item.
+---@param view Beast.Finder.ListView
+---@param cursor integer
+---@return integer
+local function offset_for_cursor(view, cursor)
+	local rows, idx = 0, cursor
+	while idx >= 1 do
+		local cost = item_cost(view, idx)
+		if rows + cost > view._win_height then
+			break
+		end
+		rows = rows + cost
+		idx = idx - 1
+	end
+	return math.min(idx, cursor - 1)
+end
+
 --- Compute the visible offset so that `cursor` is within the viewport.
+---@param view Beast.Finder.ListView
 ---@param cursor integer 1-based cursor into items
 ---@param offset integer current 0-based offset
----@param win_height integer viewport rows
----@param total integer total items
 ---@return integer new_offset 0-based
-local function clamp_offset(cursor, offset, win_height, total)
+local function clamp_offset(view, cursor, offset)
 	-- stylua: ignore
-	if total <= win_height then return 0 end
-	-- Cursor above viewport → scroll up
+	if #view.items == 0 then return 0 end
+	-- Cursor above viewport → scroll up so cursor is at the top.
 	if cursor - 1 < offset then
 		return cursor - 1
 	end
-	-- Cursor below viewport → scroll down
-	if cursor - 1 >= offset + win_height then
-		return cursor - win_height
+	-- Cursor below viewport → scroll down so cursor is at the bottom.
+	if cursor > last_visible(view, offset) then
+		return offset_for_cursor(view, cursor)
 	end
-	-- Clamp offset to valid range
-	return math.min(offset, total - win_height)
+	return offset
 end
 
---- Write the visible slice of items to the buffer with extmarks.
+--- Concatenate the non-right-aligned text parts of a highlight list.
+---@param highlights Beast.Finder.Highlight[]
+---@return string
+local function line_text(highlights)
+	local parts = {}
+	for _, h in ipairs(highlights) do
+		if not h.right_align then
+			parts[#parts + 1] = h.text
+		end
+	end
+	return table.concat(parts)
+end
+
+--- Apply per-row highlight + right-align extmarks for a rendered line.
+---@param view Beast.Finder.ListView
+---@param row0 integer 0-based buffer row
+---@param highlights Beast.Finder.Highlight[]
+local function apply_row_highlights(view, row0, highlights)
+	local col = 0
+	local right_virt = nil
+	for _, h in ipairs(highlights) do
+		if h.right_align then
+			right_virt = { h.text, h.hl or "BeastFinderNormal" }
+		elseif h.hl then
+			vim.api.nvim_buf_set_extmark(view.buf, view.ns, row0, col, {
+				end_col = col + #h.text,
+				hl_group = h.hl,
+			})
+			col = col + #h.text
+		else
+			col = col + #h.text
+		end
+	end
+	if right_virt then
+		vim.api.nvim_buf_set_extmark(view.buf, view.ns, row0, 0, {
+			virt_text = { right_virt },
+			virt_text_pos = "right_align",
+			hl_mode = "combine",
+		})
+	end
+end
+
+--- Write the visible slice of items to the buffer with extmarks. When grouping
+--- is active, a file-group header line is inserted above the first match of each
+--- file; the logical cursor always targets the match line, never a header.
 ---@param view Beast.Finder.ListView
 local function render_visible(view)
 	-- stylua: ignore
@@ -89,70 +192,73 @@ local function render_visible(view)
 	local total = #items
 	local win_height = view._win_height
 	local offset = view._offset
-	local visible_count = math.min(win_height, total - offset)
 	local format_fn = view._format_fn
+	local header_fn = view._header_fn
 
-	local lines = {}
-	local all_highlights = {}
-	for vi = 1, visible_count do
-		local item = items[offset + vi]
-		local highlights = format_fn(item)
-		all_highlights[vi] = highlights
-		local parts = {}
-		for _, h in ipairs(highlights) do
-			if not h.right_align then
-				parts[#parts + 1] = h.text
-			end
+	local lines = {} ---@type string[]
+	local row_hl = {} ---@type table<integer, Beast.Finder.Highlight[]> 1-based row -> highlights
+	local row_is_match = {} ---@type table<integer, boolean>
+	local item_to_row = {} ---@type table<integer, integer>
+	local row_to_item = {} ---@type table<integer, integer>
+
+	local rows = 0
+	local idx = offset + 1
+	while idx <= total and rows < win_height do
+		local needs_header = header_fn ~= nil and (idx == 1 or items[idx].file ~= items[idx - 1].file)
+		local cost = needs_header and 2 or 1
+		if rows + cost > win_height and rows > 0 then
+			break
 		end
-		lines[vi] = table.concat(parts)
+		if needs_header and header_fn then
+			rows = rows + 1
+			local h = header_fn(items[idx])
+			row_hl[rows] = h
+			row_is_match[rows] = false
+			lines[rows] = line_text(h)
+		end
+		rows = rows + 1
+		local hl = format_fn(items[idx])
+		row_hl[rows] = hl
+		row_is_match[rows] = true
+		item_to_row[idx] = rows
+		row_to_item[rows] = idx
+		lines[rows] = line_text(hl)
+		idx = idx + 1
 	end
+
+	view._item_to_row = item_to_row
+	view._row_to_item = row_to_item
+	view._visible_last = idx - 1
 
 	vim.bo[view.buf].modifiable = true
 	vim.api.nvim_buf_set_lines(view.buf, 0, -1, false, lines)
 	vim.bo[view.buf].modifiable = false
 
-	-- Apply highlight extmarks and inline prefix via virtual text
 	vim.api.nvim_buf_clear_namespace(view.buf, view.ns, 0, -1)
 	vim.api.nvim_buf_clear_namespace(view.buf, view.prefix_ns, 0, -1)
+
 	local sel_prefix = config.selection_prefix .. " "
 	local pad = string.rep(" ", vim.fn.strdisplaywidth(sel_prefix))
-	local cursor_buf_row = view.cursor - offset -- 1-based buffer row
+	local cursor_row = item_to_row[view.cursor]
 
-	for vi, highlights in ipairs(all_highlights) do
-		local prefix_text = (vi == cursor_buf_row) and sel_prefix or pad
-		vim.api.nvim_buf_set_extmark(view.buf, view.prefix_ns, vi - 1, 0, {
+	for r = 1, rows do
+		-- Selection prefix on match rows (selected on the cursor's match line);
+		-- headers get the pad so their text aligns with the match column.
+		local prefix_text = pad
+		if row_is_match[r] and r == cursor_row then
+			prefix_text = sel_prefix
+		end
+		vim.api.nvim_buf_set_extmark(view.buf, view.prefix_ns, r - 1, 0, {
 			virt_text = { { prefix_text, "BeastFinderListSelectionPrefix" } },
 			virt_text_pos = "inline",
 		})
-
-		local col = 0
-		local right_virt = nil
-		for _, h in ipairs(highlights) do
-			if h.right_align then
-				right_virt = { h.text, h.hl or "BeastFinderNormal" }
-			elseif h.hl then
-				vim.api.nvim_buf_set_extmark(view.buf, view.ns, vi - 1, col, {
-					end_col = col + #h.text,
-					hl_group = h.hl,
-				})
-				col = col + #h.text
-			else
-				col = col + #h.text
-			end
-		end
-		if right_virt then
-			vim.api.nvim_buf_set_extmark(view.buf, view.ns, vi - 1, 0, {
-				virt_text = { right_virt },
-				virt_text_pos = "right_align",
-				hl_mode = "combine",
-			})
-		end
+		apply_row_highlights(view, r - 1, row_hl[r])
 	end
 
-	-- Set window cursor to the buffer row corresponding to the logical cursor
-	if visible_count > 0 then
-		local buf_row = math.max(1, math.min(cursor_buf_row, visible_count))
-		pcall(vim.api.nvim_win_set_cursor, view.win, { buf_row, 0 })
+	if cursor_row then
+		pcall(vim.api.nvim_win_set_cursor, view.win, { cursor_row, 0 })
+	elseif rows > 0 then
+		pcall(vim.api.nvim_win_set_cursor, view.win, { 1, 0 })
 	end
 end
 
@@ -163,14 +269,16 @@ end
 ---@param view Beast.Finder.ListView
 ---@param items Beast.Finder.Item[]
 ---@param format_fn fun(item: Beast.Finder.Item): Beast.Finder.Highlight[]
-function M.render(view, items, format_fn)
+---@param header_fn? fun(item: Beast.Finder.Item): Beast.Finder.Highlight[] group header (grouped sources)
+function M.render(view, items, format_fn, header_fn)
 	-- stylua: ignore
 	if not view:is_valid() then return end
 	view.items = items
 	view._format_fn = format_fn
+	view._header_fn = header_fn
 	view._win_height = vim.api.nvim_win_get_height(view.win)
 	view.cursor = math.min(view.cursor, math.max(1, #items))
-	view._offset = clamp_offset(view.cursor, view._offset, view._win_height, #items)
+	view._offset = clamp_offset(view, view.cursor, view._offset)
 	render_visible(view)
 end
 
@@ -180,8 +288,10 @@ function M.set_cursor(view, idx)
 	-- stylua: ignore
 	if not view:is_valid() or #view.items == 0 then return end
 	view.cursor = math.max(1, math.min(idx, #view.items))
-	local new_offset = clamp_offset(view.cursor, view._offset, view._win_height, #view.items)
-	if new_offset ~= view._offset then
+	local new_offset = clamp_offset(view, view.cursor, view._offset)
+	if new_offset ~= view._offset or view._header_fn then
+		-- Grouped lists have a variable item↔row mapping, so re-render to keep
+		-- headers and the cursor row correct. Flat lists can take the cheap path.
 		view._offset = new_offset
 		render_visible(view)
 	else
@@ -189,7 +299,6 @@ function M.set_cursor(view, idx)
 		local sel_prefix = config.selection_prefix .. " "
 		local pad = string.rep(" ", vim.fn.strdisplaywidth(sel_prefix))
 		local visible_count = math.min(view._win_height, #view.items - view._offset)
-		-- Repaint all prefix extmarks (simpler than tracking previous)
 		vim.api.nvim_buf_clear_namespace(view.buf, view.prefix_ns, 0, -1)
 		local cursor_buf_row = view.cursor - view._offset
 		for vi = 1, visible_count do
@@ -231,8 +340,36 @@ end
 ---@return integer to 1-based last visible item index
 function M.visible_range(view)
 	local from = view._offset + 1
-	local to = math.min(view._offset + view._win_height, #view.items)
-	return from, to
+	local to = view._visible_last
+	if to == nil or to < from then
+		to = last_visible(view, view._offset)
+	end
+	return from, math.min(to, #view.items)
+end
+
+--- Map a 1-based buffer row to the item index it represents. Match rows map
+--- directly; a header row maps to the match directly below it (its file's first
+--- match). Returns nil if the row maps to no item.
+---@param view Beast.Finder.ListView
+---@param buf_row integer 1-based buffer row
+---@return integer|nil item_idx
+function M.item_at_row(view, buf_row)
+	if not view._header_fn then
+		local idx = view._offset + buf_row
+		if idx >= 1 and idx <= #view.items then
+			return idx
+		end
+		return nil
+	end
+	local map = view._row_to_item or {}
+	if map[buf_row] then
+		return map[buf_row]
+	end
+	-- Header row: snap to the match line just below it.
+	if map[buf_row + 1] then
+		return map[buf_row + 1]
+	end
+	return nil
 end
 
 return M
