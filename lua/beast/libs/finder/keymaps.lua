@@ -59,6 +59,10 @@ local function mount_list_keymaps(state)
 	lmap("n", "<Up>", function() move_cursor(state, -1) end)
   lmap("n", "<Tab>", function() move_cursor(state, 1) end)
   lmap("n", "<S-Tab>", function() move_cursor(state, -1) end)
+	-- Mouse wheel: drive selection (the buffer only holds the visible slice, so
+	-- native scrolling reveals nothing — move the cursor to re-render instead).
+	lmap("n", "<ScrollWheelDown>", function() move_cursor(state, 3) end)
+	lmap("n", "<ScrollWheelUp>", function() move_cursor(state, -3) end)
 	-- Close
 	lmap({ "n" }, "<Esc>", function() state:reset() end)
 	lmap({ "i", "n" }, "<C-c>", function() state:reset() end)
@@ -190,6 +194,10 @@ function M.mount(state)
 	map({ "i", "n" }, "<Up>", function() move_cursor(state, -1) end)
 	map({ "i", "n" }, "<Tab>", function() move_cursor(state, 1) end)
 	map({ "i", "n" }, "<S-Tab>", function() move_cursor(state, -1) end)
+	-- Mouse wheel: drive selection (virtual rendering — native scroll can't
+	-- reveal off-screen items, so move the cursor to re-render).
+	map({ "i", "n" }, "<ScrollWheelDown>", function() move_cursor(state, 3) end)
+	map({ "i", "n" }, "<ScrollWheelUp>", function() move_cursor(state, -3) end)
 	-- Close
 	map({ "n" }, "<Esc>", function() state:reset() end)
 	map({ "i", "n" }, "<C-c>", function() state:reset() end)
