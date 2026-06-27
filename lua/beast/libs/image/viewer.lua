@@ -164,13 +164,21 @@ function M.setup(user_opts)
 		end,
 	})
 
-	-- Clear when the image's own window closes (but not for unrelated windows,
-	-- so an image shown in another split survives).
+	-- WinClosed: either the image's own window closed (clear), or some overlay
+	-- (e.g. a key-hint float) that was drawn over the image closed — in which
+	-- case the cells it covered were overwritten and Neovim won't repaint the
+	-- image there, so re-render to repair the damage.
 	vim.api.nvim_create_autocmd("WinClosed", {
 		group = augroup,
 		callback = function(ev)
-			if image_win and tonumber(ev.match) == image_win then
+			local closed = tonumber(ev.match)
+			if not image_win then
+				return
+			end
+			if closed == image_win then
 				clear_image()
+			elseif vim.api.nvim_win_is_valid(image_win) and resize_debounced then
+				resize_debounced()
 			end
 		end,
 	})
