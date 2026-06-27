@@ -126,7 +126,7 @@ function M.show(view, item)
 	if not view:is_valid() or not view.visible then return end
 
 	-- Image path: draw the file as an inline image over the window via the
-	-- iTerm2 protocol instead of dumping its bytes into the buffer.
+	-- terminal's graphics protocol instead of dumping its bytes into the buffer.
 	if item.file and image.is_image(item.file) and image.enabled() then
 		-- Same image already drawn — leave it in place (cursor moves over
 		-- identical selections must not re-push the payload).
@@ -137,10 +137,12 @@ function M.show(view, item)
 		return
 	end
 
-	-- Replacing a previously drawn image with text/other: drop the marker and
-	-- restore the number column. The buffer repaint below erases the image.
+	-- Replacing a previously drawn image with text/other: drop the marker,
+	-- restore the number column, and erase any persistent (Kitty) placement.
+	-- The buffer repaint below clears iTerm2-protocol images on its own.
 	if view.loaded_image then
 		view.loaded_image = nil
+		image.clear_kitty()
 		View.win.wo(view.win, "number", true)
 	end
 
@@ -209,6 +211,7 @@ function M.clear(view)
 	if not view:is_valid() then return end
 	if view.loaded_image then
 		view.loaded_image = nil
+		image.clear_kitty()
 		View.win.wo(view.win, "number", true)
 	end
 	vim.bo[view.buf].modifiable = true

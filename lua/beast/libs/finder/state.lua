@@ -100,6 +100,11 @@ function M:reset()
 		self.view.input:close()
 		self.view.list:close()
 		if self.view.preview then
+			-- Erase any inline image (Kitty placements persist past window close;
+			-- no-op for the iTerm2 protocol).
+			if self.view.preview.loaded_image then
+				require("beast.libs.finder.ui.image").clear_kitty()
+			end
 			self.view.preview:close()
 		end
 		if self.view.backdrop then
