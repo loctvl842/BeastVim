@@ -178,4 +178,15 @@ return {
 			})
 		end,
 	},
+	{
+		name = "render-markdown",
+		src = gh("MeanderingProgrammer/markdown.nvim"),
+		lazy = {
+			filetype = { "markdown" },
+			dependencies = { "nvim-tree/nvim-web-devicons" },
+		},
+		config = function()
+			require("render-markdown").setup({})
+		end,
+	},
 }
