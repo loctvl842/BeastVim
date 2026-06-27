@@ -167,6 +167,9 @@ function M:relayout()
 			row = geo.preview.row,
 			col = geo.preview.col,
 		})
+		-- Re-draw the inline image (if any) at the new geometry; VimResized
+		-- triggers a full repaint that would otherwise erase it.
+		require("beast.libs.finder.ui.preview").refresh(self.view.preview)
 	end
 end
 

@@ -1,10 +1,12 @@
 local View = require("beast.libs.view")
+local image = require("beast.libs.finder.ui.image")
 
 ---@class Beast.Finder.PreviewView : Beast.View.Instance
 ---@field ns integer
 ---@field visible boolean
 ---@field loaded_file? string  absolute path of the file currently shown in the buffer
 ---@field loaded_line_count integer  line count of the loaded file (for cursor clamping)
+---@field loaded_image? string  absolute path of the image currently drawn over the window
 ---@overload fun(buf?: integer, win?: integer, ns: integer): Beast.Finder.PreviewView
 local PreviewView = View:extend(
 	---@param obj Beast.Finder.PreviewView
@@ -13,6 +15,7 @@ local PreviewView = View:extend(
 		obj.visible = true
 		obj.loaded_file = nil
 		obj.loaded_line_count = 0
+		obj.loaded_image = nil
 	end
 )
 
@@ -37,6 +40,54 @@ local function set_cursor_centered(view, line, col)
 		local text_w = math.max(1, win_w - 6)
 		local leftcol = math.max(0, col - math.floor(text_w / 2))
 		vim.fn.winrestview({ leftcol = leftcol })
+	end)
+end
+
+---@param view Beast.Finder.PreviewView
+---@param file string  absolute path of the image to draw
+function M.draw_image(view, file)
+	-- Blank the buffer + hide the number column so Neovim paints an empty region
+	-- (no text, no line numbers) underneath the image.
+	View.win.wo(view.win, "number", false)
+	vim.bo[view.buf].modifiable = true
+	pcall(vim.api.nvim_buf_set_lines, view.buf, 0, -1, false, {})
+	vim.bo[view.buf].modifiable = false
+	vim.bo[view.buf].filetype = ""
+
+	pcall(vim.api.nvim_win_set_config, view.win, {
+		title = " " .. vim.fn.fnamemodify(file, ":t") .. " ",
+		title_pos = "center",
+	})
+
+	view.loaded_file = nil
+	view.loaded_line_count = 0
+	view.loaded_image = file
+
+	-- Flush Neovim's blank repaint of the region, then draw the image on top.
+	vim.cmd("redraw")
+	if not image.render(view.win, file) then
+		-- Terminal refused or file unreadable — fall back to a placeholder.
+		view.loaded_image = nil
+		View.win.wo(view.win, "number", true)
+		vim.bo[view.buf].modifiable = true
+		vim.api.nvim_buf_set_lines(view.buf, 0, -1, false, { "(cannot preview image)" })
+		vim.bo[view.buf].modifiable = false
+	end
+end
+
+--- Re-draw the current image after the window has moved/resized or the screen
+--- was fully repainted (e.g. on VimResized). Deferred so it runs after Neovim's
+--- own redraw, which would otherwise erase the freshly drawn image.
+---@param view Beast.Finder.PreviewView
+function M.refresh(view)
+	-- stylua: ignore
+	if not view:is_valid() or not view.loaded_image then return end
+	local file = view.loaded_image
+	vim.schedule(function()
+		-- stylua: ignore
+		if not view:is_valid() or view.loaded_image ~= file then return end
+		vim.cmd("redraw")
+		image.render(view.win, file)
 	end)
 end
 
@@ -73,6 +124,25 @@ end
 function M.show(view, item)
 	-- stylua: ignore
 	if not view:is_valid() or not view.visible then return end
+
+	-- Image path: draw the file as an inline image over the window via the
+	-- iTerm2 protocol instead of dumping its bytes into the buffer.
+	if item.file and image.is_image(item.file) and image.enabled() then
+		-- Same image already drawn — leave it in place (cursor moves over
+		-- identical selections must not re-push the payload).
+		if view.loaded_image == item.file then
+			return
+		end
+		M.draw_image(view, item.file)
+		return
+	end
+
+	-- Replacing a previously drawn image with text/other: drop the marker and
+	-- restore the number column. The buffer repaint below erases the image.
+	if view.loaded_image then
+		view.loaded_image = nil
+		View.win.wo(view.win, "number", true)
+	end
 
 	-- Fast path: same file as currently loaded — just move the cursor.
 	if item.file and view.loaded_file == item.file then
@@ -137,6 +207,10 @@ end
 function M.clear(view)
 	-- stylua: ignore
 	if not view:is_valid() then return end
+	if view.loaded_image then
+		view.loaded_image = nil
+		View.win.wo(view.win, "number", true)
+	end
 	vim.bo[view.buf].modifiable = true
 	vim.api.nvim_buf_set_lines(view.buf, 0, -1, false, {})
 	vim.bo[view.buf].modifiable = false
