@@ -162,9 +162,49 @@ function M.help_tags(item)
 	return result
 end
 
+--- Byte range [s, e) of the matched text within `item.grep_text`, or nil.
+--- Grep items carry the matched literal in `match_text`; LSP items carry the
+--- range end in `end_pos`. Falls back to a plain search for the literal when the
+--- reported column doesn't line up (e.g. ugrep visual vs byte columns).
+---@param item Beast.Finder.Item
+---@return integer? s 0-based start, integer? e 0-based end (exclusive)
+local function grep_match_range(item)
+	local text = item.grep_text or ""
+	if text == "" then
+		return nil
+	end
+	local col = item.pos and item.pos[2] or 0 -- 0-based byte
+	local mlen
+	if item.match_text and item.match_text ~= "" then
+		mlen = #item.match_text
+		-- Verify the reported column actually points at the literal; if not,
+		-- find the literal in the line and use that instead.
+		if text:sub(col + 1, col + mlen) ~= item.match_text then
+			local s = text:find(item.match_text, 1, true)
+			if s then
+				col = s - 1
+			else
+				return nil
+			end
+		end
+	elseif item.end_pos and item.pos and item.end_pos[1] == item.pos[1] then
+		mlen = (item.end_pos[2] or col) - col
+	end
+	if not mlen or mlen <= 0 then
+		return nil
+	end
+	local s = math.max(0, math.min(col, #text))
+	local e = math.max(s, math.min(col + mlen, #text))
+	if e <= s then
+		return nil
+	end
+	return s, e
+end
+
 --- Match line for a grouped grep/LSP list: "lnum:col  text" (no path — the
 --- path is shown once in the group header). Indented so matches sit under their
---- file header. The line is not truncated; the list window clips it (nowrap).
+--- file header. The matched substring is highlighted; the line is not truncated
+--- (the list window clips it, nowrap).
 ---@param item Beast.Finder.Item
 ---@param max_width? integer unused (kept for the shared formatter signature)
 ---@return Beast.Finder.Highlight[]
@@ -174,12 +214,25 @@ function M.live_grep(item, max_width)
 	local text = item.grep_text or ""
 	local location = lnum .. ":" .. col
 
-	return {
+	local result = {
 		{ text = "  ", hl = nil },
 		{ text = location, hl = "BeastFinderListDir" },
 		{ text = "  ", hl = nil },
-		{ text = text, hl = "BeastFinderListFile" },
 	}
+
+	local ms, me = grep_match_range(item)
+	if ms then
+		if ms > 0 then
+			result[#result + 1] = { text = text:sub(1, ms), hl = "BeastFinderListFile" }
+		end
+		result[#result + 1] = { text = text:sub(ms + 1, me), hl = "BeastFinderListMatch" }
+		if me < #text then
+			result[#result + 1] = { text = text:sub(me + 1), hl = "BeastFinderListFile" }
+		end
+	else
+		result[#result + 1] = { text = text, hl = "BeastFinderListFile" }
+	end
+	return result
 end
 
 --- File-group header for grouped grep/LSP lists: "<icon> base  dir". Shown once
