@@ -60,7 +60,7 @@ local function mount_list_keymaps(state)
   lmap("n", "<Tab>", function() move_cursor(state, 1) end)
   lmap("n", "<S-Tab>", function() move_cursor(state, -1) end)
 	-- Close
-	lmap({ "i", "n" }, "<Esc>", function() state:reset() end)
+	lmap({ "n" }, "<Esc>", function() state:reset() end)
 	lmap({ "i", "n" }, "<C-c>", function() state:reset() end)
 	-- stylua: ignore end
 
@@ -191,7 +191,7 @@ function M.mount(state)
 	map({ "i", "n" }, "<Tab>", function() move_cursor(state, 1) end)
 	map({ "i", "n" }, "<S-Tab>", function() move_cursor(state, -1) end)
 	-- Close
-	map({ "i", "n" }, "<Esc>", function() state:reset() end)
+	map({ "n" }, "<Esc>", function() state:reset() end)
 	map({ "i", "n" }, "<C-c>", function() state:reset() end)
 	-- stylua: ignore end
 
