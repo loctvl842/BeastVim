@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781603284219,
+  "lastUpdate": 1782568861209,
   "repoUrl": "https://github.com/loctvl842/BeastVim",
   "entries": {
     "BeastVim Startup": [
@@ -747,6 +747,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "BeastVim startup (warm) max",
             "value": 27.325497000000002,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "committer": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "distinct": true,
+          "id": "b18a75701ec51aa366240d0158b754addff588ea",
+          "message": "feat(finder): highlight the matched text in grep/LSP list rows\n\nGrep and LSP match lines showed the line content unhighlighted, so it\nwasn't obvious what matched. Split the matched substring into its own\nBeastFinderListMatch segment in the live_grep formatter (rendered by the\nexisting list highlight path). The range comes from match_text for grep\nand from end_pos for LSP, with a plain-text fallback search when the\nreported column doesn't line up (e.g. ugrep visual vs byte columns).",
+          "timestamp": "2026-06-27T20:14:49+07:00",
+          "tree_id": "b844f8f4ebd2fb986f33ffd6e05dc5d3386b8b22",
+          "url": "https://github.com/loctvl842/BeastVim/commit/b18a75701ec51aa366240d0158b754addff588ea"
+        },
+        "date": 1782568860811,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "BeastVim startup (warm) mean",
+            "value": 36.76286475,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) stddev",
+            "value": 32.84309416294307,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) min",
+            "value": 22.712052,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) max",
+            "value": 135.811913,
             "unit": "ms"
           }
         ]
