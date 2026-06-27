@@ -1,5 +1,6 @@
 local View = require("beast.libs.view")
-local image = require("beast.libs.finder.ui.image")
+local config = require("beast.libs.finder.config")
+local image = require("beast.libs.image")
 
 ---@class Beast.Finder.PreviewView : Beast.View.Instance
 ---@field ns integer
@@ -65,7 +66,7 @@ function M.draw_image(view, file)
 
 	-- Flush Neovim's blank repaint of the region, then draw the image on top.
 	vim.cmd("redraw")
-	if not image.render(view.win, file) then
+	if not image.render(view.win, file, { cell_ratio = config.preview_image_cell_ratio }) then
 		-- Terminal refused or file unreadable — fall back to a placeholder.
 		view.loaded_image = nil
 		View.win.wo(view.win, "number", true)
@@ -87,7 +88,7 @@ function M.refresh(view)
 		-- stylua: ignore
 		if not view:is_valid() or view.loaded_image ~= file then return end
 		vim.cmd("redraw")
-		image.render(view.win, file)
+		image.render(view.win, file, { cell_ratio = config.preview_image_cell_ratio })
 	end)
 end
 
@@ -127,7 +128,7 @@ function M.show(view, item)
 
 	-- Image path: draw the file as an inline image over the window via the
 	-- terminal's graphics protocol instead of dumping its bytes into the buffer.
-	if item.file and image.is_image(item.file) and image.enabled() then
+	if item.file and image.is_image(item.file) and config.preview_image ~= false and image.supported() then
 		-- Same image already drawn — leave it in place (cursor moves over
 		-- identical selections must not re-push the payload).
 		if view.loaded_image == item.file then
@@ -142,7 +143,7 @@ function M.show(view, item)
 	-- The buffer repaint below clears iTerm2-protocol images on its own.
 	if view.loaded_image then
 		view.loaded_image = nil
-		image.clear_kitty()
+		image.clear()
 		View.win.wo(view.win, "number", true)
 	end
 
@@ -211,7 +212,7 @@ function M.clear(view)
 	if not view:is_valid() then return end
 	if view.loaded_image then
 		view.loaded_image = nil
-		image.clear_kitty()
+		image.clear()
 		View.win.wo(view.win, "number", true)
 	end
 	vim.bo[view.buf].modifiable = true
