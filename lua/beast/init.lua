@@ -58,19 +58,10 @@ function M.setup(opts)
 	})
 
 	-- Notification
-	packer.lazy("beast.libs.notify", {
-		event = { name = "VimEnter", defer = true },
-		setup = function(notify)
-			notify.setup(cfg.notify or {})
-		end,
-	})
-	packer.lazy("beast.libs.toast", {
-		event = { name = "VimEnter", defer = true },
-		setup = function(toast)
-			_G.Toast = toast
-			toast.setup(cfg.toast or {})
-		end,
-	})
+	require("beast.libs.notify").setup(cfg.notify or {})
+	local toast = require("beast.libs.toast")
+	_G.Toast = toast
+	toast.setup(cfg.toast or {})
 
 	packer.lazy("beast.libs.confirm", {
 		module = "beast.libs.confirm",
@@ -124,14 +115,14 @@ function M.setup(opts)
 				name = "BufWinEnter",
 				defer = true,
 				cond = function()
-					return vim.bo.buftype == "" and vim.api.nvim_buf_get_name(0) ~= ""
+					return vim.api.nvim_buf_get_name(0) ~= ""
 				end,
 			},
 			{
 				name = "BufWritePost",
 				defer = true,
 				cond = function()
-					return vim.bo.buftype == "" and vim.api.nvim_buf_get_name(0) ~= ""
+					return vim.api.nvim_buf_get_name(0) ~= ""
 				end,
 			},
 		},
