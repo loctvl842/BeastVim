@@ -15,6 +15,7 @@ M.reload_highlights = hl.reload_highlights
 ---@field indent? Beast.Indent.Config
 ---@field breadcrumb? Beast.Breadcrumb.Config
 ---@field scroll? Beast.Scroll.Config
+---@field image? Beast.Image.Viewer.Opts
 ---@field starter? Beast.Starter.Config
 ---@field window? Beast.Window.Config
 ---@field autopairs? Beast.Autopairs.Config
@@ -77,6 +78,9 @@ function M.setup(opts)
 			confirm.setup()
 		end,
 	})
+
+	-- Inline image viewer (active only on terminals with a graphics protocol)
+	require("beast.libs.image.viewer").setup(cfg.image or {})
 
 	-- Statusline (declarative components, native %! evaluation)
 	packer.lazy("beast.libs.statusline", {

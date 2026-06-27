@@ -112,6 +112,39 @@ function M.kitty_delete_seq()
 	return ESC .. "_Ga=d,d=I,i=" .. KITTY_ID .. ",q=2" .. ST
 end
 
+--- Erase a cell rectangle (the iTerm2 protocol stores images inside the cells
+--- under the cursor and has no delete command; Neovim's grid diff won't re-emit
+--- cells it believes are already blank, so the image lingers after a buffer
+--- switch). We overwrite the exact rectangle with ECH (CSI n X), which the
+--- terminal turns into blank cells, dropping the image attribute.
+---
+--- `bg` (0xRRGGBB) sets the background the erased cells take. Pass the editor's
+--- Normal background so the cleared region matches the surrounding buffer;
+--- without it the cells take the terminal's current pen colour and show up as a
+--- mismatched (often grey) rectangle. Wrapped in save-cursor / reset-SGR /
+--- restore-cursor so the editor's cursor and pen are left untouched.
+---@param row integer 1-based top screen row
+---@param col integer 1-based left screen column
+---@param w integer width in cells
+---@param h integer height in cells
+---@param bg? integer background colour as 0xRRGGBB
+---@return string
+function M.erase_rect_seq(row, col, w, h, bg)
+	local parts = { ESC .. "7" } -- save cursor
+	if bg then
+		local r = math.floor(bg / 65536) % 256
+		local g = math.floor(bg / 256) % 256
+		local b = bg % 256
+		parts[#parts + 1] = ESC .. "[48;2;" .. r .. ";" .. g .. ";" .. b .. "m"
+	end
+	for r = row, row + h - 1 do
+		parts[#parts + 1] = ESC .. "[" .. r .. ";" .. col .. "H" -- move to row start
+		parts[#parts + 1] = ESC .. "[" .. w .. "X" -- ECH: erase w cells in place
+	end
+	parts[#parts + 1] = ESC .. "[m" .. ESC .. "8" -- reset SGR, restore cursor
+	return table.concat(parts)
+end
+
 --- Whether `bytes` begins with the PNG signature (Kitty direct transmission
 --- only carries PNG).
 ---@param bytes string
