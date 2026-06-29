@@ -17,7 +17,7 @@
 ---@field lazy? Beast.Packer.Lazy|false Packer loading configuration (if false, loads eagerly; if nil, loads manually)
 ---@field init? fun() Initialization function (runs during setup, before loading)
 ---@field config? fun() Configuration function (runs after plugin loads)
----@field build? string|string[] Build step to run after install/update (like lazy.nvim)
+---@field build? string|string[]|fun(spec: Beast.Packer.PluginSpec, dir: string) Build step to run after install/update (like lazy.nvim). String/list run as Ex/shell commands; function receives the spec and the plugin install directory.
 ---@field version? string|vim.VersionRange Version constraint passed to `vim.pack.add` (e.g. `vim.version.range("*")`)
 
 -- Track packer vs startup plugins

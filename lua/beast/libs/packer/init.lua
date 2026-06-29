@@ -310,8 +310,19 @@ function M.setup(opts)
 					local dir = vim.fn.stdpath("data") .. "/site/pack/core/opt/" .. name
 					local ok, err = pcall(function()
 						if type(spec.build) == "function" then
-							-- Pass spec and plugin directory
-							spec.build(spec, dir)
+							-- A freshly installed lazy plugin lives in pack/core/opt and is not
+							-- yet on the runtimepath, so the build hook can't require() the
+							-- plugin's own modules. We can't :packadd it either, because sourcing
+							-- plugin/ scripts may need the very artifact the build produces (e.g.
+							-- fff.nvim loads its rust binary on source). Temporarily expose the
+							-- plugin's lua/ dir on the runtimepath for the build, then restore it.
+							local saved_rtp = vim.o.runtimepath
+							vim.opt.runtimepath:prepend(dir)
+							local ok_fn, err_fn = pcall(spec.build, spec, dir)
+							vim.o.runtimepath = saved_rtp
+							if not ok_fn then
+								error(err_fn)
+							end
 						elseif type(spec.build) == "string" or vim.islist(spec.build) then
 							run_cmd(spec)
 						end

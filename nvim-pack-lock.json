@@ -9,6 +9,10 @@
       "rev": "426dbebe06b5c69fd846ceb17b42e12f890aedf1",
       "src": "https://github.com/catppuccin/nvim"
     },
+    "fff.nvim": {
+      "rev": "0a953ab918e9485a2f8ce566ea23030585b885c0",
+      "src": "https://github.com/dmtrKovalenko/fff"
+    },
     "friendly-snippets": {
       "rev": "6cd7280adead7f586db6fccbd15d2cac7e2188b9",
       "src": "https://github.com/rafamadriz/friendly-snippets"
