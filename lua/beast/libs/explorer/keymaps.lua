@@ -24,6 +24,12 @@ function M.mount()
 			vim.keymap.set("v", lhs, action.run_visual, opts)
 		end
 	end
+
+	-- Jumplist navigation would replace the explorer with whatever buffer the
+	-- jump points at, breaking the dedicated tree window. Block it. (<Tab> is
+	-- <C-i>, so disabling it here keeps Tab inert in the explorer too.)
+	vim.keymap.set("n", "<C-o>", "<Nop>", opts)
+	vim.keymap.set("n", "<C-i>", "<Nop>", opts)
 end
 
 return M

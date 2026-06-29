@@ -67,6 +67,10 @@ function M.create()
 	vim.wo[win].wrap = false
 	vim.wo[win].cursorline = true
 	vim.wo[win].winfixwidth = true
+	-- Pin the explorer buffer to this window so nothing (jumplist, gf, <C-^>,
+	-- :b/:e, quickfix/tag jumps) can swap another buffer in. Splits opened from
+	-- here inherit this, so open/split actions clear it on the new window.
+	vim.wo[win].winfixbuf = true
 	vim.wo[win].listchars = "tab:  ,nbsp:+"
 	-- scrolloff is owned by sticky.refresh() — it tracks the float height so
 	-- the cursor never lands in rows hidden under the sticky overlay.

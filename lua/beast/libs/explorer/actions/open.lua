@@ -32,6 +32,7 @@ local function on_select(node)
 			end
 		end
 		vim.wo[new_win].winfixwidth = false
+		vim.wo[new_win].winfixbuf = false
 		vim.api.nvim_win_set_width(state.view.win, config.width)
 		vim.wo[state.view.win].winfixwidth = true
 	end
