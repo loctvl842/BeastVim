@@ -88,5 +88,37 @@ assert_eq("missing bigrams → nil (full scan)", idx:query(bigram.keys_of("zzqq"
 assert_eq("pure metachar query → no keys", #extract.keys("\\("), 0)
 assert_test("stats reports files/columns", idx:stats().files == 4 and idx:stats().columns > 0)
 
+-- =========================================================================
+-- index builder — chunked build over a temp dir; query → candidate paths
+-- =========================================================================
+io.write("\n--- index builder ---\n")
+local index = require("beast.libs.finder.engine.index")
+
+local tmp = vim.fn.tempname()
+vim.fn.mkdir(tmp, "p")
+vim.fn.writefile({ "local error_handler = 1" }, tmp .. "/a.lua")
+vim.fn.writefile({ "no relevant content" }, tmp .. "/b.lua")
+vim.fn.writefile({ "another error case" }, tmp .. "/c.lua")
+
+local built
+index.build(tmp, { max_files = 100, max_file_size = 1024 * 1024 }, function(i)
+	built = i
+end)
+vim.wait(3000, function()
+	return built ~= nil
+end, 10)
+
+assert_test("build completed + ready", built and built.ready)
+if built then
+	local hits = set_of(built:query("error"))
+	assert_test("a.lua candidate", hits[tmp .. "/a.lua"])
+	assert_test("c.lua candidate", hits[tmp .. "/c.lua"])
+	assert_test("b.lua pruned", not hits[tmp .. "/b.lua"])
+	assert_eq("pure-meta query → full scan", built:query("(.)"), nil)
+	assert_test("get(root) returns ready index", index.get(tmp) == built)
+	assert_test("report has files", index.report().files == 3)
+end
+vim.fn.delete(tmp, "rf")
+
 io.write(string.format("\n=== %d passed, %d failed ===\n", passed, failed))
 os.exit(failed > 0 and 1 or 0)
