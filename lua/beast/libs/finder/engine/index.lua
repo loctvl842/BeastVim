@@ -25,6 +25,9 @@ local FILES_PER_TICK = 256
 ---@field skipped integer oversize files not indexed
 ---@field max_file_size integer
 ---@field build_ms number
+---@field id_of table<string, integer> abs path -> 0-based file id
+---@field dead table<integer, boolean> tombstoned ids (deleted on disk)
+---@field watcher uv.uv_fs_event_t? recursive root watcher
 local Index = {}
 Index.__index = Index
 
@@ -52,10 +55,13 @@ end
 ---@param on_done fun(index: Beast.Finder.Index?)
 function M.build(root, opts, on_done)
 	local files = list_files(root, opts.max_files)
-	local idx = bigram.new(#files)
+	local idx = bigram.new(opts.max_files)
 	if not idx or #files == 0 then
 		on_done(nil)
 		return
+	end
+	if current then
+		current:stop()
 	end
 
 	local self = setmetatable({
@@ -66,7 +72,13 @@ function M.build(root, opts, on_done)
 		skipped = 0,
 		max_file_size = opts.max_file_size,
 		build_ms = 0,
+		id_of = {},
+		dead = {},
+		watcher = nil,
 	}, Index)
+	for i, path in ipairs(files) do
+		self.id_of[path] = i - 1
+	end
 
 	local t0 = uv.hrtime()
 	local cursor = 1
@@ -80,6 +92,7 @@ function M.build(root, opts, on_done)
 			self.ready = true
 			self.build_ms = (uv.hrtime() - t0) / 1e6
 			current = self
+			self:watch()
 			on_done(self)
 		else
 			vim.schedule(tick)
@@ -121,9 +134,74 @@ function Index:query(query)
 	end
 	local paths = {}
 	for _, id in ipairs(ids) do
-		paths[#paths + 1] = self.files[id + 1]
+		if not self.dead[id] then
+			paths[#paths + 1] = self.files[id + 1]
+		end
 	end
 	return paths
+end
+
+--- Re-index a changed/new file; tombstone a deleted one. Re-adding only sets
+--- more bits (a superset — rg still verifies), so freshness never drops a
+--- match. New files get a fresh id; deletes are filtered out at query time.
+---@param abs string absolute path
+function Index:refresh(abs)
+	local exists = uv.fs_stat(abs) ~= nil
+	local id = self.id_of[abs]
+	if not exists then
+		if id then
+			self.dead[id] = true
+		end
+		return
+	end
+	if not id then
+		if #self.files >= self.bigram.words * 32 then
+			return -- index full; new file searched only by rg's full-scan fallback
+		end
+		self.files[#self.files + 1] = abs
+		id = #self.files - 1
+		self.id_of[abs] = id
+	end
+	self.dead[id] = nil
+	self:scan_file(id + 1)
+end
+
+--- Watch the root recursively; debounce bursts and refresh changed paths.
+function Index:watch()
+	local w = uv.new_fs_event()
+	if not w then
+		return
+	end
+	self.watcher = w
+	local pending = {}
+	w:start(self.root, { recursive = true }, function(err, fname)
+		if err or not fname then
+			return
+		end
+		local abs = fname:sub(1, 1) == "/" and fname or (self.root .. "/" .. fname)
+		if pending[abs] then
+			return
+		end
+		pending[abs] = true
+		vim.defer_fn(function()
+			pending[abs] = nil
+			self:refresh(abs)
+		end, 200)
+	end)
+end
+
+--- Stop watching and forget the singleton.
+function Index:stop()
+	if self.watcher then
+		pcall(function()
+			self.watcher:stop()
+			self.watcher:close()
+		end)
+		self.watcher = nil
+	end
+	if current == self then
+		current = nil
+	end
 end
 
 --- The ready index for root, or nil if none/cwd changed.

@@ -117,6 +117,24 @@ if built then
 	assert_eq("pure-meta query → full scan", built:query("(.)"), nil)
 	assert_test("get(root) returns ready index", index.get(tmp) == built)
 	assert_test("report has files", index.report().files == 3)
+
+	-- freshness: new file becomes searchable; deleted file tombstoned
+	vim.fn.writefile({ "fresh error line" }, tmp .. "/d.lua")
+	built:refresh(tmp .. "/d.lua")
+	local h2 = set_of(built:query("error"))
+	assert_test("new file d.lua searchable", h2[tmp .. "/d.lua"])
+	vim.fn.delete(tmp .. "/a.lua")
+	built:refresh(tmp .. "/a.lua")
+	local h3 = set_of(built:query("error"))
+	assert_test("deleted a.lua tombstoned", not h3[tmp .. "/a.lua"])
+	-- many new files past the 32-slot pad: capacity from max_files holds, no loss
+	for i = 1, 60 do
+		local p = string.format("%s/z%02d.lua", tmp, i)
+		vim.fn.writefile({ "unique zebra token" }, p)
+		built:refresh(p)
+	end
+	assert_eq("60 new files all searchable", #built:query("zebra"), 60)
+	built:stop()
 end
 vim.fn.delete(tmp, "rf")
 
