@@ -9,10 +9,32 @@
 local bigram = require("beast.libs.finder.engine.bigram")
 local config = require("beast.libs.finder.config")
 local index = require("beast.libs.finder.engine.index")
+local stats = require("beast.libs.finder.engine.stats")
 
 local M = {}
 
 local SHOW_LIMIT = 40
+
+--- Print the recent-query stats ring (prefilter + total timings, survivors).
+local function dump_stats()
+	local rows = stats.recent()
+	if #rows == 0 then
+		vim.notify("BeastFinderBigram: no queries recorded (run :BeastFinderBigramDebug enable, then grep)", vim.log.levels.INFO)
+		return
+	end
+	local lines = { string.format("%-20s %8s %5s %8s %6s", "pattern", "prefil", "surv", "total", "hits") }
+	for _, r in ipairs(rows) do
+		lines[#lines + 1] = string.format(
+			"%-20s %6.1fms %5s %6.1fms %6d",
+			r.pattern:sub(1, 20),
+			r.prefilter_ms,
+			r.survivors and tostring(r.survivors) or "full",
+			r.total_ms,
+			r.results
+		)
+	end
+	vim.api.nvim_echo({ { table.concat(lines, "\n") } }, false, {})
+end
 
 --- Print candidates for the space-joined query against the cwd index.
 ---@param query string
@@ -45,17 +67,34 @@ local function dump(query)
 end
 
 --- Register :BeastFinderBigramDebug (idempotent).
+--- Subcommands: `enable`/`disable` toggle stats; `stats` prints the ring;
+--- otherwise args are treated as bigrams/literals to look up candidates.
 function M.register()
 	if not bigram.available() then
 		return
 	end
 	pcall(vim.api.nvim_create_user_command, "BeastFinderBigramDebug", function(cmd)
-		if #cmd.fargs == 0 then
-			vim.notify("usage: :BeastFinderBigramDebug <bigram|literal> …", vim.log.levels.WARN)
-			return
+		local sub = cmd.fargs[1]
+		if sub == "enable" then
+			stats.set(true)
+			vim.notify("BeastFinderBigram: stats ON — grep, then :BeastFinderBigramDebug stats", vim.log.levels.INFO)
+		elseif sub == "disable" then
+			stats.set(false)
+			vim.notify("BeastFinderBigram: stats OFF", vim.log.levels.INFO)
+		elseif sub == "stats" then
+			dump_stats()
+		elseif #cmd.fargs == 0 then
+			vim.notify("usage: :BeastFinderBigramDebug <enable|disable|stats|bigram…>", vim.log.levels.WARN)
+		else
+			dump(table.concat(cmd.fargs, " "))
 		end
-		dump(table.concat(cmd.fargs, " "))
-	end, { nargs = "+", desc = "Show bigram prefilter candidate files (AND of args)" })
+	end, {
+		nargs = "*",
+		complete = function()
+			return { "enable", "disable", "stats" }
+		end,
+		desc = "Bigram prefilter debug: enable/disable/stats or lookup candidates",
+	})
 end
 
 return M

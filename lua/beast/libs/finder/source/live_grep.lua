@@ -2,6 +2,7 @@ local uv = vim.uv or vim.loop
 local bigram = require("beast.libs.finder.engine.bigram")
 local config = require("beast.libs.finder.config")
 local index = require("beast.libs.finder.engine.index")
+local stats = require("beast.libs.finder.engine.stats")
 
 ---@class Beast.Finder.Source.LiveGrep: Beast.Finder.ASource
 local M = {}
@@ -52,7 +53,21 @@ local parse_mode = "ug"
 ---@param cwd string
 ---@param files string[]? prefilter survivors; replace dir scan with these files
 local function ensure_cmd(text, cwd, files)
-	if vim.fn.executable("ug") == 1 then
+	if vim.fn.executable("rg") == 1 then
+		M.cmd = "rg"
+		parse_mode = "rg"
+		-- --json reports submatch byte offsets and the matched text, so the
+		-- preview can highlight exactly what rg matched (same as ug) — no need
+		-- to re-derive the literal from a regex query.
+		M.args = {
+			"--json",
+			"--smart-case",
+			"--hidden",
+			"--glob=!.git",
+			"--",
+			text,
+		}
+	elseif vim.fn.executable("ug") == 1 then
 		M.cmd = "ug"
 		parse_mode = "ug"
 		-- %d (match byte-length) prefixes %o (matched text) so we can split it
@@ -67,20 +82,6 @@ local function ensure_cmd(text, cwd, files)
 			"--hidden",
 			"--exclude-dir=.git",
 			"--tabs=1",
-			"--",
-			text,
-		}
-	elseif vim.fn.executable("rg") == 1 then
-		M.cmd = "rg"
-		parse_mode = "rg"
-		-- --json reports submatch byte offsets and the matched text, so the
-		-- preview can highlight exactly what rg matched (same as ug) — no need
-		-- to re-derive the literal from a regex query.
-		M.args = {
-			"--json",
-			"--smart-case",
-			"--hidden",
-			"--glob=!.git",
 			"--",
 			text,
 		}
@@ -201,8 +202,11 @@ function M.get(filter, cb)
 	-- Bigram prefilter: empty survivor list = no file can match → done early.
 	-- nil = grep the whole tree (engine off/not ready). Survivors → grep only
 	-- those files (rg/ug still verifies, so results are byte-identical).
+	local pf0 = uv.hrtime()
 	local survivors = prefilter(filter.pattern, filter.cwd)
+	local srec = stats.start(filter.pattern, survivors and #survivors or nil, (uv.hrtime() - pf0) / 1e6)
 	if survivors and #survivors == 0 then
+		stats.finish(srec, 0)
 		vim.schedule(function()
 			cb(nil)
 		end)
@@ -278,6 +282,7 @@ function M.get(filter, cb)
 				end
 			end
 		end
+		stats.finish(srec, idx)
 		vim.schedule(function()
 			cb(nil)
 		end)
@@ -326,6 +331,7 @@ function M.get(filter, cb)
 						for _, item in ipairs(batch) do
 							cb(item)
 						end
+						stats.finish(srec, idx)
 						vim.schedule(function()
 							cb(nil)
 						end)
