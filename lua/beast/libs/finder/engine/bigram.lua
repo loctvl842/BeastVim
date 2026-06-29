@@ -37,10 +37,13 @@ end
 
 M.key_of = key_of
 
---- Decompose a literal string into its bigram keys (deduplicated).
+--- Decompose a literal string into its bigram keys (deduplicated). Lowercased
+--- so the index is case-insensitive — a superset for smart-case queries, which
+--- only ever over-includes candidates (rg verifies; no false negatives).
 ---@param s string
 ---@return integer[]
 function M.keys_of(s)
+	s = s:lower()
 	local seen, keys = {}, {}
 	for i = 1, #s - 1 do
 		local k = key_of(s:byte(i), s:byte(i + 1))
@@ -95,10 +98,12 @@ function Bigram:column(key)
 	return col
 end
 
---- Record every bigram of `bytes` against file id (0-based).
+--- Record every bigram of `bytes` against file id (0-based). Bytes are
+--- lowercased so the index is case-insensitive (matches keys_of).
 ---@param id integer
 ---@param bytes string
 function Bigram:add(id, bytes)
+	bytes = bytes:lower()
 	if id + 1 > self.nfiles then
 		self.nfiles = id + 1
 	end

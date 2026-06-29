@@ -1,4 +1,7 @@
 local uv = vim.uv or vim.loop
+local bigram = require("beast.libs.finder.engine.bigram")
+local config = require("beast.libs.finder.config")
+local index = require("beast.libs.finder.engine.index")
 
 ---@class Beast.Finder.Source.LiveGrep: Beast.Finder.ASource
 local M = {}
@@ -11,12 +14,44 @@ M.args = {}
 -- Maximum results to collect before stopping the process
 local RESULT_LIMIT = 10000
 
+-- Tracks an in-flight index build per cwd so we kick it off only once.
+local building = nil
+
+--- Resolve the bigram prefilter survivors for a query. Returns nil to grep the
+--- whole tree (engine off/not ready/too many survivors); an (empty) list means
+--- prune. Lazily kicks off a one-time background build on first open.
+---@param pattern string
+---@param cwd string
+---@return string[]?
+local function prefilter(pattern, cwd)
+	local engine = config.engine
+	if not (engine and engine.enabled and bigram.available()) then
+		return nil
+	end
+	local idx = index.get(cwd)
+	if not idx then
+		if building ~= cwd then
+			building = cwd
+			index.build(cwd, { max_files = engine.max_files, max_file_size = engine.max_file_size }, function()
+				building = nil
+			end)
+		end
+		return nil
+	end
+	local files = idx:query(pattern)
+	if files and #files > engine.max_survivors then
+		return nil -- too many to pass as args; full scan is cheaper than xargs here
+	end
+	return files
+end
+
 -- Output parser for the active command: "ug" (custom --format) or "rg" (--json)
 local parse_mode = "ug"
 
 ---@param text string search query
 ---@param cwd string
-local function ensure_cmd(text, cwd)
+---@param files string[]? prefilter survivors; replace dir scan with these files
+local function ensure_cmd(text, cwd, files)
 	if vim.fn.executable("ug") == 1 then
 		M.cmd = "ug"
 		parse_mode = "ug"
@@ -34,7 +69,6 @@ local function ensure_cmd(text, cwd)
 			"--tabs=1",
 			"--",
 			text,
-			cwd,
 		}
 	elseif vim.fn.executable("rg") == 1 then
 		M.cmd = "rg"
@@ -49,11 +83,18 @@ local function ensure_cmd(text, cwd)
 			"--glob=!.git",
 			"--",
 			text,
-			cwd,
 		}
 	else
 		M.cmd = nil
 		M.args = {}
+		return
+	end
+	-- Search either the prefiltered file list or the whole tree. Bigram
+	-- survivors only prune, so grep over them is byte-identical to a full scan.
+	if files then
+		vim.list_extend(M.args, files)
+	else
+		M.args[#M.args + 1] = cwd
 	end
 end
 
@@ -157,7 +198,17 @@ function M.get(filter, cb)
 		return
 	end
 
-	ensure_cmd(filter.pattern, filter.cwd)
+	-- Bigram prefilter: empty survivor list = no file can match → done early.
+	-- nil = grep the whole tree (engine off/not ready). Survivors → grep only
+	-- those files (rg/ug still verifies, so results are byte-identical).
+	local survivors = prefilter(filter.pattern, filter.cwd)
+	if survivors and #survivors == 0 then
+		vim.schedule(function()
+			cb(nil)
+		end)
+		return
+	end
+	ensure_cmd(filter.pattern, filter.cwd, survivors)
 	if not M.cmd then
 		vim.schedule(function()
 			vim.notify("beast.finder: ug (ugrep) or rg (ripgrep) is required for live_grep", vim.log.levels.WARN)

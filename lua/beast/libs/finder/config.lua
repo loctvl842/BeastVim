@@ -17,6 +17,12 @@ local defaults = {
 		smartcase = true,
 		ignorecase = true,
 	},
+	engine = {
+		enabled = false,
+		max_files = 90000,
+		max_file_size = 1024 * 1024,
+		max_survivors = 5000,
+	},
 	actions = {},
 }
 
