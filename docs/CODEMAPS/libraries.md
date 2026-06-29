@@ -1,4 +1,4 @@
-<!-- Generated: 2026-06-15 | Files scanned: 252 | Token estimate: ~2950 -->
+<!-- Generated: 2026-06-29 | Files scanned: 255 | Token estimate: ~3000 -->
 
 # Libraries
 
@@ -73,9 +73,13 @@ finder/
 │   ├── init.lua       ← lazy registry (__index → require source.<name>)
 │   ├── files.lua      ← async (fd/rg/find via uv.spawn)
 │   ├── buffers.lua    ← sync (getbufinfo)
-│   ├── live_grep.lua  ← live async (rg with pattern)
+│   ├── live_grep.lua  ← live async (rg/ug; opt-in bigram prefilter → survivor files)
 │   ├── colorschemes.lua ← sync (rtp-only globpath)
 │   └── help_tags.lua  ← sync (rtp-only tag parsing)
+├── engine/            ← opt-in bigram prefilter (config.engine.enabled)
+│   ├── bigram.lua     ← FFI uint32 bitset matrix: add/query AND, capped 5000 cols
+│   ├── extract.lua    ← literal-run bigram keys from rg regex (skips metachars/escapes)
+│   └── index.lua      ← chunked uv build, fs_event refresh, tombstones, query→paths
 └── ui/
     ├── init.lua     ← barrel (input, list, preview, backdrop)
     ├── input.lua    ← prompt buffer + debounced TextChanged
