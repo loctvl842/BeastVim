@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782568861209,
+  "lastUpdate": 1782734600499,
   "repoUrl": "https://github.com/loctvl842/BeastVim",
   "entries": {
     "BeastVim Startup": [
@@ -791,6 +791,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "BeastVim startup (warm) max",
             "value": 135.811913,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "committer": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "distinct": true,
+          "id": "90d7c09963ca8971d2f4c74bed96a56e5522eed1",
+          "message": "feat(finder): bigram prefilter stats ring + debug subcommands\n\nRecord per-query prefilter/total ms, survivor count, hits (opt-in via\n:BeastFinderBigramDebug enable). enable/disable/stats subcommands. Includes\nrg-first ordering in ensure_cmd. Zero cost when stats disabled.",
+          "timestamp": "2026-06-29T15:13:13+07:00",
+          "tree_id": "51074b9f46b81009cbcd7228397540e66356fa98",
+          "url": "https://github.com/loctvl842/BeastVim/commit/90d7c09963ca8971d2f4c74bed96a56e5522eed1"
+        },
+        "date": 1782734599559,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "BeastVim startup (warm) mean",
+            "value": 35.22510530000001,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) stddev",
+            "value": 2.4500676018523313,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) min",
+            "value": 33.894183,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) max",
+            "value": 44.084596000000005,
             "unit": "ms"
           }
         ]
