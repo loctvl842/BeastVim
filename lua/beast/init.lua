@@ -114,16 +114,10 @@ function M.setup(opts)
 			{
 				name = "BufWinEnter",
 				defer = true,
-				cond = function()
-					return vim.api.nvim_buf_get_name(0) ~= ""
-				end,
 			},
 			{
 				name = "BufWritePost",
 				defer = true,
-				cond = function()
-					return vim.api.nvim_buf_get_name(0) ~= ""
-				end,
 			},
 		},
 	  -- stylua: ignore
@@ -386,6 +380,7 @@ function M.setup(opts)
 		bind("gr", "textDocument/references", "lsp_references", "Goto references")
 		bind("gD", "textDocument/declaration", "lsp_declarations", "Goto declaration")
 		bind("gi", "textDocument/implementation", "lsp_implementations", "Goto implementation")
+		Key.safe_set("n", "gl", vim.diagnostic.open_float, { group = "LSP", desc = "Show diagnostics" })
 	end)
 
 	-- stylua: ignore
