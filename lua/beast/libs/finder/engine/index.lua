@@ -1,9 +1,11 @@
 -- Persistent content index for live_grep prefiltering.
 --
 -- Walks the repo once (via `rg --files`, so .gitignore is honored), then reads
--- each file in chunks across `vim.uv` ticks — the editor never blocks. Every
--- file's bigrams go into the bitset matrix; oversize files are skipped (tracked,
--- still searched directly by rg). A query maps to bigram keys, ANDs columns, and
+-- files in time-budgeted slices across libuv timer ticks — each tick processes
+-- files only until ~BUILD_BUDGET_MS elapses, then yields so the editor redraws
+-- and stays responsive even on huge repos (2.1 GB / 90k files). Every file's
+-- bigrams go into the bitset matrix; oversize files are skipped (tracked, still
+-- searched directly by rg). A query maps to bigram keys, ANDs columns, and
 -- returns absolute candidate paths — or nil when nothing prunes (full scan).
 --
 -- One index per root. Rebuilds when the cwd changes. Freshness (fs_event) is
@@ -15,7 +17,11 @@ local extract = require("beast.libs.finder.engine.extract")
 
 local M = {}
 
-local FILES_PER_TICK = 256
+-- Max wall time a build tick may hold the main loop before yielding. Small so
+-- typing/redraw never stalls; the build just spans more ticks.
+local BUILD_BUDGET_MS = 3
+-- Files between budget checks (hrtime isn't free; batch a few reads per check).
+local CHECK_EVERY = 16
 
 ---@class Beast.Finder.Index
 ---@field root string
@@ -82,23 +88,32 @@ function M.build(root, opts, on_done)
 
 	local t0 = uv.hrtime()
 	local cursor = 1
+	-- Timer yield (vs vim.schedule) lets the editor redraw/handle keys between
+	-- slices; chained schedules can starve the UI when there's no input gap.
+	local timer = uv.new_timer()
 	local function tick()
-		local stop = math.min(cursor + FILES_PER_TICK - 1, #files)
-		for id = cursor, stop do
-			self:scan_file(id)
+		local deadline = uv.hrtime() + BUILD_BUDGET_MS * 1e6
+		while cursor <= #files do
+			self:scan_file(cursor)
+			cursor = cursor + 1
+			if cursor % CHECK_EVERY == 0 and uv.hrtime() >= deadline then
+				break
+			end
 		end
-		cursor = stop + 1
 		if cursor > #files then
+			timer:stop()
+			timer:close()
 			self.ready = true
 			self.build_ms = (uv.hrtime() - t0) / 1e6
 			current = self
 			self:watch()
+			Toast(string.format("beast.finder: bigram index ready — %d files in %.0fms", #files, self.build_ms), vim.log.levels.INFO)
 			on_done(self)
 		else
-			vim.schedule(tick)
+			timer:start(1, 0, vim.schedule_wrap(tick))
 		end
 	end
-	vim.schedule(tick)
+	timer:start(1, 0, vim.schedule_wrap(tick))
 end
 
 --- Read one file (1-based) and feed its bigrams. Oversize files are skipped.
