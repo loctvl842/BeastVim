@@ -40,9 +40,6 @@ local function prefilter(pattern, cwd)
 		return nil
 	end
 	local files = idx:query(pattern)
-	if files and #files > engine.max_survivors then
-		return nil -- too many to pass as args; full scan is cheaper than xargs here
-	end
 	return files
 end
 
@@ -52,14 +49,15 @@ local parse_mode = "ug"
 ---@param text string search query
 ---@param cwd string
 ---@param files string[]? prefilter survivors; replace dir scan with these files
-local function ensure_cmd(text, cwd, files)
+---@param text string search query
+local function ensure_cmd(text)
 	if vim.fn.executable("rg") == 1 then
 		M.cmd = "rg"
 		parse_mode = "rg"
 		-- --json reports submatch byte offsets and the matched text, so the
 		-- preview can highlight exactly what rg matched (same as ug) — no need
 		-- to re-derive the literal from a regex query.
-		M.args = {
+		M.base_args = {
 			"--json",
 			"--smart-case",
 			"--hidden",
@@ -74,7 +72,7 @@ local function ensure_cmd(text, cwd, files)
 		-- off the front of %O (full line) without a delimiter that could collide
 		-- with line content. The matched literal lets the preview highlight the
 		-- exact text grep matched, even for regex/escaped queries like `require\(`.
-		M.args = {
+		M.base_args = {
 			"-r",
 			"--format=%f:%n:%k:%d:%o%O%~",
 			"--color=never",
@@ -87,16 +85,45 @@ local function ensure_cmd(text, cwd, files)
 		}
 	else
 		M.cmd = nil
-		M.args = {}
-		return
+		M.base_args = {}
 	end
-	-- Search either the prefiltered file list or the whole tree. Bigram
-	-- survivors only prune, so grep over them is byte-identical to a full scan.
-	if files then
-		vim.list_extend(M.args, files)
-	else
-		M.args[#M.args + 1] = cwd
+	M.args = M.base_args
+end
+
+-- Per-batch argv budget (bytes of survivor paths appended to base args). Kept
+-- well under macOS ARG_MAX (~1 MB) so each `rg` spawn is safe; larger survivor
+-- sets fan out into several batches.
+local BATCH_BUDGET_BYTES = 256 * 1024
+-- Cap concurrent `rg` processes so a pathological survivor set (tens of
+-- thousands of files → many batches) can't fork-bomb the loop. ~CPU count.
+local MAX_PARALLEL = math.max(2, math.min(8, (uv.available_parallelism and uv.available_parallelism()) or 4))
+
+--- Split survivors into positional-arg batches, each under the argv budget.
+--- `nil` survivors → a single whole-tree batch (`{ cwd }`). We batch and spawn
+--- `rg` ourselves (instead of `xargs`) so every process is a direct child we
+--- can kill outright on cancel — no orphaned grep keeps scanning after a
+--- keystroke (xargs would reparent its rg child, leaving it running).
+---@param cwd string
+---@param survivors string[]?
+---@return string[][] batches each a list of positional args for one rg run
+local function batch_targets(cwd, survivors)
+	if not survivors then
+		return { { cwd } }
 	end
+	local batches, cur, size = {}, {}, 0
+	for _, path in ipairs(survivors) do
+		local plen = #path + 1
+		if size + plen > BATCH_BUDGET_BYTES and #cur > 0 then
+			batches[#batches + 1] = cur
+			cur, size = {}, 0
+		end
+		cur[#cur + 1] = path
+		size = size + plen
+	end
+	if #cur > 0 then
+		batches[#batches + 1] = cur
+	end
+	return batches
 end
 
 --- Build a relative path from an absolute one without vim.fn (safe in libuv callbacks)
@@ -183,10 +210,8 @@ local function parse_line(line)
 	}
 end
 
----@type uv.uv_process_t|nil
-local current_handle = nil
----@type uv.uv_pipe_t|nil
-local current_stdout = nil
+---@type { handle: uv.uv_process_t, stdout: uv.uv_pipe_t }[]
+local current_procs = {}
 
 ---@param filter Beast.Finder.Filter
 ---@param cb fun(item: Beast.Finder.Item|nil) nil signals completion
@@ -212,7 +237,7 @@ function M.get(filter, cb)
 		end)
 		return
 	end
-	ensure_cmd(filter.pattern, filter.cwd, survivors)
+	ensure_cmd(filter.pattern)
 	if not M.cmd then
 		vim.schedule(function()
 			vim.notify("beast.finder: ug (ugrep) or rg (ripgrep) is required for live_grep", vim.log.levels.WARN)
@@ -222,160 +247,184 @@ function M.get(filter, cb)
 	end
 
 	local cwd = filter.cwd
-	local idx = 0
-	local completed = false
-	local prev = "" -- partial line from previous chunk
-	local stdout = assert(uv.new_pipe(false), "failed to create stdout pipe")
-	current_stdout = stdout
+	local base_args = M.base_args
+	local batches = batch_targets(cwd, survivors)
 
-	---@type uv.spawn.options
-	local spawn_opts = {
-		args = M.args,
-		stdio = { nil, stdout, nil },
-		cwd = nil,
-		env = nil,
-		uid = nil,
-		gid = nil,
-		verbatim = false,
-		detached = false,
-		hide = true,
-	}
-
-	local handle
-	handle = uv.spawn(M.cmd, spawn_opts, function()
-		if not stdout:is_closing() then
-			stdout:close()
+	-- TEMP: dump the resolved plan for inspection (overwrites each query).
+	-- Per-cwd filename so different repos/sessions don't clobber each other.
+	do
+		local slug = cwd:gsub("[/\\:]", "_")
+		local path = vim.fn.stdpath("state") .. "/beast-livegrep-cmd-" .. slug .. ".log"
+		local f = io.open(path, "w")
+		if f then
+			local first = vim.deepcopy(base_args)
+			vim.list_extend(first, batches[1] or {})
+			f:write(
+				("cwd=%s\nsurvivors=%s  batches=%d  parallel=%d\n%s %s\n"):format(
+					cwd,
+					survivors and #survivors or "full",
+					#batches,
+					MAX_PARALLEL,
+					M.cmd,
+					table.concat(first, " ")
+				)
+			)
+			f:close()
 		end
-		if handle and not handle:is_closing() then
-			handle:close()
-		end
-		current_handle = nil
-		current_stdout = nil
+	end
 
-		-- If limit was already reached, don't signal completion again
-		if completed then
+	-- Shared state across all batch processes for this query.
+	local idx = 0 -- result count (across batches)
+	local done = false -- limit hit or all batches drained
+	local next_batch = 1 -- cursor into `batches`
+	local active = 0 -- running processes
+	local pending = #batches -- processes not yet exited
+
+	local function finish_all()
+		if done then
 			return
 		end
-		completed = true
-
-		-- Flush remaining partial line
-		if prev ~= "" then
-			local line = vim.trim(prev)
-			prev = ""
-			if line ~= "" then
-				for _, rec in ipairs(parse_line(line)) do
-					if idx < RESULT_LIMIT then
-						idx = idx + 1
-						local abs = make_abs(cwd, rec.file)
-						local rel = make_rel(cwd, abs)
-						cb({
-							idx = idx,
-							score = 0,
-							text = rel .. ":" .. rec.lnum .. ": " .. rec.text,
-							file = abs,
-							pos = { rec.lnum, rec.col },
-							cwd = cwd,
-							grep_text = rec.text,
-							match_text = rec.match_text,
-						})
-					end
-				end
-			end
-		end
+		done = true
 		stats.finish(srec, idx)
 		vim.schedule(function()
 			cb(nil)
 		end)
-	end)
+	end
 
-	current_handle = handle
+	---@param rec { file: string, lnum: integer, col: integer, text: string, match_text: string? }
+	local function emit(rec)
+		idx = idx + 1
+		local abs = make_abs(cwd, rec.file)
+		local rel = make_rel(cwd, abs)
+		cb({
+			idx = idx,
+			score = 0,
+			text = rel .. ":" .. rec.lnum .. ": " .. rec.text,
+			file = abs,
+			pos = { rec.lnum, rec.col },
+			cwd = cwd,
+			grep_text = rec.text,
+			match_text = rec.match_text,
+		})
+	end
 
-	stdout:read_start(function(err, data)
-		if err or not data then
-			return
-		end
+	local pump -- forward declaration (run_one schedules the next via pump)
 
-		-- Parse lines directly from each chunk, tracking partial trailing line
-		local batch = {}
-		local from = 1
-		while from <= #data do
-			local nl = data:find("\n", from, true)
-			if not nl then
-				-- No more newlines — save as partial line for next chunk
-				if prev ~= "" then
-					prev = prev .. data:sub(from)
-				else
-					prev = data:sub(from)
-				end
-				break
+	---@param positional string[] this batch's file/cwd args
+	local function run_one(positional)
+		local full = vim.deepcopy(base_args)
+		vim.list_extend(full, positional)
+		local stdout = assert(uv.new_pipe(false), "failed to create stdout pipe")
+		local prev = "" -- partial trailing line for this process
+		local proc = { stdout = stdout }
+		current_procs[#current_procs + 1] = proc
+
+		local handle
+		handle = uv.spawn(M.cmd, {
+			args = full,
+			stdio = { nil, stdout, nil },
+			hide = true,
+		}, function()
+			if not stdout:is_closing() then
+				stdout:close()
 			end
-
-			local line = data:sub(from, nl - 1)
-			from = nl + 1
-			if prev ~= "" then
-				line = prev .. line
-				prev = ""
+			if handle and not handle:is_closing() then
+				handle:close()
 			end
-
-			-- Strip \r if present
-			if line:byte(#line) == 13 then
-				line = line:sub(1, -2)
-			end
-
-			if line ~= "" then
-				for _, rec in ipairs(parse_line(line)) do
-					idx = idx + 1
-					if idx > RESULT_LIMIT then
-						completed = true
-						M.cancel()
-						for _, item in ipairs(batch) do
-							cb(item)
+			-- Flush this process's final partial line.
+			if not done and prev ~= "" then
+				local line = vim.trim(prev)
+				if line ~= "" then
+					for _, rec in ipairs(parse_line(line)) do
+						if idx < RESULT_LIMIT then
+							emit(rec)
 						end
-						stats.finish(srec, idx)
-						vim.schedule(function()
-							cb(nil)
-						end)
-						return
 					end
-					local abs = make_abs(cwd, rec.file)
-					local rel = make_rel(cwd, abs)
-					batch[#batch + 1] = {
-						idx = idx,
-						score = 0,
-						text = rel .. ":" .. rec.lnum .. ": " .. rec.text,
-						file = abs,
-						pos = { rec.lnum, rec.col },
-						cwd = cwd,
-						grep_text = rec.text,
-						match_text = rec.match_text,
-					}
 				end
 			end
-		end
-
-		if #batch > 0 then
-			for _, item in ipairs(batch) do
-				cb(item)
+			active = active - 1
+			pending = pending - 1
+			if done then
+				return
 			end
+			if pending == 0 then
+				finish_all()
+			else
+				pump()
+			end
+		end)
+		proc.handle = handle
+
+		stdout:read_start(function(err, data)
+			if err or not data or done then
+				return
+			end
+			local from = 1
+			while from <= #data do
+				local nl = data:find("\n", from, true)
+				if not nl then
+					prev = prev .. data:sub(from)
+					break
+				end
+				local line = data:sub(from, nl - 1)
+				from = nl + 1
+				if prev ~= "" then
+					line = prev .. line
+					prev = ""
+				end
+				if line:byte(#line) == 13 then
+					line = line:sub(1, -2)
+				end
+				if line ~= "" then
+					for _, rec in ipairs(parse_line(line)) do
+						if idx >= RESULT_LIMIT then
+							finish_all()
+							M.cancel()
+							return
+						end
+						emit(rec)
+					end
+				end
+			end
+		end)
+	end
+
+	-- Start batches up to the parallelism cap; each exit pumps the next.
+	function pump()
+		while not done and active < MAX_PARALLEL and next_batch <= #batches do
+			local positional = batches[next_batch]
+			next_batch = next_batch + 1
+			active = active + 1
+			run_one(positional)
 		end
-	end)
+	end
+
+	pump()
 end
 
---- Cancel any running grep process
+--- Cancel all running grep processes for the current query.
+--- Each `rg` is a direct child, so killing its PID stops it outright — no
+--- orphaned grep keeps scanning after the query is replaced.
 function M.cancel()
-	if current_stdout then
-		pcall(function()
-			current_stdout:read_stop()
-			current_stdout:close()
-		end)
-		current_stdout = nil
-	end
-	if current_handle then
-		pcall(function()
-			current_handle:kill("SIGTERM")
-			current_handle:close()
-		end)
-		current_handle = nil
+	local procs = current_procs
+	current_procs = {}
+	for _, p in ipairs(procs) do
+		if p.stdout then
+			pcall(function()
+				p.stdout:read_stop()
+				if not p.stdout:is_closing() then
+					p.stdout:close()
+				end
+			end)
+		end
+		if p.handle then
+			pcall(function()
+				p.handle:kill("SIGTERM")
+				if not p.handle:is_closing() then
+					p.handle:close()
+				end
+			end)
+		end
 	end
 end
 
