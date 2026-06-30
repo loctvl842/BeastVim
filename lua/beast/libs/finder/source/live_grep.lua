@@ -2,7 +2,6 @@ local uv = vim.uv or vim.loop
 local bigram = require("beast.libs.finder.engine.bigram")
 local config = require("beast.libs.finder.config")
 local index = require("beast.libs.finder.engine.index")
-local stats = require("beast.libs.finder.engine.stats")
 
 ---@class Beast.Finder.Source.LiveGrep: Beast.Finder.ASource
 local M = {}
@@ -227,11 +226,8 @@ function M.get(filter, cb)
 	-- Bigram prefilter: empty survivor list = no file can match → done early.
 	-- nil = grep the whole tree (engine off/not ready). Survivors → grep only
 	-- those files (rg/ug still verifies, so results are byte-identical).
-	local pf0 = uv.hrtime()
 	local survivors = prefilter(filter.pattern, filter.cwd)
-	local srec = stats.start(filter.pattern, survivors and #survivors or nil, (uv.hrtime() - pf0) / 1e6)
 	if survivors and #survivors == 0 then
-		stats.finish(srec, 0)
 		vim.schedule(function()
 			cb(nil)
 		end)
@@ -250,29 +246,6 @@ function M.get(filter, cb)
 	local base_args = M.base_args
 	local batches = batch_targets(cwd, survivors)
 
-	-- TEMP: dump the resolved plan for inspection (overwrites each query).
-	-- Per-cwd filename so different repos/sessions don't clobber each other.
-	do
-		local slug = cwd:gsub("[/\\:]", "_")
-		local path = vim.fn.stdpath("state") .. "/beast-livegrep-cmd-" .. slug .. ".log"
-		local f = io.open(path, "w")
-		if f then
-			local first = vim.deepcopy(base_args)
-			vim.list_extend(first, batches[1] or {})
-			f:write(
-				("cwd=%s\nsurvivors=%s  batches=%d  parallel=%d\n%s %s\n"):format(
-					cwd,
-					survivors and #survivors or "full",
-					#batches,
-					MAX_PARALLEL,
-					M.cmd,
-					table.concat(first, " ")
-				)
-			)
-			f:close()
-		end
-	end
-
 	-- Shared state across all batch processes for this query.
 	local idx = 0 -- result count (across batches)
 	local done = false -- limit hit or all batches drained
@@ -285,7 +258,6 @@ function M.get(filter, cb)
 			return
 		end
 		done = true
-		stats.finish(srec, idx)
 		vim.schedule(function()
 			cb(nil)
 		end)
