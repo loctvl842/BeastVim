@@ -18,8 +18,8 @@ local defaults = {
 		ignorecase = true,
 	},
 	engine = {
-		enabled = false,
-		max_files = 90000,
+		enabled = true,
+		max_files = 100000,
 		max_file_size = 1024 * 1024,
 		max_survivors = 5000,
 	},
