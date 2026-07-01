@@ -177,7 +177,9 @@ query returns survivors (not a full-tree scan) and results are byte-identical to
 - Manual verification: (1) `enable` engine, open `live_grep` on the 90k repo; type immediately —
   no freeze (build is now a child process). (2) Confirm the child via `ps aux | rg build-finder-index`.
   (3) After the "index ready" toast, grep a common token → survivor-scan (fast), results match `rg`.
-  (4) Kill the finder mid-build → no orphaned builder left scanning after `stop` (spawn is tracked).
+  (4) Close the finder mid-build, reopen after the toast → the completed build warms the reopen
+  (no rebuild); starting a grep in a *different* cwd mid-build supersede-kills the prior child
+  (`kill_inflight`), leaving no stale builder racing the new index.
 
 ## Risks & Mitigations
 - **Spawn/env/argv wrong under `--clean`** (no rtp) → pass `package.path` root + builder script
@@ -189,8 +191,14 @@ query returns survivors (not a full-tree scan) and results are byte-identical to
 - **Edits during the build/handoff window are missed** (file changed after builder snapshot,
   before `watch` starts) → pre-existing class (today's build has the same gap); `rg` verifies
   every survivor it returns, and the window is bounded; `fs_event` covers everything post-load.
-- **Orphaned builder if finder closes mid-build** → track the spawned handle in the module and
-  `kill` it in `stop`, mirroring `live_grep`'s direct-child cancel.
+- **Orphaned builder if finder closes mid-build** → the index is session-scoped
+  and reused across finder opens (`index.get` returns `current`), so a build that
+  finishes after the finder closed just **warms the next open** — killing it would
+  waste the work. The only cancellation is a *supersede-kill*: `M.build` calls
+  `kill_inflight()` when a new build starts (e.g. a cwd switch) so a stale child
+  can't race the new index. On nvim exit mid-build the (non-detached) child simply
+  finishes writing its per-session cache and exits — harmless, since the next
+  session rebuilds (IPC-handoff, never reused across sessions).
 - **`nvim` not on PATH for the child** → use `vim.v.progpath` (absolute current nvim binary), not
   a bare `"nvim"`.
 

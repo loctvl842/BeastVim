@@ -1,34 +1,33 @@
 -- Persistent content index for live_grep prefiltering.
 --
--- Walks the repo once (via `rg --files`, so .gitignore is honored), then reads
--- files in time-budgeted slices across libuv timer ticks — each tick processes
--- files only until ~BUILD_BUDGET_MS elapses, then yields so the editor redraws
--- and stays responsive even on huge repos (2.1 GB / 90k files). Every file's
--- bigrams go into the bitset matrix; oversize files are skipped (tracked, still
--- searched directly by rg). A query maps to bigram keys, ANDs columns, and
--- returns absolute candidate paths — or nil when nothing prunes (full scan).
+-- Enumerates the repo once (via `rg --files`, so .gitignore is honored) and
+-- reads every file's bigrams into a bitset matrix — but that heavy scan runs in
+-- a *separate headless `nvim` process* (see scripts/build-finder-index.lua),
+-- which serializes the finished index to a binary cache file. The editor spawns
+-- that builder, and on exit loads the file with one `ffi.copy` (a fast memcpy),
+-- so the main loop is never blocked no matter how large the repo (2.1 GB / 90k+
+-- files). A query maps to bigram keys, ANDs columns, and returns absolute
+-- candidate paths — or nil when nothing prunes (full scan).
 --
--- One index per root. Rebuilds when the cwd changes. Freshness (fs_event) is
--- layered on later; build correctness only needs prune-or-fallback semantics.
+-- The cache file is a per-session IPC handoff, rebuilt every launch (never
+-- reused across sessions), so the index always reflects current content and the
+-- no-false-negative guarantee holds without stale-cache revalidation.
+--
+-- One index per root. Rebuilds when the cwd changes. Freshness within a session
+-- is layered on via an fs_event watcher (refresh/tombstone).
 
 local uv = vim.uv or vim.loop
-local bigram = require("beast.libs.finder.engine.bigram")
 local extract = require("beast.libs.finder.engine.extract")
+local serialize = require("beast.libs.finder.engine.serialize")
 
 local M = {}
-
--- Max wall time a build tick may hold the main loop before yielding. Small so
--- typing/redraw never stalls; the build just spans more ticks.
-local BUILD_BUDGET_MS = 3
--- Files between budget checks (hrtime isn't free; batch a few reads per check).
-local CHECK_EVERY = 16
 
 ---@class Beast.Finder.Index
 ---@field root string
 ---@field files string[] absolute paths, id = position - 1
 ---@field bigram Beast.Finder.Bigram
 ---@field ready boolean true once the content scan finished
----@field skipped integer oversize files not indexed
+---@field skipped integer oversize files skipped during refresh (build-time skips happen in the child)
 ---@field max_file_size integer
 ---@field build_ms number
 ---@field id_of table<string, integer> abs path -> 0-based file id
@@ -40,80 +39,129 @@ Index.__index = Index
 ---@type Beast.Finder.Index?
 local current = nil
 
---- List files under root (rg honors .gitignore). Caps at max_files.
+-- Resolve the plugin's lua/ root and its sibling scripts/ dir from this file's
+-- own path, so the builder child (which runs `--clean`, i.e. no runtimepath) can
+-- set package.path and locate its entry script regardless of where BeastVim is
+-- installed. .../lua/beast/libs/finder/engine/index.lua -> .../lua
+local SELF = vim.fn.fnamemodify(debug.getinfo(1, "S").source:sub(2), ":p")
+local LUA_ROOT = vim.fn.fnamemodify(SELF, ":h:h:h:h:h")
+local BUILDER_SCRIPT = vim.fn.fnamemodify(LUA_ROOT, ":h") .. "/scripts/build-finder-index.lua"
+
+--- Per-root binary cache file (overwritten each build). Two roots that collide
+--- on the filename hash just trigger a rebuild — serialize.read rejects a file
+--- whose stored root_hash doesn't match, so a collision is safe (never loaded).
 ---@param root string
----@param max_files integer
----@return string[]
-local function list_files(root, max_files)
-	local out = vim.fn.systemlist({ "rg", "--files", "--hidden", "--glob=!.git", root })
-	if #out > max_files then
-		for i = #out, max_files + 1, -1 do
-			out[i] = nil
-		end
-	end
-	return out
+---@return string
+local function cache_path(root)
+	local dir = vim.fn.stdpath("cache") .. "/beast/finder"
+	vim.fn.mkdir(dir, "p")
+	return string.format("%s/%08x.idx", dir, serialize.fnv1a(root))
 end
 
---- Build an index for root, scanning content in chunks. on_done fires on the
---- main loop with the ready index, or nil when FFI/rg are unavailable.
----@param root string
----@param opts { max_files: integer, max_file_size: integer }
----@param on_done fun(index: Beast.Finder.Index?)
-function M.build(root, opts, on_done)
-	local files = list_files(root, opts.max_files)
-	local idx = bigram.new(opts.max_files)
-	if not idx or #files == 0 then
-		on_done(nil)
-		return
-	end
-	if current then
-		current:stop()
-	end
+-- The in-flight builder subprocess (module-local). A superseding build (e.g. a
+-- cwd switch) kills the previous one so a stale child can't race the new index.
+---@type uv.uv_process_t?
+local inflight = nil
 
+local function kill_inflight()
+	if inflight then
+		pcall(function()
+			inflight:kill("sigterm")
+			if not inflight:is_closing() then
+				inflight:close()
+			end
+		end)
+		inflight = nil
+	end
+end
+
+--- Wrap a loaded index as the current singleton and start watching for changes.
+---@param root string
+---@param loaded { bigram: Beast.Finder.Bigram, files: string[] }
+---@param opts { max_file_size: integer }
+---@param build_ms number
+---@return Beast.Finder.Index
+local function install(root, loaded, opts, build_ms)
 	local self = setmetatable({
 		root = root,
-		files = files,
-		bigram = idx,
-		ready = false,
+		files = loaded.files,
+		bigram = loaded.bigram,
+		ready = true,
 		skipped = 0,
 		max_file_size = opts.max_file_size,
-		build_ms = 0,
+		build_ms = build_ms,
 		id_of = {},
 		dead = {},
 		watcher = nil,
 	}, Index)
-	for i, path in ipairs(files) do
+	for i, path in ipairs(loaded.files) do
 		self.id_of[path] = i - 1
 	end
-
-	local t0 = uv.hrtime()
-	local cursor = 1
-	-- Timer yield (vs vim.schedule) lets the editor redraw/handle keys between
-	-- slices; chained schedules can starve the UI when there's no input gap.
-	local timer = uv.new_timer()
-	local function tick()
-		local deadline = uv.hrtime() + BUILD_BUDGET_MS * 1e6
-		while cursor <= #files do
-			self:scan_file(cursor)
-			cursor = cursor + 1
-			if cursor % CHECK_EVERY == 0 and uv.hrtime() >= deadline then
-				break
-			end
-		end
-		if cursor > #files then
-			timer:stop()
-			timer:close()
-			self.ready = true
-			self.build_ms = (uv.hrtime() - t0) / 1e6
-			current = self
-			self:watch()
-			Toast(string.format("beast.finder: bigram index ready — %d files in %.0fms", #files, self.build_ms), vim.log.levels.INFO)
-			on_done(self)
-		else
-			timer:start(1, 0, vim.schedule_wrap(tick))
-		end
+	if current then
+		current:stop()
 	end
-	timer:start(1, 0, vim.schedule_wrap(tick))
+	current = self
+	self:watch()
+	return self
+end
+
+--- Build an index for root in a separate process, then load it. on_done fires on
+--- the main loop with the ready index, or nil when the build/load fails (caller
+--- falls back to a full rg scan). The heavy content scan runs in a headless
+--- child, so the editor's loop is never blocked by it.
+---@param root string
+---@param opts { max_files: integer, max_file_size: integer, max_cols?: integer }
+---@param on_done fun(index: Beast.Finder.Index?)
+function M.build(root, opts, on_done)
+	kill_inflight()
+	local out = cache_path(root)
+	local t0 = uv.hrtime()
+
+	-- uv.spawn replaces (not augments) the child's env, so pass the current
+	-- environment through explicitly — otherwise the child loses PATH and can't
+	-- find `rg`.
+	local environ = vim.fn.environ()
+	environ.BEAST_FINDER_LUA_ROOT = LUA_ROOT
+	environ.BEAST_FINDER_ROOT = root
+	environ.BEAST_FINDER_OUT = out
+	environ.BEAST_FINDER_MAX_FILES = tostring(opts.max_files)
+	environ.BEAST_FINDER_MAX_FILE_SIZE = tostring(opts.max_file_size)
+	if opts.max_cols then
+		environ.BEAST_FINDER_MAX_COLS = tostring(opts.max_cols)
+	end
+	local env = {}
+	for k, v in pairs(environ) do
+		env[#env + 1] = k .. "=" .. v
+	end
+
+	local handle
+	handle = uv.spawn(vim.v.progpath, {
+		args = { "--headless", "--clean", "-l", BUILDER_SCRIPT },
+		env = env,
+		stdio = { nil, nil, nil },
+		hide = true,
+	}, function(code)
+		inflight = nil
+		if handle and not handle:is_closing() then
+			handle:close()
+		end
+		vim.schedule(function()
+			local loaded = code == 0 and serialize.read(out, root) or nil
+			if not loaded then
+				on_done(nil)
+				return
+			end
+			local self = install(root, loaded, opts, (uv.hrtime() - t0) / 1e6)
+			Toast(string.format("beast.finder: bigram index ready — %d files in %.0fms", #self.files, self.build_ms), vim.log.levels.INFO)
+			on_done(self)
+		end)
+	end)
+
+	if not handle then
+		on_done(nil)
+		return
+	end
+	inflight = handle
 end
 
 --- Read one file (1-based) and feed its bigrams. Oversize files are skipped.
