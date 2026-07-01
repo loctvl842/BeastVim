@@ -1,4 +1,4 @@
-<!-- Generated: 2026-06-29 | Files scanned: 255 | Token estimate: ~3000 -->
+<!-- Generated: 2026-07-01 | Files scanned: 257 | Token estimate: ~3000 -->
 
 # Libraries
 
@@ -77,9 +77,11 @@ finder/
 │   ├── colorschemes.lua ← sync (rtp-only globpath)
 │   └── help_tags.lua  ← sync (rtp-only tag parsing)
 ├── engine/            ← opt-in bigram prefilter (config.engine.enabled)
-│   ├── bigram.lua     ← FFI uint32 bitset matrix: add/query AND, capped 5000 cols
+│   ├── bigram.lua     ← FFI uint32 bitset matrix: add/query AND, load() from dump, capped 5000 cols
 │   ├── extract.lua    ← literal-run bigram keys from rg regex (skips metachars/escapes)
-│   └── index.lua      ← chunked uv build, fs_event refresh, tombstones, query→paths
+│   ├── serialize.lua  ← binary index dump/load (header + col_for uint16 pairs + raw uint32 matrix + NUL paths)
+│   ├── builder.lua    ← pure build routine (rg --files → read → serialize.write); runs in the child
+│   └── index.lua      ← spawns headless builder subprocess, loads via ffi.copy, fs_event refresh, query→paths
 └── ui/
     ├── init.lua     ← barrel (input, list, preview, backdrop)
     ├── input.lua    ← prompt buffer + debounced TextChanged

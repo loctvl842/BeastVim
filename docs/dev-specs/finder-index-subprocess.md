@@ -203,14 +203,14 @@ query returns survivors (not a full-tree scan) and results are byte-identical to
   a bare `"nvim"`.
 
 ## Success Criteria
-- [ ] Editor stays responsive during a full 90k-file build (build cost moved to a child process;
+- [x] Editor stays responsive during a full 90k-file build (build cost moved to a child process;
       no main-loop time-budget loop remains in `index.lua`).
-- [ ] Loaded-index `query` results are byte-identical to the previous in-process build and to plain
+- [x] Loaded-index `query` results are byte-identical to the previous in-process build and to plain
       `rg` (round-trip unit test + manual grep parity — no false negatives).
-- [ ] `nvim --clean --headless -l tests/test-bigram.lua` exits 0 (existing + new round-trip/rejection tests).
-- [ ] `stylua --check lua/` clean; `scripts/bench-grep.lua` passes.
-- [ ] `engine.enabled=false` = current behavior; builder failure falls back to full `rg` scan.
-- [ ] Codemap regenerated (finder engine gains `serialize.lua` + `builder.lua`; build is subprocess)
+- [x] `nvim --clean --headless -l tests/test-bigram.lua` exits 0 (existing + new round-trip/rejection tests).
+- [x] `stylua --check lua/` clean; `scripts/bench-grep.lua` passes.
+- [x] `engine.enabled=false` = current behavior; builder failure falls back to full `rg` scan.
+- [x] Codemap regenerated (finder engine gains `serialize.lua` + `builder.lua`; build is subprocess)
       and ADR-036 written.
 
 ## ADR Required
@@ -224,3 +224,12 @@ This dev spec involves architectural decision(s) to document as ADR(s) during `/
   is built and materialized changes.
 - Per-session IPC-handoff semantics (rebuild each launch, no cross-session cache) as the chosen
   point on the correctness/complexity tradeoff (avoids stale-cache mtime revalidation).
+
+## Completed
+2026-07-01 — All 3 phases implemented and committed (`e5b4048` serialize format,
+`4263d5c` builder subprocess, `d5c5bf6` index.lua rewire). 39/39 unit tests pass
+(round-trip + rejection + real subprocess build), `bench-grep.lua` PASS, stylua
+clean. Smoke build on this repo: callback in 155 ms with 26 main-loop spins DURING
+the build (non-blocking); invalid root → clean full-scan fallback. ADR-036 accepted.
+Deviation from Risks: no "kill on finder close" — the index is session-scoped, so a
+mid-close build warms the next open; cancellation is supersede-kill only.

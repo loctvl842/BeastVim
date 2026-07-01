@@ -37,3 +37,4 @@
 | [033](033-toast-records-mutable-handles.md) | Toast Records as Mutable Handles (`update` / `dismiss_id` API) | Accepted | 2026-06-10 |
 | [034](034-toast-lsp-progress-native.md) | Native LSP Progress in Toast (`fidget.nvim` / `noice.nvim` Rejected) | Accepted | 2026-06-10 |
 | [035](035-bigram-prefilter-pure-lua-rg-verify.md) | Pure-Lua Bigram Prefilter for live_grep (rg Verifies, No Native Binary) | Accepted | 2026-06-29 |
+| [036](036-bigram-index-subprocess-binary-handoff.md) | Bigram Index Built in a Subprocess with a Binary File Handoff (supersedes ADR-035 build mechanism) | Accepted | 2026-07-01 |
