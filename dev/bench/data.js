@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782835523095,
+  "lastUpdate": 1782879659134,
   "repoUrl": "https://github.com/loctvl842/BeastVim",
   "entries": {
     "BeastVim Startup": [
@@ -879,6 +879,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "BeastVim startup (warm) max",
             "value": 79.447345,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "committer": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "distinct": true,
+          "id": "dec476382b4ef8614afecda8314e5f7461d57c0f",
+          "message": "refactor(finder): colocate engine under source/live_grep/\n\nThe bigram engine is only used by live_grep, so nest it with its consumer:\n- source/live_grep.lua        -> source/live_grep/init.lua\n- finder/engine/*             -> source/live_grep/engine/*\nAll require paths updated (beast.libs.finder.engine.* ->\nbeast.libs.finder.source.live_grep.engine.*), incl. tests, bench-grep, and the\nbuilder subprocess entry. index.lua's self-locate depth bumped 5->7 `:h` for the\ndeeper path (LUA_ROOT still resolves to lua/, builder script still found).\n\nThe moved init.lua also carries prior in-progress live_grep polish (parse_mode\ndefault \"rg\", annotated spawn_opts table) that came along with the file — both\nbehaviorally inert.\n\nVerified: 39/39 tests (subprocess build exercises the new LUA_ROOT), bench PASS,\nstylua clean, live_grep source require-loads.",
+          "timestamp": "2026-07-01T11:06:08+07:00",
+          "tree_id": "c687df0235434c2d5cdd3d6c29a811e83ba55ec7",
+          "url": "https://github.com/loctvl842/BeastVim/commit/dec476382b4ef8614afecda8314e5f7461d57c0f"
+        },
+        "date": 1782879658369,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "BeastVim startup (warm) mean",
+            "value": 43.680603250000004,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) stddev",
+            "value": 29.69764251950029,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) min",
+            "value": 34.07110300000001,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) max",
+            "value": 166.82100400000002,
             "unit": "ms"
           }
         ]
