@@ -26,7 +26,7 @@
 
 local ok_ffi, ffi = pcall(require, "ffi")
 local ok_bit, bit = pcall(require, "bit")
-local bigram = require("beast.libs.finder.engine.bigram")
+local bigram = require("beast.libs.finder.source.live_grep.engine.bigram")
 
 local M = {}
 

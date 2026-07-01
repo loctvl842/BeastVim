@@ -9,7 +9,7 @@
 -- An empty result means "cannot prefilter" — the caller must fall back to a full
 -- scan. That keeps correctness: bigrams only ever narrow, rg always verifies.
 
-local bigram = require("beast.libs.finder.engine.bigram")
+local bigram = require("beast.libs.finder.source.live_grep.engine.bigram")
 
 local M = {}
 

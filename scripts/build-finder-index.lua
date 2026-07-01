@@ -34,7 +34,7 @@ end
 
 package.path = lua_root .. "/?.lua;" .. lua_root .. "/?/init.lua;" .. package.path
 
-local ok, builder = pcall(require, "beast.libs.finder.engine.builder")
+local ok, builder = pcall(require, "beast.libs.finder.source.live_grep.engine.builder")
 if not ok then
 	return fail("cannot load builder: " .. tostring(builder))
 end

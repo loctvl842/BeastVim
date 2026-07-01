@@ -1,7 +1,7 @@
 local uv = vim.uv or vim.loop
-local bigram = require("beast.libs.finder.engine.bigram")
+local bigram = require("beast.libs.finder.source.live_grep.engine.bigram")
 local config = require("beast.libs.finder.config")
-local index = require("beast.libs.finder.engine.index")
+local index = require("beast.libs.finder.source.live_grep.engine.index")
 
 ---@class Beast.Finder.Source.LiveGrep: Beast.Finder.ASource
 local M = {}
@@ -43,11 +43,8 @@ local function prefilter(pattern, cwd)
 end
 
 -- Output parser for the active command: "ug" (custom --format) or "rg" (--json)
-local parse_mode = "ug"
+local parse_mode = "rg"
 
----@param text string search query
----@param cwd string
----@param files string[]? prefilter survivors; replace dir scan with these files
 ---@param text string search query
 local function ensure_cmd(text)
 	if vim.fn.executable("rg") == 1 then
@@ -292,11 +289,21 @@ function M.get(filter, cb)
 		current_procs[#current_procs + 1] = proc
 
 		local handle
-		handle = uv.spawn(M.cmd, {
+
+		---@type uv.spawn.options
+		local spawn_opts = {
 			args = full,
 			stdio = { nil, stdout, nil },
+			cwd = nil,
+			env = nil,
+			uid = nil,
+			gid = nil,
+			verbatim = false,
+			detached = false,
 			hide = true,
-		}, function()
+		}
+
+		handle = uv.spawn(M.cmd, spawn_opts, function()
 			if not stdout:is_closing() then
 				stdout:close()
 			end

@@ -36,8 +36,8 @@ local function set_of(list)
 	return s
 end
 
-local bigram = require("beast.libs.finder.engine.bigram")
-local extract = require("beast.libs.finder.engine.extract")
+local bigram = require("beast.libs.finder.source.live_grep.engine.bigram")
+local extract = require("beast.libs.finder.source.live_grep.engine.extract")
 
 -- =========================================================================
 -- extract.literal_runs — metachars split, backslash escapes next byte
@@ -96,7 +96,7 @@ assert_test("stats reports files/columns", idx:stats().files == 4 and idx:stats(
 -- serialize — write→read→load round-trip is byte-identical; bad files rejected
 -- =========================================================================
 io.write("\n--- serialize round-trip ---\n")
-local serialize = require("beast.libs.finder.engine.serialize")
+local serialize = require("beast.libs.finder.source.live_grep.engine.serialize")
 
 local sfiles = { "/tmp/repo/alpha.lua", "/tmp/repo/beta.lua", "/tmp/repo/gamma.lua" }
 local sbg = bigram.new(#sfiles)
@@ -164,7 +164,7 @@ vim.fn.delete(spath)
 -- index builder — chunked build over a temp dir; query → candidate paths
 -- =========================================================================
 io.write("\n--- index builder ---\n")
-local index = require("beast.libs.finder.engine.index")
+local index = require("beast.libs.finder.source.live_grep.engine.index")
 
 local tmp = vim.fn.tempname()
 vim.fn.mkdir(tmp, "p")

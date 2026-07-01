@@ -73,15 +73,16 @@ finder/
 │   ├── init.lua       ← lazy registry (__index → require source.<name>)
 │   ├── files.lua      ← async (fd/rg/find via uv.spawn)
 │   ├── buffers.lua    ← sync (getbufinfo)
-│   ├── live_grep.lua  ← live async (rg/ug; opt-in bigram prefilter → survivor files)
+│   ├── live_grep/     ← live async (rg/ug; opt-in bigram prefilter → survivor files)
+│   │   ├── init.lua   ← query → prefilter survivors → parallel rg batches; cancel/limit
+│   │   └── engine/    ← opt-in bigram prefilter (config.engine.enabled), used only by live_grep
+│   │       ├── bigram.lua     ← FFI uint32 bitset matrix: add/query AND, load() from dump, capped 5000 cols
+│   │       ├── extract.lua    ← literal-run bigram keys from rg regex (skips metachars/escapes)
+│   │       ├── serialize.lua  ← binary index dump/load (header + col_for uint16 pairs + raw uint32 matrix + NUL paths)
+│   │       ├── builder.lua    ← pure build routine (rg --files → read → serialize.write); runs in the child
+│   │       └── index.lua      ← spawns headless builder subprocess, loads via ffi.copy, fs_event refresh, query→paths
 │   ├── colorschemes.lua ← sync (rtp-only globpath)
 │   └── help_tags.lua  ← sync (rtp-only tag parsing)
-├── engine/            ← opt-in bigram prefilter (config.engine.enabled)
-│   ├── bigram.lua     ← FFI uint32 bitset matrix: add/query AND, load() from dump, capped 5000 cols
-│   ├── extract.lua    ← literal-run bigram keys from rg regex (skips metachars/escapes)
-│   ├── serialize.lua  ← binary index dump/load (header + col_for uint16 pairs + raw uint32 matrix + NUL paths)
-│   ├── builder.lua    ← pure build routine (rg --files → read → serialize.write); runs in the child
-│   └── index.lua      ← spawns headless builder subprocess, loads via ffi.copy, fs_event refresh, query→paths
 └── ui/
     ├── init.lua     ← barrel (input, list, preview, backdrop)
     ├── input.lua    ← prompt buffer + debounced TextChanged

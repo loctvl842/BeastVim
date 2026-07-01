@@ -10,8 +10,8 @@
 -- build routine stays directly unit-testable.
 
 local uv = vim.uv or vim.loop
-local bigram = require("beast.libs.finder.engine.bigram")
-local serialize = require("beast.libs.finder.engine.serialize")
+local bigram = require("beast.libs.finder.source.live_grep.engine.bigram")
+local serialize = require("beast.libs.finder.source.live_grep.engine.serialize")
 
 local M = {}
 

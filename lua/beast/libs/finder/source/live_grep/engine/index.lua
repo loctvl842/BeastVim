@@ -17,8 +17,8 @@
 -- is layered on via an fs_event watcher (refresh/tombstone).
 
 local uv = vim.uv or vim.loop
-local extract = require("beast.libs.finder.engine.extract")
-local serialize = require("beast.libs.finder.engine.serialize")
+local extract = require("beast.libs.finder.source.live_grep.engine.extract")
+local serialize = require("beast.libs.finder.source.live_grep.engine.serialize")
 
 local M = {}
 
@@ -42,9 +42,9 @@ local current = nil
 -- Resolve the plugin's lua/ root and its sibling scripts/ dir from this file's
 -- own path, so the builder child (which runs `--clean`, i.e. no runtimepath) can
 -- set package.path and locate its entry script regardless of where BeastVim is
--- installed. .../lua/beast/libs/finder/engine/index.lua -> .../lua
+-- installed. .../lua/beast/libs/finder/source/live_grep/engine/index.lua -> .../lua
 local SELF = vim.fn.fnamemodify(debug.getinfo(1, "S").source:sub(2), ":p")
-local LUA_ROOT = vim.fn.fnamemodify(SELF, ":h:h:h:h:h")
+local LUA_ROOT = vim.fn.fnamemodify(SELF, ":h:h:h:h:h:h:h")
 local BUILDER_SCRIPT = vim.fn.fnamemodify(LUA_ROOT, ":h") .. "/scripts/build-finder-index.lua"
 
 --- Per-root binary cache file (overwritten each build). Named `<basename>-<hash>`

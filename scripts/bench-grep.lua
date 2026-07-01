@@ -16,8 +16,8 @@ vim.opt.runtimepath:prepend(vim.fn.getcwd())
 package.path = "./lua/?.lua;./lua/?/init.lua;" .. package.path
 
 local uv = vim.uv or vim.loop
-local bigram = require("beast.libs.finder.engine.bigram")
-local extract = require("beast.libs.finder.engine.extract")
+local bigram = require("beast.libs.finder.source.live_grep.engine.bigram")
+local extract = require("beast.libs.finder.source.live_grep.engine.extract")
 
 if not bigram.available() then
 	print("BENCH name=grep-index status=FAIL reason=no-ffi")
