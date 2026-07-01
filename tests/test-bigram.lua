@@ -93,6 +93,74 @@ assert_eq("pure metachar query → no keys", #extract.keys("\\("), 0)
 assert_test("stats reports files/columns", idx:stats().files == 4 and idx:stats().columns > 0)
 
 -- =========================================================================
+-- serialize — write→read→load round-trip is byte-identical; bad files rejected
+-- =========================================================================
+io.write("\n--- serialize round-trip ---\n")
+local serialize = require("beast.libs.finder.engine.serialize")
+
+local sfiles = { "/tmp/repo/alpha.lua", "/tmp/repo/beta.lua", "/tmp/repo/gamma.lua" }
+local sbg = bigram.new(#sfiles)
+sbg:add(0, "local error = alpha handler")
+sbg:add(1, "no relevant tokens here")
+sbg:add(2, "another error in gamma")
+local sroot = "/tmp/repo"
+local spath = vim.fn.tempname()
+
+assert_test("write returns ok", serialize.write({ root = sroot, files = sfiles, bigram = sbg }, spath))
+
+local loaded = serialize.read(spath, sroot)
+assert_test("read returns table", loaded ~= nil)
+if loaded then
+	local after = set_of(loaded.bigram:query(extract.keys("error")))
+	assert_test("error survivors identical (0,2 kept, 1 pruned)", after[0] and after[2] and not after[1])
+	assert_eq("survivor count matches pre-serialize", #loaded.bigram:query(extract.keys("error")), #sbg:query(extract.keys("error")))
+	assert_eq("file count round-trips", #loaded.files, 3)
+	assert_eq("first path round-trips", loaded.files[1], sfiles[1])
+	assert_eq("last path round-trips", loaded.files[3], sfiles[3])
+
+	local same, n_before, n_after = true, 0, 0
+	for k, v in pairs(sbg.col_for) do
+		n_before = n_before + 1
+		if loaded.bigram.col_for[k] ~= v then
+			same = false
+		end
+	end
+	for _ in pairs(loaded.bigram.col_for) do
+		n_after = n_after + 1
+	end
+	assert_test("col_for identical", same and n_before == n_after)
+	assert_eq("missing bigram still → nil", loaded.bigram:query(bigram.keys_of("zzqq")), nil)
+end
+
+assert_eq("wrong root rejected", serialize.read(spath, "/tmp/other"), nil)
+
+local rf = io.open(spath, "rb")
+local raw = rf:read("*a")
+rf:close()
+
+local function write_tmp(bytes)
+	local p = vim.fn.tempname()
+	local f = io.open(p, "wb")
+	f:write(bytes)
+	f:close()
+	return p
+end
+
+local bad_magic = write_tmp("X" .. raw:sub(2))
+assert_eq("bad magic rejected", serialize.read(bad_magic, sroot), nil)
+vim.fn.delete(bad_magic)
+
+local bad_version = write_tmp(raw:sub(1, 8) .. string.char(99, 0, 0, 0) .. raw:sub(13))
+assert_eq("wrong version rejected", serialize.read(bad_version, sroot), nil)
+vim.fn.delete(bad_version)
+
+local truncated = write_tmp(raw:sub(1, 20))
+assert_eq("truncated file rejected", serialize.read(truncated, sroot), nil)
+vim.fn.delete(truncated)
+
+vim.fn.delete(spath)
+
+-- =========================================================================
 -- index builder — chunked build over a temp dir; query → candidate paths
 -- =========================================================================
 io.write("\n--- index builder ---\n")

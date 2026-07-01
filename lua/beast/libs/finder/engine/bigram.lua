@@ -61,6 +61,21 @@ function M.available()
 	return ok_ffi and ok_bit
 end
 
+--- Allocate a zeroed Bigram with an explicit word count and column cap.
+---@param words integer uint32 words per column
+---@param max_cols integer hard cap on distinct bigram columns
+---@return Beast.Finder.Bigram
+local function alloc(words, max_cols)
+	return setmetatable({
+		words = words,
+		max_cols = max_cols,
+		ncols = 0,
+		nfiles = 0,
+		col_for = {},
+		matrix = ffi.new("uint32_t[?]", max_cols * words), -- zero-filled
+	}, Bigram)
+end
+
 --- Create an index sized for `max_files`.
 ---@param max_files integer
 ---@param max_cols? integer default 5000
@@ -71,14 +86,28 @@ function M.new(max_files, max_cols)
 	end
 	max_cols = max_cols or DEFAULT_MAX_COLS
 	local words = math.ceil(math.max(max_files, 1) / WORD_BITS)
-	return setmetatable({
-		words = words,
-		max_cols = max_cols,
-		ncols = 0,
-		nfiles = 0,
-		col_for = {},
-		matrix = ffi.new("uint32_t[?]", max_cols * words), -- zero-filled
-	}, Bigram)
+	return alloc(words, max_cols)
+end
+
+--- Reconstruct a Bigram from a serialized dump (see engine/serialize.lua).
+--- `matrix_ptr` addresses `matrix_words` uint32 values in column-major order —
+--- exactly as `add` wrote them — which are copied into a freshly allocated
+--- max_cols*words matrix so freshness (`Index:refresh`) can still add columns
+--- and files up to the caps. All FFI stays inside this module.
+---@param o { words: integer, max_cols: integer, ncols: integer, nfiles: integer, col_for: table<integer, integer>, matrix_ptr: ffi.cdata*, matrix_words: integer }
+---@return Beast.Finder.Bigram?
+function M.load(o)
+	if not (ok_ffi and ok_bit) then
+		return nil
+	end
+	local bg = alloc(o.words, o.max_cols)
+	if o.matrix_words > 0 then
+		ffi.copy(bg.matrix, o.matrix_ptr, o.matrix_words * 4)
+	end
+	bg.ncols = o.ncols
+	bg.nfiles = o.nfiles
+	bg.col_for = o.col_for
+	return bg
 end
 
 --- Column index for a bigram key, allocating on first sight. nil once capped.
