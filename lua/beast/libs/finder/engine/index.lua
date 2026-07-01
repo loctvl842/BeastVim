@@ -47,15 +47,20 @@ local SELF = vim.fn.fnamemodify(debug.getinfo(1, "S").source:sub(2), ":p")
 local LUA_ROOT = vim.fn.fnamemodify(SELF, ":h:h:h:h:h")
 local BUILDER_SCRIPT = vim.fn.fnamemodify(LUA_ROOT, ":h") .. "/scripts/build-finder-index.lua"
 
---- Per-root binary cache file (overwritten each build). Two roots that collide
---- on the filename hash just trigger a rebuild — serialize.read rejects a file
+--- Per-root binary cache file (overwritten each build). Named `<basename>-<hash>`
+--- so it's identifiable at a glance while staying filesystem-safe. Two roots that
+--- collide on the hash just trigger a rebuild — serialize.read rejects a file
 --- whose stored root_hash doesn't match, so a collision is safe (never loaded).
 ---@param root string
 ---@return string
 local function cache_path(root)
 	local dir = vim.fn.stdpath("cache") .. "/beast/finder"
 	vim.fn.mkdir(dir, "p")
-	return string.format("%s/%08x.idx", dir, serialize.fnv1a(root))
+	local name = vim.fn.fnamemodify(root, ":t"):gsub("[^%w%-_.]", "_")
+	if name == "" then
+		name = "root"
+	end
+	return string.format("%s/%s-%08x.idx", dir, name, serialize.fnv1a(root))
 end
 
 -- The in-flight builder subprocess (module-local). A superseding build (e.g. a
