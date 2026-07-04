@@ -175,11 +175,18 @@ function M.build(nodes)
 	local hls = {} ---@type {line:integer,col_s:integer,col_e:integer,group:string}[]
 	local badges = {} ---@type {line:integer,chunks:{[1]:string,[2]:string?}[]}[]
 	local active_line = nil ---@type integer|nil  -- 0-indexed extmark line for the active file
+	local inline_spacer = state.inline_prompt_spacer
+	local spacer_inserted = false
 
 	-- Root header: " UPPERCASE-BASENAME" — no icon, plain text, visually distinct
 	local root_name = string.upper(vim.fn.fnamemodify(state.tree.root.path, ":t"))
 	lines[1] = " " .. root_name
 	hls[#hls + 1] = { line = 0, col_s = 0, col_e = #lines[1], group = "BeastExplorerTitle" }
+	if inline_spacer and inline_spacer.after_line == 1 then
+		lines[#lines + 1] = inline_spacer.prefix
+		hls[#hls + 1] = { line = #lines - 1, col_s = 0, col_e = #inline_spacer.prefix, group = "BeastExplorerIndent" }
+		spacer_inserted = true
+	end
 
 	local clipboard_paths = {} ---@type table<string, boolean>
 	if state.clipboard then
@@ -286,6 +293,25 @@ function M.build(nodes)
 			local suffix_hl = "BeastExplorerClip"
 			hls[#hls + 1] = { line = line_idx, col_s = line_len - #clip_suffix, col_e = line_len, group = suffix_hl }
 		end
+
+		-- Keep prompt.inline temporary spacer visible across full re-renders.
+		-- Primary anchor is the saved line location; path is fallback.
+		local match_line = inline_spacer and inline_spacer.after_line == #lines
+		local match_path = inline_spacer and inline_spacer.after_path == node.path
+		if inline_spacer and not spacer_inserted and (match_line or match_path) then
+			lines[#lines + 1] = inline_spacer.prefix
+			hls[#hls + 1] = {
+				line = #lines - 1, -- 0-indexed extmark line
+				col_s = 0,
+				col_e = #inline_spacer.prefix,
+				group = "BeastExplorerIndent",
+			}
+			spacer_inserted = true
+		end
+	end
+	if inline_spacer and not spacer_inserted then
+		lines[#lines + 1] = inline_spacer.prefix
+		hls[#hls + 1] = { line = #lines - 1, col_s = 0, col_e = #inline_spacer.prefix, group = "BeastExplorerIndent" }
 	end
 
 	return lines, hls, badges, active_line

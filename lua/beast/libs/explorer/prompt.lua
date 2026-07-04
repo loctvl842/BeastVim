@@ -10,6 +10,7 @@
 ---   - `nil`        → close prompt, no further action
 local config = require("beast.libs.explorer.config")
 local state = require("beast.libs.explorer.state")
+local ui = require("beast.libs.explorer.ui")
 
 local M = {}
 
@@ -262,6 +263,11 @@ function M.inline(target_dir, current_node, on_confirm, on_cancel, initial)
 	local is_last = (current_node.dir == false and current_node.last) or (current_node.dir and next(current_node.children) == nil)
 	local child_prefix = build_child_prefix(target_dir, is_last)
 	local prefix_cols = vim.fn.strdisplaywidth(child_prefix)
+	state.inline_prompt_spacer = {
+		after_path = current_node.path,
+		after_line = current_pos,
+		prefix = child_prefix,
+	}
 
 	-- Insert a blank line with tree prefix to push content down
 	vim.bo[exp_buf].modifiable = true
@@ -292,11 +298,12 @@ function M.inline(target_dir, current_node, on_confirm, on_cancel, initial)
     -- stylua: ignore
 		if blank_removed then return end
 		blank_removed = true
-		if state.view and state.view:is_valid() then
-			pcall(function()
-				vim.bo[exp_buf].modifiable = true
-				vim.api.nvim_buf_set_lines(exp_buf, current_pos, current_pos + 1, false, {})
-				vim.bo[exp_buf].modifiable = false
+		state.inline_prompt_spacer = nil
+		if state.view and state.view:is_valid() and state.tree then
+			vim.schedule(function()
+				if state.view and state.view:is_valid() and state.tree and not state.inline_prompt_spacer then
+					ui.render()
+				end
 			end)
 		end
 	end

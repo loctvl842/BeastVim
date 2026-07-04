@@ -19,6 +19,7 @@
 ---@field source_win integer|nil
 ---@field clipboard Beast.Explorer.Clipboard|nil
 ---@field active_path string|nil  -- file currently open in the editor (for the active-file indicator)
+---@field inline_prompt_spacer? {after_path:string,after_line:integer,prefix:string}  -- temporary spacer row for prompt.inline
 ---@field watchers table<string, uv.uv_fs_event_t>
 ---@field git Beast.Explorer.GitState
 ---@field diagnostics Beast.Explorer.DiagnosticsState
@@ -31,6 +32,7 @@ local M = {
 	source_win = nil,
 	clipboard = nil,
 	active_path = nil,
+	inline_prompt_spacer = nil,
 	watchers = {},
 	git = { status = nil, dir_status = nil },
 	diagnostics = { status = nil, dir_status = nil },
@@ -70,6 +72,7 @@ function M.reset()
 	M.sticky = nil
 	M.augroup = nil
 	M.active_path = nil
+	M.inline_prompt_spacer = nil
 	M.watchers = {}
 	M.git = { status = nil, dir_status = nil }
 	M.diagnostics = { status = nil, dir_status = nil }
