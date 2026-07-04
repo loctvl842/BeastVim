@@ -69,7 +69,7 @@ end
 local function setup_buf(buf)
 	vim.b[buf].beast_image_viewer = true
 	vim.b[buf].beast_statuscolumn_disabled = true
-	vim.bo[buf].buftype = "nofile"
+	vim.bo[buf].buftype = "nowrite"
 	vim.bo[buf].swapfile = false
 	vim.bo[buf].modifiable = true
 	pcall(vim.api.nvim_buf_set_lines, buf, 0, -1, false, {})
