@@ -142,6 +142,7 @@ function M.check()
 		"BeastExplorerIndent",
 		"BeastExplorerComment",
 		"BeastExplorerClip",
+		"BeastExplorerActiveFile",
 		"BeastExplorerGitConflict",
 		"BeastExplorerGitDeleted",
 		"BeastExplorerGitDeletedStaged",

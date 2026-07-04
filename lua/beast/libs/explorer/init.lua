@@ -42,11 +42,11 @@ function M.open(dir)
 		return
 	end
 	local file = vim.api.nvim_buf_get_name(0)
-	local has_file = file ~= "" and vim.fn.filereadable(file) == 1
+	local file_norm = (file ~= "") and vim.fn.fnamemodify(file, ":p"):gsub("/$", "") or ""
+	local has_file = file_norm ~= "" and vim.fn.filereadable(file_norm) == 1
 	ensure_explorer(dir)
 	if has_file then
 		local root_path = state.tree.root.path
-		local file_norm = vim.fn.fnamemodify(file, ":p"):gsub("/$", "")
 		local file_dir = vim.fn.fnamemodify(file_norm, ":h")
 		-- Re-root the tree when the current file lives outside the tree root
 		if file_norm ~= root_path and file_norm:sub(1, #root_path + 1) ~= root_path .. "/" then
@@ -56,11 +56,12 @@ function M.open(dir)
 				has_file = false
 			end
 		end
-		state.tree:open(file)
+		state.tree:open(file_norm)
 	end
+	state.active_path = has_file and file_norm or nil
 
   -- stylua: ignore
-  local on_done = has_file and function() ui.focus_path(file) end or nil
+  local on_done = has_file and function() ui.focus_path(file_norm) end or nil
 	ui.render(on_done)
 	-- Force full git refresh on open so badges always appear.
 	-- Without this, a stale cache from a previous close→reopen cycle
@@ -81,8 +82,7 @@ function M.close()
 	watch.stop_all()
 	sticky.close()
 	ui.close()
-	local prev = vim.fn.win_getid(vim.fn.winnr("#"))
-	pcall(vim.api.nvim_set_current_win, prev)
+	pcall(vim.api.nvim_set_current_win, state.source_win)
 end
 
 ---@param cwd? string  used only when there is no current file on first open

@@ -7,7 +7,7 @@ function M.get()
 		Normal = { fg = p.dimmed2, bg = Util.colors.darken(p.dark1, 5) },
 		WinBar = { bg = Util.colors.darken(p.dark1, 1), sp = Util.colors.darken(p.dimmed5, 10), underline = true },
 		EndOfBuffer = { fg = p.dark1, bg = Util.colors.darken(p.dark1, 5) },
-		CursorLine = { bg = Util.colors.lighten(p.dark1, 30) },
+		CursorLine = { bg = Util.colors.lighten(p.dark1, 15) },
 		WinSeparator = { fg = p.background, bg = p.background },
 
 		Prompt = { bg = Util.colors.lighten(p.dark1, 20), fg = Util.colors.darken(p.text, 20) },
@@ -20,6 +20,10 @@ function M.get()
 		Comment = { fg = p.dimmed3 },
 		Clip = { fg = p.accent5 },
 		Cursor = { blend = 100, nocombine = true },
+		-- Active file: the file currently open in the editor. Subtler than
+		-- CursorLine so it stays visible when the nav cursor moves elsewhere;
+		-- CursorLine wins when cursor lands on the same line (higher priority).
+		ActiveFile = { bg = Util.colors.lighten(p.dark1, 20) },
 
 		-- Git status. Color = kind (what changed). Staged-only files get a
 		-- dimmed variant blended toward the sidebar bg, so worktree changes

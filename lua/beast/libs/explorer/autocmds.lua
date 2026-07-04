@@ -92,40 +92,86 @@ function M.mount()
 		end,
 	})
 
-	-- Sync explorer cursor to the active file whenever a non-explorer buffer is entered.
+	-- Track active file on every BufEnter (including clearing it when the
+	-- current buffer is non-file/out-of-root), then sync explorer cursor.
 	vim.api.nvim_create_autocmd("BufEnter", {
 		group = state.augroup,
 		callback = function()
 			-- stylua: ignore
 			if not (state.view and state.view:is_valid() and state.tree) then return end
 			local win = vim.api.nvim_get_current_win()
+			-- Ignore transient floating windows (e.g. explorer inline prompt float).
+			-- They are not real file context switches and should not trigger a flush.
+			if is_floating(win) then
+				return
+			end
 			-- stylua: ignore
 			if win == state.view.win then return end
+			if View.win.is_normal(win) then
+				state.source_win = win
+			end
 			local path = vim.api.nvim_buf_get_name(0)
-			-- stylua: ignore
-			if path == "" or vim.fn.filereadable(path) ~= 1 then return end
+			local next_active = nil ---@type string|nil
+			if path ~= "" and vim.fn.filereadable(path) == 1 then
+				local path_norm = vim.fn.fnamemodify(path, ":p"):gsub("/$", "")
+				local root = state.tree.root.path
+				if path_norm == root or path_norm:sub(1, #root + 1) == (root .. "/") then
+					next_active = path_norm
+				end
+			end
 
-			-- Gate: only react when the buffer path lives inside the explorer root
-			local root = state.tree.root.path
-			if not (path == root or path:sub(1, #root + 1) == (root .. "/")) then
+			local changed = state.active_path ~= next_active
+			state.active_path = next_active
+
+			-- Non-file / out-of-root buffer: clear marker and stop.
+			if not next_active then
+				if changed then
+					ui.flush()
+				end
 				return
 			end
 
-			-- Skip if the explorer already focuses this exact path
+			-- Skip cursor sync if the explorer already focuses this exact path.
+			-- Still flush when active_path changed so marker updates immediately.
 			local cur = state.current_node({ show_hidden = config.show_hidden })
-			if cur and cur.path == path then
+			if cur and cur.path == next_active then
+				if changed then
+					ui.flush()
+				end
 				return
 			end
 
 			-- Move focus; only re-render if the tree actually changed (e.g., expansion)
 			local before = state.tree.version
-			local ok = pcall(ui.focus_path, path)
+			local ok = pcall(ui.focus_path, next_active)
 			if not ok then
+				if changed then
+					ui.flush()
+				end
 				return
 			end
 			if state.tree.version ~= before then
 				ui.render()
 			end
+		end,
+	})
+
+	-- If the active file buffer gets deleted before another file buffer is
+	-- entered, clear marker immediately to avoid stale active-file highlight.
+	vim.api.nvim_create_autocmd({ "BufDelete", "BufWipeout" }, {
+		group = state.augroup,
+		callback = function(ev)
+			-- stylua: ignore
+			if not (state.view and state.view:is_valid() and state.tree and state.active_path) then return end
+			local path = ev.file ~= "" and ev.file or vim.api.nvim_buf_get_name(ev.buf)
+			-- stylua: ignore
+			if path == "" then return end
+			local closed_path = vim.fn.fnamemodify(path, ":p"):gsub("/$", "")
+			if closed_path ~= state.active_path then
+				return
+			end
+			state.active_path = nil
+			ui.flush()
 		end,
 	})
 

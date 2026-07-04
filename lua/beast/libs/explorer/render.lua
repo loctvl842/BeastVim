@@ -169,11 +169,12 @@ end
 --- Build the lines and highlight specs for the current tree state.
 --- Line 1 is always the root header; nodes occupy lines 2..N.
 ---@param nodes Beast.Explorer.Node[]
----@return string[], {line:integer,col_s:integer,col_e:integer,group:string}[], {line:integer,chunks:{[1]:string,[2]:string?}[]}[]
+---@return string[], {line:integer,col_s:integer,col_e:integer,group:string}[], {line:integer,chunks:{[1]:string,[2]:string?}[]}[], integer|nil
 function M.build(nodes)
 	local lines = {} ---@type string[]
 	local hls = {} ---@type {line:integer,col_s:integer,col_e:integer,group:string}[]
 	local badges = {} ---@type {line:integer,chunks:{[1]:string,[2]:string?}[]}[]
+	local active_line = nil ---@type integer|nil  -- 0-indexed extmark line for the active file
 
 	-- Root header: " UPPERCASE-BASENAME" — no icon, plain text, visually distinct
 	local root_name = string.upper(vim.fn.fnamemodify(state.tree.root.path, ":t"))
@@ -193,6 +194,11 @@ function M.build(nodes)
 	for _, node in ipairs(nodes) do
 		local line_idx = #lines -- 0-indexed for extmarks
 		local prefix = prefixes[node.path]
+
+		-- Track which line the active file sits on (file nodes only)
+		if not node.dir and node.path == state.active_path then
+			active_line = line_idx
+		end
 
 		-- Icon
 		local icon_str = ""
@@ -282,14 +288,15 @@ function M.build(nodes)
 		end
 	end
 
-	return lines, hls, badges
+	return lines, hls, badges, active_line
 end
 
 --- Write lines and highlights atomically to the explorer buffer.
 ---@param lines string[]
 ---@param hls {line:integer,col_s:integer,col_e:integer,group:string}[]
 ---@param badges? {line:integer,chunks:{[1]:string,[2]:string?}[]}[]
-function M.write(lines, hls, badges)
+---@param active_line? integer  0-indexed line for the active-file background highlight
+function M.write(lines, hls, badges, active_line)
 	-- Write lines + highlights atomically; ignore errors from a race-closed window
 	pcall(function()
 		vim.bo[state.view.buf].modifiable = true
@@ -301,6 +308,15 @@ function M.write(lines, hls, badges)
 			pcall(vim.api.nvim_buf_set_extmark, state.view.buf, state.view.ns, h.line, h.col_s, {
 				end_col = h.col_e,
 				hl_group = h.group,
+			})
+		end
+
+		-- Active-file line: subtle bg highlight that CursorLine overrides when
+		-- the nav cursor lands on the same line (CursorLine has higher priority).
+		if active_line then
+			pcall(vim.api.nvim_buf_set_extmark, state.view.buf, state.view.ns, active_line, 0, {
+				line_hl_group = "BeastExplorerActiveFile",
+				priority = 50,
 			})
 		end
 

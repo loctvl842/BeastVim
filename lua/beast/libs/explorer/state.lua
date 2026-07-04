@@ -18,6 +18,7 @@
 ---@field saved_win_opts table<string,any>|nil
 ---@field source_win integer|nil
 ---@field clipboard Beast.Explorer.Clipboard|nil
+---@field active_path string|nil  -- file currently open in the editor (for the active-file indicator)
 ---@field watchers table<string, uv.uv_fs_event_t>
 ---@field git Beast.Explorer.GitState
 ---@field diagnostics Beast.Explorer.DiagnosticsState
@@ -29,6 +30,7 @@ local M = {
 	saved_win_opts = nil,
 	source_win = nil,
 	clipboard = nil,
+	active_path = nil,
 	watchers = {},
 	git = { status = nil, dir_status = nil },
 	diagnostics = { status = nil, dir_status = nil },
@@ -67,6 +69,7 @@ function M.reset()
 	M.view = nil
 	M.sticky = nil
 	M.augroup = nil
+	M.active_path = nil
 	M.watchers = {}
 	M.git = { status = nil, dir_status = nil }
 	M.diagnostics = { status = nil, dir_status = nil }

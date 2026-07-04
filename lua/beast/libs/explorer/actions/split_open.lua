@@ -23,6 +23,7 @@ local function on_split(node)
 	if prev ~= state.view.win and vim.api.nvim_win_is_valid(prev) then
 		pcall(vim.api.nvim_set_current_win, prev)
 		vim.cmd("vsplit")
+		state.source_win = vim.api.nvim_get_current_win()
 	else
 		vim.wo[state.view.win].winfixwidth = false
 		vim.cmd("vsplit")
