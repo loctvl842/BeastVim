@@ -37,6 +37,32 @@ local function async_cmd(cmd, opts, on_done)
 	end)
 end
 
+--- Parse `; inherits: lang1,lang2` directives from a query file.
+--- Only the leading comment block is scanned (stops at first non-comment line).
+---@param path string
+---@return string[]
+local function parse_inherits(path)
+	local langs = {}
+	local f = io.open(path, "r")
+	if not f then
+		return langs
+	end
+	for line in f:lines() do
+		local inherited = line:match("^;%s*inherits:%s*(.+)$")
+		if inherited then
+			for lang in inherited:gmatch("[^,%s]+") do
+				langs[#langs + 1] = lang
+			end
+			break
+		end
+		if not line:match("^%s*;") and line:match("%S") then
+			break
+		end
+	end
+	f:close()
+	return langs
+end
+
 --- Download a single query file, cleaning up empty/failed results (e.g. a 404
 --- for a language that has no such query upstream) so the install dir never
 --- shadows a builtin query with an empty file. `on_done(ok)` reports whether a
@@ -79,6 +105,10 @@ local ensured = {}
 --- queries instead of Neovim's bundled subset, even for parsers Neovim ships
 --- built-in (where the per-parser install path never runs). `on_done(changed)`
 --- reports whether any new file was written, so callers can refresh consumers.
+---
+--- Also resolves `; inherits: X` directives in the downloaded highlights.scm so
+--- virtual-language query bases (e.g. ecma, jsx) are present in the install dir
+--- and Neovim can find them when resolving query inheritance.
 ---@param lang string
 ---@param on_done? fun(changed: boolean)
 function M.ensure_queries(lang, on_done)
@@ -102,7 +132,23 @@ function M.ensure_queries(lang, on_done)
 	local need_context = vim.fn.filereadable(fs.joinpath(query_dst, "context.scm")) ~= 1
 
 	if #pending == 0 and not need_context then
-		on_done(false)
+		-- Even if nothing changed for this lang, inherited langs may be missing.
+		local inherited = parse_inherits(fs.joinpath(query_dst, "highlights.scm"))
+		if #inherited == 0 then
+			on_done(false)
+			return
+		end
+		local any_changed = false
+		local rem = #inherited
+		for _, inh_lang in ipairs(inherited) do
+			M.ensure_queries(inh_lang, function(c)
+				any_changed = any_changed or c
+				rem = rem - 1
+				if rem == 0 then
+					on_done(any_changed)
+				end
+			end)
+		end
 		return
 	end
 
@@ -113,8 +159,24 @@ function M.ensure_queries(lang, on_done)
 	local function tick(ok)
 		changed = changed or ok
 		remaining = remaining - 1
-		if remaining == 0 then
+		if remaining ~= 0 then
+			return
+		end
+		-- All downloads done — resolve any `; inherits:` dependencies.
+		local inherited = parse_inherits(fs.joinpath(query_dst, "highlights.scm"))
+		if #inherited == 0 then
 			on_done(changed)
+			return
+		end
+		local rem = #inherited
+		for _, inh_lang in ipairs(inherited) do
+			M.ensure_queries(inh_lang, function(c)
+				changed = changed or c
+				rem = rem - 1
+				if rem == 0 then
+					on_done(changed)
+				end
+			end)
 		end
 	end
 
@@ -127,8 +189,8 @@ function M.ensure_queries(lang, on_done)
 end
 
 --- Download comprehensive query files from nvim-treesitter, falling back to grammar repo queries.
---- Downloads all QUERY_FILES (plus the sticky-context query) in parallel; when
---- all finish, calls on_done.
+--- Downloads all QUERY_FILES (plus the sticky-context query) in parallel; resolves
+--- any `; inherits:` dependencies; then calls on_done.
 ---@param lang string
 ---@param compile_dir string Path to the extracted grammar source (has queries/ subdir)
 ---@param on_done fun()
@@ -149,10 +211,26 @@ local function install_queries(lang, compile_dir, on_done)
 	local remaining = #QUERY_FILES + 1
 	local function tick()
 		remaining = remaining - 1
-		if remaining == 0 then
-			-- Mark ensured so a later ensure_queries() call is a no-op.
-			ensured[lang] = true
+		if remaining ~= 0 then
+			return
+		end
+		-- Mark ensured so a later ensure_queries() call is a no-op.
+		ensured[lang] = true
+
+		-- Resolve `; inherits:` dependencies (e.g. typescript → ecma).
+		local inherited = parse_inherits(fs.joinpath(query_dst, "highlights.scm"))
+		if #inherited == 0 then
 			on_done()
+			return
+		end
+		local rem = #inherited
+		for _, inh_lang in ipairs(inherited) do
+			M.ensure_queries(inh_lang, function()
+				rem = rem - 1
+				if rem == 0 then
+					on_done()
+				end
+			end)
 		end
 	end
 
