@@ -49,9 +49,10 @@ local function ensure_parser(lang, buf)
 	-- stylua: ignore
 	if has_parser(lang) then return end
 
-	-- Check if the lang is in ensure_installed
+	-- Check if the lang is in ensure_installed (entries are either "lang" or {"lang", "filetype"})
 	local should_install = false
-	for _, name in ipairs(config.ensure_installed) do
+	for _, entry in ipairs(config.ensure_installed) do
+		local name = type(entry) == "table" and entry[1] or entry
 		if name == lang then
 			should_install = true
 			break
@@ -150,6 +151,11 @@ end
 
 function M.setup(opts)
 	config.setup(opts)
+	for _, entry in ipairs(config.ensure_installed) do
+		if type(entry) == "table" then
+			vim.treesitter.language.register(entry[1], entry[2])
+		end
+	end
 	require("beast").apply_highlights("beast.libs.treesitter.highlights")
 	require("beast").apply_highlights("beast.libs.treesitter.context.highlights")
 end

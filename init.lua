@@ -71,7 +71,16 @@ require("beast").setup({
 		spec = { { import = "beast.plugins" } },
 	},
 	treesitter = {
-		ensure_installed = { "python", "lua" },
+		ensure_installed = {
+			"python",
+			"lua",
+			"javascript",
+			"typescript",
+			{ "tsx", "typescriptreact" },
+			"json",
+			"css",
+			"html",
+		},
 		fold = { enable = true },
 	},
 })
