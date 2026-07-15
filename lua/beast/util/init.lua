@@ -2,6 +2,7 @@
 ---@field root beast.util.root
 ---@field colors beast.util.colors
 ---@field debounce fun(ms: integer, fn: function): Beast.Util.Debouncer
+---@field lsp beast.util.lsp
 local M = {}
 
 setmetatable(M, {
