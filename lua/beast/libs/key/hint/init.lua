@@ -253,6 +253,31 @@ local function bump_recursion_guard()
 	return false
 end
 
+---Feed keys back to native Neovim resolution from the drain fast-path.
+---Removes all registered trigger keymaps first (same as suspend_and_feed) so
+---that the fed keys are processed remappably ("im") without re-firing this
+---trigger, then schedules trigger re-registration for the next tick.
+---Must be called with "im" (insert + remap) so user-defined maps like `gc` /
+---`gcc` are resolved correctly — "n" (noremap) would bypass them entirely.
+---@param keys string
+local function drain_bail(keys)
+	local to_restore = {}
+	for k in pairs(registered) do
+		local m, t = k:match("^(.-)\0(.*)$")
+		if m and t then
+			pcall(vim.keymap.del, m, t)
+			to_restore[#to_restore + 1] = { mode = m, trig = t }
+		end
+	end
+	registered = {}
+	feed(keys, "im")
+	vim.schedule(function()
+		for _, r in ipairs(to_restore) do
+			M.register_trigger(r.mode, r.trig)
+		end
+	end)
+end
+
 ---Drain any keys already in the typeahead following a fast-typed trigger,
 ---walking the index. Returns a sequence to seed the hint with, or nil if the
 ---typed sequence was already fed through verbatim (caller should bail).
@@ -266,7 +291,7 @@ local function drain_typeahead_prefix(mode, trigger, trigger_segs)
 	end
 	if not config.hint.auto_derive_subtriggers then
 		-- Legacy bailout: defer to native resolver instead of opening the hint.
-		feed(trigger, "in")
+		drain_bail(trigger)
 		return nil
 	end
 
@@ -285,7 +310,7 @@ local function drain_typeahead_prefix(mode, trigger, trigger_segs)
 		local node = index.walk(mode, full)
 		-- No match or leaf reached: let Neovim resolve the full sequence.
 		if not node or not next(node.children) then
-			feed(trigger .. table.concat(pre_sequence, ""), "in")
+			drain_bail(trigger .. table.concat(pre_sequence, ""))
 			return nil
 		end
 	end
