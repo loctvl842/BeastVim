@@ -355,8 +355,8 @@ function M.setup(opts)
 				require("beast.libs.notify").dismiss()
 				require("beast.libs.toast").dismiss()
 			end, { desc = "Dismiss all notifications", group = "Notify" })
-      -- stylua: ignore
-      Key.safe_set("n", "<leader>p", function() require("beast.libs.packer.ui").open() end, { desc = "Open packer UI", group = "Packer" })
+	     -- stylua: ignore
+	     Key.safe_set("n", "<leader>p", function() require("beast.libs.packer.ui").open() end, { desc = "Open packer UI", group = "Packer" })
 		end,
 	})
 
