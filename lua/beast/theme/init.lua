@@ -20,8 +20,8 @@ local M = {}
 
 ---@type Beast.Theme.Palette
 local defaults = {
-	dark2 = "#4f5258",
-	dark1 = "#2c2e33",
+  dark2 = "#33353a",
+  dark1 = "#282a30",
 	background = "#14161b",
 	text = "#e0e2ea",
 	accent1 = "#ffc0b9",
@@ -30,11 +30,11 @@ local defaults = {
 	accent4 = "#8cf8f7",
 	accent5 = "#a6dbff",
 	accent6 = "#ffcaff",
-	dimmed1 = "#c4c6cd",
-	dimmed2 = "#9b9ea4",
-	dimmed3 = "#9b9ea4",
-	dimmed4 = "#4f5258",
-	dimmed5 = "#2c2e33",
+	dimmed1 = "#adafb6",
+	dimmed2 = "#84868d",
+	dimmed3 = "#66686e",
+	dimmed4 = "#47494f",
+	dimmed5 = "#282a30",
 }
 
 ---@type Beast.Theme.Palette
@@ -82,8 +82,8 @@ local function extract_builtin()
 	local light = is_dark and "NvimLight" or "NvimDark"
 
 	return {
-		dark2 = blend(text, 0.20, background), -- #3d3f44
-		dark1 = blend(text, 0.10, background), -- #282a30
+		dark2 = blend(text, 0.15, background), -- #33353a
+		dark1 = blend(text, 0.1, background), -- #282a30
 		background = background,
 		text = text,
 		accent1 = named(light .. "Red", defaults.accent1), -- #ffc0b9
