@@ -125,6 +125,11 @@ local entries = {
 	{ "g&", "repeat last :s on all lines", mode = NORMAL },
 	{ "ga", "show char info", mode = NORMAL },
 	{ "gJ", "join lines (no spaces)", mode = NORMAL },
+	{ "gc", nil, mode = { "n", "x" }, group = "+comment" },
+	{ "gcc", "toggle comment line", mode = NORMAL },
+	{ "gco", "add comment below", mode = NORMAL },
+	{ "gcO", "add comment above", mode = NORMAL },
+	{ "gcA", "add comment at end of line", mode = NORMAL },
 
 	-- ── z family (folds + scroll) ──────────────────────────────────────────
 	{ "zz", "center cursor line", mode = OP },
