@@ -24,23 +24,27 @@ Produce a structured spec with this format:
 > **Note:** The template below is indented for readability inside this code fence. When generating the actual file, write all content at the root level — no leading spaces.
 
 `````markdown
-    # PM Spec: [Feature Name]
+    ---
+    name: [feature-name]
+    description: [one-line feature summary]
+    generated: YYYY-mm-dd
+    ---
 
-    ## Summary
+    # Summary
     [1-2 sentences: what this feature does and why it exists]
 
     ---
 
-    ## Problem
+    # Problem
 
     [What frustrates the user today? Describe the gap concretely — what they have to do now, what breaks or feels wrong. No jargon. Write so someone who has never opened Neovim understands the pain.]
 
-    ### Why now
+    ## Why now
     [Why does this need to exist? What gets unlocked or unblocked?]
 
     ---
 
-    ## Target Behavior
+    # Target Behavior
 
     [ASCII diagram(s) of the end state. Show exactly what the user sees on screen — buffer content, floating windows, highlights, statusline, etc. Use concrete text, not labels like "item list here".]
 
@@ -64,11 +68,11 @@ Produce a structured spec with this format:
 
     ---
 
-    ## Scenarios
+    # Scenarios
 
     Walk through every meaningful case step by step. Each scenario must be numbered and titled. Cover: the happy path, at least one edge case, and any cancellation/error path.
 
-    ### 1 — [Scenario name]
+    ## 1 — [Scenario name]
 
     ```
     Step 1: [what the user does]
@@ -81,12 +85,12 @@ Produce a structured spec with this format:
       [what they see]
     ```
 
-    ### 2 — [Scenario name]
+    ## 2 — [Scenario name]
     ...
 
     ---
 
-    ## Behavior Rules
+    # Behavior Rules
 
     Bullet list of specific rules that aren't obvious from the scenarios:
     - [Rule 1]
@@ -94,7 +98,7 @@ Produce a structured spec with this format:
 
     ---
 
-    ## Success Criteria
+    # Success Criteria
 
     What the user experiences when the feature is done correctly:
     - [ ] [Observable outcome 1]
@@ -102,7 +106,7 @@ Produce a structured spec with this format:
 
     ---
 
-    ## Out of Scope
+    # Out of Scope
 
     - [Thing not included — and why deferred]
     - [Another thing]
@@ -114,6 +118,7 @@ Produce a structured spec with this format:
 - **Show, don't describe** — every UI claim needs an ASCII diagram to back it up
 - **Scenarios are mandatory** — at least one happy path and one edge/error case
 - **No code yet** — this step produces only design, not architecture
+- **Metadata header is mandatory** — include `name`, `description`, and `generated` at the top; set `generated` to the current date when the spec is created
 
 ## Step 3: Save the PM Spec
 

@@ -82,18 +82,22 @@ Produce a structured dev spec with this format:
 > **Note:** The template below is indented for readability inside this code fence. When generating the actual file, write all content at the root level — no leading spaces.
 
 ```markdown
-    # Dev Spec: [Feature Name]
+    ---
+    name: [feature-name]
+    description: [one-line implementation summary]
+    generated: YYYY-mm-dd
+    ---
 
     > PM Spec: [docs/pm-specs/<feature-name>.md](../pm-specs/<feature-name>.md)
 
-    ## Summary
+    # Summary
     [2-3 sentences: what we're building and the implementation approach]
 
     ---
 
-    ## Context
+    # Context
 
-    ### Problem
+    ## Problem
     [One paragraph — the technical gap that needs to be filled. Derived from the PM spec but framed for an engineer: what module is missing, what behaviour is unimplemented, what the code lacks.]
 
     ### Solution
@@ -101,18 +105,18 @@ Produce a structured dev spec with this format:
 
     ---
 
-    ## Research
+    # Research
     [From Step 3 — actual search results, not placeholders]
 
     ---
 
-    ## Architecture Changes
+    # Architecture Changes
     - [New/modified file: path — what and why]
     - [New/modified file: path — what and why]
 
     ## Implementation Phases
 
-    ### Phase 1: [Name] — [Goal of this phase]
+    ## Phase 1: [Name] — [Goal of this phase]
     1. **[Step]** (File: path/to/file)
        - Action: [Specific action]
        - Why: [Reason]
@@ -122,15 +126,15 @@ Produce a structured dev spec with this format:
     2. **[Step]** (File: path/to/file)
        ...
 
-    ### Phase 2: [Name] — [Goal]
+    ## Phase 2: [Name] — [Goal]
     ...
 
-    ## Testing Strategy
+    # Testing Strategy
     - Headless tests: [which `tests/test-*.lua` to run or write]
     - Bench: [which `scripts/bench-*.lua` to run if a hot-path lib was touched]
     - Manual: [reference the scenarios in the PM spec — what to open in nvim and verify]
 
-    ## Success Criteria
+    # Success Criteria
     [Copy from the PM spec's success criteria, adding any technical gates]
     - [ ] Criterion 1
     - [ ] Criterion 2
@@ -144,6 +148,7 @@ Produce a structured dev spec with this format:
 - **Follow existing patterns** — Use the project's conventions (from codemap and codebase).
 - **No code yet** — This step produces only the plan.
 - **Always link the PM spec** — The `> PM Spec:` line at the top is mandatory.
+- **Metadata header is mandatory** — include `name`, `description`, and `generated` at the top; set `generated` to the current date when the spec is created.
 
 ## Step 5: Save the Dev Spec
 
