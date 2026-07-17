@@ -1,3 +1,9 @@
+---
+name: toast-lsp-progress
+description: "Toast LSP Progress"
+generated: 2026-06-10
+---
+
 # Dev Spec: Toast LSP Progress
 
 > **Status:** Implemented (2026-06-10). See ADR-033 (`update`/`dismiss_id` API) and ADR-034 (native LSP progress adapter).

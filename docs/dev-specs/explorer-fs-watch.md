@@ -1,3 +1,9 @@
+---
+name: explorer-fs-watch
+description: "Explorer Filesystem Watcher (Auto-Refresh)"
+generated: 2026-05-17
+---
+
 # Dev Spec: Explorer Filesystem Watcher (Auto-Refresh)
 
 ## Summary

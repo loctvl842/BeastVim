@@ -1,3 +1,9 @@
+---
+name: lsp-init
+description: "LSP Library"
+generated: 2026-06-07
+---
+
 # Dev Spec: LSP Library
 
 > **Status:** ✅ Completed 2026-06-08 (Phase 1 + Phase 2 shipped, ADRs 029–031 written).

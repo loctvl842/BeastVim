@@ -1,3 +1,9 @@
+---
+name: git-blame
+description: "Git Blame for `beast.libs.git`"
+generated: 2026-06-07
+---
+
 # Dev Spec: Git Blame for `beast.libs.git`
 
 ## Summary

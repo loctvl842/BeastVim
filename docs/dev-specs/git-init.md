@@ -1,3 +1,9 @@
+---
+name: git-init
+description: "Beast Git Library"
+generated: 2026-05-31
+---
+
 # Dev Spec: Beast Git Library
 
 ## Summary

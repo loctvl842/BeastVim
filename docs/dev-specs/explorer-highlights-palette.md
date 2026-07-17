@@ -1,3 +1,9 @@
+---
+name: explorer-highlights-palette
+description: "Explorer Highlights with Beast Palette"
+generated: 2026-05-01
+---
+
 # Dev Spec: Explorer Highlights with Beast Palette
 
 ## Summary

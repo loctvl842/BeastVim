@@ -1,3 +1,9 @@
+---
+name: packer-phase-profiling
+description: "Packer Phase Profiling"
+generated: 2026-05-06
+---
+
 # Dev Spec: Packer Phase Profiling
 
 ## Summary

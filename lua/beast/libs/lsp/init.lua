@@ -6,7 +6,7 @@
 -- registered by callers (typically future `BeastVim/<Lang>` extensions)
 -- via `M.register(name, cfg)`.
 --
--- See docs/dev-specs/lsp-library.md for the design rationale.
+-- See docs/dev-specs/lsp-init.md for the design rationale.
 
 local config = require("beast.libs.lsp.config")
 

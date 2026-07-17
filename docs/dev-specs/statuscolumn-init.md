@@ -1,3 +1,9 @@
+---
+name: statuscolumn-init
+description: "Beast Statuscolumn Library"
+generated: 2026-05-31
+---
+
 # Dev Spec: Beast Statuscolumn Library
 
 ## Summary

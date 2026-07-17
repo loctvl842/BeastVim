@@ -1,3 +1,9 @@
+---
+name: lsp-infra-hardening
+description: "LSP Infra Hardening"
+generated: 2026-06-09
+---
+
 # Dev Spec: LSP Infra Hardening
 
 > **Status:** ✅ Completed 2026-06-09 (all 5 phases shipped — commits `656c7b3`, `f828859`, `a52b4ac`, plus Phase 4 bench/test scaffolding and Phase 5 docs).

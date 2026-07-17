@@ -1,3 +1,9 @@
+---
+name: init-lua-split
+description: "Split `beast/init.lua` Into Focused Modules"
+generated: 2026-06-05
+---
+
 # Dev Spec: Split `beast/init.lua` Into Focused Modules
 
 > **Status: Phase 1 shipped (`0e50abe`). Phase 2 + 3 cancelled — 2026-06-05.**

@@ -1,3 +1,9 @@
+---
+name: beast-palette
+description: "Beast Palette — Theme-Extracted Color Socket"
+generated: 2026-05-01
+---
+
 # Dev Spec: Beast Palette — Theme-Extracted Color Socket
 
 ## Summary

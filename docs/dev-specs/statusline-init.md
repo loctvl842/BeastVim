@@ -1,3 +1,9 @@
+---
+name: statusline-init
+description: "Beast Statusline Library"
+generated: 2026-05-02
+---
+
 # Dev Spec: Beast Statusline Library
 
 > **Status**: Implemented. This document was rewritten after the implementation to reflect

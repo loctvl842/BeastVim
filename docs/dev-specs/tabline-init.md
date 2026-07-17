@@ -1,3 +1,9 @@
+---
+name: tabline-init
+description: "Beast Tabline Library"
+generated: 2026-05-13
+---
+
 # Dev Spec: Beast Tabline Library
 
 ## Summary

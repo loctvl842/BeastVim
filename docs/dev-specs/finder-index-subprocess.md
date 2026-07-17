@@ -1,3 +1,9 @@
+---
+name: finder-index-subprocess
+description: "Finder Index Subprocess — Off-Main-Thread Build via Binary File Handoff"
+generated: 2026-07-01
+---
+
 # Dev Spec: Finder Index Subprocess — Off-Main-Thread Build via Binary File Handoff
 
 ## Summary

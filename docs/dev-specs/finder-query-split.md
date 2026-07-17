@@ -1,3 +1,9 @@
+---
+name: finder-query-split
+description: "Finder Query Split"
+generated: 2026-05-23
+---
+
 # Dev Spec: Finder Query Split
 
 ## Summary

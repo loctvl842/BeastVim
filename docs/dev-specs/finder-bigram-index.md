@@ -1,3 +1,9 @@
+---
+name: finder-bigram-index
+description: "Finder Bigram Index — Persistent Prefilter for live_grep"
+generated: 2026-06-29
+---
+
 # Dev Spec: Finder Bigram Index — Persistent Prefilter for live_grep
 
 ## Summary

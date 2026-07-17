@@ -1,3 +1,9 @@
+---
+name: tabline-edge-fill
+description: "Tabline Edge-Trim Truncation"
+generated: 2026-05-17
+---
+
 # Dev Spec: Tabline Edge-Trim Truncation
 
 ## Summary

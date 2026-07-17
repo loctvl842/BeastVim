@@ -1,3 +1,9 @@
+---
+name: fast-highlight-reload
+description: "Fast Highlight Reload Pipeline"
+generated: 2026-06-05
+---
+
 # Dev Spec: Fast Highlight Reload Pipeline
 
 > **Status: Completed (Phase 1 + 2) — 2026-06-05.** Phase 3 (JSON cache) intentionally **skipped**.

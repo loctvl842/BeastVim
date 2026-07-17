@@ -1,3 +1,9 @@
+---
+name: packer-lazy-libs
+description: "`packer.lazy()` — Lazy Loading for Beast Libraries"
+generated: 2026-05-13
+---
+
 # Dev Spec: `packer.lazy()` — Lazy Loading for Beast Libraries
 
 ## Problem

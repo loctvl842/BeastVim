@@ -1,3 +1,9 @@
+---
+name: bench-explorer
+description: "Explorer Render-Time Benchmark"
+generated: 2026-05-13
+---
+
 # Dev Spec: Explorer Render-Time Benchmark
 
 ## Summary

@@ -1,3 +1,9 @@
+---
+name: autopairs-init
+description: "Beast Autopairs Library"
+generated: 2026-06-08
+---
+
 # Dev Spec: Beast Autopairs Library
 
 > **Completed:** 2026-06-08. All three phases shipped.
@@ -98,7 +104,7 @@ Global opt-out: `vim.g.beast_autopairs_disable = true` (also flipped by
   `vim.fn`, `vim.bo`, `vim.b`, `vim.g`, `vim.treesitter`).
 - **State only in `init.lua`** — `pairs.lua`, `actions.lua`, `skip.lua`,
   `keymap.lua` are stateless modules (pure functions or constructors). This
-  matches the established BeastVim convention (see `breadcrumb-library.md`
+  matches the established BeastVim convention (see `breadcrumb-init.md`
   § *State Ownership*).
 - **Config is frozen** via metatable, identical to
   `lua/beast/libs/confirm/config.lua` — direct assignment raises a clear

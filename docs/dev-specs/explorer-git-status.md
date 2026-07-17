@@ -1,3 +1,9 @@
+---
+name: explorer-git-status
+description: "Explorer Git Status Decorations"
+generated: 2026-05-25
+---
+
 # Dev Spec: Explorer Git Status Decorations
 
 ## Summary

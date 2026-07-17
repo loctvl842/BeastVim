@@ -1,3 +1,9 @@
+---
+name: breadcrumb-init
+description: "Beast Breadcrumb (Winbar) Library"
+generated: 2026-05-25
+---
+
 # Dev Spec: Beast Breadcrumb (Winbar) Library
 
 ## Summary

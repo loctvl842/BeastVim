@@ -1,3 +1,9 @@
+---
+name: window-init
+description: "Beast Window (Autowidth + Maximize) Library"
+generated: 2026-06-05
+---
+
 # Dev Spec: Beast Window (Autowidth + Maximize) Library
 
 ## Summary

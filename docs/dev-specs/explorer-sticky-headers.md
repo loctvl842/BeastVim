@@ -1,3 +1,9 @@
+---
+name: explorer-sticky-headers
+description: "Explorer Sticky Ancestor Headers"
+generated: 2026-05-06
+---
+
 # Dev Spec: Explorer Sticky Ancestor Headers
 
 ## Summary

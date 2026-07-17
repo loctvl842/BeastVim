@@ -1,3 +1,9 @@
+---
+name: util-mod-hot-paths
+description: "Apply `Util.mod` to Hot Paths Beyond Highlights"
+generated: 2026-06-05
+---
+
 # Dev Spec: Apply `Util.mod` to Hot Paths Beyond Highlights
 
 ## Summary

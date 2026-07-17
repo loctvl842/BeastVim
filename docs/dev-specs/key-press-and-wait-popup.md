@@ -1,3 +1,9 @@
+---
+name: key-press-and-wait-popup
+description: "Key Press-and-Wait Popup (Helix-style)"
+generated: 2026-06-03
+---
+
 # Dev Spec: Key Press-and-Wait Popup (Helix-style)
 
 ## Summary

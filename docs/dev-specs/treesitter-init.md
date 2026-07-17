@@ -1,3 +1,9 @@
+---
+name: treesitter-init
+description: "Treesitter Library"
+generated: 2026-05-13
+---
+
 # Dev Spec: Treesitter Library
 
 ## Summary
@@ -29,7 +35,7 @@ Build a `beast/libs/treesitter/` library that wraps Neovim 0.12's builtin tree-s
 - Searched for: `treesitter`, `tree_sitter`, `vim.treesitter`, `TSInstall`
 - Found:
   - `lua/beast/libs/packer/test.lua` — references `nvim-treesitter` as a test plugin spec (not production)
-  - `docs/dev-specs/indent-library.md` — Phase 2 describes scope detection via `vim.treesitter.get_parser()` and `:named_node_for_range()` — **not yet implemented**
+  - `docs/dev-specs/indent-init.md` — Phase 2 describes scope detection via `vim.treesitter.get_parser()` and `:named_node_for_range()` — **not yet implemented**
   - No existing `beast/libs/treesitter/` directory
 - Reuse opportunity: The scope detection planned in indent's Phase 2 should live in this new treesitter lib. Indent will `require("beast.libs.treesitter").scope()` instead of implementing its own.
 

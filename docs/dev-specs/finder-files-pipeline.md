@@ -1,3 +1,9 @@
+---
+name: finder-files-pipeline
+description: "Finder Files Pipeline — Stdout Processing & Scoring Overhaul"
+generated: 2026-05-23
+---
+
 # Dev Spec: Finder Files Pipeline — Stdout Processing & Scoring Overhaul
 
 ## Summary

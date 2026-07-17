@@ -1,3 +1,9 @@
+---
+name: finder-init
+description: "Finder Library"
+generated: 2026-05-14
+---
+
 # Dev Spec: Finder Library
 
 ## Summary

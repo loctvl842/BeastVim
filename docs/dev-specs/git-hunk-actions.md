@@ -1,3 +1,9 @@
+---
+name: git-hunk-actions
+description: "Hunk Stage / Reset / Unstage for `beast.libs.git`"
+generated: 2026-06-02
+---
+
 # Dev Spec: Hunk Stage / Reset / Unstage for `beast.libs.git`
 
 ## Problem

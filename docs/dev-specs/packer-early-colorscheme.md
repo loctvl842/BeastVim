@@ -1,3 +1,9 @@
+---
+name: packer-early-colorscheme
+description: "Packer Early Colorscheme"
+generated: 2026-05-04
+---
+
 # Dev Spec: Packer Early Colorscheme
 
 ## Summary

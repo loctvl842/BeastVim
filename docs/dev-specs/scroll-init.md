@@ -1,3 +1,9 @@
+---
+name: scroll-init
+description: "Beast Scroll (Smooth Viewport Scrolling) Library"
+generated: 2026-05-28
+---
+
 # Dev Spec: Beast Scroll (Smooth Viewport Scrolling) Library
 
 ## Summary

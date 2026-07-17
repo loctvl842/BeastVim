@@ -1,3 +1,9 @@
+---
+name: packer-profile-ui
+description: "Packer Profile UI"
+generated: 2026-05-13
+---
+
 # Dev Spec: Packer Profile UI
 
 ## Baseline Checkpoint

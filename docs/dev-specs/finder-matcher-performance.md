@@ -1,3 +1,9 @@
+---
+name: finder-matcher-performance
+description: "Finder Matcher Performance"
+generated: 2026-05-17
+---
+
 # Dev Spec: Finder Matcher Performance
 
 ## Summary
