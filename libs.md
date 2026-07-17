@@ -1,0 +1,23 @@
+# Libs PM Spec Coverage
+
+- [x] autopairs
+- [x] breadcrumb
+- [x] confirm
+- [x] explorer
+- [x] finder
+- [x] git
+- [x] image
+- [x] indent
+- [x] key
+- [x] lsp
+- [x] notify
+- [x] packer
+- [x] scroll
+- [x] starter
+- [x] statuscolumn
+- [x] statusline
+- [x] tabline
+- [x] toast
+- [x] treesitter
+- [x] view
+- [x] window

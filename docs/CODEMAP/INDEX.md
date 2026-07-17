@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-01 | Files scanned: 257 | Token estimate: ~185 -->
+<!-- Generated: 2026-07-17 | Files scanned: 22 | Token estimate: ~257 -->
 
 # BeastVim Codemaps
 
@@ -11,8 +11,8 @@ Quick-reference architecture documentation. Regenerate with `/update-codemap`.
 ## Project Stats
 - Language: Lua
 - Platform: Neovim plugin (config-as-plugin)
-- Lines of code: ~35,000 across 246 lua files
-- Libraries: 20 (finder gains opt-in engine/) — autopairs, breadcrumb, confirm, explorer, finder, git, indent, key, lsp, notify, packer, scroll, starter, statuscolumn, statusline, tabline, toast, treesitter, view, window
+- Lines of code: ~39,947 across 269 lua files
+- Libraries: 21 (added image) — autopairs, breadcrumb, confirm, explorer, finder, git, image, indent, key, lsp, notify, packer, scroll, starter, statuscolumn, statusline, tabline, toast, treesitter, view, window
 - Shared modules: view/ (instance + .buf + .win submodules), animate.lua, async.lua, util/, theme/
 - Profiler: lua/beast/profile.lua (per-fn count/total/self stats)
-- Last updated: 2026-07-01 (finder: live_grep is now a folder — source/live_grep/{init.lua, engine/}; index build runs in a headless subprocess with binary serialize/load)
+- Last updated: 2026-07-17 (image inline viewer is wired eagerly; setup flow now reflects eager notify/toast/image and current lazy trigger set)

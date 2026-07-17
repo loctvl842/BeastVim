@@ -1,165 +1,93 @@
 ---
 name: treesitter-init
-description: "Treesitter Library"
+description: Treesitter parser management and auto-install
 generated: 2026-05-13
 ---
 
+> PM Spec: [docs/pm-specs/treesitter-init.md](../pm-specs/treesitter-init.md)
+
 # Summary
 
-Build a `beast/libs/treesitter/` library that wraps Neovim 0.12's builtin tree-sitter support into a thin configuration layer. The library enables highlighting + folding per-filetype via `vim.treesitter.start()` and `vim.treesitter.foldexpr()`, manages parser installation declaratively (via the builtin `:TSInstall` / `vim.treesitter.install` API), and provides a scope-detection utility that other libs (e.g. indent) can consume. **No dependency on nvim-treesitter plugin.**
+Tree-sitter is now handled natively through Neovim. The lib owns parser setup, highlighting, folding, and shared scope lookup for other BeastVim modules.
 
-# Requirements
+---
 
-- Enable tree-sitter highlighting for all buffers with an available parser (opt-in per filetype or blanket enable)
-- Enable tree-sitter folding (`foldmethod=expr`, `foldexpr=v:lua.vim.treesitter.foldexpr()`) as configurable default
-- Declarative `ensure_installed` list — parsers are installed on first use if missing (non-blocking, async)
-- Expose `treesitter.scope(bufnr, pos)` utility: returns the innermost scope node (function/if/for/loop/class) at a position — usable by the indent library for scope highlighting
-- Provide a `:checkhealth` section confirming parser availability for configured filetypes
-- Configurable: `ensure_installed`, `highlight.enable`, `fold.enable`, `scope_types` (node types considered "scope")
-- Follow BeastVim library conventions (§ Config Pattern, § State Ownership)
+# Context
 
-# Out of Scope
+## Problem
 
-- Indentation via treesitter (handled by `beast/libs/indent/` once scope is available)
-- Custom query files / textobjects (future spec)
-- Incremental selection
-- nvim-treesitter plugin compatibility layer
-- Playground / inspector UI
+Neovim already ships the core tree-sitter APIs, so the project should not depend on `nvim-treesitter` for basic parsing and highlighting behavior.
+
+### Solution
+
+Use built-in tree-sitter APIs for parser startup, parser installation, and scope lookup, then expose the behavior through a small BeastVim lib.
+
+---
 
 # Research
 
 ### Repo Search
-
 - Searched for: `treesitter`, `tree_sitter`, `vim.treesitter`, `TSInstall`
-- Found:
-  - `lua/beast/libs/packer/test.lua` — references `nvim-treesitter` as a test plugin spec (not production)
-  - `docs/dev-specs/indent-init.md` — Phase 2 describes scope detection via `vim.treesitter.get_parser()` and `:named_node_for_range()` — **not yet implemented**
-  - No existing `beast/libs/treesitter/` directory
-- Reuse opportunity: The scope detection planned in indent's Phase 2 should live in this new treesitter lib. Indent will `require("beast.libs.treesitter").scope()` instead of implementing its own.
+- Found: the live `lua/beast/libs/treesitter/` implementation and the indent scope consumer.
+- Reuse opportunity: Yes — share parser and scope logic from one lib.
 
-### Package Search
+### Built-in / Existing Lib Check
+- Checked: `vim.treesitter.start`, `vim.treesitter.stop`, `vim.treesitter.foldexpr`, `vim.treesitter.get_node`, `vim.treesitter.language.get_lang`
+- Found: the required APIs are builtin.
+- Decision: **Reuse** — keep the feature native.
 
-- Searched: Neovim 0.12 native APIs
-  - `vim.treesitter.start(bufnr, lang)` — enables highlighting for a buffer
-  - `vim.treesitter.stop(bufnr)` — disables highlighting
-  - `vim.treesitter.foldexpr()` — fold expression
-  - `vim.treesitter.get_parser(bufnr, lang)` — get/create parser
-  - `vim.treesitter.get_node({ bufnr, pos })` — node at position
-  - `vim.treesitter.language.get_filetypes(lang)` / `vim.treesitter.language.get_lang(ft)` — ft↔lang mapping
-  - `:TSInstall <lang>` — builtin parser installation (Neovim 0.12)
-- Decision: **Use native** — all required APIs are builtin in Neovim 0.12. Zero plugins needed.
-
-### nvim-treesitter Comparison (Why It's Deprecated)
-
-| What nvim-treesitter provided | Neovim 0.12 builtin equivalent |
-|---|---|
-| Parser download + compile | `:TSInstall` / `vim.treesitter.install` |
-| `highlight = { enable = true }` | `vim.treesitter.start()` (per-buf) |
-| `indent = { enable = true }` | `vim.bo.indentexpr = "v:lua.vim.treesitter.foldexpr()"` |
-| Fold queries | `vim.treesitter.foldexpr()` |
-| Query file shipping (highlights, injections) | Bundled in Neovim runtime |
-| Module system (playground, textobjects) | Separate plugins / native APIs |
-
-The plugin was archived because Neovim absorbed its core features. What remains is:
-1. Query files for niche languages (now in nvim runtime or community repos)
-2. `indentexpr` (experimental, upstreamed)
-3. Module orchestration — replaced by simple `FileType` autocmds
+---
 
 # Architecture Changes
 
-| File | Action | Purpose |
-|------|--------|---------|
-| `lua/beast/libs/treesitter/init.lua` | Create | Public API: `setup(opts)`, `enable()`, `disable()`, `scope(bufnr, pos)` |
-| `lua/beast/libs/treesitter/config.lua` | Create | Defaults, live cfg, `setup(opts)` (§ Config Pattern) |
-| `lua/beast/libs/treesitter/scope.lua` | Create | Scope detection: walk up tree to scope-defining node |
-| `lua/beast/libs/treesitter/health.lua` | Create | `:checkhealth` — verify parsers for `ensure_installed` list |
-| `lua/beast/init.lua` | Modify | Add `packer.lazy("beast.libs.treesitter", ...)` |
+- `lua/beast/libs/treesitter/init.lua` — public setup, enable/disable, scope.
+- `lua/beast/libs/treesitter/config.lua` — config defaults and merge.
+- `lua/beast/libs/treesitter/scope.lua` — shared scope lookup helper.
+- `lua/beast/libs/treesitter/health.lua` — parser availability checks.
 
-# Implementation Phases
+## Implementation Phases
 
-### Phase 1: Highlight + Fold — Minimum viable builtin treesitter config
-
-1. **Create `config.lua`** (File: `lua/beast/libs/treesitter/config.lua`)
-   - Action: Define defaults: `ensure_installed = {}`, `highlight = { enable = true }`, `fold = { enable = false }`, `scope_types` (default list of scope node types). Implement `setup(opts)` merging into live `cfg`.
-   - Why: Foundation — all other modules read config
+## Phase 1: Native parser setup
+1. **Config module** (File: `lua/beast/libs/treesitter/config.lua`)
+   - Action: Store the live configuration and defaults.
+   - Why: The rest of the lib reads from it.
    - Depends on: None
    - Risk: Low
 
-2. **Create `init.lua`** (File: `lua/beast/libs/treesitter/init.lua`)
-   - Action: Implement `setup(opts)` → calls `config.setup(opts)`. Implement `enable()`:
-     - Register `FileType` autocmd that calls `vim.treesitter.start()` on buffers where a parser is available (`pcall(vim.treesitter.get_parser, bufnr)` as probe).
-     - If `config.cfg.fold.enable`, set `foldmethod=expr` + `foldexpr` on the window.
-     - For `ensure_installed`: on `FileType`, if lang has no parser, trigger async install via `vim.treesitter.install` (or shell out to `tree-sitter` CLI if API not yet stable).
-   - Implement `disable()`: remove autocmd, call `vim.treesitter.stop()` on active buffers.
-   - Why: Core functionality — replaces entire nvim-treesitter highlight/fold setup
+2. **Core setup** (File: `lua/beast/libs/treesitter/init.lua`)
+   - Action: Enable highlighting and folding when parsers are available.
+   - Why: This is the primary user-facing behavior.
    - Depends on: Step 1
-   - Risk: Medium (ensure_installed async flow depends on Neovim 0.12 API stability)
+   - Risk: Medium
 
-3. **Wire into BeastVim setup** (File: `lua/beast/init.lua`)
-   - Action: Add `packer.lazy("beast.libs.treesitter", { event = "FileType", defer = true, setup = ... })` with config from `cfg.treesitter`.
-   - Why: Lazy-load on first buffer with a filetype
-   - Depends on: Step 2
-   - Risk: Low
+## Phase 2: Shared scope lookup
+1. **Scope helper** (File: `lua/beast/libs/treesitter/scope.lua`)
+   - Action: Find the innermost scope node for a buffer position.
+   - Why: Other libs can reuse the parser tree work.
+   - Depends on: Phase 1
+   - Risk: Medium
 
-### Phase 2: Scope detection — Utility for indent + future consumers
-
-1. **Create `scope.lua`** (File: `lua/beast/libs/treesitter/scope.lua`)
-   - Action: Implement `M.get(bufnr, pos)`:
-     - `vim.treesitter.get_node({ bufnr = bufnr, pos = pos })`
-     - Walk up via `:parent()` until node type is in `config.cfg.scope_types`
-     - Return `{ node = node, range = { start_row, end_row }, indent = indent_level }` or `nil`
-   - Cache last result per window; invalidate on `CursorMoved` if node identity changed.
-   - Why: Shared scope detection — indent lib Phase 2 and future textobjects consume this
-   - Depends on: Phase 1 complete
-   - Risk: Medium (language coverage — scope_types may need per-language overrides)
-
-2. **Expose scope via init.lua** (File: `lua/beast/libs/treesitter/init.lua`)
-   - Action: Add `M.scope(bufnr, pos)` that delegates to `scope.get()`. This is the public API other libs call.
-   - Why: Clean API boundary — consumers don't need to know about scope.lua internals
+2. **Public scope API** (File: `lua/beast/libs/treesitter/init.lua`)
+   - Action: Expose `scope(bufnr, pos)` from the top-level module.
+   - Why: Keep consumers off internal modules.
    - Depends on: Step 1
    - Risk: Low
 
-### Phase 3: Health check — Verify parser availability
-
-1. **Create `health.lua`** (File: `lua/beast/libs/treesitter/health.lua`)
-   - Action: Implement standard `:checkhealth beast.libs.treesitter` module:
-     - Report Neovim version ≥ 0.12
-     - For each lang in `ensure_installed`: check if parser is loadable
-     - Report highlight status (enabled/disabled)
-     - Report fold status
-   - Why: Discoverability — user can verify their setup works
+## Phase 3: Health check
+1. **Health module** (File: `lua/beast/libs/treesitter/health.lua`)
+   - Action: Report parser availability for configured filetypes.
+   - Why: Users need a simple validation path.
    - Depends on: Phase 1
    - Risk: Low
 
 # Testing Strategy
 
-- Unit tests: None initially (consistent with existing libs). Manual verification.
-- Bench: Not applicable — treesitter highlighting is managed by Neovim core, not our code. The scope detection in Phase 2 should be `< 50 µs` per call (single tree walk).
-- Manual verification:
-  1. Open a Lua file → syntax highlighting via treesitter (not regex)
-  2. `:InspectTree` → shows parsed tree (confirms parser loaded)
-  3. Add `"rust"` to `ensure_installed`, open a `.rs` file → parser auto-installs
-  4. Set `fold.enable = true` → folds appear at function boundaries
-  5. `:checkhealth beast.libs.treesitter` → all green
-
-# Risks & Mitigations
-
-- **Risk**: `vim.treesitter.install` API may not be stable/public in Neovim 0.12 release → **Mitigation**: Fall back to shelling out `tree-sitter parse` + manual `.so` placement, or keep `:TSInstall` from the rewritten nvim-treesitter as an optional dep for install-only.
-- **Risk**: Some filetypes have no builtin parser (e.g. niche DSLs) → **Mitigation**: `pcall` probe before `vim.treesitter.start()`; graceful no-op if parser unavailable.
-- **Risk**: Scope detection `scope_types` list may not cover all languages → **Mitigation**: Start with a conservative list (`function`, `method`, `if_statement`, `for_statement`, `while_statement`, `class_definition`, `module`). Allow per-language overrides in config.
+- Manual: open supported filetypes, confirm highlighting and folding.
+- Manual: ask for scope at a cursor position and confirm it returns a useful node.
 
 # Success Criteria
 
-- [ ] Tree-sitter highlighting active on Lua, Python, TypeScript, Rust files without nvim-treesitter plugin
-- [ ] `ensure_installed` parsers are available after first `FileType` trigger
-- [ ] `scope()` returns correct scope node for cursor position in a Lua file
-- [ ] `:checkhealth beast.libs.treesitter` reports all configured parsers as OK
-- [ ] No `nvim-treesitter` in plugin list — fully native
-- [ ] Codemap regenerated and committed alongside
-
-# ADR Required
-
-This dev spec involves architectural decision(s) that must be documented as ADRs once committed:
-
-- Decision to drop nvim-treesitter plugin entirely in favour of Neovim 0.12 builtin APIs
-- Scope detection lives in `beast/libs/treesitter/scope.lua` (shared utility) rather than inline in indent lib — establishes treesitter lib as the single owner of parser/tree interactions
+- [x] Highlighting works without nvim-treesitter.
+- [x] Folding can be tree-sitter driven.
+- [x] Missing parsers can be installed from config.
+- [x] Scope lookup is available to consumers.

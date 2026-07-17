@@ -1,244 +1,100 @@
 ---
 name: breadcrumb-init
-description: "Beast Breadcrumb (Winbar) Library"
+description: Native winbar breadcrumb with file path and code context
 generated: 2026-05-25
 ---
 
+> PM Spec: [docs/pm-specs/breadcrumb-init.md](../pm-specs/breadcrumb-init.md)
+
 # Summary
 
-Native winbar library at `lua/beast/libs/breadcrumb/` that replaces the heirline-based
-winbar at `lua/beast/plugins/bars/winbar/`. Renders via Neovim's `%!` evaluation model
-(`vim.o.winbar = "%!v:lua.require'beast.libs.breadcrumb'.render()"`), following the same
-architecture as the statusline and tabline libraries.
+Breadcrumb is the native winbar library for showing the current file path and code context. The implementation uses Neovim's `%!` winbar evaluation model so each window can render its own breadcrumb trail without depending on heirline or navic.
 
-The breadcrumb bar is the **entire winbar** — it shows the filepath (directory segments
-with separator, file icon, filename, modified flag). Later (out of scope) it will also
-show LSP document symbols after the filepath.
+---
 
-User's example output:
-```
-lua  beast  plugins  bars  winbar  󰢱 init.lua   DefaultWinbar   [2]
-```
+# Context
 
-**Phase 1** implements filepath-only rendering. LSP breadcrumbs are a separate dev spec.
+## Problem
 
-**Public API:**
+The repo already has a breadcrumb implementation, but the spec/docs need to reflect the current product behavior and the existing native winbar architecture. The code path must keep per-window state, show file path plus context, and stay fast enough to render on every status redraw.
 
-```lua
-local breadcrumb = require("beast.libs.breadcrumb")
-breadcrumb.setup({
-    separator = "  ",
-    ignored_filetypes = { ... },
-})
-```
+### Solution
 
-# Requirements
+Keep the breadcrumb library as a native winbar module with per-window cache, code-context segments after the file name, and highlight refresh on colorscheme changes. The implementation should match the existing BeastVim bar patterns while staying independent from plugin-based breadcrumb solutions.
 
-### Functional
-
-- Render winbar via `%!v:lua.require'beast.libs.breadcrumb'.render()`
-- Display: `[dir1] [sep] [dir2] [sep] ... [sep] [icon] [filename] [modified_flag]`
-- Directory segments shown relative to project root (`Util.root()`)
-- File icon from `nvim-web-devicons` with correct color highlight
-- Modified indicator (``) when buffer has unsaved changes
-- Separator between path segments (default: `  ` — chevron right)
-- Respect `g:statusline_winid` for per-window evaluation (winbar is per-window)
-- Hide on transient beast-* UI buffers (explorer, finder, confirm, etc.) and special
-  buftypes (nofile, prompt, help, quickfix, terminal)
-- Cache per window — only recompute on `BufEnter`, `BufModifiedSet`, `BufWritePost`
-- ColorScheme refresh via `highlight_modules` registry
-
-### Non-Functional
-
-- Render path must be cheap: `g:statusline_winid` lookup → cache check → string return.
-  No I/O on the render path. Path computation happens once per buffer entry.
-- Reuse `statusline/hlgroup.lua` for highlight group management (already palette-aware,
-  dedup by hash, no statusline-specific logic)
-- Follow BeastVim library conventions: state only in `init.lua`, frozen-config metatable,
-  lazy autocmd registration, `Beast.Breadcrumb.*` types
-- **Performance**: use tabline's dirty-flag + full-output-string cache pattern (not
-  statusline's per-component fragment cache). Breadcrumb is one piece of content per
-  window — a per-window `{ bufnr, output }` cache with dirty invalidation gives
-  < 1 µs hot path. This is the right model because:
-  - Winbar is per-window (like statusline) but its content is simple (like a single tabline cell)
-  - No fragment/component abstraction needed — direct string assembly
-  - Tabline bench shows dirty-flag cache hits at < 1 µs
-
-### Out of Scope
-
-- LSP breadcrumbs / document symbols (separate dev spec, requires LSP infrastructure)
-- Click handlers on path segments (future enhancement)
-- Truncation of long paths (paths in BeastVim configs are short; add when needed)
-- Wiring into `lua/beast/init.lua` — owned by the user
+---
 
 # Research
 
 ### Repo Search
+- Searched for: `breadcrumb`, `winbar`, `navic`, `g:statusline_winid`, `hlgroup`
+- Found: `lua/beast/libs/breadcrumb/*` already exists, `lua/beast/libs/statusline/context.lua` documents `g:statusline_winid`, `lua/beast/libs/statusline/hlgroup.lua` provides highlight-group helpers, `lua/beast/libs/tabline/*` shows the cache pattern, and `scripts/bench-breadcrumb.lua`/`lua/beast/libs/breadcrumb/health.lua` already exercise the feature.
+- Reuse opportunity: Yes — reuse the native `%!` winbar model, `g:statusline_winid` context handling, and the existing breadcrumb cache/highlight patterns.
 
-- Searched for: `winbar`, `breadcrumb`, `navic`, `g:statusline_winid`, `hlgroup`
-- Found:
-  - `lua/beast/plugins/bars/winbar/` — existing heirline-based winbar with filepath + LSP
-    via nvim-navic. The `components.lua` has the filepath logic (root-relative path, icon,
-    modified flag) which we rebuild natively. The naming is wrong there: "filepath" and
-    "breadcrumbs" are separate components, but breadcrumb IS the whole bar.
-  - `lua/beast/libs/statusline/` — established native `%!` bar pattern
-  - `lua/beast/libs/tabline/` — dirty-flag + full-output cache pattern (adopted here)
-  - `lua/beast/libs/statusline/hlgroup.lua` — shared highlight group manager:
-    `ensure(spec)` takes `{fg, bg, bold, ...}` or string, creates/caches deterministic
-    `BeastStl_<hash>` groups. Has zero statusline-specific logic despite living under
-    `statusline/`. Cross-requiring is fine for now.
-  - `lua/beast/libs/statusline/util.lua` — `IGNORED_FILETYPES` set (same buffers we skip)
-  - `Util.root()` — project root resolver
-  - `Util.wo()` — version-compat window-option setter
+### Built-in / Existing Lib Check
+- Checked: Neovim winbar `%!` evaluation, `g:statusline_winid`, `nvim_win_get_width`, `vim.o.winbar`, `vim.api`, existing Beast libs under `lua/beast/libs/`
+- Found: Neovim already provides the winbar hook and per-window target resolution needed here; BeastVim already has the breadcrumb module, highlight helpers, and benchmark harness.
+- Decision: **Reuse** — the feature belongs on native Neovim APIs with BeastVim's existing breadcrumb module structure.
 
-### Optimization Patterns Adopted
-
-| From | Technique | Why |
-|------|-----------|-----|
-| Tabline | Dirty-flag + full-output string cache | One content piece per window; hot path is 3-field check |
-| Tabline | Event-driven invalidation via autocmds | Only recompute when buffer actually changes |
-| Statusline | `hlgroup.ensure()` for highlight groups | Dedup, palette-aware, hash-based naming |
-| Statusline | `g:statusline_winid` context pattern | Correct per-window target resolution |
-| Tabline | `WinClosed` cache cleanup | Prevent unbounded cache growth |
-| Tabline | Icon lookup via `pcall(require, "nvim-web-devicons")` | Graceful fallback when devicons unavailable |
-
-### Package Search
-
-- Searched: Neovim native API for winbar
-- Found: `vim.o.winbar` evaluated like `statusline` per `:h winbar`. Uses same
-  `g:statusline_winid`. Same `%#Group#text%*` syntax. Refresh via `:redrawstatus`.
-  Width = `nvim_win_get_width(target_win)` (per-window, NOT `vim.o.columns`).
-- Decision: **Use native** — `%!v:lua` expression, no plugins needed.
+---
 
 # Architecture Changes
 
-| File | Action | Purpose |
-|------|--------|---------|
-| `lua/beast/libs/breadcrumb/config.lua` | Create | Defaults, live cfg, `setup()` — § *Config Pattern* |
-| `lua/beast/libs/breadcrumb/context.lua` | Create | Per-render context from `g:statusline_winid` |
-| `lua/beast/libs/breadcrumb/filepath.lua` | Create | Compute filepath format string (dir segments, icon, filename, modified) |
-| `lua/beast/libs/breadcrumb/highlights.lua` | Create | `BeastBc*` highlight groups, ColorScheme refresh hook |
-| `lua/beast/libs/breadcrumb/init.lua` | Create | Public API: `setup()`, `render()`, state owner, autocmds |
-| `scripts/bench-breadcrumb.lua` | Create | Headless render benchmark |
+- `lua/beast/libs/breadcrumb/config.lua` — keep winbar defaults, ignored buffers, and read-only config handling.
+- `lua/beast/libs/breadcrumb/context.lua` — build per-render window context from `g:statusline_winid`.
+- `lua/beast/libs/breadcrumb/filepath.lua` — render the file path and code-context trail.
+- `lua/beast/libs/breadcrumb/highlights.lua` — define breadcrumb highlight groups and refresh on colorscheme changes.
+- `lua/beast/libs/breadcrumb/init.lua` — own setup, render, cache invalidation, and winbar registration.
+- `lua/beast/libs/breadcrumb/health.lua` — report winbar registration, API contract, and benchmark thresholds.
+- `scripts/bench-breadcrumb.lua` — measure hot and cold render costs.
 
-# Implementation Phases
+## Implementation Phases
 
-### Phase 1: Core Breadcrumb Library — Filepath rendering with per-window caching
-
-1. **Create `config.lua`** (File: `lua/beast/libs/breadcrumb/config.lua`)
-   - Action: Define `Beast.Breadcrumb.Config` with `separator`, `ignored_filetypes` (map),
-     `ignored_buftypes` (map). Read-only config metatable pattern matching
-     `statusline/config.lua` and `tabline/config.lua`.
-   - Why: Every lib needs config first; other modules read `config.separator` etc. inline.
+## Phase 1: Native winbar core — render the breadcrumb trail
+1. **Context and config wiring** (File: `lua/beast/libs/breadcrumb/context.lua`, `lua/beast/libs/breadcrumb/config.lua`)
+   - Action: Keep a per-render window context and the ignored-buffer config used by the winbar.
+   - Why: Breadcrumb must resolve the right window and hide itself in transient UI buffers.
    - Depends on: None
    - Risk: Low
 
-2. **Create `context.lua`** (File: `lua/beast/libs/breadcrumb/context.lua`)
-   - Action: Build `Beast.Breadcrumb.Context` from `g:statusline_winid`. Fields: `winid`,
-     `bufnr`, `is_active`, `width`, `filetype`, `buftype`, `bufname`. Width uses
-     `nvim_win_get_width(target_win)` — winbar is per-window, not global like `laststatus=3`.
-     Fallback to `nvim_get_current_win()` when `g:statusline_winid` is nil/invalid.
-   - Why: Correct target-window resolution is critical for per-window winbar.
+2. **Trail formatting** (File: `lua/beast/libs/breadcrumb/filepath.lua`)
+   - Action: Render the file icon, file name, and code-context trail into a single winbar string.
+   - Why: This is the visible product behavior.
+   - Depends on: Step 1
+   - Risk: Medium
+
+3. **Highlight groups** (File: `lua/beast/libs/breadcrumb/highlights.lua`)
+   - Action: Define breadcrumb highlight groups and refresh them with colorscheme changes.
+   - Why: The breadcrumb must stay legible across themes.
    - Depends on: None
    - Risk: Low
 
-3. **Create `filepath.lua`** (File: `lua/beast/libs/breadcrumb/filepath.lua`)
-   - Action: Pure function `M.render(ctx, separator)` returning a statusline format string.
-     - Split `bufname` relative to `Util.root()` into directory segments
-     - Each dir segment: `%#BeastBcDir#segment%*` + `%#BeastBcSep#<sep>%*`
-     - File icon via `pcall(require, "nvim-web-devicons")` → `hlgroup.ensure({fg=color})`
-     - Filename: `%#BeastBcFile#name%*`
-     - Modified flag: `%#BeastBcModified#%*` when `vim.bo[ctx.bufnr].modified`
-     - Files outside root: show filename only (no directory path)
-     - Unnamed buffers: return `""` (winbar hides)
-   - Why: Core rendering logic. Stateless — receives context, returns string.
-   - Depends on: Steps 1, 4 (highlight groups)
+## Phase 2: Winbar lifecycle — setup, cache, and invalidation
+1. **Library setup and render entrypoint** (File: `lua/beast/libs/breadcrumb/init.lua`)
+   - Action: Register the winbar expression, maintain per-window cache entries, and invalidate on buffer/window changes.
+   - Why: The winbar must be cheap enough to run continuously.
+   - Depends on: Phase 1
+   - Risk: High
+
+2. **Health and benchmark coverage** (File: `lua/beast/libs/breadcrumb/health.lua`, `scripts/bench-breadcrumb.lua`)
+   - Action: Keep health checks and benchmark output aligned with the library's hot path.
+   - Why: Breadcrumb is a rendering path and needs explicit performance gates.
+   - Depends on: Phase 2 step 1
    - Risk: Low
 
-4. **Create `highlights.lua`** (File: `lua/beast/libs/breadcrumb/highlights.lua`)
-   - Action: Define palette-aware highlight groups using `Palette.get()`:
-     - `BeastBcDir` — dimmed directory text
-     - `BeastBcSep` — dimmed separator
-     - `BeastBcFile` — filename text (slightly brighter)
-     - `BeastBcModified` — modified indicator (accent color)
-     Clear `hlgroup` cache via `hlgroup.clear_all()` and `redrawstatus` on re-require
-     (same pattern as `statusline/highlights.lua`).
-   - Why: ColorScheme refresh hook for `highlight_modules` registry.
-   - Depends on: None
-   - Risk: Low
-
-5. **Create `init.lua`** (File: `lua/beast/libs/breadcrumb/init.lua`)
-   - Action: Module-level state owns:
-     - `cache`: `table<integer, { bufnr: integer, modified: boolean, output: string }>` keyed by winid
-     - `augroup`: integer (lazy autocmd guard)
-     `setup(opts)`: merge config, reset cache, register autocmds, set
-     `vim.o.winbar = "%!v:lua.require'beast.libs.breadcrumb'.render()"`.
-     `render()`:
-     1. Build context from `g:statusline_winid`
-     2. Early return `""` if ignored filetype/buftype
-     3. Check cache: hit if `cache[winid].bufnr == ctx.bufnr` and
-        `cache[winid].modified == vim.bo[ctx.bufnr].modified`
-     4. Miss: call `filepath.render(ctx, config.separator)`, store in cache
-     5. Return cached string
-     Autocmds (in `ensure_autocmds()`):
-     - `BufEnter`: invalidate cache for the entering window → `redrawstatus`
-     - `BufModifiedSet`, `BufWritePost`: invalidate all cache entries for that bufnr → `redrawstatus`
-     - `WinClosed`: clean up cache entry for closed window
-   - Why: Orchestrates everything. State ownership in `init.lua` per § *State Ownership*.
-   - Depends on: Steps 1–4
-   - Risk: Medium — cache invalidation must cover buf switch, file save, modified toggle
-
-6. **Create `bench-breadcrumb.lua`** (File: `scripts/bench-breadcrumb.lua`)
-   - Action: Headless benchmark following the bench contract. Measure hot (cached) and
-     cold (invalidated) render times. Stub `Palette` and `Util` globals.
-   - Why: Performance verification against targets.
-   - Depends on: Step 5
-   - Risk: Low
+---
 
 # Testing Strategy
 
-- **Bench**: `scripts/bench-breadcrumb.lua` — `nvim --clean --headless -l scripts/bench-breadcrumb.lua`
-  - Hot (cached): target < 10 µs
-  - Cold (recompute): target < 50 µs
-  - Fail threshold: 1000 µs (1 ms)
-- **Manual verification**:
-  1. Open a deep Lua file → winbar shows `dir1  dir2  ...  󰢱 filename.lua`
-  2. Modify buffer → `` appears after filename
-  3. Save → `` disappears
-  4. Switch to beast-explorer → winbar disappears
-  5. Open second split → each window shows its own breadcrumb
-  6. Change colorscheme → highlights refresh
-  7. Open file outside project root → filename only, no directory segments
-  8. Open `[No Name]` buffer → winbar hidden
-
-# Risks & Mitigations
-
-- **Risk**: `hlgroup.lua` lives under `statusline/` but is used by breadcrumb.
-  **Mitigation**: Cross-require is fine — hlgroup has zero statusline-specific logic.
-  When a third bar lib needs it, extract to `beast/libs/hlgroup.lua`. Flag as DRY
-  opportunity in AGENTS.md.
-
-- **Risk**: `g:statusline_winid` might not be set for winbar in edge cases.
-  **Mitigation**: Same fallback as statusline — `nvim_get_current_win()` when nil/invalid.
-
-- **Risk**: Per-window cache grows with many splits.
-  **Mitigation**: `WinClosed` autocmd cleans entries. Typical usage is 2–4 splits.
+- Headless tests: none currently targeted for this lib.
+- Bench: `nvim --clean --headless -l scripts/bench-breadcrumb.lua`
+- Manual: verify the PM-spec scenarios in a live Neovim window, including path trail updates, modified marker behavior, hidden special buffers, and per-window independence.
 
 # Success Criteria
 
-- [ ] Winbar renders filepath with directory segments, separator, icon, filename, modified flag
-- [ ] `bench-breadcrumb.lua` hot < 10 µs, cold < 50 µs
-- [ ] Winbar hidden on all `beast-*` UI buffers and special buftypes
-- [ ] Each window shows its own file's breadcrumb independently
-- [ ] ColorScheme change refreshes highlights correctly
-- [ ] No dependency on heirline.nvim or nvim-navic
-
-# ADR Required
-
-This dev spec involves architectural decision(s) that must be documented as ADRs:
-
-- New library `beast.libs.breadcrumb` — third native `%!` bar (after statusline and tabline),
-  establishing the pattern that all bars are native `%!` libraries
-- Cross-requiring `statusline/hlgroup.lua` from breadcrumb — signals hlgroup should be
-  extracted to a shared module (supersedes implicit assumption in ADR-009 that hlgroup
-  is statusline-private)
+- [x] Open files show a readable breadcrumb trail in the winbar.
+- [x] Unsaved edits show a visible modified marker.
+- [x] Special UI buffers do not show the breadcrumb bar.
+- [x] Separate splits can show different breadcrumb trails at the same time.
+- [x] The winbar can show code context after the file name.
+- [ ] Benchmark stays within the breadcrumb hot/cold render thresholds.

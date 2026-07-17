@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-01 | Files scanned: 257 | Token estimate: ~3000 -->
+<!-- Generated: 2026-07-17 | Files scanned: 22 | Token estimate: ~8400 -->
 
 # Libraries
 
@@ -134,6 +134,30 @@ Loaded via: `packer.lazy()` on VimEnter (deferred)
 
 ---
 
+## breadcrumb — Native `%!` Winbar Breadcrumb
+
+```
+breadcrumb/
+├── init.lua       ← setup(), render(), cache invalidation, winbar registration
+├── config.lua     ← separator, ignored filetypes/buftypes, modified marker
+├── context.lua    ← per-render window context from g:statusline_winid
+├── filepath.lua   ← file path + icon + code-context string assembly
+├── highlights.lua ← BeastBc* groups + ColorScheme refresh hook
+└── health.lua     ← :checkhealth beast.libs.breadcrumb
+```
+
+API: `breadcrumb.setup(opts)`, `breadcrumb.render()`, `breadcrumb._invalidate()`
+Loaded via: `packer.lazy()` on `BufWinEnter` / `BufWritePost` (deferred)
+Type: native `%!` winbar; per-window cache; no View subclass
+
+### Dependencies
+- Internal: beast.libs.statusline.hlgroup, beast.libs.view (indirect via shared lib patterns), beast.util, beast.theme
+- Plugin: `nvim-web-devicons` (optional icon lookup)
+
+### Highlights / Namespace
+- Namespace: `beast.bc.*`
+- Reset on ColorScheme: yes
+
 ## notify — Floating Notification Stack
 
 ```
@@ -261,14 +285,17 @@ the only entry point.
 
 ```
 treesitter/
-├── init.lua       ← setup(opts), enable() (highlight + fold)
-├── config.lua     ← ensure_installed list
-├── install.lua    ← async parser install via vim.system
-├── parsers.lua    ← parser status queries
-└── scope.lua      ← scope-based queries
+├── init.lua       ← setup(opts), enable()/disable(), start_buf + auto-install trigger
+├── config.lua     ← ensure_installed + fold/highlight/context toggles
+├── install.lua    ← async parser install + upstream query sync
+├── parsers.lua    ← parser URL/revision registry + status
+├── highlights.lua ← BeastTreesitter* groups
+├── health.lua     ← :checkhealth beast.libs.treesitter
+└── context/       ← sticky symbol context view
+    ├── init.lua, context.lua, query.lua, render.lua, highlights.lua
 ```
 
-API: `treesitter.setup(opts)`, `treesitter.enable()`
+API: `treesitter.setup(opts)`, `treesitter.enable()`, `treesitter.disable()`
 Loaded via: `packer.lazy()` on FileType (deferred)
 
 ---
@@ -289,6 +316,23 @@ API: `Lsp.setup(opts)`, `Lsp.register(name, cfg)`, `Lsp.unregister(name)`, `Lsp.
 `cfg.capabilities` defaults to a **snapshot taken at `register()` time** (Neovim's `vim.lsp` validator strictly requires a `table`). To pick up contributors registered later (e.g. blink.cmp on InsertEnter), `register()` also installs a `before_init` hook that re-resolves `M.capabilities()` and assigns it to the outgoing `initialize` request — so any server that hasn't started yet still receives late additions. Caller-supplied `before_init` is chained, not replaced. Contributors added after the first `LspAttach` emit a one-shot WARN via `vim.notify` (already-attached clients won't see the new contribution).
 Loaded **eagerly** from `beast/init.lua` between `confirm.setup()` and `packer.setup` — `vim.lsp.enable` must run before the first `FileType` autocmd. Global: `_G.Lsp`. Dispatch order: per-server keys → per-server on_attach → apply_fold/inlay_hints/codelens → global subscribers. Per-server configs live in external `BeastVim/<Lang>` repos (see ADR-030).
 Bench: `scripts/bench-lsp.lua` measures capabilities resolution (50-contributor stress, 1 ms threshold). Tests: `tests/test-lsp.lua` (18 assertions covering register/unregister/capabilities snapshot+`before_init`/toggles/warning).
+
+---
+
+## image — Inline Image Renderer + Viewer
+
+```
+image/
+├── init.lua       ← protocol detect, render(win,path), clear(), supported()
+├── protocol.lua   ← iTerm2 OSC1337 + Kitty protocol builders
+├── dimensions.lua ← image size probing + cell-fit calculations
+└── viewer.lua     ← image-file buffer takeover + autocmd-driven redraw/clear
+```
+
+API: `image.render(win, path, opts)`, `image.clear()`, `image.supported()`;
+viewer setup via `require("beast.libs.image.viewer").setup(opts)`.
+Loaded eagerly from `beast.setup()` (no packer.lazy) so image buffers can be
+intercepted by `BufReadCmd` immediately.
 
 ---
 

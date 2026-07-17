@@ -1,4 +1,4 @@
-<!-- Generated: 2026-06-10 | Files scanned: 246 | Token estimate: ~1100 -->
+<!-- Generated: 2026-07-17 | Files scanned: 22 | Token estimate: ~2320 -->
 
 # Architecture
 
@@ -41,6 +41,7 @@ lua/beast/
 │   ├── explorer/         ← file explorer (split panel + sticky headers + git)
 │   ├── finder/           ← fuzzy finder (files, buffers, grep, help, …)
 │   ├── git/              ← native git signs / preview / stage / blame
+│   ├── image/            ← terminal inline-image protocol helpers + viewer
 │   ├── indent/           ← indent guides + scope (decoration provider)
 │   ├── key/              ← keybinding registry, cheatsheet, press-and-wait hint
 │   ├── lsp/              ← Lsp.register / capabilities / on_attach dispatcher
@@ -70,7 +71,7 @@ lua/beast/
 | `Key` | beast.libs.key | Keymap registration + viewer |
 | `View` | beast.libs.view | View instance constructor + `.buf`/`.win` submodules |
 | `Icon` | beast.icon | Icon lookup |
-| `Toast` | beast.libs.toast | Toast notifications (registered when toast loads) |
+| `Toast` | beast.libs.toast | Toast notifications (registered eagerly in setup) |
 | `Lsp` | beast.libs.lsp | LSP infra: register, capabilities, on_attach |
 | `gh` | (closure) | `gh("user/repo") → "https://github.com/user/repo"` for plugin specs |
 
@@ -84,28 +85,31 @@ beast.setup(opts)
   2.  Register globals: Util, Theme, Key, View, Icon
   3.  packer.lazy("beast.theme", VimEnter+defer) → Theme.setup() +
         hl_reload.setup() + Theme.refresh() + reload_highlights()
-  4.  packer.lazy notify / toast (VimEnter+defer; toast sets _G.Toast)
+  4.  notify.setup(cfg.notify) + toast.setup(cfg.toast) — EAGER (_G.Toast set)
   5.  packer.lazy confirm (module trigger: beast.libs.confirm)
-  6.  packer.lazy statusline (VimEnter+defer) — uses components registry
-  7.  packer.lazy breadcrumb / tabline / statuscolumn (VimEnter+defer)
-  8.  packer.lazy git (event-driven) — exposes ]c/[c/<leader>g* keymaps
-  9.  packer.lazy explorer (VimEnter+defer + <leader>e)
-  10. packer.lazy indent (VimEnter+defer; decoration provider)
-  11. packer.lazy treesitter (FileType)
-  12. packer.lazy finder (keys: <leader>f/b/F/h/c)
-  13. packer.lazy scroll (event)
-  14. packer.lazy window (keys: <leader>zz/<leader>z=)
-  15. packer.lazy autopairs (InsertEnter)
-  16. packer.lazy key (VimEnter) — eager Key.setup + <leader>d/<leader>n/<leader>p
-  17. Lsp.setup(cfg.lsp) — EAGER (must register vim.lsp.enable before FileType)
-        + Lsp.on_attach binds gd/gr/gD/gi via finder picker
-  18. packer.setup(cfg.packer) — git-clone + lazy-load plugins
-  19. starter.setup(cfg.starter) — EAGER (registers VimEnter autocmd)
+  6.  image.viewer.setup(cfg.image) — EAGER (terminal inline-image support)
+  7.  packer.lazy statusline (VimEnter+defer) — uses components registry
+  8.  packer.lazy breadcrumb / tabline / statuscolumn (BufWinEnter/BufWritePost+defer)
+  9.  packer.lazy git (event-driven) — exposes ]c/[c/<leader>g* keymaps
+  10. packer.lazy explorer (VimEnter+defer + <leader>e)
+  11. packer.lazy indent (BufReadPost/BufWritePost+defer)
+  12. packer.lazy treesitter (FileType+defer)
+  13. packer.lazy finder (keys: <leader>f/b/F/h/c)
+  14. packer.lazy scroll (BufReadPost+defer)
+  15. packer.lazy window (WinNew+defer, keys: <leader>zz/<leader>z=)
+  16. packer.lazy autopairs (InsertEnter/CmdlineEnter; key: <leader>up)
+  17. packer.lazy key (VimEnter) — Key.setup + defaults (<leader>d/<leader>n/<leader>p)
+  18. _G.Lsp + Lsp.setup(cfg.lsp) — EAGER (before first FileType)
+        + Lsp.on_attach binds gd/gr/gD/gi/gl via finder/diagnostic float
+  19. _G.gh helper closure for plugin specs
+  20. packer.setup(cfg.packer) — git-clone + lazy-load plugins
+  21. starter.setup(cfg.starter) — EAGER (registers VimEnter autocmd)
 ```
 
 ## Lazy Lib Loading (`packer.lazy`)
 
-Every lib above (except `theme.setup`'s eager pieces, `lsp`, and `starter`)
+Every lib above (except theme/notify/toast/image eager setup paths, plus `lsp`
+and `starter`)
 loads via `packer.lazy(mod, opts)`. Trigger types:
 
 | Trigger | Field | Sync? | Use case |
