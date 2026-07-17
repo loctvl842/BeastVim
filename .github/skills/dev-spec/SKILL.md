@@ -88,7 +88,7 @@ Produce a structured dev spec with this format:
     generated: YYYY-mm-dd
     ---
 
-    > PM Spec: [docs/pm-specs/<feature-name>.md](../pm-specs/<feature-name>.md)
+    > PM Spec: [docs/pm-specs/<spec-name>.md](../pm-specs/<spec-name>.md)
 
     # Summary
     [2-3 sentences: what we're building and the implementation approach]
@@ -152,7 +152,13 @@ Produce a structured dev spec with this format:
 
 ## Step 5: Save the Dev Spec
 
-Save the dev spec at `docs/dev-specs/<feature-name>.md`. Use the same kebab-case name as the PM spec (e.g., `docs/dev-specs/key-hint-popup.md`).
+Save the dev spec under `docs/dev-specs/` using kebab-case:
+
+- **When creating a new lib**: `docs/dev-specs/<libname>-init.md`
+- **Follow-up work in an existing lib**: `docs/dev-specs/<libname>-<feature>.md`
+- **Non-lib / cross-lib work**: `docs/dev-specs/cross-<feature>.md`
+
+If a PM spec exists, keep the same filename stem between PM and dev specs.
 
 ## Step 6: Wait for Confirmation
 

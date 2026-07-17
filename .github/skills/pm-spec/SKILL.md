@@ -122,7 +122,11 @@ Produce a structured spec with this format:
 
 ## Step 3: Save the PM Spec
 
-Save the spec at `docs/pm-specs/<feature-name>.md` (create the directory if needed). Use a kebab-case filename (e.g., `docs/pm-specs/key-hint-popup.md`).
+Save the spec under `docs/pm-specs/` (create the directory if needed) using kebab-case:
+
+- **When creating a new lib**: `docs/pm-specs/<libname>-init.md`
+- **Follow-up work in an existing lib**: `docs/pm-specs/<libname>-<feature>.md`
+- **Non-lib / cross-lib work**: `docs/pm-specs/cross-<feature>.md`
 
 ## Step 4: Wait for Confirmation
 
