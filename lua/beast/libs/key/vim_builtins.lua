@@ -108,10 +108,14 @@ local entries = {
 	{ "gE", "back to WORD end", mode = MOTION },
 	{ "gd", "goto definition (local)", mode = NORMAL },
 	{ "gD", "goto definition (global)", mode = NORMAL },
-	{ "gf", "open file under cursor", mode = NORMAL },
-	{ "gx", "open URL under cursor", mode = NORMAL },
-	{ "gv", "reselect last visual", mode = NORMAL },
-	{ "gi", "insert at last insert pos", mode = NORMAL },
+	{ "gf", "go to file under cursor", mode = NORMAL },
+	{ "gi", "go to last insert", mode = NORMAL },
+	{ "gn", "search forwards and select", mode = NORMAL },
+	{ "gN", "search backwards and select", mode = NORMAL },
+	{ "gt", "go to next tab page", mode = NORMAL },
+	{ "gT", "go to previous tab page", mode = NORMAL },
+	{ "gv", "last visual selection", mode = NORMAL },
+	{ "gx", "open file with system app", mode = NORMAL },
 	{ "gu", "lowercase (motion)", mode = NORMAL },
 	{ "gU", "uppercase (motion)", mode = NORMAL },
 	{ "g~", "swap case (motion)", mode = NORMAL },
@@ -120,12 +124,13 @@ local entries = {
 	{ "g0", "first char of screen line", mode = MOTION },
 	{ "g$", "last char of screen line", mode = MOTION },
 	{ "g_", "last non-blank char", mode = MOTION },
-	{ "g;", "older change pos", mode = NORMAL },
-	{ "g,", "newer change pos", mode = NORMAL },
+	{ "g%", "cycle backwards through results", mode = NORMAL },
+	{ "g,", "go to [count] newer position in change list", mode = NORMAL },
+	{ "g;", "go to [count] older position in change list", mode = NORMAL },
 	{ "g&", "repeat last :s on all lines", mode = NORMAL },
 	{ "ga", "show char info", mode = NORMAL },
 	{ "gJ", "join lines (no spaces)", mode = NORMAL },
-	{ "gc", nil, mode = { "n", "x" }, group = "+comment" },
+	{ "gc", nil, mode = { "n", "x" }, group = "comment" },
 	{ "gcc", "toggle comment line", mode = NORMAL },
 	{ "gco", "add comment below", mode = NORMAL },
 	{ "gcO", "add comment above", mode = NORMAL },
@@ -191,7 +196,7 @@ function M.register()
 	for _, e in ipairs(entries) do
 		local lhs = e[1]
 		local desc = e[2]
-		local modes = e.mode
+		local modes = e.mode or MOTION
 		if type(modes) == "string" then
 			modes = { modes }
 		end

@@ -308,7 +308,7 @@ end
 ---Safely set or delete a keymap across modes
 ---@param mode string|string[] Modes (e.g. "n" or {"n","v"} or "nvo")
 ---@param lhs string
----@param rhs string|function
+---@param rhs? string|function
 ---@param opts? Beast.KeymapBase
 function M.safe_set(mode, lhs, rhs, opts)
 	opts = opts or {}
