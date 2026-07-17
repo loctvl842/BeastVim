@@ -4,9 +4,7 @@ description: "Tabline Edge-Trim Truncation"
 generated: 2026-05-17
 ---
 
-# Dev Spec: Tabline Edge-Trim Truncation
-
-## Summary
+# Summary
 
 Replace the current fixed-reserve truncation in the tabline buffer list with an
 edge-trim algorithm. Today, a fixed `truncation_marker_reserve` (8 cols) is
@@ -20,7 +18,7 @@ string (no layering), we achieve this by shortening the edge cells' names — th
 leftmost cell gets a leading-ellipsis name, the rightmost gets a trailing-
 ellipsis name — freeing exactly enough columns for the markers.
 
-## Example Behavior
+# Example Behavior
 
 All examples assume:
 - 20 open buffers, each with a cell width of 18 columns
@@ -140,7 +138,7 @@ edge cell is trimmed. The other side renders normally.
 **Anchor alone exceeds available** — the existing anchor-overflow fallback
 (shrink anchor name) runs before this algorithm and is unchanged.
 
-## Requirements
+# Requirements
 
 - **R1**: First pass fits the **maximum** number of whole cells around the
   anchor using the full available width (no reserve subtracted). This maximises
@@ -163,7 +161,7 @@ edge cell is trimmed. The other side renders normally.
 - Multi-column partial cells (showing 2+ partial buffers on one edge).
 - Config options for this behaviour — it is always-on.
 
-## Research
+# Research
 
 ### Repo Search
 - Searched for: `truncat`, `marker_reserve`, `cell_overhead`, `fit_around_anchor`
@@ -186,7 +184,7 @@ edge cell is trimmed. The other side renders normally.
   already used in `name.lua` for multibyte-safe truncation.
 - Decision: **Use native** — no new dependencies.
 
-## Architecture Changes
+# Architecture Changes
 
 | File | Action | Purpose |
 |------|--------|---------|
@@ -195,7 +193,7 @@ edge cell is trimmed. The other side renders normally.
 | `lua/beast/libs/tabline/sections/buffer_list.lua` | Modify | Replace fixed-reserve two-pass with fit-then-trim edge algorithm |
 | `lua/beast/libs/tabline/config.lua` | No change | `truncation_marker_reserve` kept for backward compat but no longer used by buffer_list |
 
-## Implementation Phases
+# Implementation Phases
 
 ### Phase 1: Add trailing-ellipsis helper — `name.truncate_text_end()`
 
@@ -265,7 +263,7 @@ edge cell is trimmed. The other side renders normally.
    own `truncate_text(name, max_name_width)` — since we already truncated to
    `name_w ≤ max_name_width`, this is a no-op pass-through.
 
-## Testing Strategy
+# Testing Strategy
 
 - **Unit tests**: None currently exist for tabline. Not adding in this spec
   (tracked separately).
@@ -282,7 +280,7 @@ edge cell is trimmed. The other side renders normally.
   7. Verify: clicking edge cells switches to that buffer.
   8. Verify: tabline string length ≤ `vim.o.columns` (no overflow).
 
-## Risks & Mitigations
+# Risks & Mitigations
 
 - **Risk**: Width estimation mismatch between `cell_overhead()` / `estimate_cell_width()`
   (which hardcode `icon_w=2`, `sep_w=1`) and actual rendered widths (Nerd Font
@@ -296,7 +294,7 @@ edge cell is trimmed. The other side renders normally.
   → **Mitigation**: `ctx` is rebuilt fresh every render, never reused across
   frames. Mutation within a single render is safe.
 
-## Success Criteria
+# Success Criteria
 
 - [ ] Right-edge buffer fills remaining space with `name…▕` (trailing ellipsis)
 - [ ] Left-edge buffer fills remaining space with `…name▕` (leading ellipsis)

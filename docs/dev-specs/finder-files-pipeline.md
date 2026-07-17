@@ -4,9 +4,7 @@ description: "Finder Files Pipeline — Stdout Processing & Scoring Overhaul"
 generated: 2026-05-23
 ---
 
-# Dev Spec: Finder Files Pipeline — Stdout Processing & Scoring Overhaul
-
-## Summary
+# Summary
 
 Overhaul the `files` source stdout processing and the fuzzy scoring engine to match
 snacks.nvim's performance characteristics. The current pipeline has three bottlenecks:
@@ -20,7 +18,7 @@ appear while items stream), and a **multi-start fuzzy scan with bonus matrix sco
 (better match quality). These changes target the `files` source only; `live_grep` is
 out of scope.
 
-## Requirements
+# Requirements
 
 - File source (`source/files.lua`) must not call `vim.schedule` per stdout chunk
 - Finder and matcher must run as concurrent coroutines — matcher processes items
@@ -38,7 +36,7 @@ out of scope.
 - No regressions: existing pattern syntax, preview, live sources, keymaps unchanged
 - **Out of scope**: frecency/cwd bonus (separate spec), live_grep changes, UI/layout changes
 
-## Research
+# Research
 
 ### Repo Search
 
@@ -100,7 +98,7 @@ For a 50k-file repo producing ~500 stdout chunks:
 - `config` (length=6, less common) has higher entropy than `init` (length=4, very common)
 - Checking `config` first rejects ~90% of items before `init` is ever evaluated
 
-## Architecture Changes
+# Architecture Changes
 
 | File | Action | Purpose |
 |------|--------|---------|
@@ -111,7 +109,7 @@ For a 50k-file repo producing ~500 stdout chunks:
 | `lua/beast/libs/finder/query.lua` | **Modify** | Concurrent finder+matcher coroutines, GC pausing |
 | `lua/beast/libs/async.lua` | **Modify** | Add `suspend()`/`resume()` support for inter-coroutine signaling |
 
-## Implementation Phases
+# Implementation Phases
 
 ### Phase 1: Score Module + Multi-Start Fuzzy — [Better match quality]
 
@@ -231,7 +229,7 @@ Minimal changes to the fd/rg command arguments. Can land independently of Phase 
    - Depends on: None
    - Risk: Low — additive flags, no behavioral change to filtering
 
-## Testing Strategy
+# Testing Strategy
 
 - **Bench script**: Update `scripts/bench-finder-matcher.lua` to add:
   1. Scoring comparison: old `score_term()` vs new `score.lua` on 10k paths × 5 queries
@@ -249,7 +247,7 @@ Minimal changes to the fd/rg command arguments. Can land independently of Phase 
   7. Verify: no rg permission-error noise in results
   8. Compare ranking of `ml` in `my_module_list.lua` (should prefer consecutive match)
 
-## Risks & Mitigations
+# Risks & Mitigations
 
 - **Risk**: Multi-start scan degrades performance for long queries on long paths
   → **Mitigation**: Cap at 10 start positions max. For queries > 5 chars, the first
@@ -277,7 +275,7 @@ Minimal changes to the fd/rg command arguments. Can land independently of Phase 
   a 10ms budget. Execution is deterministic within a tick. Add debug logging behind
   a `config.debug` flag.
 
-## Success Criteria
+# Success Criteria
 
 - [ ] `scripts/bench-finder-matcher.lua` shows < 15ms first-result latency (files source)
 - [ ] Multi-start scoring ranks filename matches above directory-prefix matches
@@ -293,7 +291,7 @@ Minimal changes to the fd/rg command arguments. Can land independently of Phase 
 - [ ] No perceptible lag when typing in finder on 50k+ file project
 - [ ] Codemap regenerated and committed alongside
 
-## ADR Required
+# ADR Required
 
 This dev spec involves architectural decision(s) that must be documented as ADRs once committed:
 

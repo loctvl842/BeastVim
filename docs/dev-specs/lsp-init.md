@@ -4,17 +4,15 @@ description: "LSP Library"
 generated: 2026-06-07
 ---
 
-# Dev Spec: LSP Library
-
 > **Status:** ✅ Completed 2026-06-08 (Phase 1 + Phase 2 shipped, ADRs 029–031 written).
 
-## Summary
+# Summary
 
 Build a `beast/libs/lsp/` library that wraps Neovim 0.12's builtin LSP client (`vim.lsp.config`, `vim.lsp.enable`, `LspAttach`) into a thin **infrastructure** layer. The library owns *policy* — diagnostics config, capabilities composition, the global `LspAttach` pipeline, and a `register(name, cfg)` API — but does **not** own server-specific knowledge (that lives in future `lang` extensions, see *Out of Scope*). **No dependency on `nvim-lspconfig` or `mason-lspconfig`.**
 
 This is the same pattern as `beast/libs/treesitter/` (thin wrapper over builtin) and follows the same `setup → enable → per-attach handler` shape.
 
-## Requirements
+# Requirements
 
 - Public API:
   - `lsp.setup(opts)` — initialize diagnostics, register global `LspAttach` handler, install user commands
@@ -38,7 +36,7 @@ This is the same pattern as `beast/libs/treesitter/` (thin wrapper over builtin)
 - Lazy-loadable via `packer.lazy("beast.libs.lsp", { event = ... })` — same shape as `treesitter`/`git`.
 - Follow BeastVim library conventions: § *Config Pattern* (defaults + live cfg + `setup`), § *State Ownership* (the lib owns the `LspAttach` augroup and the subscriber/register tables), § *File Structure* (one module per concern).
 
-## Out of Scope
+# Out of Scope
 
 - **Lang extension manager (`beast/libs/lang/`).** Separate spec — handles `vim.pack.add` of `BeastVim/<Lang>` repos, FileType-triggered install prompts, `ctx` plumbing.
 - **Per-language server configs.** No `lua_ls`/`vtsls`/etc. tables in this lib. Phase 1 verification uses one hand-wired server *outside* the lib code.
@@ -52,7 +50,7 @@ This is the same pattern as `beast/libs/treesitter/` (thin wrapper over builtin)
 - **Inlay hints / codelens UX toggles.** Add in a follow-up spec once base lib is stable.
 - **Semantic token highlight customization.** Out of scope for this lib (handled by colorscheme/highlights).
 
-## Research
+# Research
 
 ### Repo Search
 
@@ -96,7 +94,7 @@ This is the same pattern as `beast/libs/treesitter/` (thin wrapper over builtin)
 
 The plugin's catalog of default configs is the only remaining value, and that responsibility moves to `BeastVim/<Lang>` extension repos. The lib itself ships with zero servers.
 
-## Architecture Changes
+# Architecture Changes
 
 | File | Action | Purpose |
 |------|--------|---------|
@@ -109,7 +107,7 @@ The plugin's catalog of default configs is the only remaining value, and that re
 | `lua/beast/libs/lsp/health.lua` | Create | `:checkhealth beast.libs.lsp` |
 | `lua/beast/init.lua` | Modify | Wire `packer.lazy("beast.libs.lsp", { event = "FileType", defer = true, setup = ... })` |
 
-## Implementation Phases
+# Implementation Phases
 
 ### Phase 1: Core lib — Register, capabilities, diagnostics, LspAttach pipeline (MVP)
 
@@ -212,7 +210,7 @@ Smallest follow-up: discoverability via `:checkhealth` and one ergonomic command
    - Depends on: Step 1
    - Risk: Low
 
-## Testing Strategy
+# Testing Strategy
 
 - **Unit tests**: `tests/` is currently sparse. Add `tests/lsp_spec.lua` (busted-style if a runner exists; otherwise a `nvim --headless -l` script). Cover:
   - `register("foo", { cmd = {"true"} })` → `vim.lsp.config._configs.foo` populated; `vim.lsp.enable` called.
@@ -228,7 +226,7 @@ Smallest follow-up: discoverability via `:checkhealth` and one ergonomic command
   5. `:lsp stop` then `:lsp restart` — confirm reattach.
   6. Open `~/scratch/foo.lua` outside any project → server still attaches (no `root_markers` match falls back to single-file mode).
 
-## Risks & Mitigations
+# Risks & Mitigations
 
 - **Risk**: `LspAttach` autocmd ordering. Per-server `on_attach` should run **before** subscribers so subscribers see fully-initialized state.
   → **Mitigation**: Single autocmd, hard-coded order (per-server first, then subscribers in registration order). Documented in `attach.lua` module header.
@@ -251,7 +249,7 @@ Smallest follow-up: discoverability via `:checkhealth` and one ergonomic command
 - **Risk**: Lazy-load timing — if `lsp` lib loads on `FileType` but the very first filetype event happens before `packer.lazy` resolves it, the server won't attach for that buffer.
   → **Mitigation**: Load `defer = false` (eager on first `FileType`). If still racy, switch to `VimEnter` + manual `vim.lsp.start` for already-open buffers (mirrors `treesitter` lib pattern).
 
-## Success Criteria
+# Success Criteria
 
 - [ ] `Beast.lsp.register("lua_ls", { cmd, filetypes, root_markers })` attaches a working LSP client on `.lua` files with diagnostics rendered per configured style.
 - [ ] `:checkhealth beast.libs.lsp` returns green with one registered server and one attached client.
@@ -261,7 +259,7 @@ Smallest follow-up: discoverability via `:checkhealth` and one ergonomic command
 - [ ] `bench-startup.sh` shows no startup regression vs `main` (lib is lazy-loaded on `FileType`).
 - [ ] Codemap regenerated (`docs/CODEMAP/libraries.md` includes new `lsp` section) and committed.
 
-## ADR Required
+# ADR Required
 
 This dev spec involves architectural decisions that must be documented as ADRs once committed:
 

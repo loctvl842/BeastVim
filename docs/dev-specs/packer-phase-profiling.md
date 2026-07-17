@@ -4,9 +4,7 @@ description: "Packer Phase Profiling"
 generated: 2026-05-06
 ---
 
-# Dev Spec: Packer Phase Profiling
-
-## Summary
+# Summary
 
 Close the two highest-value attribution gaps in `beast.libs.packer.setup` by
 recording phase-level timings for `vim.pack.add` (Step 4) and
@@ -23,7 +21,7 @@ of per-plugin `packadd_ms`/`config_ms`. This is the gap that bit us in the
 last bench (`packer.setup` self time inflated 3.7 → 12.2 ms with a
 `vim.schedule` wrapper, with no way to attribute the regression).
 
-## Requirements
+# Requirements
 
 - `beast.libs.packer.profile` exposes a phase-level recording table, addressable
   by phase name, recording `ms`, `calls`, `min`, `max`.
@@ -43,7 +41,7 @@ last bench (`packer.setup` self time inflated 3.7 → 12.2 ms with a
   `early_cs`), same return values from `M.setup`.
 - `health-config.md` gains two new rows in the alert thresholds table.
 
-## Out of scope
+# Out of scope
 
 - Wrapping `import.expand_imports`, the init() loop, the eager config loop,
   or the lazy-trigger registration loop. Those are Phase 2 / a future spec.
@@ -53,7 +51,7 @@ last bench (`packer.setup` self time inflated 3.7 → 12.2 ms with a
 - Changing the top-level `lua/beast/profile.lua` — that wraps `M.*` table
   methods and remains unchanged.
 
-## Research
+# Research
 
 ### Repo Search
 
@@ -86,7 +84,7 @@ last bench (`packer.setup` self time inflated 3.7 → 12.2 ms with a
 - Decision: **Adopt** — extend the existing `beast.libs.packer.profile`
   module. No new dependencies.
 
-## Architecture Changes
+# Architecture Changes
 
 | File | Action | Purpose |
 |------|--------|---------|
@@ -94,7 +92,7 @@ last bench (`packer.setup` self time inflated 3.7 → 12.2 ms with a
 | `lua/beast/libs/packer/init.lua` | Modify | Wrap `vim.pack.add` (Step 4) and `apply_early_colorscheme()` (in the `vim.schedule` block) with `profile.measure(name, "phase_ms", fn)`. |
 | `docs/tec-config/health-config.md` | Modify | Add two rows to the *Alert Thresholds* table for `pack_add_ms` and `early_cs_ms`. |
 
-## Implementation Phases
+# Implementation Phases
 
 ### Phase 1: Phase profiling (only phase) — record `pack_add` and `early_cs`
 
@@ -228,7 +226,7 @@ last bench (`packer.setup` self time inflated 3.7 → 12.2 ms with a
      it).
    - Risk: Low — documentation only.
 
-## Testing Strategy
+# Testing Strategy
 
 - **Unit tests**: `tests/` is currently empty (standing process gap per
   health-config). Adding tests for this 1-file change is out of scope; flag
@@ -256,7 +254,7 @@ last bench (`packer.setup` self time inflated 3.7 → 12.2 ms with a
   recorded mean (tighter than the alert threshold because this change is
   expected to add ≤ 1 ms of `Util.hrtime()` overhead).
 
-## Risks & Mitigations
+# Risks & Mitigations
 
 - **Risk**: The new `field == "phase_ms"` branch in `measure` is reachable by
   any caller — a typo like `profile.measure("foo", "phase_ms", fn)` from
@@ -279,7 +277,7 @@ last bench (`packer.setup` self time inflated 3.7 → 12.2 ms with a
   precedes `profiles` in the proposed lookup). Document the convention:
   phase names use snake_case and avoid known plugin names. Acceptable risk.
 
-## Completed
+# Completed
 
 2026-05-04 — Phase 1 implemented:
 - `lua/beast/libs/packer/profile.lua` — added `Beast.Packer.PhaseProfile`,

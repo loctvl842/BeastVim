@@ -4,9 +4,7 @@ description: "Beast Tabline Library"
 generated: 2026-05-13
 ---
 
-# Dev Spec: Beast Tabline Library
-
-## Summary
+# Summary
 
 Native tabline library at `lua/beast/libs/tabline/` that **is intended to replace** the
 heirline.nvim implementation at `lua/beast/plugins/bars/tabline/`. Renders the tabline
@@ -45,7 +43,7 @@ tabline.move_next() / tabline.move_prev()
 `vim.o.tabline = "%!v:lua.require'beast.libs.tabline'.render()"`. Neovim handles **when**
 to redraw; `render()` only handles **what** to draw.
 
-## Requirements
+# Requirements
 
 ### Functional (parity with current heirline tabline)
 
@@ -117,7 +115,7 @@ to redraw; `render()` only handles **what** to draw.
 - Tabline hover popup (filename preview) — not in the current heirline tabline.
 - Migrating the **winbar** — separate dev spec.
 
-## Research
+# Research
 
 ### Repo Search
 
@@ -188,7 +186,7 @@ to redraw; `render()` only handles **what** to draw.
     behaviour informs the design without taking either as a dependency.
   - No new third-party dependencies enter the codebase.
 
-## Design Notes
+# Design Notes
 
 ### Render Pipeline
 
@@ -480,7 +478,7 @@ user's manual ordering across redraws.
 | Click handler dispatch                  | Heirline's `make_click_callback` table          | Native `%@func@…%X`                             |
 | Global-state broadcast on ColorScheme   | `heirline.statusline:broadcast(...)` walks tree | `vim.cmd("redrawtabline")` after cache clear    |
 
-## Architecture
+# Architecture
 
 ### File Layout
 
@@ -561,7 +559,7 @@ local defaults = {
 }
 ```
 
-## Implementation Phases
+# Implementation Phases
 
 ### Phase 1: Minimal viable tabline — boots, renders a flat buffer list, click works
 
@@ -787,7 +785,7 @@ highlight, refreshes on diagnostics; truncation, offset, and tabpages still miss
 > their own schedule. Until they do, the new lib is fully built and verifiable but not
 > the actual tabline driver — invoking `setup()` is opt-in.
 
-## Testing Strategy
+# Testing Strategy
 
 - **Unit tests**: none (no test framework in repo).
 - **Manual verification**:
@@ -814,7 +812,7 @@ highlight, refreshes on diagnostics; truncation, offset, and tabpages still miss
     still point at the old heirline impl until the user's separate cutover; not tested
     here.)
 
-## Risks & Mitigations
+# Risks & Mitigations
 
 - **Risk**: Native `%@…@…%X` click syntax is fussier than heirline's `on_click` —
   malformed sequences silently break the cell layout. → **Mitigation**: keep the
@@ -865,7 +863,7 @@ highlight, refreshes on diagnostics; truncation, offset, and tabpages still miss
   existing heirline tabline at
   `lua/beast/plugins/bars/tabline/components.lua:95-100, 217-224`).
 
-## Success Criteria
+# Success Criteria
 
 - [ ] `:lua print(require("beast.libs.tabline").render())` returns a non-empty format
   string composed of `%#BeastTl*#…%*` segments and `%@…@…%X` click regions — works
@@ -886,7 +884,7 @@ highlight, refreshes on diagnostics; truncation, offset, and tabpages still miss
 - [ ] Render time per call < heirline tabline's render time, measurable via
   `:lua local s=vim.uv.hrtime(); require("beast.libs.tabline").render(); print((vim.uv.hrtime()-s)/1e6, "ms")`
 
-## ADR Required
+# ADR Required
 
 - **Native `%!` tabline driver replaces heirline.nvim for tabline** — same architectural
   decision class as the statusline migration; document together or as a sibling ADR.
@@ -902,12 +900,12 @@ highlight, refreshes on diagnostics; truncation, offset, and tabpages still miss
   yet. Update the **DRY Opportunities** section in `BeastVim Library Conventions` to
   note that `hlgroup` remains statusline-specific.
 
-## References
+# References
 
 - bufferline.nvim: ~/.local/share/nvim/lazy/bufferline.nvim
 - heirline.nvim: ~/.local/share/nvim/lazy/heirline.nvim
 
-## Proposed Work Items
+# Proposed Work Items
 
 > Today: **2026-05-03** (Sun). Workdays: Mon–Fri only. Same-phase tasks may overlap on the same day; next phase starts after the prior phase's last day.
 

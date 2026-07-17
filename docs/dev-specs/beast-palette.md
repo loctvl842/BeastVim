@@ -4,13 +4,11 @@ description: "Beast Palette — Theme-Extracted Color Socket"
 generated: 2026-05-01
 ---
 
-# Dev Spec: Beast Palette — Theme-Extracted Color Socket
-
-## Summary
+# Summary
 
 Create a shared `Beast.Palette` module that extracts a canonical set of colors (accent1–6, dimmed1–5, background, text, dark1–2) from the currently applied Neovim colorscheme using `Util.colors.inspect`. All Beast libs will reference this palette for custom highlights instead of hardcoding hex values or relying solely on `link`. This makes Beast's UI consistent across any colorscheme.
 
-## Requirements
+# Requirements
 
 - Palette shape matches monokai-pro structure: `dark2`, `dark1`, `background`, `text`, `accent1`–`accent6`, `dimmed1`–`dimmed5`
 - Colors extracted from standard highlight groups (DiagnosticError, String, Normal, etc.) via `Util.colors.inspect`
@@ -19,7 +17,7 @@ Create a shared `Beast.Palette` module that extracts a canonical set of colors (
 - Libraries can read `Palette.accent1` etc. at any time
 - Replaces the ad-hoc `bars/palette.lua` pattern with a centralized solution
 
-## Research
+# Research
 
 ### Repo Search
 - Searched for: `palette`, `Util.theme`, `Util.colors.inspect`
@@ -31,7 +29,7 @@ Create a shared `Beast.Palette` module that extracts a canonical set of colors (
 - Found: No standalone palette extraction library. Colorscheme plugins (monokai-pro, tokyonight, catppuccin) define their own palettes internally but don't expose a universal extraction API.
 - Decision: **Build** — we already have `Util.colors.inspect`; we just need to wire it into a canonical palette shape.
 
-## Architecture Changes
+# Architecture Changes
 
 | File | Action | Purpose |
 |------|--------|---------|
@@ -39,7 +37,7 @@ Create a shared `Beast.Palette` module that extracts a canonical set of colors (
 | `lua/beast/init.lua` | **Modify** | Register `_G.Palette` and hook ColorScheme autocmd |
 | `lua/beast/libs/*/highlights.lua` | **Modify (later)** | Migrate hardcoded values to use Palette (Phase 2) |
 
-## Implementation Phases
+# Implementation Phases
 
 ### Phase 1: Core Palette Module — Single source of truth for theme colors
 
@@ -88,20 +86,20 @@ Create a shared `Beast.Palette` module that extracts a canonical set of colors (
    - Depends on: Step 3
    - Risk: Low
 
-## Testing Strategy
+# Testing Strategy
 
 - Manual verification: Switch between colorschemes (`:colorscheme tokyonight`, `:colorscheme monokai-pro`) and confirm `Palette.get()` returns different values
 - Manual verification: Open Beast libs (explorer, confirm, key) and verify visual consistency
 - Manual verification: `:lua vim.print(Palette.get())` shows all fields populated
 
-## Risks & Mitigations
+# Risks & Mitigations
 
 - **Risk**: Some minimal colorschemes don't define all expected highlight groups → **Mitigation**: Hardcoded fallback defaults for every field; `inspect()` already returns nil gracefully
 - **Risk**: `ColorScheme` autocmd fires before highlights are fully applied → **Mitigation**: Wrap refresh in `vim.schedule` to defer one tick
 - **Risk**: Stale references if libs cache palette values at require time → **Mitigation**: Document that libs must call `Palette.get()` at render time, not cache at load time
 - **Risk**: Highlights defined before colorscheme loads show wrong colors → **Mitigation**: All Beast highlights are (re)applied in the ColorScheme autocmd, guaranteeing they always use fresh palette values
 
-## Success Criteria
+# Success Criteria
 
 - [ ] `Palette.get()` returns a complete table with all 15 fields
 - [ ] Values change when colorscheme changes
@@ -110,7 +108,7 @@ Create a shared `Beast.Palette` module that extracts a canonical set of colors (
 - [ ] Switching colorscheme re-applies all Beast highlights with updated palette
 - [ ] No visual regression in existing UI components
 
-## ADR Required
+# ADR Required
 
 This dev spec involves architectural decisions that should be documented as ADRs before or during implementation:
 - Introduction of a shared `Beast.Palette` as the canonical color source for all libs

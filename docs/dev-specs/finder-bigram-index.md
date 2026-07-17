@@ -4,9 +4,7 @@ description: "Finder Bigram Index — Persistent Prefilter for live_grep"
 generated: 2026-06-29
 ---
 
-# Dev Spec: Finder Bigram Index — Persistent Prefilter for live_grep
-
-## Summary
+# Summary
 
 Build a persistent, in-process bigram inverted index in pure Lua/LuaJIT-FFI so
 `live_grep` stops re-walking + re-reading the whole repo on the first keystroke.
@@ -22,7 +20,7 @@ extracted only from the query's **literal runs** (metacharacters like `(` `)` `.
 `*` are skipped); when no literal run ≥2 bytes exists, the prefilter is bypassed
 and we fall back to a full `rg` scan — correctness is never sacrificed for speed.
 
-## Requirements
+# Requirements
 
 - One-time content bigram index built on first `live_grep` open; build is
   backgrounded/chunked via `vim.uv` so the editor never blocks
@@ -39,7 +37,7 @@ and we fall back to a full `rg` scan — correctness is never sacrificed for spe
 - **Out of scope**: file/path fuzzy search (files source unchanged), regex HIR
   bigram extraction like fff, multi-threading/SIMD, frecency, MCP, replacing `rg`
 
-## Research
+# Research
 
 ### Repo Search
 - Searched for: `git grep -niE 'live_grep|bigram|rg --json|ARG_MAX|fs_event|ffi'`
@@ -59,7 +57,7 @@ and we fall back to a full `rg` scan — correctness is never sacrificed for spe
   takes a file list via args (verified) and `xargs -0` for unlimited sets (verified)
 - Decision: **Build** on native + FFI; rg remains the verifier. No plugin.
 
-## Architecture Changes
+# Architecture Changes
 
 | File | Action | Purpose |
 |------|--------|---------|
@@ -71,7 +69,7 @@ and we fall back to a full `rg` scan — correctness is never sacrificed for spe
 | `scripts/bench-grep.lua` | Create | Bench index build + query AND on a target repo |
 | `tests/test-bigram.lua` | Create | Unit tests: extract, AND, false-neg guarantee, fallback |
 
-## Implementation Phases
+# Implementation Phases
 
 ### Phase 1: Bigram core + extraction — minimum viable, no integration
 1. **`bigram.lua`** — FFI `uint64_t` columns (≤5000), `words=ceil(files/64)`; `add(id,bytes)`, `query(keys)->id list`. Risk: Med (FFI bounds).
@@ -90,29 +88,29 @@ and we fall back to a full `rg` scan — correctness is never sacrificed for spe
 ### Phase 4: Freshness — fs_event overlay
 1. Watch root; overlay-bit changed files, tombstone deletes, OR overlay at query. Risk: Med.
 
-## Testing Strategy
+# Testing Strategy
 - Unit: `tests/test-bigram.lua` — extract metachars, AND, false-neg never, fallback.
 - Bench: `scripts/bench-grep.lua` — build ms + avg survivors on the 90k repo.
 - Manual: open grep on 90k repo; first keystroke fast; results identical to plain rg.
 
-## Risks & Mitigations
+# Risks & Mitigations
 - **Build too slow** → chunk via uv, lazy on first open, show progress; cap file size.
 - **Survivor false negatives** → bigrams only prune; rg verifies; literal-only extraction.
 - **RAM** → FFI bitsets capped ~56MB; size cap on indexable files.
 - **Stale index** → fs_event overlay; full rebuild on cwd change.
 
-## Success Criteria
+# Success Criteria
 - [x] Build < 6s background on 90k/2.1GB; query AND < 5ms (bench: build 73ms, query 0.03ms)
 - [x] Results byte-identical to plain `rg` (no false negatives), incl. `(`,`)`,`.` — verified 0 misses
 - [x] `engine.enabled=false` = current behavior; opt-in via `config.engine`
 - [x] ADR-035 written; codemap regenerated
 
-## ADR Required
+# ADR Required
 - New shared `finder/engine/` modules (index/bitsets) other code may require
 - FFI bitset structure + fs_event index lifecycle
 - Persistent index strategy: pure Lua + rg verify vs native binary
 
-## Completed
+# Completed
 2026-06-29 — All 4 phases implemented and committed (9a963fe, bb19336, 7d17ee2, 12a91dd).
 26 unit tests pass, 0 false negatives vs rg, ADR-035 accepted. Deviation: spec's
 xargs -0 fallback replaced by full-scan above max_survivors (5000) — simpler, equally

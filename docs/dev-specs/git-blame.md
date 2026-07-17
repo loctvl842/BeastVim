@@ -4,9 +4,7 @@ description: "Git Blame for `beast.libs.git`"
 generated: 2026-06-07
 ---
 
-# Dev Spec: Git Blame for `beast.libs.git`
-
-## Summary
+# Summary
 
 Add `git blame` support to `beast.libs.git` in two layers that share one
 data engine:
@@ -35,7 +33,7 @@ Out of scope:
 - `--contents -` on every keystroke — we send buffer contents via stdin
   only when the buffer is modified at the time of the blame call.
 
-## Requirements
+# Requirements
 
 - New module `lua/beast/libs/git/blame.lua` exposing:
   - `run(ctx, opts, cb)` — async; `opts = { lnum?, ignore_whitespace?, revision?, contents? }`; calls `cb({ [lnum] = BlameInfo }, { [sha] = CommitInfo })`.
@@ -90,7 +88,7 @@ Out of scope:
   - `<leader>gB` — `M.blame()` (open full-file blame side window).
   - `<leader>gtb` — `M.toggle_current_line_blame()`.
 
-## Research
+# Research
 
 ### Repo Search
 
@@ -114,7 +112,7 @@ Out of scope:
   - `vim.api.nvim_create_namespace` + `nvim_buf_set_extmark` with `virt_text` + `virt_text_pos = "eol" | "right_align"` — native, no add-on required.
 - Decision: **Use native** for the runtime (`vim.system`, extmarks, coroutines), **Adopt** the algorithmic patterns from gitsigns (porcelain parsing, single-line `-L`, `--contents` for modified buffers, cursor re-trigger guard). No new dependency, no new shared util.
 
-## Architecture Changes
+# Architecture Changes
 
 | File | Action | Purpose |
 |------|--------|---------|
@@ -129,7 +127,7 @@ Out of scope:
 | `scripts/bench-git-blame.lua` | Create | Bench `blame.run` for 100 / 1 k / 10 k-line files; single-line (`-L`) vs full-file; threshold for single-line ≤ 30 ms median |
 | `docs/CODEMAP/libraries.md` | Modify | Add `blame.lua`, `current_line_blame.lua`, `blame_view.lua` to the git tree; document the `beast_git_blame` namespace |
 
-## Implementation Phases
+# Implementation Phases
 
 ### Phase 1: Engine + current-line blame — `blame.lua` + `current_line_blame.lua` + `repo.lua` + `config.lua` + `highlights.lua` + `init.lua` wiring + bench
 
@@ -261,7 +259,7 @@ Out of scope:
 
 **Phase 2 checkpoint**: `<leader>gB` opens a left side window; scroll syncs; `r` reblames parent; `q` closes cleanly with no leaked autocmds (`:augroup` shows the group gone, `nvim_get_autocmds({ group = "BeastGitBlameView..." })` returns empty).
 
-## Testing Strategy
+# Testing Strategy
 
 - **Unit tests** (`tests/git/blame_spec.lua` — new file; the project's `tests/` is currently sparse, so this is also a small process improvement):
   - `blame.run` parser: 6 fixture cases — clean commit, NC synthetic, `boundary` tag, `previous <sha> <file>` propagation, `--contents` external-file commit normalization, multi-line block (size > 1).
@@ -285,7 +283,7 @@ Out of scope:
   4. `r`: blame replaced with parent commit's blame; `R`: returns to HEAD.
   5. `:q` source window: blame window closes cleanly; `nvim_get_autocmds({ group = ... })` empty.
 
-## Risks & Mitigations
+# Risks & Mitigations
 
 - **Risk**: `git blame --incremental` on huge files (50 k+ lines) is slow even with `-L` because git still reads the whole file index.
   → **Mitigation**: Phase 1 only ever uses `-L lnum,+1` for cursor blame; full-file is opt-in (Phase 2, on user demand). Bench reports full-file p95 so we know the practical ceiling.
@@ -298,7 +296,7 @@ Out of scope:
 - **Risk**: `config.lua`'s frozen metatable rejects direct assignment from `toggle_current_line_blame`.
   → **Mitigation**: Add a `config.set(path, value)` helper in Phase 1 Step 1 (one-liner that mutates the internal `cfg` table); document that toggles must use this helper, not raw assignment. Symmetric with how mini.* libs work.
 
-## Success Criteria
+# Success Criteria
 
 - [x] Phase 1: cursor on any line in a tracked git file shows virt_text within `delay_ms`; insert-mode hides it; toggle works; bench `bench-git-blame.lua` reports single-line unmodified ≤ 80 ms median (threshold raised from 30 ms — see ADR-027; `vim.system` + git startup is ~40 ms floor on macOS, not parser overhead).
 - [x] Phase 1: `:checkhealth beast.libs.git` is clean (or warns gracefully when `user.name` is unset).
@@ -307,14 +305,14 @@ Out of scope:
 - [x] Codemap regenerated and committed with each phase (per `.github/instructions/codemap-freshness.instructions.md`).
 - [x] gitsigns.nvim's `current_line_blame` and `blame` features can be disabled (or the plugin removed entirely) without UX regression.
 
-## ADR Required
+# ADR Required
 
 This dev spec involves architectural decision(s) that must be documented as ADRs once committed:
 
 - **Blame data layer pattern** — streaming `git blame --incremental` via `vim.system` + coroutine line reader, in preference to either (a) waiting for full output, or (b) using gitsigns' async runtime. Decision rationale: streaming is the only way to keep single-line blame fast on large files while still using one consistent code path for both layers. References ADR-022 (native lib vs gitsigns.nvim) and ADR-023 (vim.text.diff backend) for the broader "go native over plugin" theme already established in this lib.
 - **Phase 2 only**: introducing a new `Beast.View` subclass (`Beast.Git.BlameView`) that holds a long-lived window + scroll-bind contract — the second `Beast.View`-based long-lived UI in the lib after `preview.lua`'s short-lived float. ADR captures the scroll-bind choice over hand-rolled line sync.
 
-## Completed
+# Completed
 
 **2026-06-07** — Both phases shipped.
 

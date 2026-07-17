@@ -4,9 +4,7 @@ description: "Finder Library"
 generated: 2026-05-14
 ---
 
-# Dev Spec: Finder Library
-
-## Summary
+# Summary
 
 Build `lua/beast/libs/finder/` — a pure-Lua fuzzy picker that lives entirely inside Neovim,
 with no mandatory external binary. It presents three floating windows (input prompt, scrollable
@@ -17,7 +15,7 @@ cooperative scheduling, `format → Highlight[]` pipeline) while discarding its 
 (layout engine, MinHeap top-k, frecency persistence, per-picker autocmd forests). fzf-lua's
 architecture — terminal buffer + external binary + ANSI strings — is deliberately not adopted.
 
-## Research
+# Research
 
 ### Repo Search
 
@@ -83,7 +81,7 @@ architecture — terminal buffer + external binary + ANSI strings — is deliber
 - `vim.uv.spawn` — for `files` and `grep` sources (fd/rg/find).
 - Decision: **Use native** throughout. No new plugin dependency.
 
-## Requirements
+# Requirements
 
 ### Functional
 
@@ -133,7 +131,7 @@ architecture — terminal buffer + external binary + ANSI strings — is deliber
 - Preview for non-file items (buffers source shows buffer content; no LSP hover, no diff)
 - Marks, registers, command history sources
 
-## Architecture Changes
+# Architecture Changes
 
 | File | Action | Purpose |
 |------|--------|---------|
@@ -153,7 +151,7 @@ architecture — terminal buffer + external binary + ANSI strings — is deliber
 | `lua/beast/libs/finder/highlights.lua` | **Create** | `BeastFinder*` highlight groups via Palette |
 | `lua/beast/init.lua` | **Modify** | Register `Finder` global, wire `packer.lazy` trigger, `highlight_modules` |
 
-## Implementation Phases
+# Implementation Phases
 
 ### Phase 1: Core Engine — async + filter + matcher (no UI)
 
@@ -359,7 +357,7 @@ change, cancel the running `uv.spawn` process and start a new one with the searc
 passed to the shell command (not to the Lua matcher). This is architecturally distinct
 enough to warrant its own dev spec once Phase 3 ships.
 
-## Testing Strategy
+# Testing Strategy
 
 - **Unit — matcher**: `tests/finder/matcher_spec.lua`. Cases: empty pattern matches all;
   exact match scores higher than fuzzy; `!` inverse excludes; `^` prefix; `$` suffix;
@@ -373,7 +371,7 @@ enough to warrant its own dev spec once Phase 3 ships.
 - **Bench**: `scripts/bench-finder.lua` — time `matcher.run` over 10,000 synthetic items
   for 10 different patterns. Report mean µs/item. Target: < 2µs/item (= 50k items/sec).
 
-## Risks & Mitigations
+# Risks & Mitigations
 
 - **Risk**: `buftype=prompt` input captures `<Esc>` before our keymap sees it → Mitigation:
   use `vim.keymap.set("i", "<Esc>", ...)` on the prompt buffer with `{ buffer=buf }`.
@@ -389,7 +387,7 @@ enough to warrant its own dev spec once Phase 3 ships.
   return → Mitigation: `vim.ui.select` is inherently async (callback-based); store the
   callback, call it from the action handler. This is the documented contract.
 
-## Success Criteria
+# Success Criteria
 
 - [ ] `Finder.open("buffers")` opens within < 20ms, filters correctly, confirms to buffer
 - [ ] `Finder.open("files")` streams ≥ 1,000 files into the list without locking the UI
@@ -399,7 +397,7 @@ enough to warrant its own dev spec once Phase 3 ships.
 - [ ] All three windows close cleanly on `<Esc>` with no lingering buffers
 - [ ] Codemaps regenerated (`/tec-update-codemaps`) and committed alongside Phase 3
 
-## ADR Required
+# ADR Required
 
 This dev spec involves architectural decisions that must be documented as ADRs once committed:
 

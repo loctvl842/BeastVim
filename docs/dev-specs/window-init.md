@@ -4,9 +4,7 @@ description: "Beast Window (Autowidth + Maximize) Library"
 generated: 2026-06-05
 ---
 
-# Dev Spec: Beast Window (Autowidth + Maximize) Library
-
-## Summary
+# Summary
 
 A native window-management library at `lua/beast/libs/window/` that ports the two
 features I rely on from `anuvyklack/windows.nvim`:
@@ -51,7 +49,7 @@ window.equalize()                -- <C-w>=
 window.enable() / disable() / toggle()  -- autowidth toggles
 ```
 
-## Requirements
+# Requirements
 
 ### Functional
 
@@ -104,7 +102,7 @@ window.enable() / disable() / toggle()  -- autowidth toggles
 - Saving/restoring layouts across sessions.
 - Highlights — this lib has no UI surface, so no `highlights.lua`.
 
-## Research
+# Research
 
 ### Repo Search
 
@@ -141,7 +139,7 @@ window.enable() / disable() / toggle()  -- autowidth toggles
   windows.nvim (permissive MIT), drop both its dependencies, reuse the extracted
   `animate.tween` for the timing loop.
 
-## Architecture Changes
+# Architecture Changes
 
 | File | Action | Purpose |
 |------|--------|---------|
@@ -160,7 +158,7 @@ window.enable() / disable() / toggle()  -- autowidth toggles
 | `docs/CODEMAP/libraries.md` | Modify | Add new lib section after `## scroll` |
 | `docs/CODEMAP/INDEX.md` | Modify | Bump `Libraries: 16` → `17`, refresh date |
 
-## Implementation Phases
+# Implementation Phases
 
 ### Phase 1: Extract `animate.tween` Primitive — Unblock both float and split animation
 
@@ -326,7 +324,7 @@ window.enable() / disable() / toggle()  -- autowidth toggles
    - Depends on: All earlier phases.
    - Risk: Low.
 
-## Testing Strategy
+# Testing Strategy
 
 ### Unit tests
 
@@ -361,7 +359,7 @@ window.enable() / disable() / toggle()  -- autowidth toggles
 5. Set `vim.b.beast_window_disabled = true` in a buffer, focus it — no resize.
 6. `:checkhealth beast.libs.window` — clean output, autogroup id present.
 
-## Risks & Mitigations
+# Risks & Mitigations
 
 - **Risk**: Autocmd recursion / infinite resize loop. → **Mitigation**: port
   windows.nvim's `resizing_request` single-flight flag and `vim.defer_fn(setup_layout, 10)`
@@ -383,7 +381,7 @@ window.enable() / disable() / toggle()  -- autowidth toggles
   **Mitigation**: key `state.maximized` by `nvim_get_current_tabpage()`; clear on
   `TabClosed`.
 
-## Success Criteria
+# Success Criteria
 
 - [ ] `<leader>z` zooms and un-zooms the current split, with the documented animation.
 - [ ] Focusing any window grows it to fit (textwidth-aware), with sibling windows
@@ -395,7 +393,7 @@ window.enable() / disable() / toggle()  -- autowidth toggles
 - [ ] Startup time delta within ±2 ms of baseline (lib is `WinNew`-lazy so should
       be ~0).
 
-## ADR Required
+# ADR Required
 
 This dev spec introduces architectural decisions worth recording once committed:
 
@@ -409,7 +407,7 @@ This dev spec introduces architectural decisions worth recording once committed:
 
 ---
 
-## Completed: 2026-06-05
+# Completed: 2026-06-05
 
 All 6 phases shipped:
 

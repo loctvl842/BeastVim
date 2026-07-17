@@ -4,13 +4,11 @@ description: "Beast Autopairs Library"
 generated: 2026-06-08
 ---
 
-# Dev Spec: Beast Autopairs Library
-
 > **Completed:** 2026-06-08. All three phases shipped.
 > Commits: Phase 1 `f348436`, Phase 2 `2c893d0`, Phase 3 (this commit).
 > Tests: `tests/test-autopairs-engine.lua` (53/53), `tests/test-autopairs-skip.lua` (28/28).
 
-## Summary
+# Summary
 
 Native autopairs library at `lua/beast/libs/autopairs/` that owns the entire
 keymap engine, neighborhood matching, `<BS>`/`<CR>` handling, and the smart
@@ -54,7 +52,7 @@ Per-buffer opt-out: `vim.b.beast_autopairs_disable = true`.
 Global opt-out: `vim.g.beast_autopairs_disable = true` (also flipped by
 `<leader>up` once Phase 3 adds the keymap).
 
-## Requirements
+# Requirements
 
 ### Functional
 
@@ -134,7 +132,7 @@ Global opt-out: `vim.g.beast_autopairs_disable = true` (also flipped by
   (different from breadcrumb where wiring was deferred — here the cutover
   removes `mini.pairs` and is part of the deliverable).
 
-## Research
+# Research
 
 ### Repo Search
 
@@ -195,7 +193,7 @@ Global opt-out: `vim.g.beast_autopairs_disable = true` (also flipped by
   This is the third "small custom lib instead of plugin" decision in BeastVim
   (after `confirm`, `notify`); the pattern is well-established.
 
-## Architecture Changes
+# Architecture Changes
 
 | File | Action | Purpose |
 |------|--------|---------|
@@ -212,7 +210,7 @@ Global opt-out: `vim.g.beast_autopairs_disable = true` (also flipped by
 | `lua/beast/init.lua` | Modify (Phase 3) | Add `packer.lazy("beast.libs.autopairs", { event = "InsertEnter", ... })` + extend `Beast.Config` type. |
 | `lua/beast/plugins/init.lua` | Modify (Phase 3) | Remove the `mini.pairs` entry added 2026-06-08. |
 
-## Implementation Phases
+# Implementation Phases
 
 ### Phase 1: Engine — pair registry, actions, keymap installer, BS/CR
 
@@ -400,7 +398,7 @@ This phase teaches the engine the four "shut up" rules. Still not wired into
 
 **Phase 3 acceptance**: `:checkhealth beast.libs.autopairs` shows all OKs. After `nvim`-restart, typing `(` in insert pairs correctly. `<leader>up` toggles globally. `mini.pairs` is gone from `plugins/init.lua`. Both unit-test files still exit 0.
 
-## Testing Strategy
+# Testing Strategy
 
 - **Unit tests** (`tests/`)
   - `tests/test-autopairs-engine.lua` (Phase 1) — pure functions, no UI: pair matcher, all 5 action functions, keymap install/uninstall roundtrip. Run: `nvim --clean --headless -l tests/test-autopairs-engine.lua`.
@@ -420,7 +418,7 @@ This phase teaches the engine the four "shut up" rules. Still not wired into
   9. `:set buftype=` is unaffected; cmdline `(` pairs (config default `modes.command = true`).
   10. `nvim --clean -u NORC` — verify lib does nothing without `setup()`.
 
-## Risks & Mitigations
+# Risks & Mitigations
 
 - **Risk**: `<expr>` mapping for `<CR>` collides with `blink.cmp`'s `<CR>` accept binding.
   **Mitigation**: BeastVim's blink uses `keymap = { preset = "enter", ... }` which installs its own `<CR>`. Whichever is registered last wins. The autopairs `<CR>` should be installed via `Key.safe_set`, which preserves an audit trail. If a collision shows up in manual verification step 3, the fix is to install autopairs' `<CR>` *before* `blink.cmp` loads, OR to make autopairs' `<CR>` defer to the existing mapping via `vim.fn.maparg` fall-through. Address concretely in Phase 1 step 4 if `maparg("<CR>", "i")` is non-empty at install time.
@@ -437,7 +435,7 @@ This phase teaches the engine the four "shut up" rules. Still not wired into
 - **Risk**: The `mini.pairs` removal in Phase 3 step 3 lands without Phases 1/2 being merged.
   **Mitigation**: Phase 3 depends explicitly on Phase 2 acceptance (unit tests passing). The cutover step is the *last* step of the *last* phase.
 
-## Success Criteria
+# Success Criteria
 
 - [ ] `nvim --clean --headless -l tests/test-autopairs-engine.lua` exits 0.
 - [ ] `nvim --clean --headless -l tests/test-autopairs-skip.lua` exits 0.
@@ -447,7 +445,7 @@ This phase teaches the engine the four "shut up" rules. Still not wired into
 - [ ] `docs/CODEMAP/libraries.md` includes an `autopairs` section; `INDEX.md` library count is incremented and the libraries list updated.
 - [ ] No mention of `mini.pairs` or `nvim-autopairs` anywhere in `lua/beast/`.
 
-## ADR Required
+# ADR Required
 
 This dev spec involves architectural decision(s) that must be documented as
 ADRs once committed:

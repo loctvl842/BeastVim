@@ -4,9 +4,7 @@ description: "Key Press-and-Wait Popup (Helix-style)"
 generated: 2026-06-03
 ---
 
-# Dev Spec: Key Press-and-Wait Popup (Helix-style)
-
-## Summary
+# Summary
 
 Add a Helix-style "press-and-wait" popup to `lua/beast/libs/key/` that shows the
 available continuations after a leader-prefix keypress (e.g. `<leader>`, `<localleader>`),
@@ -18,7 +16,7 @@ keymaps globally (one per configured prefix). The popup window is a bottom-right
 anchored float with a breadcrumb title (Helix-strict layout). Scope is normal + visual
 mode + leader-prefixed sequences only.
 
-## Requirements
+# Requirements
 
 - After pressing a configured trigger (default `<leader>` or `<localleader>`),
   a popup appears within `delay` ms (default 0 — Helix feel) showing direct children of
@@ -55,7 +53,7 @@ mode + leader-prefixed sequences only.
 - **Replacing the existing `key/ui.lua` full-screen browser** — that stays as-is
   (different feature: searchable keymap list, not press-and-wait).
 
-## Research
+# Research
 
 ### Repo Search
 
@@ -115,7 +113,7 @@ mode + leader-prefixed sequences only.
   per-buffer caching layer entirely; everything else is just `vim.fn` + a 200-line state
   machine on top of `Key.managed`.
 
-## Architecture Changes
+# Architecture Changes
 
 | File | Action | Purpose |
 |------|--------|---------|
@@ -127,7 +125,7 @@ mode + leader-prefixed sequences only.
 | `docs/CODEMAP/libraries.md` | Modify | Update the `key/` tree to include `popup.lua` and note the new public API. |
 | `tests/test-key-popup.lua` | Create | Manual repro script (no test framework in `tests/` today — match existing convention of runnable manual scripts). |
 
-## Implementation Phases
+# Implementation Phases
 
 ### Phase 1: Popup module + config + highlights — Standalone popup, opt-in
 
@@ -270,7 +268,7 @@ Only run if Phase 2 numbers prove the perf win and Phase 3 manual testing is cle
 
 **End of Phase 4**: which-key uninstalled, popup is the default, codemap fresh.
 
-## Testing Strategy
+# Testing Strategy
 
 - **Unit tests**: `tests/` currently uses runnable manual scripts, not a framework.
   Phase 1 adds `tests/test-key-popup.lua` matching this convention. If a framework
@@ -289,7 +287,7 @@ Only run if Phase 2 numbers prove the perf win and Phase 3 manual testing is cle
   9. Start a macro `qa` → press `<leader>` → popup does NOT appear, keys recorded verbatim (Phase 3).
   10. Buffer-local map registered under `<leader>cf` via `Key.safe_set("n", "<leader>cf", ..., { buffer = 0 })` in buffer A → popup shows it in buffer A → switch to buffer B → popup does NOT show `cf`.
 
-## Risks & Mitigations
+# Risks & Mitigations
 
 - **Risk**: Trigger keymap collides with a user's existing `<leader>` mapping that
   isn't in `Key.managed`. → **Mitigation**: at `setup()`, check
@@ -316,7 +314,7 @@ Only run if Phase 2 numbers prove the perf win and Phase 3 manual testing is cle
   Phase 2 bench results AND a manual checklist; if the user uses
   `'`/`"`/`z=` popups, hold Phase 4 and keep which-key for those.
 
-## Success Criteria
+# Success Criteria
 
 - [ ] **Phase 1**: Manual verification steps 1-7 pass on a clean BeastVim start.
 - [ ] **Phase 2 bench targets** (`scripts/bench-key-popup.lua`):
@@ -332,7 +330,7 @@ Only run if Phase 2 numbers prove the perf win and Phase 3 manual testing is cle
   (`scripts/bench-startup.sh`) show no regression — ideally a small improvement
   after Phase 4 (one fewer plugin loaded).
 
-## ADR Required
+# ADR Required
 
 This dev spec involves architectural decisions that must be documented as ADRs once
 committed (during `/tec-implement`'s wrap-up, going-forward mode):
@@ -349,7 +347,7 @@ committed (during `/tec-implement`'s wrap-up, going-forward mode):
 
 ADRs are created during `/tec-implement`'s wrap-up step, not now.
 
-## Completed
+# Completed
 
 **Date:** 2026-06-03
 

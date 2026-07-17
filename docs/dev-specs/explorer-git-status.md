@@ -4,9 +4,7 @@ description: "Explorer Git Status Decorations"
 generated: 2026-05-25
 ---
 
-# Dev Spec: Explorer Git Status Decorations
-
-## Summary
+# Summary
 
 Add git status decorations to the Beast Explorer, following VS Code's explorer
 UI/UX model. Files and directories display colored names and right-aligned
@@ -22,7 +20,7 @@ The `git_status` field already exists on `Beast.Explorer.Node` (tree.lua:15)
 and four highlight groups are already defined (highlights.lua:23-26). This
 spec wires them up with real data and adds the missing groups.
 
-## Requirements
+# Requirements
 
 - **R1**: On explorer open, refresh, `BufWritePost`, and `FocusGained`, run
   `git status --porcelain=v1 --ignored` asynchronously and apply results to
@@ -57,7 +55,7 @@ spec wires them up with real data and adds the missing groups.
   on file changes; git status is re-run on those events. A dedicated index
   watcher is a future optimization.
 
-## Research
+# Research
 
 ### Repo Search
 
@@ -87,7 +85,7 @@ spec wires them up with real data and adds the missing groups.
   Used by other libs in this project (e.g. `treesitter/install.lua`, `packer/operation.lua`).
 - Decision: **Use native** `vim.system` — no plugins needed.
 
-## Architecture Changes
+# Architecture Changes
 
 | File | Action | Purpose |
 |------|--------|---------|
@@ -100,7 +98,7 @@ spec wires them up with real data and adds the missing groups.
 | `lua/beast/libs/explorer/autocmds.lua` | **Modify** | Add `BufWritePost`/`FocusGained` hooks to trigger `git.refresh()` |
 | `lua/beast/libs/explorer/state.lua` | **Modify** | Add `git_root` and `git_job` fields for caching |
 
-## Implementation Phases
+# Implementation Phases
 
 ### Phase 1: Git Status Engine — `git.lua` + state changes
 
@@ -199,7 +197,7 @@ spec wires them up with real data and adds the missing groups.
    - Depends on: Phase 1 (propagation populates dir git_status)
    - Risk: Low — small additive change.
 
-## Testing Strategy
+# Testing Strategy
 
 - **Unit tests**: No test infrastructure exists yet for explorer. Manual verification
   for v1; test harness is a separate concern.
@@ -215,7 +213,7 @@ spec wires them up with real data and adds the missing groups.
   7. Set `git = { enable = false }` → no decorations at all
   8. Cut a file to clipboard that has git status → both badge (right) and "(cut)" suffix visible
 
-## Risks & Mitigations
+# Risks & Mitigations
 
 - **Risk**: `git status` is slow on large repos (10k+ files) →
   **Mitigation**: Async execution means UI never blocks. Show stale data while refresh
@@ -226,7 +224,7 @@ spec wires them up with real data and adds the missing groups.
 - **Risk**: Config backward compat — users with `git = true` break on table access →
   **Mitigation**: `setup()` normalizes boolean to table before merging.
 
-## Success Criteria
+# Success Criteria
 
 - [ ] Modified/untracked/added files show correct badge and colored name
 - [ ] Parent directories show propagated status color
@@ -236,7 +234,7 @@ spec wires them up with real data and adds the missing groups.
 - [ ] `git = { enable = false }` disables all decorations
 - [ ] Clipboard + git badge coexist without layout issues
 
-## Completed
+# Completed
 
 Implementation completed on 2025-07-26.
 

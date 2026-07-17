@@ -4,9 +4,7 @@ description: "Explorer Filesystem Watcher (Auto-Refresh)"
 generated: 2026-05-17
 ---
 
-# Dev Spec: Explorer Filesystem Watcher (Auto-Refresh)
-
-## Summary
+# Summary
 
 Add a `vim.uv.new_fs_event()`-based filesystem watcher to the explorer so it
 automatically refreshes when files or directories change outside of the
@@ -20,7 +18,7 @@ Today, the explorer only refreshes when its own actions (`create.lua`,
 `state.tree:refresh(path)` + `ui.render()`. External changes are invisible
 until the user manually navigates into a directory, which forces `tree:expand`.
 
-## Requirements
+# Requirements
 
 - **R1**: When the explorer is open, filesystem changes (create/delete/rename)
   inside any *expanded* directory are detected and rendered automatically.
@@ -45,7 +43,7 @@ until the user manually navigates into a directory, which forces `tree:expand`.
 - Recursive watchers (libuv `fs_event` doesn't support recursive on all
   platforms; we watch each expanded dir individually, same as snacks/neo-tree).
 
-## Research
+# Research
 
 ### Repo Search
 
@@ -84,7 +82,7 @@ until the user manually navigates into a directory, which forces `tree:expand`.
 with a 100 ms debounce timer.  The pattern is well-proven by both reference
 implementations.  No external dependencies.
 
-## Architecture Changes
+# Architecture Changes
 
 | File | Action | Purpose |
 |------|--------|---------|
@@ -94,7 +92,7 @@ implementations.  No external dependencies.
 | `lua/beast/libs/explorer/init.lua` | **Modify** | Call `watch.stop_all()` in `M.close()` |
 | `lua/beast/libs/explorer/state.lua` | **Modify** | Add `watchers` field (table of active handles) |
 
-## Implementation Phases
+# Implementation Phases
 
 ### Phase 1: Core Watcher Module — filesystem change detection + debounced refresh
 
@@ -159,7 +157,7 @@ implementations.  No external dependencies.
    - Depends on: Step 1
    - Risk: Low
 
-## Testing Strategy
+# Testing Strategy
 
 - **Unit tests**: Not applicable — no `tests/` infrastructure exists and the
   module is I/O-bound (libuv handles). Would require a full Neovim headless
@@ -181,7 +179,7 @@ implementations.  No external dependencies.
   9. Background Neovim (Ctrl-Z), `touch` a file, `fg` — verify refresh on
      `FocusGained`.
 
-## Risks & Mitigations
+# Risks & Mitigations
 
 - **Risk**: Platform differences in `fs_event` reliability (macOS FSEvents vs
   Linux inotify vs WSL) → **Mitigation**: `BufWritePost` + `FocusGained`
@@ -193,7 +191,7 @@ implementations.  No external dependencies.
   files) cause render storm → **Mitigation**: 100 ms debounce + dirty-dir
   set batches everything into a single render pass.
 
-## Success Criteria
+# Success Criteria
 
 - [ ] External file creation/deletion/rename is reflected in the explorer
       within ~200 ms without manual intervention.

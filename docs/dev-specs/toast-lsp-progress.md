@@ -4,14 +4,12 @@ description: "Toast LSP Progress"
 generated: 2026-06-10
 ---
 
-# Dev Spec: Toast LSP Progress
-
 > **Status:** Implemented (2026-06-10). See ADR-033 (`update`/`dismiss_id` API) and ADR-034 (native LSP progress adapter).
 >
 > Phase 1 — commit `96c9d5e` — generic toast `update(record)` + `dismiss_id(id)` + width-aware `ui.render`.
 > Phase 2 — commit `21b784a` — `progress.lua` adapter, config block, codemap.
 
-## Summary
+# Summary
 
 Add live LSP progress notifications to the `toast` library, modeled on
 `noice.nvim/lua/noice/lsp/progress.lua` but rendered as a single-line toast with
@@ -41,7 +39,7 @@ require("beast.libs.toast").setup({
 })
 ```
 
-## Requirements
+# Requirements
 
 ### Functional
 
@@ -88,7 +86,7 @@ require("beast.libs.toast").setup({
   are simpler and sufficient for a single-line toast.
 - `:checkhealth` integration for progress (covered by toast's existing health).
 
-## Research
+# Research
 
 ### Repo Search
 
@@ -124,7 +122,7 @@ require("beast.libs.toast").setup({
   whole hook surface. Spec mirrors noice's structure but renders into our
   toast instead of noice's message router.
 
-## Architecture Changes
+# Architecture Changes
 
 | File | Action | Purpose |
 |------|--------|---------|
@@ -140,7 +138,7 @@ No changes needed in `lua/beast/libs/lsp/` — the progress adapter hooks into
 the global `LspProgress` autocmd, which fires regardless of who registered the
 server. Keeps the LSP lib and toast lib independent.
 
-## Implementation Phases
+# Implementation Phases
 
 ### Phase 1: Generic toast update/dismiss API — minimum viable extraction
 
@@ -212,7 +210,7 @@ server. Keeps the LSP lib and toast lib independent.
    - Depends on: Step 2.
    - Risk: Low.
 
-## Testing Strategy
+# Testing Strategy
 
 - Unit tests: `tests/` is currently empty for the toast lib, so no formal
   framework exists. Add manual probes inside `lua/beast/libs/toast/test.lua`:
@@ -231,7 +229,7 @@ server. Keeps the LSP lib and toast lib independent.
      ~1 s, then fades out via existing `fade_out`.
   4. Disable via `require("beast.libs.toast").setup({ progress = { enabled = false } })`; reload Neovim; confirm no LspProgress autocmd registered (`:autocmd LspProgress` shows nothing under `beast_toast_progress`).
 
-## Risks & Mitigations
+# Risks & Mitigations
 
 - **Risk**: Many concurrent progress tokens (e.g. 3 LSPs all indexing on
   startup) flood the toast stack and obscure the buffer.
@@ -258,7 +256,7 @@ server. Keeps the LSP lib and toast lib independent.
   check; if `nil`, `dismiss_id(record.id)` and drop the token. Mirrors noice's
   `_update` guard.
 
-## Success Criteria
+# Success Criteria
 
 - [ ] Open a Lua buffer with `lua_ls` running: a single-line toast appears in
       the bottom-right, updates in place at ≤ 10 Hz with a bar + spinner +
@@ -273,7 +271,7 @@ server. Keeps the LSP lib and toast lib independent.
 - [ ] No regression in existing toast behaviour — non-sticky toasts still
       auto-dismiss; `Toast.dismiss()` (all) still works.
 
-## ADR Required
+# ADR Required
 
 This dev spec involves architectural decisions that should be documented as
 ADRs once committed:
@@ -289,7 +287,7 @@ ADRs once committed:
 
 ADRs to be created during `/tec-implement`'s wrap-up, not now.
 
-## Completed
+# Completed
 
 - 2026-06-10 — Phase 1 + Phase 2 landed and verified via headless E2E test
   (begin → report → end → linger cleanup, plus same-token reuse during linger).

@@ -4,13 +4,11 @@ description: "Treesitter Library"
 generated: 2026-05-13
 ---
 
-# Dev Spec: Treesitter Library
-
-## Summary
+# Summary
 
 Build a `beast/libs/treesitter/` library that wraps Neovim 0.12's builtin tree-sitter support into a thin configuration layer. The library enables highlighting + folding per-filetype via `vim.treesitter.start()` and `vim.treesitter.foldexpr()`, manages parser installation declaratively (via the builtin `:TSInstall` / `vim.treesitter.install` API), and provides a scope-detection utility that other libs (e.g. indent) can consume. **No dependency on nvim-treesitter plugin.**
 
-## Requirements
+# Requirements
 
 - Enable tree-sitter highlighting for all buffers with an available parser (opt-in per filetype or blanket enable)
 - Enable tree-sitter folding (`foldmethod=expr`, `foldexpr=v:lua.vim.treesitter.foldexpr()`) as configurable default
@@ -20,7 +18,7 @@ Build a `beast/libs/treesitter/` library that wraps Neovim 0.12's builtin tree-s
 - Configurable: `ensure_installed`, `highlight.enable`, `fold.enable`, `scope_types` (node types considered "scope")
 - Follow BeastVim library conventions (§ Config Pattern, § State Ownership)
 
-## Out of Scope
+# Out of Scope
 
 - Indentation via treesitter (handled by `beast/libs/indent/` once scope is available)
 - Custom query files / textobjects (future spec)
@@ -28,7 +26,7 @@ Build a `beast/libs/treesitter/` library that wraps Neovim 0.12's builtin tree-s
 - nvim-treesitter plugin compatibility layer
 - Playground / inspector UI
 
-## Research
+# Research
 
 ### Repo Search
 
@@ -67,7 +65,7 @@ The plugin was archived because Neovim absorbed its core features. What remains 
 2. `indentexpr` (experimental, upstreamed)
 3. Module orchestration — replaced by simple `FileType` autocmds
 
-## Architecture Changes
+# Architecture Changes
 
 | File | Action | Purpose |
 |------|--------|---------|
@@ -77,7 +75,7 @@ The plugin was archived because Neovim absorbed its core features. What remains 
 | `lua/beast/libs/treesitter/health.lua` | Create | `:checkhealth` — verify parsers for `ensure_installed` list |
 | `lua/beast/init.lua` | Modify | Add `packer.lazy("beast.libs.treesitter", ...)` |
 
-## Implementation Phases
+# Implementation Phases
 
 ### Phase 1: Highlight + Fold — Minimum viable builtin treesitter config
 
@@ -133,7 +131,7 @@ The plugin was archived because Neovim absorbed its core features. What remains 
    - Depends on: Phase 1
    - Risk: Low
 
-## Testing Strategy
+# Testing Strategy
 
 - Unit tests: None initially (consistent with existing libs). Manual verification.
 - Bench: Not applicable — treesitter highlighting is managed by Neovim core, not our code. The scope detection in Phase 2 should be `< 50 µs` per call (single tree walk).
@@ -144,13 +142,13 @@ The plugin was archived because Neovim absorbed its core features. What remains 
   4. Set `fold.enable = true` → folds appear at function boundaries
   5. `:checkhealth beast.libs.treesitter` → all green
 
-## Risks & Mitigations
+# Risks & Mitigations
 
 - **Risk**: `vim.treesitter.install` API may not be stable/public in Neovim 0.12 release → **Mitigation**: Fall back to shelling out `tree-sitter parse` + manual `.so` placement, or keep `:TSInstall` from the rewritten nvim-treesitter as an optional dep for install-only.
 - **Risk**: Some filetypes have no builtin parser (e.g. niche DSLs) → **Mitigation**: `pcall` probe before `vim.treesitter.start()`; graceful no-op if parser unavailable.
 - **Risk**: Scope detection `scope_types` list may not cover all languages → **Mitigation**: Start with a conservative list (`function`, `method`, `if_statement`, `for_statement`, `while_statement`, `class_definition`, `module`). Allow per-language overrides in config.
 
-## Success Criteria
+# Success Criteria
 
 - [ ] Tree-sitter highlighting active on Lua, Python, TypeScript, Rust files without nvim-treesitter plugin
 - [ ] `ensure_installed` parsers are available after first `FileType` trigger
@@ -159,7 +157,7 @@ The plugin was archived because Neovim absorbed its core features. What remains 
 - [ ] No `nvim-treesitter` in plugin list — fully native
 - [ ] Codemap regenerated and committed alongside
 
-## ADR Required
+# ADR Required
 
 This dev spec involves architectural decision(s) that must be documented as ADRs once committed:
 

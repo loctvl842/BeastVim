@@ -4,17 +4,15 @@ description: "LSP Infra Hardening"
 generated: 2026-06-09
 ---
 
-# Dev Spec: LSP Infra Hardening
-
 > **Status:** ✅ Completed 2026-06-09 (all 5 phases shipped — commits `656c7b3`, `f828859`, `a52b4ac`, plus Phase 4 bench/test scaffolding and Phase 5 docs).
 >
 > **Postscript 2026-06-09:** Phase 1's "deferred capabilities resolution via function thunk" approach was **incorrect** — Neovim 0.12's `vim.lsp` validator strictly requires `capabilities` to be a `table` (`runtime/lua/vim/lsp/client.lua:331`: `validate('capabilities', config.capabilities, 'table', true)`). The thunk caused `capabilities: expected table, got function` at server start. Fixed by stamping a snapshot table at `register()` time **and** installing a chained `before_init` hook that re-resolves `M.capabilities()` at the moment the `initialize` request is sent. Net behaviour matches the original spec intent (late contributors reach not-yet-started servers); a new test asserts `vim.validate("capabilities", stored.capabilities, "table", true)` so this class of regression is caught by `tests/test-lsp.lua` going forward.
 
-## Summary
+# Summary
 
 Harden `beast.libs.lsp` so it manages the lifecycle smartly enough to absorb the per-server diversity that `BeastVim/<Lang>` extensions will produce. Five infra-level changes — deferred capabilities resolution, inlay-hints + codelens lifecycle, per-server preflight (`enabled` + executable check), idempotent re-/un-registration, and a documented capability-contributor ordering rule. Per-server data still lives in external extension repos (ADR-030); this spec only changes the infra contract those repos depend on.
 
-## Requirements
+# Requirements
 
 - **Capabilities are evaluated at client-start time, not at `register()` time.** A server registered before `Lsp.add_capabilities(blink_caps)` runs must still start with blink's caps included.
 - **`config.inlay_hints.enabled = true` actually enables inlay hints.** Today the field exists but no code reads it. The `LspAttach` dispatcher must turn it on (capability-gated) per buffer.
@@ -24,7 +22,7 @@ Harden `beast.libs.lsp` so it manages the lifecycle smartly enough to absorb the
 - **`Lsp.unregister(name)`** removes the dispatcher `extras` entry and calls `vim.lsp.enable(name, false)`. Needed for per-project disable and for `:LspRestart`-style flows.
 - **A documented "capabilities contributors register early" convention.** The dispatcher cannot enforce ordering across plugin lazy-loads, but it can detect mis-ordering and surface it via `:checkhealth`.
 
-## Out of Scope
+# Out of Scope
 
 - In-repo per-server data (`lua/beast/lsp/servers/*`). ADR-030 keeps that in external `BeastVim/<Lang>` repos. This spec does not supersede ADR-030.
 - A `beast.lsp.extensions` coordinator that auto-loads extensions on `FileType`. Separate spec when at least one extension exists to test against.
@@ -33,7 +31,7 @@ Harden `beast.libs.lsp` so it manages the lifecycle smartly enough to absorb the
 - New keymap shape changes (ADR-031 contract is frozen). `keys`, `cond`, `on_attach`, `Key.safe_set` semantics unchanged.
 - Renaming `Lsp.*` public API. All additions are new methods; no breaking renames.
 
-## Research
+# Research
 
 ### Repo Search
 
@@ -63,7 +61,7 @@ Harden `beast.libs.lsp` so it manages the lifecycle smartly enough to absorb the
   - `vim.lsp.config(name, nil)` (or assigning `vim.lsp.config[name] = nil`) clears a previously-set config. Combined with `vim.lsp.enable(name, false)` (0.12+), this fully un-enables.
 - Decision: **Use native** — every primitive exists in core. No new plugin, no vendored code. Consistent with ADR-029 (native LSP infra, no nvim-lspconfig).
 
-## Architecture Changes
+# Architecture Changes
 
 | File | Action | Purpose |
 |------|--------|---------|
@@ -76,7 +74,7 @@ Harden `beast.libs.lsp` so it manages the lifecycle smartly enough to absorb the
 | `tests/test-lsp.lua` | Create | Manual repro: `nvim --clean -u tests/test-lsp.lua` opens a buffer with a fake server registered, demonstrates inlay/codelens/cap-thunk behavior. |
 | `docs/CODEMAP/libraries.md` | Modify | Update `lsp` entry: new `Lsp.unregister`, `enabled` field, inlay/codelens wiring, capabilities-thunk note. |
 
-## Implementation Phases
+# Implementation Phases
 
 ### Phase 1: Capabilities thunk + `enabled` field — fix the eager-snapshot bug, add preflight
 
@@ -249,14 +247,14 @@ Currently no bench/test for the lsp lib (conventions § 8 expects one). This pha
    - Depends on: Phase 1 step 3 merged
    - Risk: Low
 
-## Testing Strategy
+# Testing Strategy
 
 - **Bench** (`scripts/bench-lsp.lua`): `Lsp.capabilities()` median < 50 µs with 50 contributors. Final line `BENCH name=lsp ... status=PASS|FAIL` (per conventions § 8).
 - **Manual test** (`tests/test-lsp.lua`): runnable via `nvim --clean -u tests/test-lsp.lua`; demonstrates (a) capability added after register reaches the next client start, (b) inlay hints toggle on/off when `cfg.inlay_hints.enabled` flips, (c) `Lsp.unregister(name)` prevents subsequent `FileType` starts.
 - **Health**: `:checkhealth beast.libs.lsp` clean in default config; warns specifically when contributors are added after first attach (forced repro: add a contributor inside a `LspAttach` autocmd in the test file).
 - **No unit-test framework added.** Conventions § 8 specifies bench + manual repro; matches existing libs (`tests/test-explorer.lua`, `tests/test-finder.lua`, etc.).
 
-## Risks & Mitigations
+# Risks & Mitigations
 
 - **Risk:** `capabilities` as a function isn't honored by `vim.lsp.start_client` on the target Neovim build → **Mitigation:** ADR-029 already pins the baseline at Neovim 0.12; `:h vim.lsp.Config` for 0.12 explicitly lists the function form. Health check (Phase 3) will surface the failure mode (warning + observable empty caps) immediately.
 - **Risk:** Codelens autocmd duplicated on re-attach to the same buffer → **Mitigation:** `vim.b[buf].beast_lsp_codelens_armed` flag (Phase 2 step 2 note); short-circuit if set.
@@ -264,7 +262,7 @@ Currently no bench/test for the lsp lib (conventions § 8 expects one). This pha
 - **Risk:** Bench threshold is too tight in CI environments → **Mitigation:** Use median (not max) over 1000 runs, ignore first 10 runs as warm-up. If still flaky, relax to < 100 µs with rationale recorded.
 - **Risk:** `enabled = function()` runs at every `register()` call, including potentially expensive checks (file I/O) at startup → **Mitigation:** Document that `enabled` should be cheap (executable check, env-var test). Extensions needing async checks can defer the `Lsp.register` call instead of doing it inside `enabled`.
 
-## Success Criteria
+# Success Criteria
 
 - [ ] `Lsp.capabilities()` is called once per client start, not once per `register()` (verified by test-lsp.lua hook).
 - [ ] `:checkhealth beast.libs.lsp` reports inlay-hints and codelens enabled status, plus a warning when contributors registered after first attach.
@@ -276,7 +274,7 @@ Currently no bench/test for the lsp lib (conventions § 8 expects one). This pha
 - [ ] `stylua --check lua/beast/libs/lsp/` clean.
 - [ ] ADR-031 footnote added; no other ADR changes needed (the additions are mechanism-level, not architectural).
 
-## ADR Required
+# ADR Required
 
 This dev spec does **not** introduce new architectural decisions — every change is a refinement of contracts already accepted in ADR-029 (native LSP infra), ADR-030 (extension ownership of per-server data), and ADR-031 (`Lsp.register` shape). The capabilities-thunk change closes a known limitation documented in ADR-031 § *Consequences*; that ADR gets a footnote (Phase 5 step 2), not a new ADR.
 

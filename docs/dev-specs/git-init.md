@@ -4,9 +4,7 @@ description: "Beast Git Library"
 generated: 2026-05-31
 ---
 
-# Dev Spec: Beast Git Library
-
-## Summary
+# Summary
 
 Native git library at `lua/beast/libs/git/` providing the absolute minimum
 gitsigns.nvim-equivalent surface BeastVim needs:
@@ -29,7 +27,7 @@ blame line, staging/unstaging hunks, word diff, hunk text-objects (`ih`),
 reset hunk, fugitive integration, rename-following, staged-vs-working split,
 `.git/HEAD` watcher (we re-diff on `BufWritePost` + `FocusGained` instead).
 
-## Requirements
+# Requirements
 
 - A `git` namespace registered as `beast_git_signs` so the statuscolumn
   library's classifier can route our extmarks via a single new pattern
@@ -65,7 +63,7 @@ reset hunk, fugitive integration, rename-following, staged-vs-working split,
 - Statuscolumn `signs.lua` adds one pattern to `NS_PATTERNS`: `^beast_git_signs`
   → class `git`. No other statuscolumn change.
 
-## Research
+# Research
 
 ### Repo Search
 
@@ -124,7 +122,7 @@ reset hunk, fugitive integration, rename-following, staged-vs-working split,
 - Decision: **Use native** — `vim.text.diff` + `vim.system` + extmarks.
   No external plugin. No FFI. No new shared helper extracted.
 
-## Architecture Changes
+# Architecture Changes
 
 | File | Action | Purpose |
 |------|--------|---------|
@@ -142,7 +140,7 @@ reset hunk, fugitive integration, rename-following, staged-vs-working split,
 | `lua/beast/libs/statuscolumn/signs.lua` | Modify | Add `{ class = "git", pattern = "^beast_git_signs" }` to `NS_PATTERNS` |
 | `lua/beast/init.lua` | Modify | Append `beast.libs.git.highlights` to `highlight_modules`; register lib via `packer.lazy(..., {event="BufReadPost", defer=true, ...})` |
 
-## Implementation Phases
+# Implementation Phases
 
 ### Phase 1: Core engine + sign producer — `~/.config/BeastVim/lua/beast/libs/git/{init,config,repo,diff,hunks,signs,highlights,health}.lua` + statuscolumn pattern + bench
 
@@ -348,7 +346,7 @@ the hunk under the cursor. Closing is automatic on cursor move or `q`.
 float showing the old vs new lines with the right `DiffAdd / DiffDelete`
 colours; moving the cursor closes the float.
 
-## Testing Strategy
+# Testing Strategy
 
 - **Unit tests**: `tests/` is currently empty; this spec does not seed it
   (`statuscolumn` and `scroll` shipped without test files too). The
@@ -372,7 +370,7 @@ colours; moving the cursor closes the float.
     lines colourised. `CursorMoved` closes. `q` closes. Resize the
     terminal — float stays anchored.
 
-## Risks & Mitigations
+# Risks & Mitigations
 
 - **Risk**: `vim.text.diff` is Neovim ≥ 0.11; older Neovim ships
   `vim.diff` with a slightly different signature.
@@ -403,7 +401,7 @@ colours; moving the cursor closes the float.
   **Mitigation**: `FocusGained` re-fetches the base for every attached
   buffer. Documented as the v1 trade-off (watcher is out of scope).
 
-## Success Criteria
+# Success Criteria
 
 - [x] `scripts/bench-git.lua` reports `compute_hunks` median **< 10 ms**
       for the 5 k-line buffer.
@@ -418,7 +416,7 @@ colours; moving the cursor closes the float.
 - [x] Codemap regenerated; `docs/CODEMAP/libraries.md` includes the
       new `git` lib; INDEX.md lib count bumped 15 → 16.
 
-## Completed
+# Completed
 
 - **Date:** 2026-06-01
 - **Commits:**
@@ -428,7 +426,7 @@ colours; moving the cursor closes the float.
 - **Bench (final):** 1k=0.29 ms, 5k=2.59 ms, 20k=18.82 ms — threshold 10 ms @ 5k PASS.
 - **ADRs:** [022](../ADRs/022-native-git-library-replaces-gitsigns.md), [023](../ADRs/023-vim-text-diff-backend.md), [024](../ADRs/024-beast-git-signs-namespace.md).
 
-## ADR Required
+# ADR Required
 
 This dev spec involves architectural decision(s) that must be documented
 as ADRs once committed:

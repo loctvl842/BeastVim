@@ -4,9 +4,7 @@ description: "`packer.lazy()` — Lazy Loading for Beast Libraries"
 generated: 2026-05-13
 ---
 
-# Dev Spec: `packer.lazy()` — Lazy Loading for Beast Libraries
-
-## Problem
+# Problem
 
 All beast libraries are eagerly required during `beast.setup()`, adding
 their full require chain to the critical startup path. Today's health check
@@ -20,7 +18,7 @@ generic `load_fn(name, reason)` parameter — they don't know or care that
 `load_fn` is `state.load` (which calls `packadd`). We can pass a different
 `load_fn` that does `require(mod) + setup()` instead.
 
-## Proposed API
+# Proposed API
 
 ```lua
 -- In packer/init.lua (public)
@@ -83,7 +81,7 @@ packer.lazy("beast.libs.explorer", {
 })
 ```
 
-## Design
+# Design
 
 ### How `packer.lazy()` works internally
 
@@ -154,7 +152,7 @@ When `load_lib` runs, it appends `opts.highlights` to `M.highlight_modules`
 ---@field highlights? string
 ```
 
-## Scope
+# Scope
 
 ### In scope (Phase 1)
 
@@ -196,7 +194,7 @@ When `load_lib` runs, it appends `opts.highlights` to `M.highlight_modules`
 - **Total**: ~11.6 ms saved → startup should drop from ~52 ms (excluding
   cold outlier) to ~40 ms
 
-## Risks
+# Risks
 
 1. **Tabline flash**: If `UIEnter` fires after the first screen render,
    users see the default tabline momentarily. Mitigation: `UIEnter` fires
@@ -208,7 +206,7 @@ When `load_lib` runs, it appends `opts.highlights` to `M.highlight_modules`
    precedence. Mitigation: packer.lazy should run after all other keymaps
    are set up (it already does — packer.setup runs late in beast.setup).
 
-## Success Criteria
+# Success Criteria
 
 1. `packer.lazy()` API works for `event` and `keys` triggers
 2. Tabline loads on `UIEnter`, not at startup

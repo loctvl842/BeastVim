@@ -4,9 +4,7 @@ description: "Hunk Stage / Reset / Unstage for `beast.libs.git`"
 generated: 2026-06-02
 ---
 
-# Dev Spec: Hunk Stage / Reset / Unstage for `beast.libs.git`
-
-## Problem
+# Problem
 
 `beast.libs.git` currently provides view-only Git integration: it computes hunks against `HEAD`, places signs, and supports navigation + preview. It cannot **stage**, **reset**, or **unstage** hunks — the three actions users expect from a gutter-diff plugin. This forces them back to `:G add -p` / external tools whenever they want to commit by hunk.
 
@@ -14,7 +12,7 @@ Adding these actions also requires **changing the diff reference from `HEAD` to 
 
 Once we diff against the index, we get a second diff opportunity: index vs HEAD. That's what enables **staged signs** — a visual indication that "this line is staged but not committed". Gitsigns calls these `GitSignsStagedAdd/Change/Delete`; we want the equivalent.
 
-## Goals
+# Goals
 
 1. `Git.stage_hunk()`, `Git.unstage_hunk()`, `Git.reset_hunk()` — operate on the hunk under cursor (or a visual range).
 2. Switch reference text from `HEAD:file` to `:file` (index).
@@ -22,7 +20,7 @@ Once we diff against the index, we get a second diff opportunity: index vs HEAD.
 4. Extend statuscolumn routing groups to handle `BeastGitStaged{Add,Change,Delete,TopDelete,Changedelete}`.
 5. Existing `next_hunk`/`prev_hunk`/`preview_hunk` continue to work and (optionally) gain a `target = "unstaged"|"staged"|"all"` opt.
 
-## Non-goals
+# Non-goals
 
 - No partial-line hunks (i.e. word-level stage). Both gitsigns and mini.diff stage at line granularity; matching that is enough.
 - No `reset_buffer` / `stage_buffer` in v1 — easy follow-ups once hunk-level works.
@@ -31,7 +29,7 @@ Once we diff against the index, we get a second diff opportunity: index vs HEAD.
 
 ---
 
-## Comparison: how the reference designs do it
+# Comparison: how the reference designs do it
 
 ### Gitsigns (`/Users/loctvl842/.local/share/nvim/lazy/gitsigns.nvim`)
 
@@ -133,7 +131,7 @@ end
 
 ---
 
-## Design
+# Design
 
 ### File layout (new + modified)
 
@@ -467,7 +465,7 @@ end
 
 ---
 
-## Phases  *(all complete — see ## Completed below)*
+# Phases  *(all complete — see ## Completed below)*
 
 ### Phase 1: Switch ref from HEAD to index (foundation)
 1. Modify `repo.get_base` to use `:file` instead of `HEAD:file`.
@@ -506,7 +504,7 @@ end
 
 ---
 
-## Test plan
+# Test plan
 
 | Test | How |
 |---|---|
@@ -522,7 +520,7 @@ end
 | External `git add` | `FocusGained` re-fetches HEAD → staged signs appear |
 | `bench-git-wezterm.sh` | Phase 1 may add ~1 ms (second diff per cycle). Acceptable if median <8 ms at 1 ms debounce. |
 
-## Risks
+# Risks
 
 1. **Offset math when staging multiple hunks** — easy to get wrong. mini.diff's loop pattern (lines 1822-1837) is the reference. Unit-test via `patch.lua` with a synthetic 3-hunk fixture, compare output byte-for-byte against `git diff` of the same change.
 2. **CRLF detection failure** — silent corruption if eol detection is wrong. Borrow mini.diff's `--format=%(eolinfo:index)` exactly; do not invent.
@@ -530,7 +528,7 @@ end
 4. **Index-as-ref breaks first-commit case** — `git show :file` fails for untracked files; current code already handles `result.code ~= 0 → cb("")`. Same fallback works.
 5. **Staged signs feel noisy** — mitigated by desaturation: visible but unobtrusive. User can override icons to blank string to hide entirely.
 
-## Open questions for you
+# Open questions for you
 
 1. **Toggle vs explicit?** Should `stage_hunk` toggle (gitsigns) or always stage (mini.diff)? I'm recommending toggle with separate `unstage_hunk` for explicitness.
 2. **Phase 2 first or Phase 3 first?** Phase 2 gives no new actions but unlocks the visual feedback that makes Phase 3 testable. I recommend Phase 2 first.

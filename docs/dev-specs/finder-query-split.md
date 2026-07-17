@@ -4,9 +4,7 @@ description: "Finder Query Split"
 generated: 2026-05-23
 ---
 
-# Dev Spec: Finder Query Split
-
-## Summary
+# Summary
 
 Split `lua/beast/libs/finder/query.lua` (570 lines, 10 functions, 5 responsibilities) into
 focused modules. The file currently mixes UI orchestration, two completely independent data
@@ -18,7 +16,7 @@ The two pipelines — **match** ("load items once, re-score locally on each keys
 logic in their data paths. They only converge at `render()`. Separating them eliminates scattered
 `if _live` checks and lets each pipeline own its own state (timers, tasks, batch buffers).
 
-## Requirements
+# Requirements
 
 - Split `query.lua` into ≤4 focused files, each under 150 lines
 - Match pipeline and stream pipeline are separate modules with no cross-dependencies
@@ -34,7 +32,7 @@ logic in their data paths. They only converge at `render()`. Separating them eli
 - Adding new sources
 - Modifying keymaps or autocmds
 
-## Research
+# Research
 
 ### Repo Search
 
@@ -60,7 +58,7 @@ logic in their data paths. They only converge at `render()`. Separating them eli
 - `lua/beast/libs/finder/match_hl.lua` — already separate (render concern) ✓
 - Decision: **Build** — extract `render.lua`, `pipeline/match.lua`, `pipeline/stream.lua` from `query.lua`
 
-## Architecture Changes
+# Architecture Changes
 
 | File | Action | Purpose |
 |------|--------|---------|
@@ -123,7 +121,7 @@ _last_render_ns  — throttle timestamp
 _preview_timer   — debounce timer for preview updates
 ```
 
-## Implementation Phases
+# Implementation Phases
 
 ### Phase 1: Extract layout and render — no behavioral change
 
@@ -191,7 +189,7 @@ _preview_timer   — debounce timer for preview updates
    - Depends on: Steps 4–5
    - Risk: Medium — must ensure close() cleanup covers both pipeline paths
 
-## Testing Strategy
+# Testing Strategy
 
 - **Bench**: Run `nvim --clean --headless -l scripts/bench-finder-matcher.lua` — must still pass
   (< 80ms full scan, < 50ms subset)
@@ -205,7 +203,7 @@ _preview_timer   — debounce timer for preview updates
   5. Resize terminal while picker is open — confirm relayout works
   6. Close picker with `<Esc>` during active search — confirm no errors, GC restarts
 
-## Risks & Mitigations
+# Risks & Mitigations
 
 - **Risk**: Module-local state keyed per query instance could leak if `close()` doesn't clean up
   → **Mitigation**: Each pipeline's `abort()` function clears all module-local state for that query
@@ -214,7 +212,7 @@ _preview_timer   — debounce timer for preview updates
 - **Risk**: The `_live` flag removal could miss an edge case
   → **Mitigation**: `query.pipeline` field holds the active module — all dispatch goes through it, no flag checks needed
 
-## Success Criteria
+# Success Criteria
 
 - [ ] `query.lua` is under 150 lines
 - [ ] No `_live` checks remain in `query.lua`

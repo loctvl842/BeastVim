@@ -4,13 +4,11 @@ description: "Explorer Highlights with Beast Palette"
 generated: 2026-05-01
 ---
 
-# Dev Spec: Explorer Highlights with Beast Palette
-
-## Summary
+# Summary
 
 Redesign the explorer's `highlights.lua` to use `Beast.Palette` for all color values, following the sidebar pattern from monokai-pro (distinct sidebar background, muted foreground, themed cursor/selection). Add missing highlight groups (Normal background, CursorLine, WinSeparator, Git status, RootName) and expose an `M.apply()` function for reload on ColorScheme change.
 
-## Requirements
+# Requirements
 
 - Explorer sidebar has a distinct background (darker than editor — `Palette.dark1`)
 - Text in explorer uses a muted foreground (`Palette.dimmed2`)
@@ -24,7 +22,7 @@ Redesign the explorer's `highlights.lua` to use `Beast.Palette` for all color va
 - Git status colors use accent1 (deleted), accent2 (modified), accent4 (added), accent6 (untracked)
 - All highlights reload on colorscheme change via `M.apply()`
 
-## Research
+# Research
 
 ### Repo Search
 - Searched for: `BeastExplorer` highlight usage across all explorer files
@@ -37,14 +35,14 @@ Redesign the explorer's `highlights.lua` to use `Beast.Palette` for all color va
 - Found: neo-tree.lua from monokai-pro (user-provided reference) — shows distinct sidebar bg/fg, CursorLine, WinSeparator, Git status highlights
 - Decision: **Build** — use the reference pattern adapted to Beast.Palette fields
 
-## Architecture Changes
+# Architecture Changes
 
 | File | Action | Purpose |
 |------|--------|---------|
 | `lua/beast/libs/explorer/highlights.lua` | **Rewrite** | Palette-based highlights with `M.apply()` |
 | `lua/beast/libs/explorer/ui.lua` | **Modify** | Add winhighlight for CursorLine + WinSeparator |
 
-## Implementation Phases
+# Implementation Phases
 
 ### Phase 1: Explorer highlights using Palette
 
@@ -60,19 +58,19 @@ Redesign the explorer's `highlights.lua` to use `Beast.Palette` for all color va
    - Depends on: Step 1
    - Risk: Low
 
-## Testing Strategy
+# Testing Strategy
 
 - Manual verification: Open explorer, confirm sidebar has distinct background from editor
 - Manual verification: CursorLine is visible when navigating
 - Manual verification: Switch colorscheme → explorer highlights update
 - Manual verification: `:hi BeastExplorerNormal` shows Palette-derived colors
 
-## Risks & Mitigations
+# Risks & Mitigations
 
 - **Risk**: Some themes have very light sidebar bg making text unreadable → **Mitigation**: Palette extracts from standard groups; fallback defaults are reasonable dark values
 - **Risk**: Existing render.lua references stay correct → **Mitigation**: Keep all existing group names unchanged, only add new ones
 
-## Success Criteria
+# Success Criteria
 
 - [ ] Explorer has distinct sidebar background (not same as editor Normal)
 - [ ] CursorLine is themed for the sidebar

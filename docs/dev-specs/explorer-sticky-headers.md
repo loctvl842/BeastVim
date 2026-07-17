@@ -4,9 +4,7 @@ description: "Explorer Sticky Ancestor Headers"
 generated: 2026-05-06
 ---
 
-# Dev Spec: Explorer Sticky Ancestor Headers
-
-## Summary
+# Summary
 
 Add a floating overlay on top of the explorer split that shows the ancestor
 directories of the topmost visible node when those ancestors have scrolled out
@@ -16,7 +14,7 @@ height to match the number of pinned ancestors, and refreshes on
 `WinScrolled` / tree mutations. It is purely visual — no click-to-jump in this
 spec (deferred per design discussion).
 
-## Requirements
+# Requirements
 
 - When the explorer is scrolled so that one or more ancestors of the topmost
   visible node are above `w0`, those ancestors render in a sticky float at the
@@ -51,7 +49,7 @@ spec (deferred per design discussion).
   scrolling; sticky for non-directory nodes; per-entry truncation rules
   beyond a simple right-truncate.
 
-## Research
+# Research
 
 ### Repo Search
 
@@ -93,7 +91,7 @@ spec (deferred per design discussion).
 - Decision: **Use native** — `nvim_open_win` + `WinScrolled`. Consistent with
   AGENTS.md preference for native primitives over plugin dependencies.
 
-## Architecture Changes
+# Architecture Changes
 
 | File | Action | Purpose |
 |------|--------|---------|
@@ -105,7 +103,7 @@ spec (deferred per design discussion).
 | `lua/beast/libs/explorer/autocmds.lua` | **Modify** | Register `WinScrolled` (pattern = explorer winid) and `VimResized` / `WinResized` callbacks under the existing `state.augroup` to call `sticky.refresh()`. Also clear `state.sticky` in the existing `WinClosed` once-handler. |
 | `lua/beast/libs/explorer/highlights.lua` | **Modify** | Add `Sticky` (background), `StickyBorder` (the underline separator) groups, palette-derived. |
 
-## Implementation Phases
+# Implementation Phases
 
 ### Phase 1 — Sticky ancestor overlay (single phase)
 
@@ -293,7 +291,7 @@ states (a half-wired float). Phase 1 ships everything.
      manifest as the cursor jumping unexpectedly. Manual verification
      (see Testing Strategy step 9) is the gate.
 
-## Testing Strategy
+# Testing Strategy
 
 - **Unit tests**: `tests/` is currently empty in the project; following the
   convention of adjacent specs (`explorer-highlights-palette.md`, etc.) this
@@ -327,7 +325,7 @@ states (a half-wired float). Phase 1 ships everything.
      a non-explorer window — the explorer must scroll so the focused
      node sits below the sticky).
 
-## Risks & Mitigations
+# Risks & Mitigations
 
 - **Risk**: `WinScrolled` fires per keystroke during scroll, causing
   visible flicker. **Mitigation**: pin computation reuses the cached flat
@@ -364,7 +362,7 @@ states (a half-wired float). Phase 1 ships everything.
   on some race. **Mitigation**: `pcall` the open; on failure leave
   `state.sticky` nil and let the next refresh retry.
 
-## Success Criteria
+# Success Criteria
 
 - [ ] When scrolled below line 1 in a deep tree, the floating overlay shows
       the root + each ancestor directory in order, with correct
@@ -387,7 +385,7 @@ states (a half-wired float). Phase 1 ships everything.
 - [ ] No regressions in existing explorer behaviour (rename float, create
       prompt, focus_path, paste-with-conflict prompt).
 
-## ADR Required
+# ADR Required
 
 This dev spec introduces an architectural pattern that is not yet
 documented and is likely to be reused by future libraries (a child float

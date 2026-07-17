@@ -4,9 +4,7 @@ description: "Packer Early Colorscheme"
 generated: 2026-05-04
 ---
 
-# Dev Spec: Packer Early Colorscheme
-
-## Summary
+# Summary
 Add a `colorscheme` config field to `beast.libs.packer.config` that — when set
 and when the named plugin is already installed on disk — eagerly loads the
 colorscheme plugin and applies its colorscheme **at the very start of
@@ -16,7 +14,7 @@ the colorscheme plugin's normal lazy/eager trigger fires. If the plugin is not
 installed (first run) or the field is `nil`, the early-apply step is a no-op
 and the colorscheme is loaded normally later by the existing setup pipeline.
 
-## Requirements (from user request)
+# Requirements (from user request)
 
 - Support `config.colorscheme = { name = '<colorscheme>', plugin = '<plugin-dir-name>' }`.
 - During `packer.setup()`:
@@ -27,14 +25,14 @@ and the colorscheme is loaded normally later by the existing setup pipeline.
 - Must not double-load the plugin if it is also classified as `eager` or has a lazy trigger.
 - Must not break the case where `colorscheme` is `nil` (current behaviour).
 
-## Out of scope
+# Out of scope
 
 - String shortcut form (`colorscheme = "monokai-pro.nvim"`). Decided: table form only.
 - Auto-deriving `name` from `plugin` (e.g. stripping `.nvim`).
 - Validating that the colorscheme `name` actually corresponds to the plugin.
 - Falling back to a different colorscheme on failure.
 
-## Research
+# Research
 
 ### Repo Search
 - Searched for: `colorscheme` in `lua/`, `packer.config`, `state.installed_plugins`, `state.load`, `vim.pack.add`, `vim.pack.get`.
@@ -51,7 +49,7 @@ and the colorscheme is loaded normally later by the existing setup pipeline.
 - Lua/Neovim ecosystem: this is a startup-flicker mitigation specific to BeastVim's custom `packer` lib. There is no shared package.
 - Decision: **Build** — a small helper inside `packer/init.lua` (≤ 30 lines). No new files needed; this is a single integration point.
 
-## Architecture Changes
+# Architecture Changes
 
 - **Modified: `lua/beast/libs/packer/init.lua`**
   - Add a private helper `apply_early_colorscheme()` called once inside `M.setup(specs)`, **after** the existing init-loop and the existing classification loop (so `init()` already ran for every spec, all specs are registered in `state.plugins`, and `eager_specs` is fully populated), but **before** `vim.pack.add`.
@@ -93,7 +91,7 @@ and the colorscheme is loaded normally later by the existing setup pipeline.
 
 - **No new files** — the helper is small and tightly coupled to `packer.setup`'s sequencing. Following the project rule that `init.lua` is the only file allowed to require multiple siblings, this is the right place.
 
-## Implementation Phases
+# Implementation Phases
 
 ### Phase 1: Wire up the config field — make `colorscheme` actually read
 
@@ -179,13 +177,13 @@ and the colorscheme is loaded normally later by the existing setup pipeline.
     - Depends on: Step 12.
     - Risk: Low.
 
-## Testing Strategy
+# Testing Strategy
 
 - **Unit tests**: None — the project does not have a unit test harness for packer (see `lua/beast/libs/packer/test.lua` is interactive). Manual verification is the project's convention here.
 - **Integration tests**: Manual smoke tests above (steps 7–10) cover the four key paths: nil, installed, missing, bad-shape.
 - **Manual verification**: Use `:lua =require("beast.libs.packer.profile")` to confirm `monokai-pro.nvim` is loaded with `reason.type = "eager"` and `reason.detail = "colorscheme"`; this is the easiest signal that the early path fired.
 
-## Risks & Mitigations
+# Risks & Mitigations
 
 - **Risk**: Pre-existing bug in `state.load` — `loaded_plugins[name]` is set to `true` *before* `vim.cmd.packadd`, so a packadd failure leaves the flag stuck and the plugin can never load again that session. → **Mitigation**: The helper wraps `state.load` in `pcall` and explicitly clears `state.loaded_plugins[plugin] = nil` on error, so the normal trigger path (event/cmd/eager loop) can retry after the rest of `setup()` finishes installing or repairing the plugin. Fixing `state.load` itself is out of scope for this dev spec — that's a broader, unrelated change.
 - **Risk**: `state.load` uses `Toast` (the global) — if `_G.Toast` is not yet set, it errors. → **Mitigation**: Verified: `_G.Toast = toast` is set in `beast/init.lua` (line 47) before `packer.setup` runs. Safe.
@@ -195,7 +193,7 @@ and the colorscheme is loaded normally later by the existing setup pipeline.
 - **Risk**: Other lazy triggers (`event`, `cmd`, `keys`, etc.) registered later for the early-loaded plugin. → **Mitigation**: All triggers funnel through `state.load`, which short-circuits on `loaded_plugins[name]`. No special-casing needed; documented in code via a comment at the helper call site.
 - **Risk**: User sets `colorscheme.name` to a scheme the loaded plugin does not actually expose. → **Mitigation**: `pcall(vim.cmd.colorscheme, name)` swallows the error and logs nothing. The user gets the default colorscheme — same outcome as today. Fine.
 
-## Success Criteria
+# Success Criteria
 
 - [ ] `Beast.Config` exposes `packer_config = { colorscheme = { name, plugin } }`.
 - [ ] When `colorscheme` is `nil`, packer setup behaves identically to today.
@@ -204,6 +202,6 @@ and the colorscheme is loaded normally later by the existing setup pipeline.
 - [ ] No double-load: `state.loaded_plugins[plugin]` is `true` exactly once and `profile` shows a single load event.
 - [ ] Bad shape (`name` or `plugin` missing) is reported via `vim.notify` and setup continues.
 
-## ADR Required
+# ADR Required
 
 No. This is a small feature addition that follows the existing config / state / load patterns. It does not introduce a new dependency, does not change auth/data/API design, and does not establish a new architectural pattern.

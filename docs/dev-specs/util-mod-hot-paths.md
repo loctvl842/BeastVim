@@ -4,9 +4,7 @@ description: "Apply `Util.mod` to Hot Paths Beyond Highlights"
 generated: 2026-06-05
 ---
 
-# Dev Spec: Apply `Util.mod` to Hot Paths Beyond Highlights
-
-## Summary
+# Summary
 
 Tokyonight's `Util.mod` (`loadfile`-based module loader bypassing
 `package.path`) gives a small but consistent speed-up on every module load.
@@ -19,7 +17,7 @@ Depends on `fast-highlight-reload.md` Phase 1 (which introduces `Util.mod`).
 Strictly additive — `require` continues to work everywhere; this spec just
 swaps it on **measured** hot paths.
 
-## Requirements
+# Requirements
 
 - `Util.mod` (from `fast-highlight-reload.md` Phase 1) is available at
   `require("beast.util").mod`.
@@ -35,7 +33,7 @@ swaps it on **measured** hot paths.
 - **Out of scope**: rewriting any logic, changing public APIs, touching
   highlights (covered by `fast-highlight-reload.md`).
 
-## Research
+# Research
 
 ### Repo Search
 
@@ -72,7 +70,7 @@ Each migration target requires a "before" number from existing benches:
 If a target does not meet its threshold, **drop it from the spec**. Don't
 migrate speculatively.
 
-## Architecture Changes
+# Architecture Changes
 
 | File | Action | Purpose |
 |------|--------|---------|
@@ -82,7 +80,7 @@ migrate speculatively.
 | `scripts/bench-statusline.lua` | **Modify** | Add cold + warm runs showing before/after for the component dispatch path. |
 | `scripts/bench-finder-open.lua` | **Create** | Measure cold open of `<leader>f` / `<leader>b` etc. |
 
-## Implementation Phases
+# Implementation Phases
 
 ### Phase 0: Measure (mandatory — no code yet)
 
@@ -148,7 +146,7 @@ migrate speculatively.
    - Depends on: Phase 0 numbers justify
    - Risk: Low
 
-## Testing Strategy
+# Testing Strategy
 
 - **Bench (mandatory)**:
   - `scripts/bench-statusline.lua` — cold first-render + warm steady-state.
@@ -163,7 +161,7 @@ migrate speculatively.
   - `:lua for k, _ in pairs(require("beast.libs.statusline.components")) do print(k) end`
     — confirm whether any caller iterates this table (if yes, revisit Step 3).
 
-## Risks & Mitigations
+# Risks & Mitigations
 
 - **Risk**: A caller iterates `cpn` (the components namespace) expecting
   all keys present. Lazy table won't populate via `pairs`.
@@ -179,7 +177,7 @@ migrate speculatively.
   the change. → **Mitigation**: Explicit "drop targets that don't meet
   threshold" rule. Honest no-op > false win.
 
-## Success Criteria
+# Success Criteria
 
 - [ ] `Util.lazy_table` exists and is used by
       `statusline/components/init.lua`.
@@ -189,7 +187,7 @@ migrate speculatively.
 - [ ] No `pairs(components)` callers broken.
 - [ ] Visual parity for statusline + finder.
 
-## ADR Required
+# ADR Required
 
 The `Util.lazy_table` helper introduces a new shared shape — a
 metatable-backed namespace that lazy-loads on access. Worth a small ADR

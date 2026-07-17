@@ -4,9 +4,7 @@ description: "Beast Statuscolumn Library"
 generated: 2026-05-31
 ---
 
-# Dev Spec: Beast Statuscolumn Library
-
-## Summary
+# Summary
 
 Native statuscolumn library at `lua/beast/libs/statuscolumn/` that draws
 configurable slots (default: **diagnostic ▸ number ▸ git ▸ fold**) in the
@@ -50,7 +48,7 @@ stc.setup({
 registers a `WinClosed` autocmd to drop per-window caches, and registers in
 `Beast.highlight_modules` for ColorScheme refresh.
 
-## Requirements
+# Requirements
 
 ### Functional
 
@@ -111,7 +109,7 @@ registers a `WinClosed` autocmd to drop per-window caches, and registers in
 - Thousands separator for line numbers (statuscol has it; not requested)
 - Per-window setup — global `stc` only
 
-## Research
+# Research
 
 ### Repo Search
 
@@ -153,7 +151,7 @@ registers a `WinClosed` autocmd to drop per-window caches, and registers in
     with a `local switch[name]()` instead of iterating an array of opaque
     function pointers. The user composes slots, not producers.
 
-## Architecture Changes
+# Architecture Changes
 
 | File | Action | Purpose |
 |------|--------|---------|
@@ -170,7 +168,7 @@ registers a `WinClosed` autocmd to drop per-window caches, and registers in
 | `scripts/bench-statuscolumn.lua` | Create | Headless bench, contract per `docs/tec-config/health-config.md`. Thresholds: median < 5 µs / line, < 500 µs / 80-line window. |
 | `docs/CODEMAP/libraries.md` | Modify | Add statuscolumn section (during `/tec-implement` wrap-up via `/tec-update-codemaps`) |
 
-## Implementation Phases
+# Implementation Phases
 
 ### Phase 1: Core engine + number-only render — minimum viable column
 
@@ -335,7 +333,7 @@ wire the lib into `packer.lazy()`.
 **Phase 3 success**: default layout renders for all buffers (minus
 `ft_ignore`), `:checkhealth beast` is clean, bench passes thresholds.
 
-## Testing Strategy
+# Testing Strategy
 
 - **Unit tests** under `tests/` (currently sparse — match the shape of
   `tests/test-tabline-edge-trim.lua`):
@@ -368,7 +366,7 @@ wire the lib into `packer.lazy()`.
      show the fold glyph.
   5. `:checkhealth beast` → clean (no warnings for statuscolumn).
 
-## Risks & Mitigations
+# Risks & Mitigations
 
 - **FFI ABI drift across Neovim versions** → Mitigation: pcall the cdef,
   feature-detect each symbol, surface in `health.lua`. Library degrades
@@ -385,7 +383,7 @@ wire the lib into `packer.lazy()`.
   `WinClosed` autocmd drops per-window cache; per-buffer extmark changes
   bump `display_tick` automatically, which keys the invalidation.
 
-## Success Criteria
+# Success Criteria
 
 - [ ] `bench-statuscolumn.lua` reports **median < 5 µs / line** for the
       4-segment default and **< 0.2 µs / line** on cache hit
@@ -401,7 +399,7 @@ wire the lib into `packer.lazy()`.
 - [ ] Codemaps regenerated; `docs/CODEMAP/libraries.md` includes the
       new lib
 
-## ADR Required
+# ADR Required
 
 This dev spec involves architectural decision(s) that must be documented
 as ADRs once committed:
@@ -419,7 +417,7 @@ as ADRs once committed:
   approach instead of snacks' 50 ms timer; record why (correctness over
   one fewer FFI symbol).
 
-## Completed
+# Completed
 
 **Date:** 2026-05-31
 

@@ -4,9 +4,7 @@ description: "Beast Scroll (Smooth Viewport Scrolling) Library"
 generated: 2026-05-28
 ---
 
-# Dev Spec: Beast Scroll (Smooth Viewport Scrolling) Library
-
-## Summary
+# Summary
 
 A native smooth-scroll library at `lua/beast/libs/scroll/` that animates viewport
 (`topline`) transitions when the cursor pushes the window — making held `j`/`k`,
@@ -35,7 +33,7 @@ scroll.disable()
 scroll.toggle()
 ```
 
-## Requirements
+# Requirements
 
 ### Functional
 
@@ -85,7 +83,7 @@ scroll.toggle()
 - Wiring into `lua/beast/plugins/init.lua` and `lua/beast/init.lua` — owned by user.
 - Integration with `Beast.Key.builtin` toggle keymap — separate follow-up.
 
-## Research
+# Research
 
 ### Repo Search
 
@@ -138,7 +136,7 @@ scroll.toggle()
   No new plugin dependency. Snacks-the-package is not pulled in; we write a
   focused ~250 LOC module that mirrors only the scroll behaviour.
 
-## Architecture Changes
+# Architecture Changes
 
 | File | Action | Purpose |
 |------|--------|---------|
@@ -149,7 +147,7 @@ scroll.toggle()
 No changes to existing files. No new shared module under `lua/beast/util/`.
 No bench script (see *Out of Scope*).
 
-## Implementation Phases
+# Implementation Phases
 
 ### Phase 1: Core Scroll Library — Single-window smooth animation with autocmds
 
@@ -259,7 +257,7 @@ land in one slice. Splitting would create intermediate states that don't work.
    - Risk: Medium — correct interaction with `scrolloff`, `scrollbind`, folds,
      and macros must be verified manually (see Testing Strategy).
 
-## Testing Strategy
+# Testing Strategy
 
 - **Unit tests**: None. `tests/` is empty in this repo; introducing a test
   harness is out of scope for this spec. The animation is timer-driven and
@@ -288,7 +286,7 @@ land in one slice. Splitting would create intermediate states that don't work.
       becomes instant. `enable()` restores. `toggle()` flips.
   12. Open `:terminal` and scroll → no animation (terminal filter).
 
-## Risks & Mitigations
+# Risks & Mitigations
 
 - **Risk**: Timer ticks fire after a window/buffer is closed, throwing on
   `nvim_win_call`.
@@ -319,7 +317,7 @@ land in one slice. Splitting would create intermediate states that don't work.
   **Mitigation**: `CmdlineLeave` for `/` and `?` resets state so the post-search
   jump animates from the final position rather than from a stale snapshot.
 
-## Success Criteria
+# Success Criteria
 
 - [ ] Holding `j`/`k` in a long file produces visibly smooth viewport scrolling
       (no per-line jump, no queueing after release).
@@ -331,7 +329,7 @@ land in one slice. Splitting would create intermediate states that don't work.
 - [ ] Two splits scroll independently; `scrollbind` only animates the focused one.
 - [ ] No new plugin dependency; only `vim.api`, `vim.fn`, `vim.uv`, `vim.on_key`.
 
-## ADR Required
+# ADR Required
 
 This dev spec involves architectural decision(s) that must be documented as ADRs
 once committed:
@@ -347,7 +345,7 @@ once committed:
   native primitives (see existing ADR-009 if present). The trade-off: we own
   ~250 LOC of animation code instead of pulling a multi-thousand-LOC plugin.
 
-## Completed
+# Completed
 
 - 2026-05-28: Phase 1 implemented and verified.
   - Files created: `lua/beast/libs/scroll/{config,state,init}.lua`

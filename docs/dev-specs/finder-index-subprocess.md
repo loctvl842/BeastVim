@@ -4,9 +4,7 @@ description: "Finder Index Subprocess — Off-Main-Thread Build via Binary File 
 generated: 2026-07-01
 ---
 
-# Dev Spec: Finder Index Subprocess — Off-Main-Thread Build via Binary File Handoff
-
-## Summary
+# Summary
 
 Move the bigram content-index build out of the Neovim main loop entirely. Today
 `engine/index.lua` scans the whole repo in time-budgeted `uv` timer ticks — even
@@ -21,7 +19,7 @@ current index, and starts the existing `fs_event` watcher. The file is a
 so the no-false-negative guarantee (index reflects current content; `rg` verifies)
 holds without stale-cache revalidation.
 
-## Requirements
+# Requirements
 
 - Index build runs in a separate OS process; the main loop is never blocked by it
   (no per-tick time budget on the main thread).
@@ -44,7 +42,7 @@ holds without stale-cache revalidation.
   index / selectivity work; compression; Windows (subprocess uses POSIX `nvim`, but
   the format itself is portable).
 
-## Research
+# Research
 
 ### Repo Search
 - Searched for: `git grep -niE 'uv.spawn|vim.system|stdpath\("cache"\)|ffi.copy|systemlist|new_thread'`
@@ -82,7 +80,7 @@ holds without stale-cache revalidation.
   plugin, no thread library. Same-machine writer/reader → native endianness is safe
   (header still stamps a version + magic to reject foreign files).
 
-## Architecture Changes
+# Architecture Changes
 
 | File | Action | Purpose |
 |------|--------|---------|
@@ -94,7 +92,7 @@ holds without stale-cache revalidation.
 | `tests/test-bigram.lua` | Modify | Add serialize round-trip test: build → `write` temp → `read` → assert query results + `col_for`/matrix identical, and fingerprint-mismatch rejection. |
 | `scripts/bench-grep.lua` | Modify (optional) | Time `serialize.write` + `read` round-trip alongside the existing build/query numbers. |
 
-## Implementation Phases
+# Implementation Phases
 
 ### Phase 1: Binary serialization format — writer + reader round-trip, no integration
 1. **`bigram.lua` — `alloc` + `M.load`** (File: `lua/beast/libs/finder/engine/bigram.lua`)
@@ -174,7 +172,7 @@ a small headless reader (`serialize.read` + `bigram.load` + a query) returns non
 query returns survivors (not a full-tree scan) and results are byte-identical to plain `rg`.
 `stylua --check lua/` clean, `tests/test-bigram.lua` exits 0, `scripts/bench-grep.lua` passes.
 
-## Testing Strategy
+# Testing Strategy
 - Unit tests: extend `tests/test-bigram.lua` — serialize write→read→`load` round-trip yields
   identical `query` ids and `col_for`; fingerprint/magic/version mismatch → `read` returns `nil`;
   empty/short file → `nil`. (Run: `nvim --clean --headless -l tests/test-bigram.lua`, exit 0.)
@@ -187,7 +185,7 @@ query returns survivors (not a full-tree scan) and results are byte-identical to
   (no rebuild); starting a grep in a *different* cwd mid-build supersede-kills the prior child
   (`kill_inflight`), leaving no stale builder racing the new index.
 
-## Risks & Mitigations
+# Risks & Mitigations
 - **Spawn/env/argv wrong under `--clean`** (no rtp) → pass `package.path` root + builder script
   path explicitly via env; probe already proved `-l` + custom `package.path` requires the engine.
 - **Partial/torn file read** → write to `.tmp` then `fs_rename` (atomic on same fs); reader
@@ -208,7 +206,7 @@ query returns survivors (not a full-tree scan) and results are byte-identical to
 - **`nvim` not on PATH for the child** → use `vim.v.progpath` (absolute current nvim binary), not
   a bare `"nvim"`.
 
-## Success Criteria
+# Success Criteria
 - [x] Editor stays responsive during a full 90k-file build (build cost moved to a child process;
       no main-loop time-budget loop remains in `index.lua`).
 - [x] Loaded-index `query` results are byte-identical to the previous in-process build and to plain
@@ -219,7 +217,7 @@ query returns survivors (not a full-tree scan) and results are byte-identical to
 - [x] Codemap regenerated (finder engine gains `serialize.lua` + `builder.lua`; build is subprocess)
       and ADR-036 written.
 
-## ADR Required
+# ADR Required
 
 This dev spec involves architectural decision(s) to document as ADR(s) during `/tec-implement` wrap-up:
 
@@ -231,7 +229,7 @@ This dev spec involves architectural decision(s) to document as ADR(s) during `/
 - Per-session IPC-handoff semantics (rebuild each launch, no cross-session cache) as the chosen
   point on the correctness/complexity tradeoff (avoids stale-cache mtime revalidation).
 
-## Completed
+# Completed
 2026-07-01 — All 3 phases implemented and committed (`e5b4048` serialize format,
 `4263d5c` builder subprocess, `d5c5bf6` index.lua rewire). 39/39 unit tests pass
 (round-trip + rejection + real subprocess build), `bench-grep.lua` PASS, stylua

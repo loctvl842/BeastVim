@@ -4,9 +4,7 @@ description: "Finder Matcher Performance"
 generated: 2026-05-17
 ---
 
-# Dev Spec: Finder Matcher Performance
-
-## Summary
+# Summary
 
 Optimize the finder's matching pipeline for large projects (90k+ files). The current
 matcher rescans every item, re-sorts all matches, and re-renders every line on each
@@ -15,7 +13,7 @@ keystroke. This spec introduces **subset elimination**, **top-K heap sorting**, 
 at scale. The async coroutine infrastructure (`beast/libs/async.lua`) already exists
 and is adequate; the bottleneck is purely in the matcher→sort→render path.
 
-## Requirements
+# Requirements
 
 - Typing in a 90k-item file picker must feel instant (< 50ms perceived latency)
 - Subset elimination: appending characters to a query must only re-score items
@@ -31,7 +29,7 @@ and is adequate; the bottleneck is purely in the matcher→sort→render path.
 - **Out of scope**: frecency scoring, GC pausing, concurrent finder+matcher coroutines,
   min-heap persistence across sessions
 
-## Research
+# Research
 
 ### Repo Search
 
@@ -67,7 +65,7 @@ Key techniques adopted from `folke/snacks.nvim`:
 - **Virtual list** (`snacks/picker/core/list.lua`): only renders rows visible in the
   window viewport. Uses `topk:get(idx)` for O(1) access.
 
-## Architecture Changes
+# Architecture Changes
 
 | File | Action | Purpose |
 |------|--------|---------|
@@ -77,7 +75,7 @@ Key techniques adopted from `folke/snacks.nvim`:
 | `lua/beast/libs/finder/ui/list.lua` | **Modify** | Virtual rendering: only draw visible rows |
 | `lua/beast/libs/finder/match_hl.lua` | **Modify** | Only highlight visible rows |
 
-## Implementation Phases
+# Implementation Phases
 
 ### Phase 1: Top-K Heap + Subset Matcher — [Eliminate full-list sort and redundant scoring]
 
@@ -144,7 +142,7 @@ full rescan → subset-only rescan.
    - Depends on: Step 1 (render passes visible range)
    - Risk: Low
 
-## Testing Strategy
+# Testing Strategy
 
 - **Bench script**: Create `scripts/bench-finder-matcher.lua` that:
   1. Generates 90k synthetic file paths
@@ -162,7 +160,7 @@ full rescan → subset-only rescan.
   6. Verify: cursor movement and scrolling render correctly (no blank rows)
   7. Verify: match highlights appear only on visible rows and are correct
 
-## Risks & Mitigations
+# Risks & Mitigations
 
 - **Risk**: Subset detection false-positive (treats a non-superset as superset, skips items
   that should match) → **Mitigation**: Superset check is simple string prefix comparison
@@ -179,7 +177,7 @@ full rescan → subset-only rescan.
   scrolling beyond top-K, fall back to the full matched list (which the heap also
   tracks as a count). In practice, users rarely scroll past 1000 results.
 
-## Success Criteria
+# Success Criteria
 
 - [ ] `scripts/bench-finder-matcher.lua` reports < 50ms for subset query on 90k items
 - [ ] `scripts/bench-finder-matcher.lua` reports < 80ms for full-scan query on 90k items

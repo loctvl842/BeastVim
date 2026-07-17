@@ -4,9 +4,7 @@ description: "Packer Profile UI"
 generated: 2026-05-13
 ---
 
-# Dev Spec: Packer Profile UI
-
-## Baseline Checkpoint
+# Baseline Checkpoint
 
 **Commit `24c0f83` (`feat(packer): early apply colorscheme`)** is the known-good
 baseline before this work begins. At this point the packer library has:
@@ -24,7 +22,7 @@ If anything in this spec goes sideways during implementation,
 losing any user-visible feature. Tag this as `packer-baseline-2026-05-04` if
 desired.
 
-## Summary
+# Summary
 
 Replace the current barebones profile page in `packer/ui.lua` with a
 table-style layout inspired by Neovim's built-in profile views. The page will have
@@ -38,7 +36,7 @@ Phase 1 ships the UI using **only existing data** (`profile.profiles`,
 `profile.phases`). Phase 2 adds the missing measurements (init/config split,
 lifecycle markers) so the timeline section becomes real instead of hypothetical.
 
-## Requirements
+# Requirements
 
 ### Phase 1 (UI rebuild, no schema change)
 
@@ -74,7 +72,7 @@ lifecycle markers) so the timeline section becomes real instead of hypothetical.
 - Compute `setup_total_ms` = `markers.setup_done.at_ms` — surface in the
   Summary section header.
 
-## Out of scope
+# Out of scope
 
 - Per-import time (`import.expand_imports` still recorded as a single phase).
 - Per-`plugin/*.lua` sourcing time (deferred — `--startuptime` already shows it).
@@ -86,7 +84,7 @@ lifecycle markers) so the timeline section becomes real instead of hypothetical.
 - Mouse interactions / collapse-expand for groups. `G` is binary on/off only.
 - Persistence of sort/filter/group state across UI open/close cycles.
 
-## Research
+# Research
 
 ### Repo Search
 
@@ -124,7 +122,7 @@ lifecycle markers) so the timeline section becomes real instead of hypothetical.
 - Decision: **Use native** — no new dependencies. Lifecycle markers piggyback
   on existing autocmd primitives.
 
-## Architecture Changes
+# Architecture Changes
 
 | File | Action | Purpose |
 |---|---|---|
@@ -135,7 +133,7 @@ lifecycle markers) so the timeline section becomes real instead of hypothetical.
 | `lua/beast/libs/packer/state.lua` | Modify (Phase 2 only) | If a plugin's `init` is invoked from `state.load` for any reason, record into `init_ms` not `config_ms`. (Audit needed — currently all `state.load` paths use `config_ms`.) |
 | `lua/beast/libs/packer/highlights.lua` | Modify | Add highlight groups for new UI elements: `BeastPackerTableHeader`, `BeastPackerBar`, `BeastPackerBarDim`, `BeastPackerSectionDivider`, `BeastPackerCheckpoint`, `BeastPackerSummaryLabel`. |
 
-## Implementation Phases
+# Implementation Phases
 
 ### Phase 1 — Table-style profile UI (uses existing data)
 
@@ -412,7 +410,7 @@ populates the rest. Page is fully usable as-is.
     - Depends on: Steps 13–19
     - Risk: Low
 
-## Testing Strategy
+# Testing Strategy
 
 - **Unit tests**: `tests/` is still empty. Adding tests for this UI is out
   of scope; standing process gap remains.
@@ -434,7 +432,7 @@ populates the rest. Page is fully usable as-is.
     Expect 4 markers populated.
   - Phase 2 (headless): expect 3 markers (`UIEnter` absent — should not throw).
 
-## Risks & Mitigations
+# Risks & Mitigations
 
 - **Risk**: Column alignment breaks on narrow windows. → **Mitigation**: The
   packer UI window has fixed dimensions (`config.ui.width = 0.7`,
@@ -459,7 +457,7 @@ populates the rest. Page is fully usable as-is.
   cycle order. Sort indicator (`▼` next to current sort key in the header
   row) is rendered on every redraw.
 
-## Success Criteria
+# Success Criteria
 
 ### Phase 1 — UI rebuild
 

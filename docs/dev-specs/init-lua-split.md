@@ -4,8 +4,6 @@ description: "Split `beast/init.lua` Into Focused Modules"
 generated: 2026-06-05
 ---
 
-# Dev Spec: Split `beast/init.lua` Into Focused Modules
-
 > **Status: Phase 1 shipped (`0e50abe`). Phase 2 + 3 cancelled — 2026-06-05.**
 >
 > Phase 1 extracted `_G.*` registration + the highlight pipeline into
@@ -22,7 +20,7 @@ generated: 2026-06-05
 > work. The remaining body of `beast/init.lua` (258 lines, mostly declarative
 > `packer.lazy(...)` blocks) is left as one cohesive registration file.
 
-## Summary
+# Summary
 
 `lua/beast/init.lua` is 314 lines and combines six unrelated responsibilities:
 config defaults, global registration, key/notify/toast/confirm/packer setup,
@@ -36,7 +34,7 @@ Pure refactor, no behaviour change. Enables future specs (e.g.
 `util-mod-hot-paths`, `fast-highlight-reload`) to touch one concern at a
 time.
 
-## Requirements
+# Requirements
 
 - `require("beast").setup(opts)` continues to be the single public entry;
   the result of calling it is byte-identical to before.
@@ -60,7 +58,7 @@ time.
 - Out of scope: changing setup *order*, changing any wiring semantics,
   renaming the global vars, or touching the lib internals.
 
-## Research
+# Research
 
 ### Repo Search
 
@@ -82,7 +80,7 @@ time.
 - Searched: nothing external needed.
 - Decision: **Build** — pure file reorg using existing Lua module conventions.
 
-## Architecture Changes
+# Architecture Changes
 
 | File | Action | Purpose |
 |------|--------|---------|
@@ -93,7 +91,7 @@ time.
 | `lua/beast/setup/lazy_libs.lua` | **Create** | All `packer.lazy(...)` declarations. |
 | `lua/beast/setup/highlights.lua` | **Create** | `highlight_modules` registry + `reload_highlights` + ColorScheme autocmd. |
 
-## Implementation Phases
+# Implementation Phases
 
 ### Phase 1: Move highlight pipeline + globals (smallest cohesive slice)
 
@@ -205,7 +203,7 @@ time.
    - Depends on: Step 7
    - Risk: Low
 
-## Testing Strategy
+# Testing Strategy
 
 - **Manual verification (each phase)**:
   - `nvim` opens, starter visible, no errors in `:messages`.
@@ -218,7 +216,7 @@ time.
 - **Diff sanity**: `git diff main -- lua/beast/init.lua | wc -l` after
   Phase 3 shows ~275 lines removed; the lib-internal files are unchanged.
 
-## Risks & Mitigations
+# Risks & Mitigations
 
 - **Risk**: Setup order subtly shifts and breaks `cfg.starter.keys`
   accumulation (lazy libs append to it before starter.setup runs).
@@ -237,7 +235,7 @@ time.
   `setup/globals.lua` hasn't yet installed. → **Mitigation**: Orchestrator
   (Step 7) calls globals first, exactly as today.
 
-## Success Criteria
+# Success Criteria
 
 - [ ] `lua/beast/init.lua` is ≤ 40 lines.
 - [ ] No file under `lua/beast/setup/` exceeds 100 lines.
@@ -248,7 +246,7 @@ time.
 - [ ] Codemap (`docs/CODEMAP/architecture.md` *Module Tree* + *Setup Flow*)
       regenerated.
 
-## ADR Required
+# ADR Required
 
 No — pure refactor. The `setup/` subdirectory pattern is already used by
 `beast/plugins/`, so it isn't a novel decision.

@@ -4,8 +4,6 @@ description: "Fast Highlight Reload Pipeline"
 generated: 2026-06-05
 ---
 
-# Dev Spec: Fast Highlight Reload Pipeline
-
 > **Status: Completed (Phase 1 + 2) — 2026-06-05.** Phase 3 (JSON cache) intentionally **skipped**.
 > Cold-path reload landed at **853 µs** (baseline 1108 µs, target < 1 ms), so the
 > warm-path cache investment was not justified versus its stale-cache risks. The
@@ -13,7 +11,7 @@ generated: 2026-06-05
 >
 > Commits: `53b1116` (Phase 1 — Util.mod), `8e27575` (Phase 2 — M.get + dispatcher).
 
-## Summary
+# Summary
 
 Adopt two patterns from `tokyonight.nvim` to make BeastVim's `ColorScheme` refresh
 cheaper and self-cacheable:
@@ -31,7 +29,7 @@ Today every `reload_highlights()` re-`require`s ~14 modules; each one calls
 `Palette.get()` (which calls `nvim_get_hl` for ~15 source groups) and runs its
 own `Util.colors.set_hl` loop. There is no caching layer.
 
-## Requirements
+# Requirements
 
 - `Util.mod(modname)` returns the same table `require` would, but uses
   `loadfile` from an absolute path computed once from `debug.getinfo(1,"S").source`.
@@ -55,7 +53,7 @@ own `Util.colors.set_hl` loop. There is no caching layer.
   highlight values; rewriting `Util.colors.set_hl` itself; lazy-loading
   highlights on first use (still applied eagerly post-`ColorScheme`).
 
-## Research
+# Research
 
 ### Repo Search
 
@@ -92,7 +90,7 @@ own `Util.colors.set_hl` loop. There is no caching layer.
   direct port of `tokyonight/util.lua:18-25` (Util.mod) and
   `tokyonight/util.lua:140-167` + `tokyonight/groups/init.lua:139-163` (cache).
 
-## Architecture Changes
+# Architecture Changes
 
 | File | Action | Purpose |
 |------|--------|---------|
@@ -116,7 +114,7 @@ own `Util.colors.set_hl` loop. There is no caching layer.
 | `lua/beast/init.lua` | **Modify** | Rewrite `reload_highlights()` to use `Util.mod` + dispatcher + cache. Replace eager `_G.*` requires with `Util.mod`. |
 | `scripts/bench-highlight-reload.lua` | **Create** | Bench the ColorScheme refresh path. |
 
-## Implementation Phases
+# Implementation Phases
 
 ### Phase 1: `Util.mod` — Standalone fast loader
 
@@ -276,7 +274,7 @@ Mechanical refactor. Behaviour identical post-phase; enables Phase 3.
       warm. Report median µs for both.
     - Depends on: Step 9
 
-## Testing Strategy
+# Testing Strategy
 
 - **Bench**: `scripts/bench-highlight-reload.lua` reports
   median/p95 µs for `reload_highlights()` cold + warm.
@@ -292,7 +290,7 @@ Mechanical refactor. Behaviour identical post-phase; enables Phase 3.
 - **Unit tests**: `tests/` is currently empty; out of scope for this spec
   (would be its own dev spec for the testing harness).
 
-## Risks & Mitigations
+# Risks & Mitigations
 
 - **Risk**: A highlights module relies on its top-level side-effects firing at
   `require` time (e.g. statusline's `redrawstatus`). → **Mitigation**: Phase 2
@@ -313,7 +311,7 @@ Mechanical refactor. Behaviour identical post-phase; enables Phase 3.
   Today no Beast highlight module reads from user opts — all colors come
   from `Palette`. Document this contract in the ADR that lands with this spec.
 
-## Success Criteria
+# Success Criteria
 
 - [ ] `Util.mod("beast.palette")` returns the same table as `require("beast.palette")`.
 - [ ] Every `<lib>/highlights.lua` exposes `M.get(): table` with no top-level side-effects.
@@ -324,7 +322,7 @@ Mechanical refactor. Behaviour identical post-phase; enables Phase 3.
 - [ ] Visual parity: explorer, finder, statusline, tabline, notify, toast, key popup, git preview all unchanged.
 - [ ] Codemap regenerated (`docs/CODEMAP/architecture.md` *ColorScheme Refresh Pipeline* section updated).
 
-## ADR Required
+# ADR Required
 
 This dev spec introduces two architectural shapes worth ADRs once committed:
 

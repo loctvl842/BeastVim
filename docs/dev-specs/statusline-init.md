@@ -4,15 +4,13 @@ description: "Beast Statusline Library"
 generated: 2026-05-02
 ---
 
-# Dev Spec: Beast Statusline Library
-
 > **Status**: Implemented. This document was rewritten after the implementation to reflect
 > what was actually built. The original plan diverged in several ways during development —
 > notably, the engine cache was dropped in favour of lualine-style "every render re-runs the
 > provider" with components owning their own caching when needed. See [Implementation Notes](#implementation-notes)
 > for the full diff vs the original design.
 
-## Summary
+# Summary
 
 Native statusline library at `lua/beast/libs/statusline/` that replaces heirline.nvim for the
 statusline only (heirline still drives tabline + winbar). Combines lualine's "render is just
@@ -34,7 +32,7 @@ stl.setup({
 `render()` via `%!`. Neovim handles **when** to redraw; `render()` only handles **what** to
 draw.
 
-## Requirements
+# Requirements
 
 ### Functional
 
@@ -81,7 +79,7 @@ Possible components to add later. Each gets its own dev spec when work begins:
 
 - AI-sync (Copilot / Codeium / Supermaven / Avante / etc.)
 
-## Research
+# Research
 
 ### Repo Search
 
@@ -99,7 +97,7 @@ Possible components to add later. Each gets its own dev spec when work begins:
 - Decision: **build native**. Lualine's perf patterns and heirline's component model inform
   the design; no dependency taken.
 
-## Design Notes
+# Design Notes
 
 ### From Lualine — Performance Patterns
 
@@ -137,7 +135,7 @@ Possible components to add later. Each gets its own dev spec when work begins:
 - `g:statusline_winid` tells us **which** window the bar is being drawn for, regardless of
   which window is "current" in Lua-land.
 
-## Architecture
+# Architecture
 
 ### Final File Layout
 
@@ -445,7 +443,7 @@ memory across long sessions.
 > threw); those return uncached so a transient error doesn't stick the
 > component to "hidden" until the next event.
 
-## Component Examples
+# Component Examples
 
 ### `mode` — global, instant on `ModeChanged`, compound fragment
 
@@ -690,7 +688,7 @@ update = { "BufEnter", "OptionSet fileencoding", "OptionSet encoding" }
 `UTF-8` (priority 15, hl `accent4`). We deliberately gave them different
 colours since they sit next to each other.
 
-## Implementation Notes
+# Implementation Notes
 
 ### Drift from Original Plan
 
@@ -782,7 +780,7 @@ local formatted = ft:gsub("^%l", string.upper)
 return formatted
 ```
 
-## Implementation Phases
+# Implementation Phases
 
 ### Phase 1: Core Engine ✅
 
@@ -834,7 +832,7 @@ return formatted
 - Bench: `scripts/bench-statusline.lua` should show a drop from ~10 µs to ~6–8 µs
   per render. Hard threshold (1 ms) unchanged; soft target (50 µs) unchanged.
 
-## Testing
+# Testing
 
 - **Manual verification** (no test framework in repo):
   - `:lua print(require("beast.libs.statusline").render())` — verify output
@@ -847,7 +845,7 @@ return formatted
   - Open file in fresh git repo with no commits — `git_commit` hides (returns `false`)
   - Switch branches in shell — `git_branch` updates without nvim restart (libuv watcher)
 
-## Risks & Mitigations
+# Risks & Mitigations
 
 - **Process spawn cost in `git_commit`** → mitigated by `vim.system` async + per-bufnr
   cache + `in_flight` debounce. The render path is read-only.
@@ -861,7 +859,7 @@ return formatted
 - **Coexistence with heirline** → statusline is independent of tabline/winbar; we only set
   `vim.o.statusline`.
 
-## Success Criteria
+# Success Criteria
 
 - [x] All core components render (mode, git_branch, git_commit, diagnostics, position,
   filetype, shiftwidth, encoding)
@@ -889,7 +887,7 @@ return formatted
   render" semantics. Bench dropped to **6.41 µs/call** after migration; soft target ≤ 50 µs
   in `scripts/bench-statusline.lua`. `pcall` failures are not cached.
 
-## Related ADRs
+# Related ADRs
 
 The decisions below are documented as separate ADRs:
 

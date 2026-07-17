@@ -4,9 +4,7 @@ description: "Beast Breadcrumb (Winbar) Library"
 generated: 2026-05-25
 ---
 
-# Dev Spec: Beast Breadcrumb (Winbar) Library
-
-## Summary
+# Summary
 
 Native winbar library at `lua/beast/libs/breadcrumb/` that replaces the heirline-based
 winbar at `lua/beast/plugins/bars/winbar/`. Renders via Neovim's `%!` evaluation model
@@ -34,7 +32,7 @@ breadcrumb.setup({
 })
 ```
 
-## Requirements
+# Requirements
 
 ### Functional
 
@@ -73,7 +71,7 @@ breadcrumb.setup({
 - Truncation of long paths (paths in BeastVim configs are short; add when needed)
 - Wiring into `lua/beast/init.lua` — owned by the user
 
-## Research
+# Research
 
 ### Repo Search
 
@@ -112,7 +110,7 @@ breadcrumb.setup({
   Width = `nvim_win_get_width(target_win)` (per-window, NOT `vim.o.columns`).
 - Decision: **Use native** — `%!v:lua` expression, no plugins needed.
 
-## Architecture Changes
+# Architecture Changes
 
 | File | Action | Purpose |
 |------|--------|---------|
@@ -123,7 +121,7 @@ breadcrumb.setup({
 | `lua/beast/libs/breadcrumb/init.lua` | Create | Public API: `setup()`, `render()`, state owner, autocmds |
 | `scripts/bench-breadcrumb.lua` | Create | Headless render benchmark |
 
-## Implementation Phases
+# Implementation Phases
 
 ### Phase 1: Core Breadcrumb Library — Filepath rendering with per-window caching
 
@@ -197,7 +195,7 @@ breadcrumb.setup({
    - Depends on: Step 5
    - Risk: Low
 
-## Testing Strategy
+# Testing Strategy
 
 - **Bench**: `scripts/bench-breadcrumb.lua` — `nvim --clean --headless -l scripts/bench-breadcrumb.lua`
   - Hot (cached): target < 10 µs
@@ -213,7 +211,7 @@ breadcrumb.setup({
   7. Open file outside project root → filename only, no directory segments
   8. Open `[No Name]` buffer → winbar hidden
 
-## Risks & Mitigations
+# Risks & Mitigations
 
 - **Risk**: `hlgroup.lua` lives under `statusline/` but is used by breadcrumb.
   **Mitigation**: Cross-require is fine — hlgroup has zero statusline-specific logic.
@@ -226,7 +224,7 @@ breadcrumb.setup({
 - **Risk**: Per-window cache grows with many splits.
   **Mitigation**: `WinClosed` autocmd cleans entries. Typical usage is 2–4 splits.
 
-## Success Criteria
+# Success Criteria
 
 - [ ] Winbar renders filepath with directory segments, separator, icon, filename, modified flag
 - [ ] `bench-breadcrumb.lua` hot < 10 µs, cold < 50 µs
@@ -235,7 +233,7 @@ breadcrumb.setup({
 - [ ] ColorScheme change refreshes highlights correctly
 - [ ] No dependency on heirline.nvim or nvim-navic
 
-## ADR Required
+# ADR Required
 
 This dev spec involves architectural decision(s) that must be documented as ADRs:
 

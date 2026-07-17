@@ -4,16 +4,14 @@ description: "Explorer Render-Time Benchmark"
 generated: 2026-05-13
 ---
 
-# Dev Spec: Explorer Render-Time Benchmark
-
-## Summary
+# Summary
 
 Add `scripts/bench-explorer.lua` — a headless benchmark that measures the
 explorer's render hot path (`tree:flat()` → `render.build()` → `render.write()`
 → `sticky.refresh()`) under controlled tree sizes. Follows the same contract as
 `bench-statusline.lua` (exit 0/1/2, `BENCH …` summary line).
 
-## Requirements
+# Requirements
 
 - Measure the **full render cycle** (`ui.render()`) as the primary metric
 - Break down into **sub-metrics** so regressions can be attributed:
@@ -34,7 +32,7 @@ explorer's render hot path (`tree:flat()` → `render.build()` → `render.write
 - Conform to the `scripts/bench-*.lua` contract in `health-config.md`
 - No external dependencies — runs with `nvim --clean --headless -l`
 
-## Research
+# Research
 
 ### Repo Search
 - Searched: `render`, `flat`, `build_prefix`, `render.write`, `sticky.refresh`
@@ -55,7 +53,7 @@ explorer's render hot path (`tree:flat()` → `render.build()` → `render.write
 - Found: `vim.uv.hrtime()` (nanosecond monotonic clock) — same as statusline bench
 - Decision: **Use native** — no packages needed
 
-## Architecture Changes
+# Architecture Changes
 
 | File | Action | Purpose |
 |------|--------|---------|
@@ -63,7 +61,7 @@ explorer's render hot path (`tree:flat()` → `render.build()` → `render.write
 
 Single file. No library changes needed.
 
-## Implementation Phases
+# Implementation Phases
 
 ### Phase 1: Create `scripts/bench-explorer.lua`
 
@@ -110,13 +108,13 @@ Single file. No library changes needed.
    - Exit 0 if mixed full_render < 2000 µs, exit 1 if over, exit 2 on setup error
    - Risk: Low
 
-## Testing Strategy
+# Testing Strategy
 
 - **Bench itself is the test** — `nvim --clean --headless -l scripts/bench-explorer.lua`
 - Manual verification: run and confirm exit 0, read the per-metric breakdown
 - Health check integration: next `tec-health` run will pick it up via glob
 
-## Metrics Summary
+# Metrics Summary
 
 | Metric | Scenario | What it measures | Why it matters |
 |--------|----------|-----------------|----------------|
@@ -130,7 +128,7 @@ Single file. No library changes needed.
 | `build` | mixed | `render.build(nodes)` | String assembly + highlight spec generation |
 | `write` | mixed | `render.write(lines, hls)` | Buffer API + extmark cost |
 
-## Risks & Mitigations
+# Risks & Mitigations
 
 - **Risk**: Tmp folder creation adds time to the bench itself → **Mitigation**: Creation is outside the timed loop. Only the render path is measured. Cleanup at the end.
 - **Risk**: OS-level filesystem caching makes `tree:expand()` unrealistically fast → **Mitigation**: That's fine — we're benching the Lua tree-building cost, not raw I/O. Real usage also benefits from OS cache.
@@ -138,7 +136,7 @@ Single file. No library changes needed.
 - **Risk**: `sticky.refresh()` needs cursor position and scroll state → **Mitigation**: Set cursor to middle of buffer before benching. Measured as part of `full_render`, not isolated (too coupled to window state for a standalone sub-bench).
 - **Risk**: Different machines produce different absolute numbers → **Mitigation**: The threshold (2 ms) is generous enough to pass on slow CI runners. The value of the bench is **regression detection** across runs on the same machine.
 
-## Success Criteria
+# Success Criteria
 
 - [ ] `nvim --clean --headless -l scripts/bench-explorer.lua` exits 0
 - [ ] Full render (200 nodes) < 2 ms (hard threshold)
