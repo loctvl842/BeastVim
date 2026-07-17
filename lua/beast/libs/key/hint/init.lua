@@ -73,6 +73,7 @@ local recursion_timer = nil
 -- This gives zero per-repeat overhead while the key is held: the trigger
 -- keymap is gone for the entire hold, not re-armed every N ms.
 local AUTOREPEAT_QUIET_MS = 50
+local RESTORE_TRIGGERS_DELAY_MS = 1
 
 ---@class Beast.Key.Hint.ResumeWatch
 ---@field timer uv.uv_timer_t
@@ -80,6 +81,7 @@ local AUTOREPEAT_QUIET_MS = 50
 
 ---@type table<string, Beast.Key.Hint.ResumeWatch>
 local autorepeat_watches = {}
+local suppress_trigger_callbacks = 0
 
 ---Delete the trigger keymap so subsequent OS-autorepeat presses execute
 ---natively (no Lua callback overhead). Use vim.on_key to detect when input
@@ -170,13 +172,15 @@ local function suspend_and_feed(state, keys)
 	end
 
 	local termcoded = termcodes(prefix .. keys)
+	suppress_trigger_callbacks = suppress_trigger_callbacks + 1
 	vim.api.nvim_feedkeys(termcoded, "m", false)
 
-	vim.schedule(function()
+	vim.defer_fn(function()
 		for _, r in ipairs(to_restore) do
 			M.register_trigger(r.mode, r.trig)
 		end
-	end)
+		suppress_trigger_callbacks = math.max(0, suppress_trigger_callbacks - 1)
+	end, RESTORE_TRIGGERS_DELAY_MS)
 end
 
 -- =============================================================================
@@ -199,6 +203,10 @@ function M.register_trigger(mode, trigger)
 	end
 
 	vim.keymap.set(mode, trigger, function()
+		if suppress_trigger_callbacks > 0 then
+			feed(trigger, "in")
+			return
+		end
 		M.start(mode, trigger)
 	end, {
 		silent = true,
@@ -270,12 +278,14 @@ local function drain_bail(keys)
 		end
 	end
 	registered = {}
+	suppress_trigger_callbacks = suppress_trigger_callbacks + 1
 	feed(keys, "im")
-	vim.schedule(function()
+	vim.defer_fn(function()
 		for _, r in ipairs(to_restore) do
 			M.register_trigger(r.mode, r.trig)
 		end
-	end)
+		suppress_trigger_callbacks = math.max(0, suppress_trigger_callbacks - 1)
+	end, RESTORE_TRIGGERS_DELAY_MS)
 end
 
 ---Drain any keys already in the typeahead following a fast-typed trigger,
