@@ -386,7 +386,7 @@ This phase teaches the engine the four "shut up" rules. Still not wired into
    - Depends on: Phase 3 Steps 1–2
    - Risk: Medium — if the cutover ships before Phase 1/2 land, the user loses autopairs entirely. **Mitigation**: this step is explicitly inside Phase 3, which depends on Phase 2 acceptance.
 
-4. **Update codemap** (File: `docs/CODEMAPS/libraries.md` + `docs/CODEMAPS/INDEX.md`)
+4. **Update codemap** (File: `docs/CODEMAP/libraries.md` + `docs/CODEMAP/INDEX.md`)
    - Action: Add an `## autopairs — Insert-Mode Autopairs` section to `libraries.md` listing the 6 files, API, loaded-via line. Increment the library count in `INDEX.md` from `18` → `19` and update the lib list. Per `codemap-freshness.instructions.md`, this must land in the same PR as the lib.
    - Why: Codemap drift is the single most common cause of stale specs. Update it as part of the cutover, not afterwards.
    - Depends on: Phase 3 Steps 1–3
@@ -438,7 +438,7 @@ This phase teaches the engine the four "shut up" rules. Still not wired into
 - [ ] `:checkhealth beast.libs.autopairs` shows OK on all sections.
 - [ ] All 10 manual verification steps pass.
 - [ ] `lua/beast/plugins/init.lua` no longer references `mini.pairs`.
-- [ ] `docs/CODEMAPS/libraries.md` includes an `autopairs` section; `INDEX.md` library count is incremented and the libraries list updated.
+- [ ] `docs/CODEMAP/libraries.md` includes an `autopairs` section; `INDEX.md` library count is incremented and the libraries list updated.
 - [ ] No mention of `mini.pairs` or `nvim-autopairs` anywhere in `lua/beast/`.
 
 ## ADR Required

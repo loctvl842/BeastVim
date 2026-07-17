@@ -239,7 +239,7 @@ time.
 - [ ] `scripts/bench-startup.sh` median within ±1 ms of main.
 - [ ] All keymaps, autocmds, and lazy libs behave identically (manual
       smoke-test checklist above passes).
-- [ ] Codemap (`docs/CODEMAPS/architecture.md` *Module Tree* + *Setup Flow*)
+- [ ] Codemap (`docs/CODEMAP/architecture.md` *Module Tree* + *Setup Flow*)
       regenerated.
 
 ## ADR Required

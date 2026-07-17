@@ -409,7 +409,7 @@ colours; moving the cursor closes the float.
 - [x] `<leader>gp` opens a floating preview that closes on `CursorMoved`.
 - [x] `nvim_buf_get_extmarks` in the `beast_git_signs` namespace returns
       exactly one entry per signed line (no duplication).
-- [x] Codemap regenerated; `docs/CODEMAPS/libraries.md` includes the
+- [x] Codemap regenerated; `docs/CODEMAP/libraries.md` includes the
       new `git` lib; INDEX.md lib count bumped 15 → 16.
 
 ## Completed

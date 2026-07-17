@@ -496,7 +496,7 @@ end
 1. Wrap `stage_hunk`/`reset_hunk` with a minimal repeatability shim (no async lib needed — just save last action in a module-local var, expose `Git.repeat_action()`).
 2. Add `target = "unstaged" | "staged" | "all"` to `next_hunk`/`prev_hunk`.
 3. Update `health.lua` to check new namespaces + highlight groups.
-4. Update `docs/CODEMAPS/` if it covers `libs/git`.
+4. Update `docs/CODEMAP/` if it covers `libs/git`.
 
 ---
 

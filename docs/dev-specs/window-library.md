@@ -151,8 +151,8 @@ window.enable() / disable() / toggle()  -- autowidth toggles
 | `lua/beast/libs/window/health.lua` | Create | `:checkhealth beast.libs.window` — config, augroup, frame walk |
 | `lua/beast/init.lua` | Modify | `packer.lazy("beast.libs.window", { event = "WinNew", keys = {...} })` |
 | `lua/beast/option.lua` | Modify | Ensure `winwidth = 30`, `winminwidth = 30`, `equalalways = true` (the old `init` callback) |
-| `docs/CODEMAPS/libraries.md` | Modify | Add new lib section after `## scroll` |
-| `docs/CODEMAPS/INDEX.md` | Modify | Bump `Libraries: 16` → `17`, refresh date |
+| `docs/CODEMAP/libraries.md` | Modify | Add new lib section after `## scroll` |
+| `docs/CODEMAP/INDEX.md` | Modify | Bump `Libraries: 16` → `17`, refresh date |
 
 ## Implementation Phases
 
@@ -313,7 +313,7 @@ window.enable() / disable() / toggle()  -- autowidth toggles
    - Depends on: None.
    - Risk: Low — these are inert without autowidth, so safe to set eagerly.
 
-4. **Update codemaps** (Files: `docs/CODEMAPS/libraries.md`, `docs/CODEMAPS/INDEX.md`)
+4. **Update codemaps** (Files: `docs/CODEMAP/libraries.md`, `docs/CODEMAP/INDEX.md`)
    - Action: Append `## window — Window Layout (autowidth + maximize)` section to
      `libraries.md`. Bump `Libraries: 16 (...)` to `17 (..., window)` in `INDEX.md`.
      Update generated dates.

@@ -488,6 +488,6 @@ populates the rest. Page is fully usable as-is.
 
 ### Wrap-up
 
-- [ ] Codemap (`docs/CODEMAPS/libraries.md` § packer) updated to mention
+- [ ] Codemap (`docs/CODEMAP/libraries.md` § packer) updated to mention
       `markers`, `init_ms`, table-style profile UI.
 - [ ] Spec marked complete with a `## Completed` block.

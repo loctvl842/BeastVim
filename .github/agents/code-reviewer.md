@@ -1,5 +1,5 @@
 ---
-name: tec-review
+name: code-reviewer
 description: "Review agent that validates implementation against the dev spec. Checks for over-engineering, spec drift, missed requirements, and lazy shortcuts. Use after implementing a task or before committing changes."
 ---
 
@@ -23,10 +23,9 @@ For each change, check these five axes:
 - Rule: **default behavior doesn't need to be listed** — only exceptions
 
 ### 3. Pattern Compliance
-- Does it follow existing codebase patterns? (Check `docs/CODEMAPS/` for the architectural shape, `AGENTS.md` § *BeastVim Library Conventions* for the explicit rules — File Structure, Type Naming, View Pattern, Component Tables vs Classes, Config Pattern, Animation Pattern, Code Style.)
-- Does it use existing utilities (`Util.*`, `Beast.View`, `Beast.Theme`, etc.) instead of writing new ones? Cross-check against `AGENTS.md` § *Shared Modules Registry* — anything listed there must be reused, not reimplemented.
+- Does it follow existing codebase patterns? (Check codemaps if available)
+- Does it use existing utilities instead of writing new ones?
 - Does it match the project's naming conventions, config patterns, error handling?
-- Does it introduce a pattern that already appears in `AGENTS.md` § *Known DRY Opportunities*? If so, the implementation should have **extracted first** — flag this as a BLOCK.
 
 ### 4. Anti-Rationalization Check
 - Did the agent cut corners? Check against the anti-rationalization table.

@@ -188,7 +188,7 @@ Not every lib needs every file — only what the responsibility justifies.
 
 ## 9. Documentation
 
-- Add the lib to `docs/CODEMAPS/libraries.md` with a file-tree summary.
+- Add the lib to `docs/CODEMAP/libraries.md` with a file-tree summary.
 - Decisions (why X not Y) go in an ADR under `docs/ADRs/`.
 - Feature plans live in `docs/dev-specs/`.
 
@@ -204,5 +204,5 @@ Not every lib needs every file — only what the responsibility justifies.
 - [ ] `init.lua:M.setup` is the only entry point
 - [ ] Caches invalidated via User autocmd, not timer polling
 - [ ] Bench script exists and PASSes
-- [ ] Lib appears in `docs/CODEMAPS/libraries.md`
+- [ ] Lib appears in `docs/CODEMAP/libraries.md`
 - [ ] `stylua --check lua/` clean

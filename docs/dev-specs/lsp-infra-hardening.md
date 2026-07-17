@@ -68,7 +68,7 @@ Harden `beast.libs.lsp` so it manages the lifecycle smartly enough to absorb the
 | `lua/beast/libs/lsp/health.lua` | Modify | Add "Capability contributors registered after first attach (will not affect those clients)" warning when applicable. List inlay-hint / codelens enabled status. |
 | `scripts/bench-lsp.lua` | Create | Bench `Lsp.capabilities()` resolution (called per client start) — must stay under threshold even with N contributors. |
 | `tests/test-lsp.lua` | Create | Manual repro: `nvim --clean -u tests/test-lsp.lua` opens a buffer with a fake server registered, demonstrates inlay/codelens/cap-thunk behavior. |
-| `docs/CODEMAPS/libraries.md` | Modify | Update `lsp` entry: new `Lsp.unregister`, `enabled` field, inlay/codelens wiring, capabilities-thunk note. |
+| `docs/CODEMAP/libraries.md` | Modify | Update `lsp` entry: new `Lsp.unregister`, `enabled` field, inlay/codelens wiring, capabilities-thunk note. |
 
 ## Implementation Phases
 
@@ -231,9 +231,9 @@ Currently no bench/test for the lsp lib (conventions § 8 expects one). This pha
 
 ### Phase 5: Documentation — update codemap + ADR notes
 
-1. **Update codemap** (File: `docs/CODEMAPS/libraries.md`)
+1. **Update codemap** (File: `docs/CODEMAP/libraries.md`)
    - Action: In the `lsp` section, add `Lsp.unregister`, the `enabled` field, the capabilities-thunk note, and the inlay/codelens wiring. Update the file-tree comment for `init.lua` API list.
-   - Why: Codemap-freshness instruction (`docs/CODEMAPS/**` instructions file) requires updates when public API changes.
+   - Why: Codemap-freshness instruction (`docs/CODEMAP/**` instructions file) requires updates when public API changes.
    - Depends on: Phases 1, 2
    - Risk: Low
 
@@ -266,7 +266,7 @@ Currently no bench/test for the lsp lib (conventions § 8 expects one). This pha
 - [ ] `tests/test-lsp.lua` passes the three manual scenarios listed in Testing Strategy.
 - [ ] `Lsp.register` is idempotent — calling twice with the same name leaves `attach.servers[name]` with the second cfg only (no accumulation).
 - [ ] `Lsp.unregister(name)` followed by opening a matching `FileType` does NOT start the server.
-- [ ] `docs/CODEMAPS/libraries.md` regenerated and committed; codemap-freshness header date matches the commit day.
+- [ ] `docs/CODEMAP/libraries.md` regenerated and committed; codemap-freshness header date matches the commit day.
 - [ ] `stylua --check lua/beast/libs/lsp/` clean.
 - [ ] ADR-031 footnote added; no other ADR changes needed (the additions are mechanism-level, not architectural).
 

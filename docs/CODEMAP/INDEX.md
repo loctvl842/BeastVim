@@ -2,7 +2,7 @@
 
 # BeastVim Codemaps
 
-Quick-reference architecture documentation. Regenerate with `/tec-update-codemaps`.
+Quick-reference architecture documentation. Regenerate with `/update-codemap`.
 
 ## Files
 - [architecture.md](architecture.md) — system overview, module boundaries, setup flow, ColorScheme pipeline

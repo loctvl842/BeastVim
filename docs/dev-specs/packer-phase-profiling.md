@@ -288,7 +288,7 @@ last bench (`packer.setup` self time inflated 3.7 → 12.2 ms with a
   the user before implementation; the wrap is correct synchronously.
 - `docs/tec-config/health-config.md` — added `phases.pack_add.ms` (30/60)
   and `phases.early_cs.ms` (10/20) thresholds to the Alert Thresholds table.
-- `docs/CODEMAPS/libraries.md` — updated packer section to mention phases
+- `docs/CODEMAP/libraries.md` — updated packer section to mention phases
   and the `colorscheme` opt.
 
 Verification:

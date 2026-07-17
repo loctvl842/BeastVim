@@ -128,7 +128,7 @@ require("beast.libs.toast").setup({
 | `lua/beast/libs/toast/config.lua` | Modify | Add `progress` config block (enabled, throttle, done_linger, bar_width, spinner, spinner_interval) into the `defaults` table. |
 | `lua/beast/libs/toast/progress.lua` | Create | New adapter: `LspProgress` autocmd → token table → throttled `vim.uv` timer → `Toast()` / `toast.update()` / `toast.dismiss_id()`. Exposes `M.setup()`. |
 | `lua/beast/libs/toast/init.lua` (setup) | Modify | At end of `M.setup()`, call `require("beast.libs.toast.progress").setup()` when `config.progress.enabled` is true. |
-| `docs/CODEMAPS/libraries.md` | Modify | Update the `toast/` tree to list `progress.lua`. |
+| `docs/CODEMAP/libraries.md` | Modify | Update the `toast/` tree to list `progress.lua`. |
 
 No changes needed in `lua/beast/libs/lsp/` — the progress adapter hooks into
 the global `LspProgress` autocmd, which fires regardless of who registered the
@@ -200,7 +200,7 @@ server. Keeps the LSP lib and toast lib independent.
    - Depends on: Step 2.
    - Risk: Low.
 
-5. **Update codemap** (File: `docs/CODEMAPS/libraries.md`)
+5. **Update codemap** (File: `docs/CODEMAP/libraries.md`)
    - Action: Add `├── progress.lua ← LspProgress → in-place toast adapter` to the `toast/` tree (around lines 148–156).
    - Why: Per `.github/instructions/codemap-freshness.instructions.md`, codemap must stay current.
    - Depends on: Step 2.
@@ -262,7 +262,7 @@ server. Keeps the LSP lib and toast lib independent.
 - [ ] Disabling via `setup({ progress = { enabled = false } })` results in no
       `beast_toast_progress` autocmd and no `vim.uv` timer.
 - [ ] `:checkhealth beast.libs.toast` remains clean.
-- [ ] Codemap (`docs/CODEMAPS/libraries.md`) regenerated and the `toast/`
+- [ ] Codemap (`docs/CODEMAP/libraries.md`) regenerated and the `toast/`
       tree lists `progress.lua`.
 - [ ] No regression in existing toast behaviour — non-sticky toasts still
       auto-dismiss; `Toast.dismiss()` (all) still works.

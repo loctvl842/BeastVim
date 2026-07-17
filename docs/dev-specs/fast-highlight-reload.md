@@ -316,7 +316,7 @@ Mechanical refactor. Behaviour identical post-phase; enables Phase 3.
 - [ ] Cache file `~/.cache/nvim/beast-hl-<scheme>.json` is created on first reload and re-read on the next reload.
 - [ ] `:BeastHlCacheClear` deletes all `beast-hl-*.json` files.
 - [ ] Visual parity: explorer, finder, statusline, tabline, notify, toast, key popup, git preview all unchanged.
-- [ ] Codemap regenerated (`docs/CODEMAPS/architecture.md` *ColorScheme Refresh Pipeline* section updated).
+- [ ] Codemap regenerated (`docs/CODEMAP/architecture.md` *ColorScheme Refresh Pipeline* section updated).
 
 ## ADR Required
 

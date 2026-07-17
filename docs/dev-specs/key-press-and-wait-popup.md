@@ -72,7 +72,7 @@ mode + leader-prefixed sequences only.
   - `lua/beast/libs/key/highlights.lua` — `BeastKey*` namespace already established.
     **Extend** with `BeastKeyPopup*` groups (one more line per group).
   - `lua/beast/util/init.lua` — `Util.wo`, `Util.colors.set_hl`, `Util.create_scratch_buf`
-    (per CODEMAPS). **Adopt** for buffer/window setup.
+    (per CODEMAP). **Adopt** for buffer/window setup.
 - Reuse opportunities:
   - `Beast.View` — adopt.
   - `Util.wo` / `Util.create_scratch_buf` — adopt.
@@ -118,7 +118,7 @@ mode + leader-prefixed sequences only.
 | `lua/beast/libs/key/init.lua` | Modify | Call `require("beast.libs.key.popup").setup()` from `M.setup`. |
 | `lua/beast/libs/key/highlights.lua` | Modify | Add `BeastKeyPopupBorder`, `BeastKeyPopupTitle`, `BeastKeyPopupKey`, `BeastKeyPopupDesc`, `BeastKeyPopupGroup`, `BeastKeyPopupSeparator` (single block, mirrors existing `BeastKey*` style). |
 | `lua/beast/plugins/init.lua` | Modify | Remove `which-key.nvim` from plugin spec OR keep it disabled-by-default for transition — **see Phase 4**. |
-| `docs/CODEMAPS/libraries.md` | Modify | Update the `key/` tree to include `popup.lua` and note the new public API. |
+| `docs/CODEMAP/libraries.md` | Modify | Update the `key/` tree to include `popup.lua` and note the new public API. |
 | `tests/test-key-popup.lua` | Create | Manual repro script (no test framework in `tests/` today — match existing convention of runnable manual scripts). |
 
 ## Implementation Phases
@@ -256,7 +256,7 @@ Only run if Phase 2 numbers prove the perf win and Phase 3 manual testing is cle
    - Depends on: Step 2.
    - Risk: Low — if any user config calls these, they will break. Acceptable: this is a personal config.
 
-5. **Update codemap** (File: `docs/CODEMAPS/libraries.md`)
+5. **Update codemap** (File: `docs/CODEMAP/libraries.md`)
    - Action: in the `key/` tree (lines 165-176), add `popup.lua  ← prefix index, getchar loop, helix-style float`. Update the API line to include `Key.popup` if applicable.
    - Why: Codemap-freshness rule (instructions/codemap-freshness.instructions.md).
    - Depends on: Phase 1+.
@@ -359,4 +359,4 @@ same ADR rather than split artificially).
   restoration, recursion guard, macro + pending-input safety.
 - Phase 4 ✅ — `popup.enabled = true` by default; which-key plugin spec
   deleted; `to_which_key*` exporters removed; `option.lua` comment updated;
-  codemap (`docs/CODEMAPS/libraries.md`) refreshed.
+  codemap (`docs/CODEMAP/libraries.md`) refreshed.

@@ -162,7 +162,7 @@ registers a `WinClosed` autocmd to drop per-window caches, and registers in
 | `lua/beast/libs/statuscolumn/health.lua` | Create | `:checkhealth beast` integration: assert `vim.o.statuscolumn` wired, FFI symbols resolved, segments valid |
 | `lua/beast/init.lua` | Modify | Wire `packer.lazy("beast.libs.statuscolumn", { event = "VimEnter", defer = true, highlights = true })` after tabline |
 | `scripts/bench-statuscolumn.lua` | Create | Headless bench, contract per `docs/tec-config/health-config.md`. Thresholds: median < 5 µs / line, < 500 µs / 80-line window. |
-| `docs/CODEMAPS/libraries.md` | Modify | Add statuscolumn section (during `/tec-implement` wrap-up via `/tec-update-codemaps`) |
+| `docs/CODEMAP/libraries.md` | Modify | Add statuscolumn section (during `/tec-implement` wrap-up via `/tec-update-codemaps`) |
 
 ## Implementation Phases
 
@@ -392,7 +392,7 @@ wire the lib into `packer.lazy()`.
 - [ ] Library works (no errors, sign segments simply empty) with neither
       gitsigns nor any LSP attached
 - [ ] All three unit tests pass
-- [ ] Codemaps regenerated; `docs/CODEMAPS/libraries.md` includes the
+- [ ] Codemaps regenerated; `docs/CODEMAP/libraries.md` includes the
       new lib
 
 ## ADR Required
@@ -430,7 +430,7 @@ All three phases implemented, reviewed (PASS), and committed:
 - [x] Default 4-segment layout renders with gitsigns + LSP diagnostics
 - [x] 3-cell slot-priority layout renders correctly (fold falls through when diagnostic present)
 - [x] No-plugin install — git/diagnostic slots silently empty, no errors
-- [x] Codemaps regenerated; `docs/CODEMAPS/libraries.md` updated; lib count 14 → 15
+- [x] Codemaps regenerated; `docs/CODEMAP/libraries.md` updated; lib count 14 → 15
 
 **ADRs published:**
 - ADR-019 — Fixed producer enum vs. generic segment engine

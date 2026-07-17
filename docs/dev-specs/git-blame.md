@@ -121,7 +121,7 @@ Out of scope:
 | `lua/beast/libs/git/health.lua` | Modify | Report `user.name` presence, blame state, per-buffer last-blame timing |
 | `lua/beast/libs/git/init.lua` | Modify | Wire blame setup / teardown into `M.setup` and `M.detach`; expose `blame_line`, `toggle_current_line_blame`, `blame`; register keymaps `<leader>gb`, `<leader>gB`, `<leader>gtb` |
 | `scripts/bench-git-blame.lua` | Create | Bench `blame.run` for 100 / 1 k / 10 k-line files; single-line (`-L`) vs full-file; threshold for single-line ≤ 30 ms median |
-| `docs/CODEMAPS/libraries.md` | Modify | Add `blame.lua`, `current_line_blame.lua`, `blame_view.lua` to the git tree; document the `beast_git_blame` namespace |
+| `docs/CODEMAP/libraries.md` | Modify | Add `blame.lua`, `current_line_blame.lua`, `blame_view.lua` to the git tree; document the `beast_git_blame` namespace |
 
 ## Implementation Phases
 
@@ -208,7 +208,7 @@ Out of scope:
    - Depends on: Step 3
    - Risk: Low
 
-9. **Update codemap** (File: `docs/CODEMAPS/libraries.md`)
+9. **Update codemap** (File: `docs/CODEMAP/libraries.md`)
    - Action: Add `├── blame.lua`, `├── current_line_blame.lua` to the git tree (lines 307-322); add `beast_git_blame` to the namespaces note; add a short "Blame" subsection under the git module describing the two layers.
    - Why: Codemap-freshness instruction file requires updating before commit when adding new files.
    - Depends on: Steps 3, 4
@@ -247,7 +247,7 @@ Out of scope:
    - Depends on: Phase 2 Step 2
    - Risk: Low
 
-4. **Update codemap** (File: `docs/CODEMAPS/libraries.md`)
+4. **Update codemap** (File: `docs/CODEMAP/libraries.md`)
    - Action: Add `├── blame_view.lua` to the git tree; mention `<leader>gB` in the keymap line; note the `BeastGitBlameView<id>` augroup pattern.
    - Why: Codemap-freshness instruction.
    - Depends on: Phase 2 Step 2

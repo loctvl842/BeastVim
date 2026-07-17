@@ -253,7 +253,7 @@ Smallest follow-up: discoverability via `:checkhealth` and one ergonomic command
 - [ ] Per-server `keys = { { "gD", fn, cond = "textDocument/definition" } }` binds buffer-locally only when the server supports the method.
 - [ ] No regression in `Util.root` — `:lua =require("beast.util.root").get()` still resolves correctly after LSP attach (validates augroup isolation).
 - [ ] `bench-startup.sh` shows no startup regression vs `main` (lib is lazy-loaded on `FileType`).
-- [ ] Codemap regenerated (`docs/CODEMAPS/libraries.md` includes new `lsp` section) and committed.
+- [ ] Codemap regenerated (`docs/CODEMAP/libraries.md` includes new `lsp` section) and committed.
 
 ## ADR Required
 
