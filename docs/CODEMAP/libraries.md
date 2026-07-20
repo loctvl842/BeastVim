@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-17 | Files scanned: 22 | Token estimate: ~8400 -->
+<!-- Generated: 2026-07-21 | Files scanned: 23 | Token estimate: ~8385 -->
 
 # Libraries
 
@@ -157,6 +157,29 @@ Type: native `%!` winbar; per-window cache; no View subclass
 ### Highlights / Namespace
 - Namespace: `beast.bc.*`
 - Reset on ColorScheme: yes
+
+---
+
+## session — Per-Directory + Git-Branch Session Save/Restore
+
+```
+session/
+├── init.lua    ← setup() (VimLeavePre autocmd), load(), exists(); private
+│                 identity/path encoding, save guard, fold-state restore helpers
+└── config.lua  ← readonly singleton (dir)
+```
+
+API: `session.setup(opts)`, `session.load()`, `session.exists()`.
+Identity = cwd (`%%`-escaped) + git branch, except `main`/`master`/non-git
+dirs share the plain no-suffix identity. `load()`/`exists()` fall back to
+the plain identity when no branch-specific session exists. Save (on
+`VimLeavePre`) is skipped when 0 real file buffers are open, so an empty
+quit never clobbers a prior session.
+Loaded via: `packer.lazy()` on `VimEnter` (deferred), no keys/module trigger
+— must be active without any user action.
+Tests: `tests/test-session.lua` (15 assertions).
+
+---
 
 ## notify — Floating Notification Stack
 

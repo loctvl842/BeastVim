@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-17 | Files scanned: 22 | Token estimate: ~2320 -->
+<!-- Generated: 2026-07-21 | Files scanned: 23 | Token estimate: ~2362 -->
 
 # Architecture
 
@@ -49,6 +49,7 @@ lua/beast/
 │   ├── packer/           ← plugin loader + packer.lazy() (event/keys/
 │   │                       filetype/module/cmd/path triggers)
 │   ├── scroll/           ← smooth viewport scrolling
+│   ├── session/          ← save/restore session per project dir + git branch
 │   ├── starter/          ← native intro screen extensions (key hint rows)
 │   ├── statuscolumn/     ← native %! statuscolumn
 │   ├── statusline/       ← native %! statusline + per-lib health.lua
@@ -89,6 +90,7 @@ beast.setup(opts)
   5.  packer.lazy confirm (module trigger: beast.libs.confirm)
   6.  image.viewer.setup(cfg.image) — EAGER (terminal inline-image support)
   7.  packer.lazy statusline (VimEnter+defer) — uses components registry
+  7b. packer.lazy session (VimEnter+defer) — registers VimLeavePre autosave
   8.  packer.lazy breadcrumb / tabline / statuscolumn (BufWinEnter/BufWritePost+defer)
   9.  packer.lazy git (event-driven) — exposes ]c/[c/<leader>g* keymaps
   10. packer.lazy explorer (VimEnter+defer + <leader>e)
