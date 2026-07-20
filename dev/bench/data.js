@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784278449069,
+  "lastUpdate": 1784517496036,
   "repoUrl": "https://github.com/loctvl842/BeastVim",
   "entries": {
     "BeastVim Startup": [
@@ -1099,6 +1099,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "BeastVim startup (warm) max",
             "value": 41.027308000000005,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "committer": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "distinct": true,
+          "id": "89bc93990532bb128981ac480fcdf085681c843e",
+          "message": "fix(explorer): focus wrong win on splitting same buffer",
+          "timestamp": "2026-07-20T09:28:40+07:00",
+          "tree_id": "714f603d153c9c11d01645a9a1b4e4902bf165fc",
+          "url": "https://github.com/loctvl842/BeastVim/commit/89bc93990532bb128981ac480fcdf085681c843e"
+        },
+        "date": 1784517495187,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "BeastVim startup (warm) mean",
+            "value": 39.4388821,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) stddev",
+            "value": 0.5727423659889511,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) min",
+            "value": 38.24676,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) max",
+            "value": 40.506691000000004,
             "unit": "ms"
           }
         ]
