@@ -99,17 +99,6 @@ function M.mount()
 		callback = function()
 			-- stylua: ignore
 			if not (state.view and state.view:is_valid() and state.tree) then return end
-			local win = vim.api.nvim_get_current_win()
-			-- Ignore transient floating windows (e.g. explorer inline prompt float).
-			-- They are not real file context switches and should not trigger a flush.
-			if is_floating(win) then
-				return
-			end
-			-- stylua: ignore
-			if win == state.view.win then return end
-			if View.win.is_normal(win) then
-				state.source_win = win
-			end
 			local path = vim.api.nvim_buf_get_name(0)
 			local next_active = nil ---@type string|nil
 			if path ~= "" and vim.fn.filereadable(path) == 1 then
@@ -155,6 +144,23 @@ function M.mount()
 			end
 		end,
 	})
+
+  vim.api.nvim_create_autocmd("WinEnter", {
+		group = state.augroup,
+    callback = function()
+      if not (state.view and state.view:is_valid() and state.tree) then return end
+			local win = vim.api.nvim_get_current_win()
+			-- Ignore transient floating windows (e.g. explorer inline prompt float).
+			-- They are not real file context switches and should not trigger a flush.
+			if is_floating(win) then
+				return
+			end
+			if win == state.view.win then return end
+			if View.win.is_normal(win) then
+				state.source_win = win
+			end
+    end
+  })
 
 	-- If the active file buffer gets deleted before another file buffer is
 	-- entered, clear marker immediately to avoid stale active-file highlight.
