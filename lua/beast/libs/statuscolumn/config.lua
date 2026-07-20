@@ -36,57 +36,57 @@
 
 ---@class Beast.Statuscolumn.Config
 local defaults = {
-	---@type Beast.Statuscolumn.GitConfig
-	git = {
-		enabled = true,
-		-- Default glyphs (1-cell). Source of truth for the gutter; `beast.libs.git`
-		-- writes only a typed marker (sign_name="beast_git_<type>") and this lib
-		-- decides what to render.
-		icons = {
-			add = "│",
-			change = "┊",
-			delete = "",
-			topdelete = "",
-			changedelete = "│",
-		},
-	},
+  ---@type Beast.Statuscolumn.GitConfig
+  git = {
+    enabled = true,
+    -- Default glyphs (1-cell). Source of truth for the gutter; `beast.libs.git`
+    -- writes only a typed marker (sign_name="beast_git_<type>") and this lib
+    -- decides what to render.
+    icons = {
+      add = "│",
+      change = "┊",
+      delete = "",
+      topdelete = "",
+      changedelete = "│",
+    },
+  },
 
-	---@type Beast.Statuscolumn.FoldConfig
-	fold = { open = true, icons = { open = "", close = "" } },
+  ---@type Beast.Statuscolumn.FoldConfig
+  fold = { open = true, icons = { open = "", close = "" } },
 
-	---@type Beast.Statuscolumn.Slot[]
-	segments = {
-		{ "diagnostic" },
-		{ "number" },
-		{ "git" },
-		{ producers = { "fold" }, width = 2 },
-	},
+  ---@type Beast.Statuscolumn.Slot[]
+  segments = {
+    { "diagnostic" },
+    { "number" },
+    { "git" },
+    { producers = { "fold" }, width = 2 },
+  },
 
-	---@type string[]
-	ft_ignore = {
-		"help",
-		"alpha",
-		"dashboard",
-		"lazy",
-		"mason",
-		"netrw",
-		"NvimTree",
-		"beast-explorer",
-		"TelescopePrompt",
-		"toggleterm",
-		"trouble",
-		"qf",
-		"man",
-		"checkhealth",
-	},
+  ---@type string[]
+  ft_ignore = {
+    "help",
+    "alpha",
+    "dashboard",
+    "lazy",
+    "mason",
+    "netrw",
+    "NvimTree",
+    "beast-explorer",
+    "TelescopePrompt",
+    "toggleterm",
+    "trouble",
+    "qf",
+    "man",
+    "checkhealth",
+  },
 
-	---@type string[]
-	bt_ignore = {
-		"nofile",
-		"prompt",
-		"quickfix",
-		"terminal",
-	},
+  ---@type string[]
+  bt_ignore = {
+    "nofile",
+    "prompt",
+    "quickfix",
+    "terminal",
+  },
 }
 
 ---@type Beast.Statuscolumn.Config
@@ -94,32 +94,63 @@ local cfg = vim.deepcopy(defaults)
 
 local methods = {}
 
+---@param win integer
+---@return boolean
+local function is_normal_file_window(win)
+  local cfg = vim.api.nvim_win_get_config(win)
+  if cfg.relative ~= "" then
+    return false
+  end
+  local buf = vim.api.nvim_win_get_buf(win)
+  return vim.bo[buf].buftype == "" and vim.api.nvim_buf_get_name(buf) ~= ""
+end
+
+local function apply_window_defaults()
+  for _, win in ipairs(vim.api.nvim_list_wins()) do
+    if is_normal_file_window(win) then
+      vim.api.nvim_set_option_value("number", true, { win = win })
+      vim.api.nvim_set_option_value("signcolumn", "yes", { win = win })
+      vim.api.nvim_set_option_value("foldlevel", 99, { win = win })
+      vim.api.nvim_set_option_value("foldmethod", "indent", { win = win })
+      vim.api.nvim_set_option_value("foldenable", true, { win = win })
+      vim.api.nvim_set_option_value("foldcolumn", "1", { win = win })
+      vim.api.nvim_set_option_value("foldtext", "", { win = win })
+    end
+  end
+end
+
 ---@param opts? Beast.Statuscolumn.Config
 function methods.setup(opts)
-	cfg = vim.tbl_deep_extend("force", vim.deepcopy(defaults), opts or {})
+  cfg = vim.tbl_deep_extend("force", vim.deepcopy(defaults), opts or {})
 
-	-- -- Must enable opts
-	vim.opt.number = true -- set numbered lines
-	vim.opt.signcolumn = "yes" -- always show the sign column, otherwise it would shift the text each time
-	-- -- use fold
-	vim.opt.foldlevel = 99
-	vim.opt.foldmethod = "indent"
-	vim.opt.foldenable = true
-	vim.opt.foldcolumn = "1"
-	vim.opt.foldtext = ""
+  -- Keep global defaults for windows created after setup.
+  vim.opt_global.number = true
+  vim.opt_global.signcolumn = "yes"
+  vim.opt_global.foldlevel = 99
+  vim.opt_global.foldmethod = "indent"
+  vim.opt_global.foldenable = true
+  vim.opt_global.foldcolumn = "1"
+  vim.opt_global.foldtext = ""
+
+  -- Session restore can create multiple windows before statuscolumn setup
+  -- runs; stamp all normal file windows so they don't keep stale local
+  -- defaults (e.g. nonumber/foldcolumn=0 on one split).
+  apply_window_defaults()
 end
 
 local M = setmetatable({}, {
-	__index = function(_, key)
-		if methods[key] ~= nil then
-			return methods[key]
-		end
-		return cfg[key]
-	end,
+  __index = function(_, key)
+    if methods[key] ~= nil then
+      return methods[key]
+    end
+    return cfg[key]
+  end,
 
-	__newindex = function(_, key, _)
-		error(string.format("beast.libs.statuscolumn.config is read-only; cannot assign '%s' directly. Use setup() instead.", tostring(key)), 2)
-	end,
+  __newindex = function(_, key, _)
+    error(
+    string.format("beast.libs.statuscolumn.config is read-only; cannot assign '%s' directly. Use setup() instead.",
+      tostring(key)), 2)
+  end,
 })
 
 return M
