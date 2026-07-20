@@ -11,6 +11,9 @@
 --   4. Press <leader> then <Esc>→ hint closes, no side-effect
 --   5. Press <leader> then <BS> → hint stays at root level
 --   6. Press <leader>x          → hint closes, no echo (x not mapped)
+--   7. Add triggers {"g","f"} and map `gf`; pressing `g` then `f` must resolve
+--      to `gf` once (the `f` trigger must not open a second hint while the
+--      first hint UI is active/resolving).
 -- =========================================================================
 
 local Key = require("beast.libs.key")
@@ -23,7 +26,7 @@ local function notify(msg)
 end
 
 -- Group label (no rhs)
-Key.safe_set("n", "<leader>f", nil, { group = "file" })
+Key.safe_set("n", "<leader>f", function() end, { group = "file" })
 
 Key.safe_set("n", "<leader>ff", notify("find files"), { desc = "Find files" })
 Key.safe_set("n", "<leader>fg", notify("live grep"), { desc = "Live grep" })
