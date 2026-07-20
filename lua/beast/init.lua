@@ -15,6 +15,7 @@ M.reload_highlights = hl.reload_highlights
 ---@field indent? Beast.Indent.Config
 ---@field breadcrumb? Beast.Breadcrumb.Config
 ---@field scroll? Beast.Scroll.Config
+---@field session? Beast.Session.Config
 ---@field image? Beast.Image.Viewer.Opts
 ---@field starter? Beast.Starter.Config
 ---@field window? Beast.Window.Config
@@ -105,6 +106,14 @@ function M.setup(opts)
 		},
 		setup = function(breadcrumb)
 			breadcrumb.setup(cfg.breadcrumb or {})
+		end,
+	})
+
+	-- Session (auto-save/restore per project dir + git branch)
+	packer.lazy("beast.libs.session", {
+		event = { name = "VimEnter", defer = true },
+		setup = function(session)
+			session.setup(cfg.session or {})
 		end,
 	})
 
