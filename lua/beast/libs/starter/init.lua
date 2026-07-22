@@ -12,6 +12,7 @@ local augroup ---@type integer|nil
 -- becomes non-empty (mirrors `may_show_intro()`'s screen-redraw behavior).
 local active_buf ---@type integer|nil
 local active_mark ---@type integer|nil
+local active_keys ---@type string[]|nil
 
 ---@class Beast.Starter.Line
 ---@field text string
@@ -214,17 +215,46 @@ local function clear_overlay()
 	active_mark = nil
 end
 
+---Unmap any `action` keys set for the active buffer.
+local function clear_keymaps()
+	if active_buf and active_keys then
+		for _, key in ipairs(active_keys) do
+			pcall(vim.keymap.del, "n", key, { buffer = active_buf })
+		end
+	end
+	active_keys = nil
+end
+
 ---Permanent teardown: drop the overlay AND the augroup. Called when the
 ---starter is definitively no longer applicable (text typed, file loaded,
 ---different buffer shown, split opened, etc.) — mirrors native intro's
 ---one-shot lifecycle.
 local function dispose()
 	clear_overlay()
+	clear_keymaps()
 	active_buf = nil
 	if augroup then
 		pcall(vim.api.nvim_del_augroup_by_id, augroup)
 		augroup = nil
 	end
+end
+
+---Map `key.key -> key.action` on `buf` for every configured row that has an
+---`action`. `vim.keymap.set` has no native `once`, so we unmap by hand right
+---before invoking the action, giving one-shot semantics.
+---@param buf integer
+local function setup_keymaps(buf)
+	local keys = {}
+	for _, k in ipairs(config.keys or {}) do
+		if k.action then
+			vim.keymap.set("n", k.key, function()
+				pcall(vim.keymap.del, "n", k.key, { buffer = buf })
+				k.action()
+			end, { buffer = buf, desc = k.desc, silent = true })
+			keys[#keys + 1] = k.key
+		end
+	end
+	active_keys = keys
 end
 
 -- Back-compat alias for sites that previously called clear().
@@ -355,6 +385,7 @@ local function render(buf)
 	end
 
 	-- Replace the previous overlay (resize / re-render path).
+	local is_new_buf = active_buf ~= buf
 	if active_buf == buf and active_mark then
 		pcall(vim.api.nvim_buf_del_extmark, buf, ns, active_mark)
 	elseif active_buf and active_buf ~= buf then
@@ -373,6 +404,9 @@ local function render(buf)
 
 	active_buf = buf
 	active_mark = vim.api.nvim_buf_set_extmark(buf, ns, 0, 0, mark_opts)
+	if is_new_buf then
+		setup_keymaps(buf)
+	end
 end
 
 ---Show the starter overlay in the current window's buffer, if eligible.
