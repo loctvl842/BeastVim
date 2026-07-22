@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784551056800,
+  "lastUpdate": 1784702811162,
   "repoUrl": "https://github.com/loctvl842/BeastVim",
   "entries": {
     "BeastVim Startup": [
@@ -1187,6 +1187,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "BeastVim startup (warm) max",
             "value": 37.561248000000006,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "committer": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "distinct": true,
+          "id": "0670a1ac0c63647a5b0fa8cb9bc2e1b4fb4838d5",
+          "message": "docs(session): regenerate codemap, mark session-init dev spec complete\n\nAdds the session lib to docs/CODEMAP/{architecture,libraries,INDEX}.md\nand checks off the dev spec's success criteria.",
+          "timestamp": "2026-07-21T00:44:14+07:00",
+          "tree_id": "eaa9a0e0150dcfaeb004c1225d5fde2afdd48a6b",
+          "url": "https://github.com/loctvl842/BeastVim/commit/0670a1ac0c63647a5b0fa8cb9bc2e1b4fb4838d5"
+        },
+        "date": 1784702810655,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "BeastVim startup (warm) mean",
+            "value": 37.45214725,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) stddev",
+            "value": 0.6779877168598487,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) min",
+            "value": 36.445916000000004,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) max",
+            "value": 39.539657000000005,
             "unit": "ms"
           }
         ]
