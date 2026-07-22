@@ -39,6 +39,7 @@ function M.create()
 		buf = View.buf.new("beast-explorer")
 		vim.bo[buf].bufhidden = "hide" -- keep alive across window close
 	end
+  assert(buf, "Failed to create explorer buffer")
 
 	-- Snapshot the real editing window's options before splitting, so we can
 	-- restore them on any new window created later (vsplit from explorer).

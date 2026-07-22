@@ -109,24 +109,17 @@ function M.mount()
 				end
 			end
 
-			local changed = state.active_path ~= next_active
-			state.active_path = next_active
-
 			-- Non-file / out-of-root buffer: clear marker and stop.
 			if not next_active then
-				if changed then
-					ui.flush()
-				end
+				ui.flush()
 				return
 			end
 
-			-- Skip cursor sync if the explorer already focuses this exact path.
-			-- Still flush when active_path changed so marker updates immediately.
+			-- Skip cursor sync if the explorer already focuses this exact path;
+			-- still flush so the active-file marker updates immediately.
 			local cur = state.current_node({ show_hidden = config.show_hidden })
 			if cur and cur.path == next_active then
-				if changed then
-					ui.flush()
-				end
+				ui.flush()
 				return
 			end
 
@@ -134,9 +127,6 @@ function M.mount()
 			local before = state.tree.version
 			local ok = pcall(ui.focus_path, next_active)
 			if not ok then
-				if changed then
-					ui.flush()
-				end
 				return
 			end
 			if state.tree.version ~= before then
@@ -161,25 +151,6 @@ function M.mount()
 			end
     end
   })
-
-	-- If the active file buffer gets deleted before another file buffer is
-	-- entered, clear marker immediately to avoid stale active-file highlight.
-	vim.api.nvim_create_autocmd({ "BufDelete", "BufWipeout" }, {
-		group = state.augroup,
-		callback = function(ev)
-			-- stylua: ignore
-			if not (state.view and state.view:is_valid() and state.tree and state.active_path) then return end
-			local path = ev.file ~= "" and ev.file or vim.api.nvim_buf_get_name(ev.buf)
-			-- stylua: ignore
-			if path == "" then return end
-			local closed_path = vim.fn.fnamemodify(path, ":p"):gsub("/$", "")
-			if closed_path ~= state.active_path then
-				return
-			end
-			state.active_path = nil
-			ui.flush()
-		end,
-	})
 
 	vim.api.nvim_create_autocmd("WinLeave", {
 		group = state.augroup,

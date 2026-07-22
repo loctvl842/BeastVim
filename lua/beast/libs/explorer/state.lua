@@ -10,20 +10,9 @@
 ---@field status table<string, integer>|nil      -- abs_path → highest-priority severity (lower = worse)
 ---@field dir_status table<string, integer>|nil  -- abs_dir → highest-priority severity aggregated from descendants
 
----@class Beast.Explorer.State
----@field tree Beast.Explorer.Tree|nil
----@field view Beast.Explorer.View|nil
----@field sticky Beast.Explorer.StickyView|nil
----@field augroup integer|nil
----@field saved_win_opts table<string,any>|nil
----@field source_win integer|nil
----@field clipboard Beast.Explorer.Clipboard|nil
----@field active_path string|nil  -- file currently open in the editor (for the active-file indicator)
----@field inline_prompt_spacer? {after_path:string,after_line:integer,prefix:string}  -- temporary spacer row for prompt.inline
----@field watchers table<string, uv.uv_fs_event_t>
----@field git Beast.Explorer.GitState
----@field diagnostics Beast.Explorer.DiagnosticsState
-local M = {
+
+---@type Beast.Explorer.State
+local state = {
 	tree = nil,
 	view = nil,
 	sticky = nil,
@@ -37,6 +26,38 @@ local M = {
 	git = { status = nil, dir_status = nil },
 	diagnostics = { status = nil, dir_status = nil },
 }
+
+---@class Beast.Explorer.State
+---@field tree Beast.Explorer.Tree|nil
+---@field view Beast.Explorer.View|nil
+---@field sticky Beast.Explorer.StickyView|nil
+---@field augroup integer|nil
+---@field saved_win_opts table<string,any>|nil
+---@field source_win integer|nil
+---@field clipboard Beast.Explorer.Clipboard|nil
+---@field active_path string|nil  -- file currently open in the editor (for the active-file indicator)
+---@field inline_prompt_spacer? {after_path:string,after_line:integer,prefix:string}  -- temporary spacer row for prompt.inline
+---@field watchers table<string, uv.uv_fs_event_t>
+---@field git Beast.Explorer.GitState
+---@field diagnostics Beast.Explorer.DiagnosticsState
+local M = setmetatable({}, {
+  __index = function(_, key)
+    if key == "active_path" then
+      if not state.source_win or not vim.api.nvim_win_is_valid(state.source_win) then
+        return nil
+      end
+
+      local buf = vim.api.nvim_win_get_buf(state.source_win)
+      return vim.api.nvim_buf_get_name(buf)
+    end
+
+    return state[key]
+  end,
+
+  __newindex = function(_, key, value)
+    state[key] = value
+  end,
+})
 
 -- ================================
 -- Methods
@@ -71,7 +92,6 @@ function M.reset()
 	M.view = nil
 	M.sticky = nil
 	M.augroup = nil
-	M.active_path = nil
 	M.inline_prompt_spacer = nil
 	M.watchers = {}
 	M.git = { status = nil, dir_status = nil }

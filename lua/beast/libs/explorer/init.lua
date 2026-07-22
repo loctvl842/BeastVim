@@ -58,7 +58,6 @@ function M.open(dir)
 		end
 		state.tree:open(file_norm)
 	end
-	state.active_path = has_file and file_norm or nil
 
   -- stylua: ignore
   local on_done = has_file and function() ui.focus_path(file_norm) end or nil
