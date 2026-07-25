@@ -121,6 +121,11 @@ A new lib, `session`, follows the exact structure every other BeastVim lib uses:
 ## Completed
 
 2026-07-21 — Phase 1 (lib + wiring) and Phase 2 (headless test, 15 assertions)
-both landed and verified. Note: `lua/beast/libs/session/init.lua` has since
-seen further local edits beyond this spec's scope (fold-state restore on
-load) — not covered by this dev spec.
+both landed and verified.
+
+2026-07-22 — `lua/beast/libs/session/init.lua` had since accumulated
+out-of-spec fold-state restore logic (a timing-based retry replay, then a
+snapshot-based rewrite attempt) that never worked reliably. Both were
+removed to bring the lib back to exactly this spec: `save()`/`load()`/
+`exists()`, no fold handling. Verified against `tests/test-session.lua`
+(15 assertions, unaffected) and `stylua --check`.

@@ -164,13 +164,9 @@ Type: native `%!` winbar; per-window cache; no View subclass
 
 ```
 session/
-├── init.lua          ← setup() (VimLeavePre autocmd), load(), exists(); private
-│                        identity/path encoding, save guard, LspAttach fold handoff
-├── config.lua        ← readonly singleton (dir, fold_snapshot{enabled,max_files,
-│                        max_ranges_per_file,suffix})
-└── fold_snapshot.lua ← collect/write/read/apply_buf/apply_all — top-level
-                         fold ranges (open+closed) keyed by absolute path,
-                         independent of mksession
+├── init.lua   ← setup() (VimLeavePre autocmd), load(), exists(); private
+│                identity/path encoding, save guard
+└── config.lua ← readonly singleton (dir)
 ```
 
 API: `session.setup(opts)`, `session.load()`, `session.exists()`.
@@ -180,23 +176,16 @@ the plain identity when no branch-specific session exists. Save (on
 `VimLeavePre`) is skipped when 0 real file buffers are open, so an empty
 quit never clobbers a prior session.
 
-Fold restore: `save()` also writes a `<session>.folds.json` sidecar
-(deleted if no fold structure exists) via `fold_snapshot.collect()`, which
-records each top-level fold's `{start, end, was_closed}` — not just closed
-ones, so open-but-foldable regions aren't left unfoldable once manual takes
-over. `load()` sources the session then applies the sidecar synchronously —
-no wait/retry — since `:mksession` itself never captures fold state under
-`foldmethod=expr` (treesitter/LSP). `apply_buf` forces the window to
-`foldmethod=manual` to (re)create ranges (`:fold` no-ops under expr) and
-deliberately leaves it manual for the rest of the session — there is no
-sync signal for "LSP fold data is ready" to hand back on. A one-shot
-`LspAttach` autocmd re-applies the still-pending snapshot for a buffer,
-since `lsp.attach`'s own `apply_fold` resets `foldmethod=expr` on attach
-and would otherwise wipe the restored folds.
+`load()` is a thin `:source` of the `:mksession`-written file — nothing
+else. Deliberately minimal: two fold-restore mechanisms (a timing-based
+retry replay, then a synchronous snapshot-based rewrite) were tried to fix
+`zc` silently no-op'ing under `foldmethod=expr` (treesitter/LSP fold
+structure not ready yet when the session sources), and both were removed
+after neither worked reliably in practice.
 
 Loaded via: `packer.lazy()` on `VimEnter` (deferred), no keys/module trigger
 — must be active without any user action.
-Tests: `tests/test-session.lua` (30 assertions), `tests/test-session-fold-snapshot.lua` (24 assertions).
+Tests: `tests/test-session.lua` (15 assertions).
 
 ---
 
