@@ -50,7 +50,9 @@ function M.setup(plugin_spec, keys_list, load_fn)
 		-- Set temporary keymap using Keys.safe_set (handles mode normalization automatically)
 		Key.safe_set(mode, lhs, function()
 			-- Delete the temporary keymap
-			Key.safe_set(mode, lhs, false)
+      ---@type Beast.KeymapSpec
+      local spec = { lhs, nil, mode = mode }
+			Key.del(spec)
 
 			-- Load the plugin
 			-- Pass the key sequence that triggered the load

@@ -231,21 +231,43 @@ end
 
 ---Parse Spec -> Base
 ---@param value Beast.KeymapSpec
----@param mode? string
 ---@return Beast.Keymap
-local function parse(value, mode)
+local function parse(value)
+  assert(
+    value.mode == nil or type(value.mode) == "string",
+    ("invalid 'mode': expected a string or nil, got %s (%s)")
+      :format(type(value.mode), vim.inspect(value.mode))
+  )
 	local ret = vim.deepcopy(value) --[[@as Beast.Keymap]]
 
 	ret.lhs = ret[1] or ""
 	ret.rhs = ret[2]
 	ret[1] = nil
 	ret[2] = nil
-	ret.mode = mode or "n"
+  ret.mode = value.mode --[[@as string]] or "n"
 
 	-- Create unique ID using termcodes for special keys
 	ret.id = vim.api.nvim_replace_termcodes(ret.lhs, true, true, true) .. " (" .. ret.mode .. ")"
 
 	return ret
+end
+
+---@param mode string|string[] Modes (e.g. "n" or {"n","v"} or "nvo")
+local function normalize_modes(mode)
+	local modes
+	if type(mode) == "table" then
+		modes = mode --[[@as string[] ]]
+	elseif type(mode) == "string" and #mode > 1 then
+		modes = {}
+		for m in mode:gmatch(".") do
+			table.insert(modes, m)
+		end
+	else
+		modes = {
+			mode --[[@as string]],
+		}
+	end
+  return modes
 end
 
 local skip = { mode = true, id = true, rhs = true, lhs = true, has = true, group = true }
@@ -265,44 +287,46 @@ function M.opts(keys)
 end
 
 ---Delete a keymap and unmark it as managed
----@param keys Beast.Keymap
+---@param spec Beast.KeymapSpec
 ---@param buffer? integer|boolean Buffer number for buffer-local mapping
-function M.del(keys, buffer)
-	local ok, _ = pcall(vim.keymap.del, keys.mode, keys.lhs, { buffer = buffer })
-	M.managed[keys.id] = nil
-	M.forget_conflict(keys.id)
-	emit_changed(EVENTS.DEL, keys, buffer)
+function M.del(spec, buffer)
+  local km = parse(spec)
+	local ok, _ = pcall(vim.keymap.del, km.mode, km.lhs, { buffer = buffer })
+	M.managed[km.id] = nil
+	M.forget_conflict(km.id)
+	emit_changed(EVENTS.DEL, km, buffer)
 	return ok
 end
 
 ---Set a keymap and mark it as managed
----@param keys Beast.Keymap
+---@param spec Beast.KeymapSpec
 ---@param buffer? integer|boolean Buffer number for buffer-local mapping
-function M.set(keys, buffer)
+function M.set(spec, buffer)
+  local km = parse(spec)
   -- stylua: ignore
-  if not keys.rhs then return end
+  if not km.rhs then return end
 
-	local opts = M.opts(keys)
+	local opts = M.opts(km)
 	if buffer ~= nil then
 		opts.buffer = buffer
 	end
 	opts.silent = opts.silent ~= false -- default to silent
 
-	vim.keymap.set(keys.mode, keys.lhs, keys.rhs, opts)
+	vim.keymap.set(km.mode, km.lhs, km.rhs, opts)
 
 	-- Normalise buffer identity so downstream consumers (e.g. hint index) can
 	-- determine which buffer this map lives on. `true` / `0` mean "current
 	-- buffer" at set-time — resolve to the actual bufnr.
 	if buffer == true or buffer == 0 then
-		keys.buffer = vim.api.nvim_get_current_buf()
+		km.buffer = vim.api.nvim_get_current_buf()
 	elseif type(buffer) == "number" then
-		keys.buffer = buffer
+		km.buffer = buffer
 	end
 
 	-- Store the full keymap object for later export
-	M.managed[keys.id] = keys
-	record_call(keys.id, keys)
-	emit_changed(EVENTS.SET, keys, buffer)
+	M.managed[km.id] = km
+	record_call(km.id, km)
+	emit_changed(EVENTS.SET, km, buffer)
 end
 
 ---Safely set or delete a keymap across modes
@@ -320,34 +344,22 @@ function M.safe_set(mode, lhs, rhs, opts)
   -- stylua: ignore
   for k, v in pairs(opts) do spec[k] = v end
 
-	local modes
-	if type(mode) == "table" then
-		modes = mode --[[@as string[] ]]
-	elseif type(mode) == "string" and #mode > 1 then
-		modes = {}
-		for m in mode:gmatch(".") do
-			table.insert(modes, m)
-		end
-	else
-		modes = {
-			mode --[[@as string]],
-		}
-	end
-
-	for _, m in ipairs(modes) do
-		local km = parse(spec, m)
-		if rhs == vim.NIL or rhs == false then
-			M.del(km, opts.buffer)
-		elseif rhs ~= nil then
-			M.set(km, opts.buffer)
-		else
-			-- Label/group only: track in the registry for the hint index, but
-			-- don't register an actual keymap with Neovim.
-			M.managed[km.id] = km
-			emit_changed(EVENTS.LBL, km, opts.buffer)
-		end
-		-- rhs == nil → label/group: skip (no mapping)
-	end
+  local modes = normalize_modes(mode)
+  for _, m in ipairs(modes) do
+    spec.mode = m
+    if rhs == vim.NIL or rhs == false then
+      M.del(spec, opts.buffer)
+    elseif rhs ~= nil then
+      M.set(spec, opts.buffer)
+    else
+      local km = parse(spec)
+      -- Label/group only: track in the registry for the hint index, but
+      -- don't register an actual keymap with Neovim.
+      M.managed[km.id] = km
+      emit_changed(EVENTS.LBL, km, opts.buffer)
+    end
+    -- rhs == nil → label/group: skip (no mapping)
+  end
 end
 
 return M
