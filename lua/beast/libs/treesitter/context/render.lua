@@ -296,6 +296,56 @@ local function copy_extmarks(bufnr, ctx_bufnr, contexts)
 	end
 end
 
+--- Draw indent guides on the context lines, mirroring Beast's indent library
+--- so headers line up with the guides shown for the same lines in the real
+--- buffer below them. Indent is computed against the source buffer (correct
+--- shiftwidth/indentexpr for the language), not the context float, which is
+--- tagged with its own "beast-treesitter-context" filetype.
+---@param winid integer
+---@param bufnr integer
+---@param ctx_bufnr integer
+---@param contexts Range4[]
+local function draw_indent_guides(winid, bufnr, ctx_bufnr, contexts)
+	local indent_config = require("beast.libs.indent.config")
+	local indent_guide = require("beast.libs.indent.guide")
+	if not indent_config.guide.enabled then
+		return
+	end
+
+	local sw = vim.bo[bufnr].shiftwidth
+	sw = sw == 0 and vim.bo[bufnr].tabstop or sw
+	if sw <= 0 then
+		return
+	end
+
+	local leftcol = api.nvim_win_call(winid, fn.winsaveview).leftcol
+	local virt_text = { { indent_config.guide.symbol, "BeastIndentGuide" } }
+
+	local offset = 0
+	for _, context in ipairs(contexts) do
+		local start_row = context[1]
+		for i = 1, range_height(context) do
+			local indent = api.nvim_buf_call(bufnr, function()
+				return indent_guide.get_indent(bufnr, start_row + i, sw)
+			end)
+
+			for col = 0, indent - 1, sw do
+				local win_col = col - leftcol
+				if win_col >= 0 then
+					add_extmark(ctx_bufnr, offset + (i - 1), 0, {
+						virt_text = virt_text,
+						virt_text_pos = "overlay",
+						virt_text_win_col = win_col,
+						hl_mode = "combine",
+						priority = indent_config.guide.priority,
+					})
+				end
+			end
+		end
+		offset = offset + range_height(context)
+	end
+end
+
 --- Underline the last row of a float to mark the context/content boundary.
 ---@param bufnr integer
 ---@param row integer
@@ -441,6 +491,7 @@ function M.open(winid, ranges, lines, force_hl)
 		api.nvim_buf_clear_namespace(ctx_bufnr, ns, 0, -1)
 		highlight_contexts(bufnr, ctx_bufnr, ranges)
 		copy_extmarks(bufnr, ctx_bufnr, ranges)
+		draw_indent_guides(winid, bufnr, ctx_bufnr, ranges)
 		highlight_bottom(ctx_bufnr, height - 1, "BeastTreesitterContextBottom")
 		sync_horizontal_scroll(winid, st.content.win)
 	end
