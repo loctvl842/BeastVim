@@ -11,6 +11,8 @@ local M = setmetatable({}, {
 M.meta = { name = "key", description = "Keymap registry, hints, and cheatsheet UI" }
 
 M.safe_set = require("beast.libs.key.core").safe_set
+M.set = require("beast.libs.key.core").set
+M.del = require("beast.libs.key.core").del
 
 M.managed = require("beast.libs.key.core").managed
 

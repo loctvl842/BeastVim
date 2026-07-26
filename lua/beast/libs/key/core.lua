@@ -11,6 +11,7 @@
 ---@field replace_keycodes? boolean
 ---@field unique? boolean
 ---@field script? boolean
+---@field once? boolean
 
 ---@class Beast.KeymapSpec: Beast.KeymapBase
 ---@field [1] string lhs (left-hand side)
@@ -270,7 +271,7 @@ local function normalize_modes(mode)
   return modes
 end
 
-local skip = { mode = true, id = true, rhs = true, lhs = true, has = true, group = true }
+local skip = { mode = true, id = true, rhs = true, lhs = true, has = true, group = true, once = true }
 
 ---@param keys Beast.KeymapBase
 ---@return table opts Options suitable for vim.keymap.set
@@ -306,13 +307,34 @@ function M.set(spec, buffer)
   -- stylua: ignore
   if not km.rhs then return end
 
+	local rhs = km.rhs
+  -- stylua: ignore
+  if not rhs then return end
+
 	local opts = M.opts(km)
 	if buffer ~= nil then
 		opts.buffer = buffer
 	end
 	opts.silent = opts.silent ~= false -- default to silent
 
-	vim.keymap.set(km.mode, km.lhs, km.rhs, opts)
+  if spec.once then
+    if type(rhs) == "function" then
+      rhs = function(...)
+        M.del(spec, buffer)
+			  return km.rhs(...)
+      end
+    elseif type(rhs) == "string" then
+      rhs = function()
+        M.del(spec, buffer)
+        local keys = vim.api.nvim_replace_termcodes(rhs, true, true, true)
+        vim.api.nvim_feedkeys(keys, "m", false)
+      end
+    else
+      error(("expected rhs to be a function or string, got %s"):format(type(rhs)))
+    end
+  end
+
+	vim.keymap.set(km.mode, km.lhs, rhs, opts)
 
 	-- Normalise buffer identity so downstream consumers (e.g. hint index) can
 	-- determine which buffer this map lives on. `true` / `0` mean "current

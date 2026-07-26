@@ -61,14 +61,18 @@ function M.setup(plugin_spec, keys_list, load_fn)
 			-- Set up the real keymap if rhs was provided
 			vim.schedule(function()
 				if rhs then
-					Key.safe_set(mode, lhs, rhs, map_opts)
+          if not key_spec.once then
+					  Key.safe_set(mode, lhs, rhs, map_opts)
+          end
 					-- Execute the mapping
 					if type(rhs) == "function" then
 						rhs()
-					else
+          elseif type(rhs) == "string" then
 						-- It's a key sequence string (e.g., "<cmd>Neotree toggle<cr>")
 						local keys = vim.api.nvim_replace_termcodes(rhs, true, true, true)
 						vim.api.nvim_feedkeys(keys, "m", false)
+          else
+            error(("expected rhs to be a function or string, got %s"):format(type(rhs)))
 					end
 				else
 					-- No rhs provided, just re-trigger the key
