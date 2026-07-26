@@ -26,6 +26,37 @@ function M.sidebar_title(bufnr)
 	return config.sidebar_filetypes[ft]
 end
 
+--- Pick a fallback buffer to switch to: alternate buffer first,
+--- then the most recently used listed buffer.
+---@param exclude? integer[] buffers to skip
+---@return integer?
+function M.find_fallback_buffer(exclude)
+	local excluded = {}
+	for _, bufnr in ipairs(exclude or {}) do
+		excluded[bufnr] = true
+	end
+
+	-- Prefer alternate buffer first.
+	local alt = vim.fn.bufnr("#")
+	if alt > 0 and not excluded[alt] and vim.fn.buflisted(alt) == 1 and vim.api.nvim_buf_is_valid(alt) then
+		return alt
+	end
+
+	-- Then most recently used listed buffer.
+	local infos = vim.fn.getbufinfo({ buflisted = 1 })
+	table.sort(infos, function(a, b)
+		return (a.lastused or 0) > (b.lastused or 0)
+	end)
+
+	for _, info in ipairs(infos) do
+		if not excluded[info.bufnr] and vim.api.nvim_buf_is_valid(info.bufnr) then
+			return info.bufnr
+		end
+	end
+
+	return nil
+end
+
 --- Return sorted listed buffers, hiding empty [No Name] buffers.
 --- When every buffer carries a b:buffer_order variable, sort by that instead.
 ---@return integer[]
