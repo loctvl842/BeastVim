@@ -17,6 +17,7 @@ M.meta = { name = "breadcrumb", description = "Winbar breadcrumb showing file pa
 
 ---@class Beast.Breadcrumb.CacheEntry
 ---@field bufnr integer
+---@field bufname string
 ---@field modified boolean
 ---@field output string
 
@@ -85,8 +86,8 @@ local function ensure_autocmds()
 		end,
 	})
 
-	-- Modified state change: invalidate all windows showing this buffer
-	vim.api.nvim_create_autocmd({ "BufModifiedSet", "BufWritePost" }, {
+	-- Modified / rename / delete: invalidate windows showing this buffer
+	vim.api.nvim_create_autocmd({ "BufModifiedSet", "BufWritePost", "BufFilePost", "BufDelete" }, {
 		group = state.augroup,
 		callback = function(args)
 			invalidate_buf(args.buf)
@@ -133,10 +134,10 @@ function M.render()
 	-- stylua: ignore
 	if config.ignored_buftypes[ctx.buftype] then return "" end
 
-	-- Cache check: hit if same buffer and same modified state
+	-- Cache check: hit if same buffer, name, and modified state
 	local cached = state.cache[ctx.winid]
 	local modified = vim.bo[ctx.bufnr].modified
-	if cached and cached.bufnr == ctx.bufnr and cached.modified == modified then
+	if cached and cached.bufnr == ctx.bufnr and cached.bufname == ctx.bufname and cached.modified == modified then
 		return cached.output
 	end
 
@@ -146,6 +147,7 @@ function M.render()
 	-- Store in cache
 	state.cache[ctx.winid] = {
 		bufnr = ctx.bufnr,
+		bufname = ctx.bufname,
 		modified = modified,
 		output = output,
 	}
