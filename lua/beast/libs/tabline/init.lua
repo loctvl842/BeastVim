@@ -95,6 +95,19 @@ local function ensure_autocmds()
 			end)
 		end,
 	})
+
+	-- Remove buffers whose file was deleted or renamed outside Neovim
+	vim.api.nvim_create_autocmd({ "FocusGained", "ShellCmdPost" }, {
+		group = state.augroup,
+		callback = function()
+			if buffers_mod.cleanup_stale() then
+				invalidate()
+				vim.schedule(function()
+					vim.cmd("redrawtabline")
+				end)
+			end
+		end,
+	})
 end
 
 --- Render the tabline. Called by Neovim via %!v:lua.require'beast.libs.tabline'.render()
