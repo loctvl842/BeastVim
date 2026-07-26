@@ -71,7 +71,7 @@ o.formatexpr = "v:lua.require'beastvim.util'.format.formatexpr()"
 o.formatoptions = "jcroqlnt" -- tcqj
 o.grepformat = "%f:%l:%c:%m"
 -- session
-o.sessionoptions = { "buffers", "curdir", "tabpages", "winsize" }
+o.sessionoptions = { "buffers", "curdir", "tabpages", "winsize", "help", "globals", "skiprtp", "folds" }
 
 o.shortmess:append("c")
 o.viewoptions:remove("curdir") -- disable saving current directory with views
