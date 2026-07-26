@@ -116,6 +116,18 @@ function M.setup(opts)
 			session.setup(cfg.session or {})
 		end,
 	})
+  local session = require("beast.libs.session")
+  if session.exists() then
+	  cfg.starter.keys[#cfg.starter.keys + 1] = { verb = "press", key = "<leader>s", desc = "to load last session" }
+    packer.lazy("beast.libs.session", {
+      keys = {
+        { "<leader>s", function() session.load() end, once = true, mode = "n", desc = "Loading last session", group = "Session" }
+      },
+      setup = function(ses)
+        ses.setup(cfg.session or {})
+      end,
+    })
+  end
 
 	-- Tabline (lazy — deferred past first screen update)
 	packer.lazy("beast.libs.tabline", {
