@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-21 | Files scanned: 24 | Token estimate: ~265 -->
+<!-- Generated: 2026-07-26 | Files scanned: 24 | Token estimate: ~270 -->
 
 # BeastVim Codemaps
 
@@ -11,8 +11,8 @@ Quick-reference architecture documentation. Regenerate with `/update-codemap`.
 ## Project Stats
 - Language: Lua
 - Platform: Neovim plugin (config-as-plugin)
-- Lines of code: ~39,947 across 271 lua files
-- Libraries: 22 (added session) — autopairs, breadcrumb, confirm, explorer, finder, git, image, indent, key, lsp, notify, packer, scroll, session, starter, statuscolumn, statusline, tabline, toast, treesitter, view, window
+- Lines of code: ~40,382 across 271 lua files
+- Libraries: 22 — autopairs, breadcrumb, confirm, explorer, finder, git, image, indent, key, lsp, notify, packer, scroll, session, starter, statuscolumn, statusline, tabline, toast, treesitter, view, window
 - Shared modules: view/ (instance + .buf + .win submodules), animate.lua, async.lua, util/, theme/
 - Profiler: lua/beast/profile.lua (per-fn count/total/self stats)
-- Last updated: 2026-07-22 (reverted an abandoned fold_snapshot.lua experiment; session lib is back to its timing-based closed-fold replay)
+- Last updated: 2026-07-26 (tabline filesystem sync: cleanup_stale on FocusGained/ShellCmdPost)
