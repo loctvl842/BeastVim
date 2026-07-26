@@ -169,9 +169,7 @@ local function bench(label, lines, positions, sw)
 	local buf = make_buf(lines, sw)
 	local has_ts = start_treesitter(buf)
 
-	print(("─── %s (%d lines, %d positions, %d iters, TS=%s) ───"):format(
-		label, #lines, #positions, ITERATIONS, has_ts and "yes" or "NO"
-	))
+	print(("─── %s (%d lines, %d positions, %d iters, TS=%s) ───"):format(label, #lines, #positions, ITERATIONS, has_ts and "yes" or "NO"))
 
 	local indent_ms = bench_fn("indent", find_by_indent, buf, positions)
 
@@ -216,7 +214,9 @@ local function compare(label, lines, positions, sw)
 		local ts_result = find_by_treesitter(buf, { line, 0 })
 
 		local function fmt(scopes)
-			if not scopes then return "nil" end
+			if not scopes then
+				return "nil"
+			end
 			local parts = {}
 			for _, s in ipairs(scopes) do
 				table.insert(parts, ("{%d→%d @%d}"):format(s.from, s.to, s.indent))
@@ -245,11 +245,17 @@ end
 
 -- ── Run ────────────────────────────────────────────────────────────────
 
-print("╔══════════════════════════════════════════════════════════════════╗")
+print(
+	"╔══════════════════════════════════════════════════════════════════╗"
+)
 print("║          BeastVim: indent scope vs treesitter scope            ║")
-print("╠══════════════════════════════════════════════════════════════════╣")
+print(
+	"╠══════════════════════════════════════════════════════════════════╣"
+)
 print(("║  Iterations: %d  │  Warmup: %d                              ║"):format(ITERATIONS, WARMUP))
-print("╚══════════════════════════════════════════════════════════════════╝")
+print(
+	"╚══════════════════════════════════════════════════════════════════╝"
+)
 print("")
 
 -- Positions across different code structures
@@ -261,7 +267,9 @@ bench("Large file (nested handlers)", large_lua, large_positions)
 
 -- All lines
 local all_small = {}
-for i = 1, #lua_code do table.insert(all_small, i) end
+for i = 1, #lua_code do
+	table.insert(all_small, i)
+end
 bench("All lines (small)", lua_code, all_small)
 
 print("═══ Correctness Comparison ═══")
@@ -271,15 +279,21 @@ print("")
 compare("Small file — all lines", lua_code, all_small)
 
 local sample_large = {}
-for i = 1, #large_lua do table.insert(sample_large, i) end
+for i = 1, #large_lua do
+	table.insert(sample_large, i)
+end
 compare("Large file — all lines", large_lua, sample_large)
 
 -- ── Design comparison table ────────────────────────────────────────────
 print("═══ Design Comparison ═══")
 print("")
-print("┌──────────────────────┬──────────────────────────┬──────────────────────────────┐")
+print(
+	"┌──────────────────────┬──────────────────────────┬──────────────────────────────┐"
+)
 print("│ Aspect               │ find_by_indent           │ find_by_treesitter           │")
-print("├──────────────────────┼──────────────────────────┼──────────────────────────────┤")
+print(
+	"├──────────────────────┼──────────────────────────┼──────────────────────────────┤"
+)
 print("│ Parser needed        │ No                       │ Yes (treesitter parser)      │")
 print("│ Multi-segment        │ Always 1 segment         │ Splits at elseif/else        │")
 print("│ Edge detection       │ Heuristic (neighbors)    │ Node boundary (exact)        │")
@@ -287,7 +301,9 @@ print("│ Blank line handling  │ MIN of neighbors         │ Inherits body i
 print("│ Language-aware       │ No                       │ Yes (scope_types per lang)   │")
 print("│ Fallback             │ Always works             │ Falls back to indent         │")
 print("│ Cost per call        │ ~1-2 vim.fn calls        │ get_node + parent walk       │")
-print("└──────────────────────┴──────────────────────────┴──────────────────────────────┘")
+print(
+	"└──────────────────────┴──────────────────────────┴──────────────────────────────┘"
+)
 print("")
 
 vim.cmd("qa!")

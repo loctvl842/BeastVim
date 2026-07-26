@@ -53,7 +53,7 @@ end
 ---@param c integer|string
 ---@return string
 local function getchar_to_str(c)
-  ---@diagnostic disable-next-line: return-type-mismatch
+	---@diagnostic disable-next-line: return-type-mismatch
 	return type(c) == "number" and vim.fn.nr2char(c) or c
 end
 

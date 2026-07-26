@@ -14,16 +14,18 @@ local state             = require("beast.libs.packer.state")
 local function _lazy(mod)
 	local cached
 	return function()
-		if not cached then cached = require(mod) end
+		if not cached then
+			cached = require(mod)
+		end
 		return cached
 	end
 end
 
-local operation         = _lazy("beast.libs.packer.operation")
-local ui                = _lazy("beast.libs.packer.ui")
-local cmd_trigger       = _lazy("beast.libs.packer.triggers.cmd")
-local filetype_trigger  = _lazy("beast.libs.packer.triggers.filetype")
-local path_trigger      = _lazy("beast.libs.packer.triggers.path")
+local operation = _lazy("beast.libs.packer.operation")
+local ui = _lazy("beast.libs.packer.ui")
+local cmd_trigger = _lazy("beast.libs.packer.triggers.cmd")
+local filetype_trigger = _lazy("beast.libs.packer.triggers.filetype")
+local path_trigger = _lazy("beast.libs.packer.triggers.path")
 
 local M = {}
 

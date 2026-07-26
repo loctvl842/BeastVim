@@ -8,11 +8,13 @@ local M = {}
 M.meta = { name = "session", description = "Auto-saves and restores the editor session per project directory and git branch" }
 
 local function project_dir()
-  local ok, dir = pcall(function() return Util.root() end)
-  if ok and dir then
-    return dir
-  end
-  return vim.fn.getcwd()
+	local ok, dir = pcall(function()
+		return Util.root()
+	end)
+	if ok and dir then
+		return dir
+	end
+	return vim.fn.getcwd()
 end
 
 ---@param s string

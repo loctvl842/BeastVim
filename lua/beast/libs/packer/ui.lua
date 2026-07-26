@@ -60,7 +60,9 @@ local M = {}
 -- macOS) and the UI is the only consumer. PackChanged keeps it fresh after.
 local installed_primed = false
 local function prime_installed()
-	if installed_primed then return end
+	if installed_primed then
+		return
+	end
 	installed_primed = true
 	for _, plugin in ipairs(vim.pack.get()) do
 		state.installed_plugins[plugin.spec.name] = true
@@ -411,7 +413,10 @@ function Main._render_main(main)
 		end
 		table.insert(lines_segments, { new_line })
 	else
-		table.insert(lines_segments, { { text = string.format("  Total: %d plugins · %d libraries   Sort: %s", total, lib_total, sort_text), hl = "BeastPackerComment" } })
+		table.insert(
+			lines_segments,
+			{ { text = string.format("  Total: %d plugins · %d libraries   Sort: %s", total, lib_total, sort_text), hl = "BeastPackerComment" } }
+		)
 		table.insert(lines_segments, { new_line })
 	end
 	local loaded = {}
@@ -449,7 +454,9 @@ function Main._render_main(main)
 		if lib_count > 0 then
 			table.insert(parts, lib_count .. " librar" .. (lib_count == 1 and "y" or "ies"))
 		end
-		if #parts == 0 then return "(0)" end
+		if #parts == 0 then
+			return "(0)"
+		end
 		return "(" .. table.concat(parts, ", ") .. ")"
 	end
 
@@ -471,7 +478,10 @@ function Main._render_main(main)
 	end
 
 	if #loaded > 0 then
-		table.insert(lines_segments, { { text = "  Loaded ", hl = "BeastPackerH2" }, { text = count_label(loaded_plugins, loaded_libs), hl = "BeastPackerComment" } })
+		table.insert(
+			lines_segments,
+			{ { text = "  Loaded ", hl = "BeastPackerH2" }, { text = count_label(loaded_plugins, loaded_libs), hl = "BeastPackerComment" } }
+		)
 		for _, spec in ipairs(loaded) do
 			---@type Beast.Packer.UI.Segment[]
 			local segments = {}
@@ -510,7 +520,10 @@ function Main._render_main(main)
 			return v or {}
 		end
 
-		table.insert(lines_segments, { { text = "  Not Loaded ", hl = "BeastPackerH2" }, { text = count_label(pending_plugins, pending_libs), hl = "BeastPackerComment" } })
+		table.insert(
+			lines_segments,
+			{ { text = "  Not Loaded ", hl = "BeastPackerH2" }, { text = count_label(pending_plugins, pending_libs), hl = "BeastPackerComment" } }
+		)
 		for _, spec in ipairs(pending) do
 			---@type Beast.Packer.UI.Segment[]
 			local segments = {}
@@ -527,16 +540,26 @@ function Main._render_main(main)
 			if type(spec.lazy) == "table" then
 				local lazy = spec.lazy
 				local function event_name(e)
-					if type(e) == "string" then return e end
-					if type(e) == "table" then return e.name or "event" end
+					if type(e) == "string" then
+						return e
+					end
+					if type(e) == "table" then
+						return e.name or "event"
+					end
 					return "event"
 				end
 				-- Events accept richer forms than plain strings (EventSpec with
 				-- name/defer/cond fields, single object or list of either).
 				local function event_list(v)
-					if v == nil then return {} end
-					if type(v) == "string" then return { v } end
-					if type(v) == "table" and v.name then return { v } end
+					if v == nil then
+						return {}
+					end
+					if type(v) == "string" then
+						return { v }
+					end
+					if type(v) == "table" and v.name then
+						return { v }
+					end
 					return v
 				end
 				for _, ev in ipairs(event_list(lazy.event)) do
@@ -951,8 +974,12 @@ local function render_not_loaded(body_width)
 				if type(first) == "table" and not first.name then
 					first = first[1]
 				end
-				if type(first) == "table" then first = first.name end
-				if type(first) ~= "string" then first = "event" end
+				if type(first) == "table" then
+					first = first.name
+				end
+				if type(first) ~= "string" then
+					first = "event"
+				end
 				trigger = { text = "  " .. config.ui.icons.event .. first, hl = "BeastPackerTriggerEvent" }
 			elseif lazy.cmd then
 				trigger = { text = "  " .. config.ui.icons.cmd .. (first_of(lazy.cmd) or "cmd"), hl = "BeastPackerTriggerCmd" }
@@ -1017,7 +1044,19 @@ function Main._render_profile(main)
 	---@type Beast.Packer.UI.Segment[][]
 	local lines_segments = { { { text = "", hl = nil } } }
 
-	for _, l in ipairs(render_summary(total_ms, #plugin_items, #lib_items, phase_total_ms, sort_label, main.profile_filter_ms or 0, main.profile_group_by_reason or false)) do
+	for _, l in
+		ipairs(
+			render_summary(
+				total_ms,
+				#plugin_items,
+				#lib_items,
+				phase_total_ms,
+				sort_label,
+				main.profile_filter_ms or 0,
+				main.profile_group_by_reason or false
+			)
+		)
+	do
 		table.insert(lines_segments, l)
 	end
 
@@ -1246,12 +1285,20 @@ local function get_plugin_at_cursor()
 
 	-- Try 2nd-token (plugin row layout) first, then 3rd-token (lib row layout).
 	if t2 then
-		if state.plugins[t2] then return t2, "plugin" end
-		if state.libs[t2] then return t2, "lib" end
+		if state.plugins[t2] then
+			return t2, "plugin"
+		end
+		if state.libs[t2] then
+			return t2, "lib"
+		end
 	end
 	if t3 then
-		if state.plugins[t3] then return t3, "plugin" end
-		if state.libs[t3] then return t3, "lib" end
+		if state.plugins[t3] then
+			return t3, "plugin"
+		end
+		if state.libs[t3] then
+			return t3, "lib"
+		end
 	end
 
 	return nil

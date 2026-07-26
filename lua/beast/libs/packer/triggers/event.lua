@@ -68,7 +68,9 @@ function M.setup(plugin_spec, events, load_fn)
 			-- stylua: ignore
 			if cond and not cond(ev) then return false end
 			if defer then
-				vim.schedule(function() fire(ev) end)
+				vim.schedule(function()
+					fire(ev)
+				end)
 			else
 				fire(ev)
 			end

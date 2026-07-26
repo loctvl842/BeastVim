@@ -17,8 +17,8 @@ package.path = "./lua/?.lua;./lua/?/init.lua;" .. package.path
 
 local uv = vim.uv or vim.loop
 local config = require("beast.libs.finder.config")
-local lg = require("beast.libs.finder.source.live_grep")
 local index = require("beast.libs.finder.source.live_grep.engine.index")
+local lg = require("beast.libs.finder.source.live_grep")
 
 local root = os.getenv("BENCH_ROOT") or uv.cwd()
 
@@ -83,5 +83,12 @@ for _, q in ipairs(QUERIES) do
 end
 
 print(string.rep("-", 66))
-print(string.format("BENCH name=grep-ab status=PASS total_off=%.0fms total_on=%.0fms speedup=%.1fx", total_off, total_on, total_off / math.max(total_on, 0.01)))
+print(
+	string.format(
+		"BENCH name=grep-ab status=PASS total_off=%.0fms total_on=%.0fms speedup=%.1fx",
+		total_off,
+		total_on,
+		total_off / math.max(total_on, 0.01)
+	)
+)
 vim.cmd("qall!")

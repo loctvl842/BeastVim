@@ -50,8 +50,8 @@ function M.setup(plugin_spec, keys_list, load_fn)
 		-- Set temporary keymap using Keys.safe_set (handles mode normalization automatically)
 		Key.safe_set(mode, lhs, function()
 			-- Delete the temporary keymap
-      ---@type Beast.KeymapSpec
-      local spec = { lhs, nil, mode = mode }
+			---@type Beast.KeymapSpec
+			local spec = { lhs, nil, mode = mode }
 			Key.del(spec)
 
 			-- Load the plugin
@@ -61,18 +61,18 @@ function M.setup(plugin_spec, keys_list, load_fn)
 			-- Set up the real keymap if rhs was provided
 			vim.schedule(function()
 				if rhs then
-          if not key_spec.once then
-					  Key.safe_set(mode, lhs, rhs, map_opts)
-          end
+					if not key_spec.once then
+						Key.safe_set(mode, lhs, rhs, map_opts)
+					end
 					-- Execute the mapping
 					if type(rhs) == "function" then
 						rhs()
-          elseif type(rhs) == "string" then
+					elseif type(rhs) == "string" then
 						-- It's a key sequence string (e.g., "<cmd>Neotree toggle<cr>")
 						local keys = vim.api.nvim_replace_termcodes(rhs, true, true, true)
 						vim.api.nvim_feedkeys(keys, "m", false)
-          else
-            error(("expected rhs to be a function or string, got %s"):format(type(rhs)))
+					else
+						error(("expected rhs to be a function or string, got %s"):format(type(rhs)))
 					end
 				else
 					-- No rhs provided, just re-trigger the key

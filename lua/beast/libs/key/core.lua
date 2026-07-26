@@ -78,23 +78,28 @@ M.prefix_conflicts = {}
 local conflict_notify_scheduled = false
 
 local function schedule_conflict_notify()
-	if conflict_notify_scheduled then return end
+	if conflict_notify_scheduled then
+		return
+	end
 	conflict_notify_scheduled = true
 	vim.schedule(function()
 		local dups = 0
 		for _, b in pairs(M.conflicts) do
-			if #b.calls > 1 then dups = dups + 1 end
+			if #b.calls > 1 then
+				dups = dups + 1
+			end
 		end
 		local prefixes = vim.tbl_count(M.prefix_conflicts)
 		if dups + prefixes > 0 then
 			local parts = {}
-			if dups > 0 then parts[#parts + 1] = string.format("%d duplicate", dups) end
-			if prefixes > 0 then parts[#parts + 1] = string.format("%d prefix", prefixes) end
+			if dups > 0 then
+				parts[#parts + 1] = string.format("%d duplicate", dups)
+			end
+			if prefixes > 0 then
+				parts[#parts + 1] = string.format("%d prefix", prefixes)
+			end
 			vim.notify(
-				string.format(
-					"Keymap conflicts detected (%s) \nRun `:checkhealth beast.libs.key` for details",
-					table.concat(parts, ", ")
-				),
+				string.format("Keymap conflicts detected (%s) \nRun `:checkhealth beast.libs.key` for details", table.concat(parts, ", ")),
 				vim.log.levels.WARN,
 				{ timeout = 10000, title = "beast.libs.key" }
 			)
@@ -109,7 +114,9 @@ end
 local function resolve_call_site(desc)
 	for level = 2, 20 do
 		local info = debug.getinfo(level, "Sl")
-		if not info then break end
+		if not info then
+			break
+		end
 		local src = info.source or ""
 		local is_c = info.what == "C" or src == "=[C]" or src:sub(1, 2) == "=["
 		local is_internal = src:find("lua/beast/libs/key/", 1, true) ~= nil
@@ -234,18 +241,17 @@ end
 ---@param value Beast.KeymapSpec
 ---@return Beast.Keymap
 local function parse(value)
-  assert(
-    value.mode == nil or type(value.mode) == "string",
-    ("invalid 'mode': expected a string or nil, got %s (%s)")
-      :format(type(value.mode), vim.inspect(value.mode))
-  )
+	assert(
+		value.mode == nil or type(value.mode) == "string",
+		("invalid 'mode': expected a string or nil, got %s (%s)"):format(type(value.mode), vim.inspect(value.mode))
+	)
 	local ret = vim.deepcopy(value) --[[@as Beast.Keymap]]
 
 	ret.lhs = ret[1] or ""
 	ret.rhs = ret[2]
 	ret[1] = nil
 	ret[2] = nil
-  ret.mode = value.mode --[[@as string]] or "n"
+	ret.mode = value.mode --[[@as string]] or "n"
 
 	-- Create unique ID using termcodes for special keys
 	ret.id = vim.api.nvim_replace_termcodes(ret.lhs, true, true, true) .. " (" .. ret.mode .. ")"
@@ -268,7 +274,7 @@ local function normalize_modes(mode)
 			mode --[[@as string]],
 		}
 	end
-  return modes
+	return modes
 end
 
 local skip = { mode = true, id = true, rhs = true, lhs = true, has = true, group = true, once = true }
@@ -291,7 +297,7 @@ end
 ---@param spec Beast.KeymapSpec
 ---@param buffer? integer|boolean Buffer number for buffer-local mapping
 function M.del(spec, buffer)
-  local km = parse(spec)
+	local km = parse(spec)
 	local ok, _ = pcall(vim.keymap.del, km.mode, km.lhs, { buffer = buffer })
 	M.managed[km.id] = nil
 	M.forget_conflict(km.id)
@@ -303,7 +309,7 @@ end
 ---@param spec Beast.KeymapSpec
 ---@param buffer? integer|boolean Buffer number for buffer-local mapping
 function M.set(spec, buffer)
-  local km = parse(spec)
+	local km = parse(spec)
   -- stylua: ignore
   if not km.rhs then return end
 
@@ -317,22 +323,22 @@ function M.set(spec, buffer)
 	end
 	opts.silent = opts.silent ~= false -- default to silent
 
-  if spec.once then
-    if type(rhs) == "function" then
-      rhs = function(...)
-        M.del(spec, buffer)
-			  return km.rhs(...)
-      end
-    elseif type(rhs) == "string" then
-      rhs = function()
-        M.del(spec, buffer)
-        local keys = vim.api.nvim_replace_termcodes(rhs, true, true, true)
-        vim.api.nvim_feedkeys(keys, "m", false)
-      end
-    else
-      error(("expected rhs to be a function or string, got %s"):format(type(rhs)))
-    end
-  end
+	if spec.once then
+		if type(rhs) == "function" then
+			rhs = function(...)
+				M.del(spec, buffer)
+				return km.rhs(...)
+			end
+		elseif type(rhs) == "string" then
+			rhs = function()
+				M.del(spec, buffer)
+				local keys = vim.api.nvim_replace_termcodes(rhs, true, true, true)
+				vim.api.nvim_feedkeys(keys, "m", false)
+			end
+		else
+			error(("expected rhs to be a function or string, got %s"):format(type(rhs)))
+		end
+	end
 
 	vim.keymap.set(km.mode, km.lhs, rhs, opts)
 
@@ -366,22 +372,22 @@ function M.safe_set(mode, lhs, rhs, opts)
   -- stylua: ignore
   for k, v in pairs(opts) do spec[k] = v end
 
-  local modes = normalize_modes(mode)
-  for _, m in ipairs(modes) do
-    spec.mode = m
-    if rhs == vim.NIL or rhs == false then
-      M.del(spec, opts.buffer)
-    elseif rhs ~= nil then
-      M.set(spec, opts.buffer)
-    else
-      local km = parse(spec)
-      -- Label/group only: track in the registry for the hint index, but
-      -- don't register an actual keymap with Neovim.
-      M.managed[km.id] = km
-      emit_changed(EVENTS.LBL, km, opts.buffer)
-    end
-    -- rhs == nil → label/group: skip (no mapping)
-  end
+	local modes = normalize_modes(mode)
+	for _, m in ipairs(modes) do
+		spec.mode = m
+		if rhs == vim.NIL or rhs == false then
+			M.del(spec, opts.buffer)
+		elseif rhs ~= nil then
+			M.set(spec, opts.buffer)
+		else
+			local km = parse(spec)
+			-- Label/group only: track in the registry for the hint index, but
+			-- don't register an actual keymap with Neovim.
+			M.managed[km.id] = km
+			emit_changed(EVENTS.LBL, km, opts.buffer)
+		end
+		-- rhs == nil → label/group: skip (no mapping)
+	end
 end
 
 return M

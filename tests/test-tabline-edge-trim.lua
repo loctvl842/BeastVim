@@ -385,11 +385,7 @@ do
 	local dw_skill = vim.fn.strdisplaywidth(text_skill)
 	local avail_skill = 181 - (ctx_skill.sidebar_width or 0) - ctx_skill.tabpages_width
 
-	assert_test(
-		"SKILL.md: width <= available",
-		dw_skill <= avail_skill,
-		string.format("display_w=%d > available=%d", dw_skill, avail_skill)
-	)
+	assert_test("SKILL.md: width <= available", dw_skill <= avail_skill, string.format("display_w=%d > available=%d", dw_skill, avail_skill))
 
 	local waste_skill = avail_skill - dw_skill
 	assert_test(
@@ -470,11 +466,7 @@ do
 	local dw_first = vim.fn.strdisplaywidth(t_first)
 	local avail_first = 181 - (ctx_first.sidebar_width or 0) - ctx_first.tabpages_width
 
-	assert_test(
-		"commit first: width <= available",
-		dw_first <= avail_first,
-		string.format("display_w=%d > available=%d", dw_first, avail_first)
-	)
+	assert_test("commit first: width <= available", dw_first <= avail_first, string.format("display_w=%d > available=%d", dw_first, avail_first))
 
 	local waste_first = avail_first - dw_first
 	assert_test(
@@ -484,11 +476,7 @@ do
 	)
 
 	-- commit.lua is first so no left hidden
-	assert_test(
-		"commit first: no left truncation",
-		lh_first == 0,
-		string.format("left_hidden=%d expected 0", lh_first)
-	)
+	assert_test("commit first: no left truncation", lh_first == 0, string.format("left_hidden=%d expected 0", lh_first))
 end
 
 -- =========================================================================
@@ -552,11 +540,7 @@ do
 	local dw_sb = vim.fn.strdisplaywidth(t_sb)
 	local avail_sb = 181 - 40 - ctx_sb.tabpages_width
 
-	assert_test(
-		"sidebar: width <= available",
-		dw_sb <= avail_sb,
-		string.format("display_w=%d > available=%d", dw_sb, avail_sb)
-	)
+	assert_test("sidebar: width <= available", dw_sb <= avail_sb, string.format("display_w=%d > available=%d", dw_sb, avail_sb))
 
 	local waste_sb = avail_sb - dw_sb
 	assert_test(
@@ -566,11 +550,7 @@ do
 	)
 
 	-- With 11 buffers and 141 available, should show at least 7 (6 full + 1 compact pull-in)
-	assert_test(
-		"sidebar: at least 7 buffers visible",
-		#v_sb >= 7,
-		string.format("only %d visible (left=%d, right=%d)", #v_sb, lh_sb, rh_sb)
-	)
+	assert_test("sidebar: at least 7 buffers visible", #v_sb >= 7, string.format("only %d visible (left=%d, right=%d)", #v_sb, lh_sb, rh_sb))
 end
 
 -- =========================================================================
@@ -636,11 +616,7 @@ do
 	local dw_left = vim.fn.strdisplaywidth(t_left)
 	local avail_left = 181 - 40 - ctx_left.tabpages_width
 
-	assert_test(
-		"left pull-in: width <= available",
-		dw_left <= avail_left,
-		string.format("display_w=%d > available=%d", dw_left, avail_left)
-	)
+	assert_test("left pull-in: width <= available", dw_left <= avail_left, string.format("display_w=%d > available=%d", dw_left, avail_left))
 
 	local waste_left = avail_left - dw_left
 	assert_test(
@@ -650,11 +626,7 @@ do
 	)
 
 	-- Right side has no hidden (profile.lua is last), all hidden are on left
-	assert_test(
-		"left pull-in: no right truncation",
-		rh_left == 0,
-		string.format("right_hidden=%d expected 0", rh_left)
-	)
+	assert_test("left pull-in: no right truncation", rh_left == 0, string.format("right_hidden=%d expected 0", rh_left))
 
 	-- Should pull in one buffer on the left side via compact
 	assert_test(

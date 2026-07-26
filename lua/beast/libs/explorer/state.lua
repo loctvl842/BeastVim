@@ -10,7 +10,6 @@
 ---@field status table<string, integer>|nil      -- abs_path → highest-priority severity (lower = worse)
 ---@field dir_status table<string, integer>|nil  -- abs_dir → highest-priority severity aggregated from descendants
 
-
 ---@type Beast.Explorer.State
 local state = {
 	tree = nil,
@@ -41,22 +40,22 @@ local state = {
 ---@field git Beast.Explorer.GitState
 ---@field diagnostics Beast.Explorer.DiagnosticsState
 local M = setmetatable({}, {
-  __index = function(_, key)
-    if key == "active_path" then
-      if not state.source_win or not vim.api.nvim_win_is_valid(state.source_win) then
-        return nil
-      end
+	__index = function(_, key)
+		if key == "active_path" then
+			if not state.source_win or not vim.api.nvim_win_is_valid(state.source_win) then
+				return nil
+			end
 
-      local buf = vim.api.nvim_win_get_buf(state.source_win)
-      return vim.api.nvim_buf_get_name(buf)
-    end
+			local buf = vim.api.nvim_win_get_buf(state.source_win)
+			return vim.api.nvim_buf_get_name(buf)
+		end
 
-    return state[key]
-  end,
+		return state[key]
+	end,
 
-  __newindex = function(_, key, value)
-    state[key] = value
-  end,
+	__newindex = function(_, key, value)
+		state[key] = value
+	end,
 })
 
 -- ================================

@@ -20,8 +20,8 @@ local M = {}
 
 ---@type Beast.Theme.Palette
 local defaults = {
-  dark2 = "#33353a",
-  dark1 = "#282a30",
+	dark2 = "#33353a",
+	dark1 = "#282a30",
 	background = "#14161b",
 	text = "#e0e2ea",
 	accent1 = "#ffc0b9",

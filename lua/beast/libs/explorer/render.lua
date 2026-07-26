@@ -197,7 +197,7 @@ function M.build(nodes)
 
 	-- Build all prefixes in one pass (O(n) instead of O(n*depth))
 	local prefixes = M.build_prefixes(nodes)
-  local active_path = state.active_path
+	local active_path = state.active_path
 
 	for _, node in ipairs(nodes) do
 		local line_idx = #lines -- 0-indexed for extmarks
