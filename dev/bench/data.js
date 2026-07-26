@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785051393616,
+  "lastUpdate": 1785051611979,
   "repoUrl": "https://github.com/loctvl842/BeastVim",
   "entries": {
     "BeastVim Startup": [
@@ -1319,6 +1319,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "BeastVim startup (warm) max",
             "value": 36.861326,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "committer": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "distinct": true,
+          "id": "51d0bb5dcf561cba51e6f63bd6d6c987a012324b",
+          "message": "feat(session): km to load last session",
+          "timestamp": "2026-07-26T14:39:36+07:00",
+          "tree_id": "422f1fb18c9ddf6ccb596bf9df497d8c4556f20e",
+          "url": "https://github.com/loctvl842/BeastVim/commit/51d0bb5dcf561cba51e6f63bd6d6c987a012324b"
+        },
+        "date": 1785051611147,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "BeastVim startup (warm) mean",
+            "value": 35.4566501,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) stddev",
+            "value": 0.328209436297345,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) min",
+            "value": 34.925626,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) max",
+            "value": 36.28295,
             "unit": "ms"
           }
         ]
