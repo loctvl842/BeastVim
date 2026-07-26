@@ -91,4 +91,47 @@ function M.list()
 	return bufs
 end
 
+--- Delete listed file buffers whose backing file no longer exists on disk
+--- (external `rm`/`mv`). Modified buffers are kept so unsaved changes are
+--- never lost silently. If the current buffer is removed, focus moves to a
+--- fallback buffer first.
+---@return boolean removed whether any buffer was deleted
+function M.cleanup_stale()
+	local current = vim.api.nvim_get_current_buf()
+	local stale = {}
+
+	for _, bufnr in ipairs(M.list()) do
+		if vim.api.nvim_buf_is_valid(bufnr) and not M.is_sidebar_buf(bufnr) and vim.bo[bufnr].buftype == "" then
+			local name = vim.api.nvim_buf_get_name(bufnr)
+			local missing = name ~= "" and (vim.uv.fs_stat(name) or {}).type ~= "file"
+			if missing and not vim.bo[bufnr].modified then
+				stale[#stale + 1] = bufnr
+			end
+		end
+	end
+
+	if #stale == 0 then
+		return false
+	end
+
+	-- Switch away from a stale current buffer before deleting it.
+	if vim.tbl_contains(stale, current) then
+		local fallback = M.find_fallback_buffer(stale)
+		if fallback then
+			pcall(vim.api.nvim_set_current_buf, fallback)
+		else
+			pcall(vim.api.nvim_set_current_buf, vim.api.nvim_create_buf(true, false))
+		end
+	end
+
+	local removed = false
+	for _, bufnr in ipairs(stale) do
+		if vim.api.nvim_buf_is_valid(bufnr) then
+			removed = pcall(vim.api.nvim_buf_delete, bufnr, { force = false }) or removed
+		end
+	end
+
+	return removed
+end
+
 return M
