@@ -2,6 +2,62 @@ local config = require("beast.libs.tabline.config")
 
 local M = {}
 
+--- Cached file identity for rename detection (bufnrs are reused, so path is checked).
+---@type table<integer, { dev: integer, ino: integer, path: string }>
+local file_id = {}
+
+--- Remember a buffer's on-disk identity so a later same-dir rename can be rewired.
+---@param bufnr integer
+function M.remember_file(bufnr)
+	if not vim.api.nvim_buf_is_valid(bufnr) then
+		return
+	end
+	if vim.bo[bufnr].buftype ~= "" then
+		return
+	end
+	local name = vim.api.nvim_buf_get_name(bufnr)
+	if name == "" then
+		return
+	end
+	local st = vim.uv.fs_stat(name)
+	if st and st.type == "file" and st.dev and st.ino then
+		file_id[bufnr] = { dev = st.dev, ino = st.ino, path = name }
+	end
+end
+
+--- Find a same-directory file that matches the cached identity of a missing path.
+---@param bufnr integer
+---@param old_path string
+---@return string?
+local function find_renamed_path(bufnr, old_path)
+	local id = file_id[bufnr]
+	if not id or id.path ~= old_path then
+		return nil
+	end
+
+	local parent = vim.fs.dirname(old_path)
+	local handle = vim.uv.fs_scandir(parent)
+	if not handle then
+		return nil
+	end
+
+	while true do
+		local entry = vim.uv.fs_scandir_next(handle)
+		if not entry then
+			break
+		end
+		local candidate = vim.fs.joinpath(parent, entry)
+		if candidate ~= old_path then
+			local st = vim.uv.fs_stat(candidate)
+			if st and st.type == "file" and st.dev == id.dev and st.ino == id.ino then
+				return candidate
+			end
+		end
+	end
+
+	return nil
+end
+
 --- Check if a buffer is a sidebar based on its filetype.
 ---@param bufnr integer
 ---@return boolean
@@ -91,27 +147,52 @@ function M.list()
 	return bufs
 end
 
---- Delete listed file buffers whose backing file no longer exists on disk
---- (external `rm`/`mv`). Modified buffers are kept so unsaved changes are
---- never lost silently. If the current buffer is removed, focus moves to a
---- fallback buffer first.
----@return boolean removed whether any buffer was deleted
+--- Sync listed file buffers with the filesystem.
+--- - Same-directory external rename (`mv old new`): rewire buffer name to the new path.
+--- - External delete (`rm`): drop unmodified buffers; keep modified ones.
+--- If the current buffer is deleted, focus moves to a fallback buffer first.
+---@return boolean changed whether any buffer was renamed or deleted
 function M.cleanup_stale()
 	local current = vim.api.nvim_get_current_buf()
 	local stale = {}
+	local changed = false
 
 	for _, bufnr in ipairs(M.list()) do
 		if vim.api.nvim_buf_is_valid(bufnr) and not M.is_sidebar_buf(bufnr) and vim.bo[bufnr].buftype == "" then
 			local name = vim.api.nvim_buf_get_name(bufnr)
-			local missing = name ~= "" and (vim.uv.fs_stat(name) or {}).type ~= "file"
-			if missing and not vim.bo[bufnr].modified then
-				stale[#stale + 1] = bufnr
+			if name ~= "" then
+				local st = vim.uv.fs_stat(name)
+				if st and st.type == "file" then
+					M.remember_file(bufnr)
+				else
+					-- Path gone: try same-dir rename via cached inode, else mark for delete.
+					local new_path = find_renamed_path(bufnr, name)
+					if new_path then
+						local existing = vim.fn.bufnr(new_path)
+						if existing == -1 or existing == bufnr then
+							if pcall(vim.api.nvim_buf_set_name, bufnr, new_path) then
+								-- set_name leaves an unlisted ghost buffer on the old path; wipe it.
+								local ghost = vim.fn.bufnr(name)
+								if ghost > 0 and ghost ~= bufnr then
+									pcall(vim.api.nvim_buf_delete, ghost, { force = true })
+								end
+								file_id[bufnr] = nil
+								M.remember_file(bufnr)
+								changed = true
+							end
+						elseif not vim.bo[bufnr].modified then
+							stale[#stale + 1] = bufnr
+						end
+					elseif not vim.bo[bufnr].modified then
+						stale[#stale + 1] = bufnr
+					end
+				end
 			end
 		end
 	end
 
 	if #stale == 0 then
-		return false
+		return changed
 	end
 
 	-- Switch away from a stale current buffer before deleting it.
@@ -124,14 +205,16 @@ function M.cleanup_stale()
 		end
 	end
 
-	local removed = false
 	for _, bufnr in ipairs(stale) do
 		if vim.api.nvim_buf_is_valid(bufnr) then
-			removed = pcall(vim.api.nvim_buf_delete, bufnr, { force = false }) or removed
+			if pcall(vim.api.nvim_buf_delete, bufnr, { force = false }) then
+				file_id[bufnr] = nil
+				changed = true
+			end
 		end
 	end
 
-	return removed
+	return changed
 end
 
 return M

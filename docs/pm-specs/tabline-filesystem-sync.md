@@ -57,18 +57,17 @@ Step 3: The user is not left editing a deleted file.
 
 Step 1: The user has init.lua and old_name.lua open.
   Tabline shows:  init.lua  old_name.lua
-Step 2: In another terminal, the user runs mv old_name.lua new_name.lua.
-  After detection, the tabline updates to:  init.lua
-  old_name.lua is no longer listed.
-Step 3: Opening new_name.lua creates a fresh tab for the new path.
+Step 2: In another terminal, the user runs mv old_name.lua new_name.lua (same directory).
+  After detection, the tabline updates to:  init.lua  new_name.lua
+  The same buffer is rewired to the new path; the tab is not closed.
 
 ## 4 — Rename the active file externally
 
 Step 1: old_name.lua is the current buffer.
   Tabline shows:  init.lua  old_name.lua
-Step 2: In another terminal, the user runs mv old_name.lua new_name.lua.
-  After detection, the editor switches to init.lua (or another fallback buffer).
-  Tabline updates to:  init.lua
+Step 2: In another terminal, the user runs mv old_name.lua new_name.lua (same directory).
+  After detection, the user stays on the same buffer.
+  Tabline updates to:  init.lua  new_name.lua
 
 ## 5 — Modified buffer changed externally
 
@@ -91,10 +90,11 @@ Step 2: The user restores x.txt from a terminal (e.g., git checkout).
 # Behavior Rules
 
 - Detection should happen without requiring the user to switch buffers or run a command.
-- External deletion or rename-from should behave the same as deletion from the explorer whenever safe.
-- If the buffer is unmodified and its file path no longer exists, remove it from the tabline and delete the buffer.
-- If the deleted/renamed buffer was the current buffer, move focus to the alternate buffer, then the most recently used listed buffer, then a new empty buffer if nothing else exists.
-- If the buffer has unsaved changes, keep it visible and let Neovim's normal modified-buffer handling take over.
+- External deletion should behave the same as deletion from the explorer whenever safe.
+- Same-directory external rename (`mv old new`) rewires the buffer to the new path and updates the tab name (does not close the buffer).
+- If the buffer is unmodified and its file path no longer exists (true delete, or rename that cannot be resolved), remove it from the tabline and delete the buffer.
+- If a deleted buffer was the current buffer, move focus to the alternate buffer, then the most recently used listed buffer, then a new empty buffer if nothing else exists.
+- If the buffer has unsaved changes and the file was deleted, keep it visible and let Neovim's normal modified-buffer handling take over.
 - Scratch buffers, terminal buffers, and other non-file buffers are never affected.
 
 ---
@@ -103,8 +103,8 @@ Step 2: The user restores x.txt from a terminal (e.g., git checkout).
 
 - [x] Deleting an inactive file externally removes its tab from the tabline.
 - [x] Deleting the current file externally switches to a fallback buffer.
-- [x] Renaming an inactive file externally removes the old tab from the tabline.
-- [x] Renaming the current file externally switches to a fallback buffer.
+- [x] Renaming an inactive file externally (same directory) rewires the tab to the new name.
+- [x] Renaming the current file externally (same directory) keeps focus and updates the tab name.
 - [x] The tabline never shows a ghost tab for a missing, unmodified file.
 - [x] Modified buffers changed externally remain visible so unsaved changes are not lost silently.
 - [x] Behavior matches explorer deletion for unmodified files.
@@ -113,7 +113,7 @@ Step 2: The user restores x.txt from a terminal (e.g., git checkout).
 
 # Out of Scope
 
-- Auto-rewiring a buffer to a new path after an external rename.
+- Cross-directory external rename detection (only same-directory `mv` is rewired via inode match).
 - External file creation (new files only appear when explicitly opened).
 - A dedicated "orphaned buffer" visual style beyond existing modified indicators.
 - Automatic restoration of deleted file contents.

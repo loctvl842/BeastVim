@@ -179,10 +179,10 @@ do
 end
 
 -- =========================================================================
--- Test: cleanup_stale — external rename
+-- Test: cleanup_stale — external rename rewires buffer (does not close)
 -- =========================================================================
 
-io.write("\n--- cleanup_stale: external rename ---\n")
+io.write("\n--- cleanup_stale: external rename (inactive) ---\n")
 
 do
 	wipe_all()
@@ -194,22 +194,30 @@ do
 	vim.fn.writefile({ "keep" }, keep)
 
 	vim.cmd.edit(old_path)
+	local old_buf = vim.fn.bufnr(old_path)
+	buffers.remember_file(old_buf)
 	vim.cmd.edit(keep)
+	buffers.remember_file(vim.fn.bufnr(keep))
 
 	os.rename(old_path, new_path)
-	local removed = buffers.cleanup_stale()
+	local changed = buffers.cleanup_stale()
 
-	assert_test("returns true after rename of inactive file", removed == true)
-	assert_test("old path buffer is gone", vim.fn.bufnr(old_path) == -1)
+	assert_test("returns true after rename of inactive file", changed == true)
+	assert_test(
+		"same buffer is rewired to new path",
+		vim.api.nvim_buf_is_valid(old_buf) and vim.api.nvim_buf_get_name(old_buf) == new_path,
+		"got: " .. (vim.api.nvim_buf_is_valid(old_buf) and vim.api.nvim_buf_get_name(old_buf) or "invalid")
+	)
+	assert_test("old path is no longer a buffer name", vim.fn.bufnr(old_path) == -1)
 	assert_test("keep buffer remains", vim.fn.bufnr(keep) > 0)
 	assert_test("current stays on keep", vim.api.nvim_buf_get_name(0) == keep, "got: " .. vim.api.nvim_buf_get_name(0))
 end
 
 -- =========================================================================
--- Test: cleanup_stale — active external rename
+-- Test: cleanup_stale — active external rename keeps focus, rewires tab
 -- =========================================================================
 
-io.write("\n--- cleanup_stale: active external rename ---\n")
+io.write("\n--- cleanup_stale: external rename (active) ---\n")
 
 do
 	wipe_all()
@@ -221,17 +229,20 @@ do
 	vim.fn.writefile({ "y" }, keep)
 
 	vim.cmd.edit(keep)
+	buffers.remember_file(vim.fn.bufnr(keep))
 	vim.cmd.edit(old_path)
+	local old_buf = vim.fn.bufnr(old_path)
+	buffers.remember_file(old_buf)
 
 	local before = vim.api.nvim_get_current_buf()
 	os.rename(old_path, new_path)
-	local removed = buffers.cleanup_stale()
+	local changed = buffers.cleanup_stale()
 	local after = vim.api.nvim_get_current_buf()
 
-	assert_test("returns true after rename of active file", removed == true)
-	assert_test("old path buffer is gone", vim.fn.bufnr(old_path) == -1)
-	assert_test("current switches away", after ~= before)
-	assert_test("fallback is keep buffer", vim.api.nvim_buf_get_name(after) == keep, "got: " .. vim.api.nvim_buf_get_name(after))
+	assert_test("returns true after rename of active file", changed == true)
+	assert_test("current buffer stays the same bufnr", after == before)
+	assert_test("current buffer name is the new path", vim.api.nvim_buf_get_name(after) == new_path, "got: " .. vim.api.nvim_buf_get_name(after))
+	assert_test("buffer was rewired not deleted", vim.api.nvim_buf_is_valid(old_buf) and old_buf == after)
 end
 
 -- =========================================================================

@@ -116,7 +116,7 @@ tabline/
 ├── init.lua           ← setup(), render(), autocmds, click handlers, nav helpers
 ├── config.lua         ← max_name_width, min_cell_width, sidebar_filetypes, etc.
 ├── context.lua        ← build per-render ctx: buffers, names, icons, diags, sidebar
-├── buffers.lua        ← list(), find_fallback_buffer, cleanup_stale (external rm/mv)
+├── buffers.lua        ← list(), remember_file, find_fallback_buffer, cleanup_stale (rm + same-dir mv)
 ├── name.lua           ← O(N) unique-name disambiguation, truncate_text
 ├── truncate.lua       ← estimate_cell_width, fit_around_anchor (anchor-based)
 ├── icons.lua          ← lazy per-(color × state) highlight groups
@@ -130,7 +130,7 @@ tabline/
 
 API: `tabline.setup(opts)`, `tabline.render()` (via `%!v:lua`),
 `tabline.goto_buffer(n)`, `tabline.cycle_next/prev()`, `tabline.move_next/prev()`
-Autocmds: `FocusGained`/`ShellCmdPost` → `buffers.cleanup_stale()` (drop unmodified ghost tabs)
+Autocmds: `FocusGained`/`ShellCmdPost` → `buffers.cleanup_stale()` (rewire same-dir mv, drop true deletes)
 Loaded via: `packer.lazy()` on VimEnter (deferred)
 
 ---

@@ -8,7 +8,7 @@ generated: 2026-07-26
 
 # Summary
 
-Add detection in `beast.libs.tabline` for buffers whose backing file has disappeared from disk (caused by external `rm`, `mv`, etc.). Unmodified stale buffers are removed from the buffer list and, if they were the current buffer, focus moves to a sensible fallback. Modified buffers are left untouched so unsaved changes are never lost silently.
+Add detection in `beast.libs.tabline` for buffers whose backing file has disappeared from disk (caused by external `rm`, `mv`, etc.). Same-directory renames are rewired to the new path (tab name updates, buffer stays). True deletes remove unmodified buffers and, if they were current, move focus to a fallback. Modified buffers with a missing file are left untouched so unsaved changes are never lost silently.
 
 ---
 
@@ -132,8 +132,8 @@ Introduce a periodic-ish cleanup pass inside the tabline library that checks lis
 
 - [x] Deleting an inactive file externally removes its tab from the tabline.
 - [x] Deleting the current file externally switches to a fallback buffer.
-- [x] Renaming an inactive file externally removes the old tab from the tabline.
-- [x] Renaming the current file externally switches to a fallback buffer.
+- [x] Renaming an inactive file externally (same directory) rewires the tab to the new name.
+- [x] Renaming the current file externally (same directory) keeps focus and updates the tab name.
 - [x] The tabline never shows a ghost tab for a missing, unmodified file.
 - [x] Modified buffers changed externally remain visible so unsaved changes are not lost silently.
 - [x] Behavior matches explorer deletion for unmodified files.

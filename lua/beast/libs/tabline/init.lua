@@ -58,7 +58,16 @@ local function ensure_autocmds()
 			if vim.api.nvim_buf_is_valid(bufnr) and vim.bo[bufnr].buflisted and not buffers_mod.is_sidebar_buf(bufnr) then
 				state.last_active_bufnr = bufnr
 			end
+			buffers_mod.remember_file(bufnr)
 			invalidate()
+		end,
+	})
+
+	-- Keep file identity fresh for external-rename detection
+	vim.api.nvim_create_autocmd({ "BufWritePost", "BufFilePost" }, {
+		group = state.augroup,
+		callback = function(args)
+			buffers_mod.remember_file(args.buf)
 		end,
 	})
 
@@ -96,7 +105,7 @@ local function ensure_autocmds()
 		end,
 	})
 
-	-- Remove buffers whose file was deleted or renamed outside Neovim
+	-- Sync buffers after external delete/rename (rewire rename, drop true deletes)
 	vim.api.nvim_create_autocmd({ "FocusGained", "ShellCmdPost" }, {
 		group = state.augroup,
 		callback = function()
@@ -200,6 +209,9 @@ function M.setup(opts)
 	local cur = vim.api.nvim_get_current_buf()
 	if vim.bo[cur].buflisted and not buffers_mod.is_sidebar_buf(cur) then
 		state.last_active_bufnr = cur
+	end
+	for _, bufnr in ipairs(buffers_mod.list()) do
+		buffers_mod.remember_file(bufnr)
 	end
 
 	vim.o.showtabline = 2
