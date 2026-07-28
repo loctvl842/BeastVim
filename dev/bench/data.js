@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785059373573,
+  "lastUpdate": 1785246365998,
   "repoUrl": "https://github.com/loctvl842/BeastVim",
   "entries": {
     "BeastVim Startup": [
@@ -1407,6 +1407,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "BeastVim startup (warm) max",
             "value": 43.667042,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "committer": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "distinct": true,
+          "id": "9449499dfda0667b7401be5164ef169638aa4315",
+          "message": "breadcrumb: invalidate on BufFilePost so rename rewire updates winbar",
+          "timestamp": "2026-07-26T16:56:55+07:00",
+          "tree_id": "d2ed38c6f0bff80e023c70f1232ffb2b1ba561be",
+          "url": "https://github.com/loctvl842/BeastVim/commit/9449499dfda0667b7401be5164ef169638aa4315"
+        },
+        "date": 1785246365089,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "BeastVim startup (warm) mean",
+            "value": 40.02037665,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) stddev",
+            "value": 0.3390395616853857,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) min",
+            "value": 39.42548300000001,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) max",
+            "value": 40.80261,
             "unit": "ms"
           }
         ]
