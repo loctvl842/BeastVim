@@ -1,4 +1,3 @@
-local config = require("beast.libs.explorer.config")
 local state = require("beast.libs.explorer.state")
 local ui = require("beast.libs.explorer.ui")
 
@@ -12,7 +11,7 @@ function M.run()
   -- stylua: ignore
   if not state.tree then return end
 
-	config.toggle_hidden()
+	require("beast.visibility").toggle_hidden()
 	state.tree:_touch()
 	ui.render()
 end

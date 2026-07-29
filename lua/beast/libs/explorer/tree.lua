@@ -74,7 +74,7 @@ end
 ---@field root Beast.Explorer.Node
 ---@field nodes table<string, Beast.Explorer.Node>
 ---@field version integer
----@field _flat_cache table<boolean, Beast.Explorer.FlatCacheEntry>
+---@field _flat_cache table<string, Beast.Explorer.FlatCacheEntry>
 local M = setmetatable({}, {
 	__call = function(t, ...)
 		return t:new(...)
@@ -83,6 +83,7 @@ local M = setmetatable({}, {
 M.__index = M
 
 local state = require("beast.libs.explorer.state")
+local visibility = require("beast.visibility")
 local watch = require("beast.libs.explorer.watch")
 
 local uv = vim.uv or vim.loop
@@ -169,10 +170,7 @@ function M:new(cwd)
 			[root.path] = root,
 		},
 		version = 0,
-		_flat_cache = {
-			[false] = { version = -1, list = nil },
-			[true] = { version = -1, list = nil },
-		},
+		_flat_cache = {},
 	}, self)
 end
 
@@ -488,7 +486,9 @@ function M:flat(opts)
 		self:expand(root)
 	end
 
-	local cache = self._flat_cache[opts.show_hidden]
+	local show_gitignored = visibility.gitignored
+	local cache_key = tostring(opts.show_hidden) .. ":" .. tostring(show_gitignored)
+	local cache = self._flat_cache[cache_key]
 	if cache and cache.version == self.version and cache.list then
 		return cache.list
 	end
@@ -500,11 +500,14 @@ function M:flat(opts)
 		if node.hidden and not opts.show_hidden then
 			return false
 		end
+		if not show_gitignored and node.git_status and node.git_status.kind == "ignored" then
+			return false
+		end
 
 		list[#list + 1] = node
 	end)
 
-	self._flat_cache[opts.show_hidden] = {
+	self._flat_cache[cache_key] = {
 		version = self.version,
 		list = list,
 	}

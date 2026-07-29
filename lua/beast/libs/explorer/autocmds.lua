@@ -345,6 +345,22 @@ function M.mount()
 		end,
 	})
 
+	-- Re-filter and redraw when the shared visibility state (hidden/gitignored)
+	-- changes, whether toggled from Explorer's own `H` key, Finder, the tabline
+	-- buttons, or the global keymaps. No git re-fetch needed — only the flat()
+	-- filter predicate changes, so a cache-busting touch + render is enough.
+	vim.api.nvim_create_autocmd("User", {
+		group = state.augroup,
+		pattern = "BeastVisibilityChanged",
+		callback = function()
+			-- stylua: ignore
+			if not (state.tree and state.view and state.view:is_valid()) then return end
+			state.tree:_touch()
+			ui.render()
+			sticky.refresh()
+		end,
+	})
+
 	-- Diagnostic badges: refresh on every DiagnosticChanged (debounced so the
 	-- usual burst on attach / save coalesces into one rescan).
 	vim.api.nvim_create_autocmd("DiagnosticChanged", {

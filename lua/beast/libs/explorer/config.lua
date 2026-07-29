@@ -3,7 +3,6 @@ local defaults = {
 	style = "classic",
 	width = 40,
 	side = "left",
-	show_hidden = false,
 	icons = true,
 	padding = 1, -- Left padding for whole explorer (in spaces).
 	padding_right = 1, -- Right padding for badges / virtual text (in spaces).
@@ -71,10 +70,6 @@ local cfg = vim.deepcopy(defaults)
 
 local methods = {}
 
-function methods.toggle_hidden()
-	cfg.show_hidden = not cfg.show_hidden
-end
-
 --- Resolve a directory-name to its glyph and highlight group via mini.icons
 --- (an optional plugin). Falls back to `cfg.icon.dir_open`/`dir_closed` and
 --- the `BeastExplorerDir` highlight when mini.icons isn't installed.
@@ -125,6 +120,9 @@ end
 
 local M = setmetatable({}, {
 	__index = function(_, key)
+		if key == "show_hidden" then
+			return require("beast.visibility").hidden
+		end
 		if methods[key] ~= nil then
 			return methods[key]
 		end
