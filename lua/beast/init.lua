@@ -228,6 +228,10 @@ function M.setup(opts)
 	end
 	-- Explorer (lazy — deferred to first <leader>e press or VimEnter with no file)
 	packer.lazy("beast.libs.explorer", {
+		-- Session restore calls require("beast.libs.explorer").open() directly
+		-- (bypassing the keys/event triggers below), so this module trigger
+		-- ensures setup() still runs first even when that's the first touch.
+		module = "beast.libs.explorer",
 		keys = {
 			{
 				"<leader>e",

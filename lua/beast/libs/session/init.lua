@@ -123,6 +123,42 @@ function M.setup(opts)
 	})
 end
 
+--- Reopen the explorer from a `.explorer.json` sidecar (if any) written by a
+--- prior save(): same root, same expanded folders, same focus. Silently does
+--- nothing when there's no sidecar, it fails to decode, or its root no
+--- longer exists on disk.
+---@param vim_path string  the `.vim` session file that was just sourced
+local function restore_explorer_state(vim_path)
+	local sidecar = explorer_sidecar_path(vim_path)
+	if vim.fn.filereadable(sidecar) ~= 1 then
+		return
+	end
+
+	local ok, snapshot = pcall(vim.json.decode, vim.fn.readfile(sidecar)[1])
+	if not ok or type(snapshot) ~= "table" or vim.fn.isdirectory(snapshot.root) ~= 1 then
+		return
+	end
+
+	-- The rest of the session already restored fine by this point; an
+	-- unexpected error rebuilding the explorer should degrade to "explorer
+	-- didn't come back" rather than surface as an uncaught error.
+	pcall(function()
+		require("beast.libs.explorer").open(snapshot.root, { restore = true })
+
+		local explorer_state = require("beast.libs.explorer.state")
+		for _, dir in ipairs(snapshot.open_dirs or {}) do
+			if vim.fn.isdirectory(dir) == 1 then
+				explorer_state.tree:open(dir)
+			end
+		end
+		require("beast.libs.explorer.ui").render()
+
+		if snapshot.focus == "main" and explorer_state.source_win then
+			pcall(vim.api.nvim_set_current_win, explorer_state.source_win)
+		end
+	end)
+end
+
 --- Load the session for the current directory + git branch, falling back to
 --- the plain directory session if no branch-specific one exists. No-op if
 --- neither exists.
@@ -131,6 +167,7 @@ function M.load()
 	local file = (bp and vim.fn.filereadable(bp) == 1) and bp or plain_path()
 	if vim.fn.filereadable(file) == 1 then
 		vim.cmd("silent! source " .. vim.fn.fnameescape(file))
+		restore_explorer_state(file)
 	end
 end
 
