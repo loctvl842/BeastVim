@@ -6,6 +6,7 @@ local icons_mod = require("beast.libs.tabline.icons")
 local offset = require("beast.libs.tabline.sections.offset")
 local tabpages = require("beast.libs.tabline.sections.tabpages")
 local toggle_button = require("beast.libs.tabline.sections.toggle_button")
+local visibility_section = require("beast.libs.tabline.sections.visibility")
 
 local M = {}
 
@@ -105,6 +106,20 @@ local function ensure_autocmds()
 		end,
 	})
 
+	-- Redraw the visibility toggle buttons on change, whether toggled from
+	-- here, Explorer, Finder, or the global keymaps — single refresh path
+	-- regardless of trigger source.
+	vim.api.nvim_create_autocmd("User", {
+		group = state.augroup,
+		pattern = "BeastVisibilityChanged",
+		callback = function()
+			invalidate()
+			vim.schedule(function()
+				vim.cmd("redrawtabline")
+			end)
+		end,
+	})
+
 	-- Sync buffers after external delete/rename (rewire rename, drop true deletes)
 	vim.api.nvim_create_autocmd({ "FocusGained", "ShellCmdPost" }, {
 		group = state.augroup,
@@ -157,7 +172,9 @@ function M.render()
 	parts[#parts + 1] = "%="
 	parts[#parts + 1] = tabpages.render(ctx)
 
-	-- Toggle button (far right)
+	-- Visibility toggle buttons (hidden files, gitignored files), then the
+	-- day/night toggle button, both far right
+	parts[#parts + 1] = visibility_section.render()
 	parts[#parts + 1] = toggle_button.render()
 
 	local output = table.concat(parts)
@@ -200,6 +217,18 @@ function M.setup(opts)
 			vim.o.background = vim.o.background == "dark" and "light" or "dark"
 			local current_colorscheme = vim.g.colors_name or "default"
 			vim.cmd.colorscheme(current_colorscheme)
+		end
+	end
+
+	function _G.beast_tabline_toggle_hidden(_, _, button, _)
+		if button == "l" then
+			require("beast.visibility").toggle_hidden()
+		end
+	end
+
+	function _G.beast_tabline_toggle_gitignored(_, _, button, _)
+		if button == "l" then
+			require("beast.visibility").toggle_gitignored()
 		end
 	end
 

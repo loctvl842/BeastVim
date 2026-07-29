@@ -65,6 +65,8 @@ local function APPEARANCE(p)
 
 		toggle_button = { fg = p.dimmed1 },
 
+		visibility = { on = p.text, off = p.dimmed1 },
+
 		diagnostics = {
 			Error = p.accent1,
 			Warn = p.accent2,
@@ -129,6 +131,8 @@ local function compute()
 		TruncMarker = { fg = a.separator.fg, bg = sel.bg, underline = fill.underline, sp = fill.sp },
 		Fill = { bg = fill.bg, underline = fill.underline, sp = fill.sp },
 		ToggleButton = { fg = a.toggle_button.fg, bg = fill.bg, underline = fill.underline, sp = fill.sp },
+		VisibilityOn = { fg = a.visibility.on, bg = fill.bg, underline = fill.underline, sp = fill.sp },
+		VisibilityOff = { fg = a.visibility.off, bg = fill.bg, underline = fill.underline, sp = fill.sp },
 	}
 
 	for sev_name, sev_color in pairs(a.diagnostics) do

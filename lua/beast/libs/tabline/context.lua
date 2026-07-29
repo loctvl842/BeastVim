@@ -77,6 +77,7 @@ end
 ---@field current_tabnr integer
 ---@field tabpages_width integer
 ---@field toggle_button_width integer
+---@field visibility_width integer
 ---@field edge_trim_bufs? table<integer, boolean> Buffers rendered with edge trimming (skip min_cell_width)
 ---@field edge_trim_compact? table<integer, string> Map of buffer → pull side ("left"|"right") for compact edge trim
 
@@ -189,6 +190,11 @@ function M.build(state)
 	local toggle_button = require("beast.libs.tabline.sections.toggle_button")
 	local toggle_button_width = toggle_button.width()
 
+	-- Visibility toggle buttons width (always visible on the right, beside the
+	-- day/night button)
+	local visibility = require("beast.libs.tabline.sections.visibility")
+	local visibility_width = visibility.width()
+
 	return {
 		columns = vim.o.columns,
 		current_buf = current_buf,
@@ -207,6 +213,7 @@ function M.build(state)
 		current_tabnr = current_tabnr,
 		tabpages_width = tabpages_width,
 		toggle_button_width = toggle_button_width,
+		visibility_width = visibility_width,
 	}
 end
 
