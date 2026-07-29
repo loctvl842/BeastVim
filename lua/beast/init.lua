@@ -21,6 +21,7 @@ M.reload_highlights = hl.reload_highlights
 ---@field window? Beast.Window.Config
 ---@field autopairs? Beast.Autopairs.Config
 ---@field lsp? Beast.Lsp.Config
+---@field visibility? Beast.Visibility.Config
 local defaults = {}
 
 ---@param opts? Beast.Config
@@ -37,6 +38,7 @@ function M.setup(opts)
 	local packer = require("beast.libs.packer")
 
 	require("beast.option")
+	require("beast.visibility").setup(cfg.visibility)
 
 	_G.Util = require("beast.util") ---@type Beast.Util
 	_G.Theme = Util.mod("beast.theme") ---@type Beast.Theme
@@ -391,6 +393,10 @@ function M.setup(opts)
 			end, { desc = "Dismiss all notifications", group = "Notify" })
 	     -- stylua: ignore
 	     Key.safe_set("n", "<leader>p", function() require("beast.libs.packer.ui").open() end, { desc = "Open packer UI", group = "Packer" })
+	     -- stylua: ignore
+	     Key.safe_set("n", "<leader>uh", function() require("beast.visibility").toggle_hidden() end, { desc = "Toggle hidden files", group = "Visibility" })
+	     -- stylua: ignore
+	     Key.safe_set("n", "<leader>ug", function() require("beast.visibility").toggle_gitignored() end, { desc = "Toggle gitignored files", group = "Visibility" })
 		end,
 	})
 
