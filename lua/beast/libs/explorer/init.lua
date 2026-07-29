@@ -34,17 +34,22 @@ end
 
 --- Calls `on_done()` after the render (after the async git fetch when enabled).
 ---@param dir? string
-function M.open(dir)
+---@param opts? { restore?: boolean } restore: skip re-rooting to the current
+---  buffer's directory - used by session restore, where `dir` must win exactly
+---  regardless of which file happens to be current after sourcing the session.
+function M.open(dir, opts)
+	opts = opts or {}
 	-- This is to go back to the previous window after selecting a file
 	state.source_win = View.win.find_normal()
 	if state.view and state.view:is_valid() and state.tree.root.path == dir then
 		pcall(vim.api.nvim_set_current_win, state.view.win)
 		return
 	end
-	local file = vim.api.nvim_buf_get_name(0)
+	ensure_explorer(dir)
+
+	local file = not opts.restore and vim.api.nvim_buf_get_name(0) or ""
 	local file_norm = (file ~= "") and vim.fn.fnamemodify(file, ":p"):gsub("/$", "") or ""
 	local has_file = file_norm ~= "" and vim.fn.filereadable(file_norm) == 1
-	ensure_explorer(dir)
 	if has_file then
 		local root_path = state.tree.root.path
 		local file_dir = vim.fn.fnamemodify(file_norm, ":h")
