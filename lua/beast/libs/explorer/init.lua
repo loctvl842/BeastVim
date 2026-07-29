@@ -45,11 +45,17 @@ function M.open(dir, opts)
 		pcall(vim.api.nvim_set_current_win, state.view.win)
 		return
 	end
-	ensure_explorer(dir)
 
+	-- Must read the current buffer's name BEFORE ensure_explorer(dir): on a
+	-- first open, ensure_explorer creates the split via ui.create(), which
+	-- runs `vsplit` and makes the new explorer window current. Reading the
+	-- buffer name after that would return the explorer's own (empty) buffer
+	-- instead of the file the user was editing, breaking auto-focus below.
 	local file = not opts.restore and vim.api.nvim_buf_get_name(0) or ""
 	local file_norm = (file ~= "") and vim.fn.fnamemodify(file, ":p"):gsub("/$", "") or ""
 	local has_file = file_norm ~= "" and vim.fn.filereadable(file_norm) == 1
+
+	ensure_explorer(dir)
 	if has_file then
 		local root_path = state.tree.root.path
 		local file_dir = vim.fn.fnamemodify(file_norm, ":h")
