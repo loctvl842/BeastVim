@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-28 | Files scanned: 24 | Token estimate: ~8780 -->
+<!-- Generated: 2026-07-29 | Files scanned: 24 | Token estimate: ~9170 -->
 
 # Libraries
 
@@ -40,6 +40,14 @@ Loaded via: `packer.lazy()` on VimEnter (deferred) + `<leader>e` keymap +
 Async `git status --porcelain=v1 --ignored` via `vim.system`. Parses output,
 stamps `node.git_status` on tree nodes, propagates to parent dirs (highest-priority
 child wins). Debounced refresh on BufWritePost + FocusGained. Badges: M, A, D, U, R, C, !.
+
+### Visibility (hidden/gitignored filtering)
+
+`config.show_hidden` delegates to `beast.visibility.hidden` (read-only proxy,
+zero call-site changes). `tree.lua:flat()` also filters `git_status.kind ==
+"ignored"` unless `beast.visibility.gitignored`, and unconditionally excludes
+`.git` regardless of either flag. `autocmds.lua` listens for `User
+BeastVisibilityChanged` to re-filter + redraw live.
 
 ### Sticky ancestor headers (`sticky.lua`)
 
@@ -110,6 +118,19 @@ Query:new(source_name, opts)
 Sources: `files` (async, fd/rg/find), `buffers` (sync), `live_grep` (live async),
 `colorschemes` (sync, rtp-only), `help_tags` (sync, rtp-only — loaded plugins only).
 
+### Visibility (hidden/gitignored filtering)
+
+`files.lua` and `live_grep/init.lua` build their fd/rg/ug/find args from
+`beast.visibility` instead of hardcoding `--hidden`/ignore flags (`ug` has
+inverted default ignore-polarity vs `rg` — opt-in `--ignore-files` vs opt-out
+`--no-ignore`). The bigram prefilter (`engine/builder.lua`, `engine/index.lua`)
+stamps each built index with the `gitignored` setting used; `index.M.get()`
+treats a mismatch as stale (falls back to a full scan) and proactively
+rebuilds on a `gitignored`-keyed `BeastVisibilityChanged` (registered once via
+`index.M.setup()`, called from `finder/init.lua:M.setup()`) — `hidden` never
+invalidates the index since it's always a safe superset there. An open
+picker's `autocmds.lua` re-runs its active query live on the same event.
+
 ---
 
 ## tabline — Native `%!` Tabline
@@ -128,12 +149,15 @@ tabline/
     ├── cell.lua         ← single buffer cell (two click regions: body + close)
     ├── buffer_list.lua  ← truncation orchestrator with smart marker reserve
     ├── offset.lua       ← centered sidebar title
-    └── tabpages.lua     ← right-aligned tab indicators with %nT click regions
+    ├── tabpages.lua     ← right-aligned tab indicators with %nT click regions
+    ├── toggle_button.lua ← day/night background toggle (far right)
+    └── visibility.lua   ← hidden/gitignored toggle buttons (beside toggle_button)
 ```
 
 API: `tabline.setup(opts)`, `tabline.render()` (via `%!v:lua`),
 `tabline.goto_buffer(n)`, `tabline.cycle_next/prev()`, `tabline.move_next/prev()`
-Autocmds: `FocusGained`/`ShellCmdPost` → `buffers.cleanup_stale()` (rewire same-dir mv, drop true deletes)
+Autocmds: `FocusGained`/`ShellCmdPost` → `buffers.cleanup_stale()` (rewire same-dir mv, drop true deletes);
+`User BeastVisibilityChanged` → redraw (single refresh path regardless of toggle source)
 Loaded via: `packer.lazy()` on VimEnter (deferred)
 
 ---

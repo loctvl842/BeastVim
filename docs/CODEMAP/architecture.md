@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-28 | Files scanned: 23 | Token estimate: ~2380 -->
+<!-- Generated: 2026-07-29 | Files scanned: 24 | Token estimate: ~2520 -->
 
 # Architecture
 
@@ -16,6 +16,9 @@ lua/beast/
 │                           lib through packer.lazy()
 ├── option.lua            ← vim options
 ├── icon.lua              ← icon definitions (Beast.Icon)
+├── visibility.lua        ← global hidden/gitignored state; fires User
+│                           BeastVisibilityChanged on toggle (consumed by
+│                           explorer, finder, tabline)
 ├── profile.lua           ← lightweight profiler (per-fn count/total/self stats)
 ├── hl_reload.lua         ← M.highlight_modules registry + apply_highlights /
 │                           reload_highlights + ColorScheme autocmd dispatcher
@@ -82,7 +85,7 @@ Note: legacy `Buffer` global removed — use `View.buf.delete` instead.
 
 ```
 beast.setup(opts)
-  1.  require beast.libs.packer + beast.option
+  1.  require beast.libs.packer + beast.option + beast.visibility.setup()
   2.  Register globals: Util, Theme, Key, View, Icon
   3.  packer.lazy("beast.theme", VimEnter+defer) → Theme.setup() +
         hl_reload.setup() + Theme.refresh() + reload_highlights()
@@ -181,6 +184,10 @@ theme.highlights, theme.blink.
 - **Lib metadata**: every `lua/beast/libs/<lib>/init.lua` exposes `M.meta`
   matching `Beast.Lib.Meta` (`_meta.lua`)
 - **Netrw replacement**: explorer auto-opens on directory BufEnter
+- **Shared global state**: `beast.visibility` (hidden/gitignored) is read
+  directly by explorer/finder/tabline and fires `User BeastVisibilityChanged`
+  (`data = {key, value}`) on toggle — same one-signal-invalidation pattern as
+  `BeastGitIndexChanged`/`BeastKeysChanged`/`BeastStatuslineGitChanged`
 - **vim.notify override**: notify.setup() replaces `vim.notify`
 - **Statusline / Tabline = `%!`**: native, no third-party framework (ADR-009)
 - **Transient UI buffers**: `beast-*` filetype convention

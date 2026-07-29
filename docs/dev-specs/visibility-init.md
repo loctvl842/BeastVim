@@ -68,7 +68,7 @@ A new `lua/beast/visibility.lua` becomes the single source of truth for both boo
 
 Each phase is independently mergeable once Phase 1 lands (Phases 2/3/4 don't depend on each other).
 
-## Phase 1: Core module — `lua/beast/visibility.lua`
+## Phase 1: Core module — `lua/beast/visibility.lua` (done)
 
 1. **Create the module** (File: `lua/beast/visibility.lua`)
    - Action: `defaults = { hidden = false, gitignored = false }`; `methods.toggle_hidden()`/`toggle_gitignored()` flip `cfg.<key>` then `vim.api.nvim_exec_autocmds("User", { pattern = "BeastVisibilityChanged", data = { key = <key>, value = cfg[<key>] } })`; `methods.setup(opts)` merges opts over defaults via `vim.tbl_deep_extend`. Read-only proxy metatable identical in shape to `beast.libs.explorer.config`.
@@ -82,7 +82,7 @@ Each phase is independently mergeable once Phase 1 lands (Phases 2/3/4 don't dep
    - Depends on: Step 1
    - Risk: Low
 
-## Phase 2: Explorer integration
+## Phase 2: Explorer integration (done)
 
 1. **Delegate `show_hidden` reads/writes** (File: `lua/beast/libs/explorer/config.lua`)
    - Action: `__index` returns `require("beast.visibility").hidden` when `key == "show_hidden"`, before falling through to `cfg[key]`. Remove `show_hidden` from `defaults` and delete `methods.toggle_hidden`.
@@ -108,7 +108,7 @@ Each phase is independently mergeable once Phase 1 lands (Phases 2/3/4 don't dep
    - Depends on: Steps 1, 3
    - Risk: Low
 
-## Phase 3: Finder integration
+## Phase 3: Finder integration (done)
 
 1. **`files` source flags** (File: `lua/beast/libs/finder/source/files.lua`)
    - Action: In each `SUPPORTED[].args(cwd)`, read `require("beast.visibility")` and conditionally include `--hidden` (fd/rg) and `--no-ignore` (fd/rg); add `-not -path '*/.*'` to the `find` fallback when hidden is off.
@@ -134,7 +134,7 @@ Each phase is independently mergeable once Phase 1 lands (Phases 2/3/4 don't dep
    - Depends on: Steps 1-3
    - Risk: Low
 
-## Phase 4: Tabline buttons
+## Phase 4: Tabline buttons (done)
 
 1. **Icon + highlight defaults** (Files: `lua/beast/libs/tabline/config.lua`, `lua/beast/libs/tabline/highlights.lua`)
    - Action: Add `visibility_hidden_icon`, `visibility_gitignored_icon` config defaults (one static glyph each — decided during implementation to convey on/off via highlight color only, not a glyph swap); add `VisibilityOn`/`VisibilityOff` highlight groups mirroring `ToggleButton`.
@@ -162,10 +162,34 @@ Each phase is independently mergeable once Phase 1 lands (Phases 2/3/4 don't dep
 
 # Success Criteria
 
-- [ ] Toggling hidden files anywhere (keymap, tabline button, or from within Explorer/Finder) is instantly reflected in both Explorer and Finder.
-- [ ] Toggling gitignored files anywhere is instantly reflected in both Explorer and Finder, including live_grep's prefiltered results.
-- [ ] `<leader>uh` and `<leader>ug` work regardless of which screen currently has focus.
-- [ ] The tabline shows two toggle icons beside the day/night button that always reflect current state and are clickable.
-- [ ] No component-specific "hidden files" or "gitignored files" setting remains — exactly one source of truth (`lua/beast/visibility.lua`).
-- [ ] `bench-explorer.lua`, `bench-finder-matcher.lua`, and `bench-tabline.lua` all still PASS.
-- [ ] `stylua --check lua/` clean.
+- [x] Toggling hidden files anywhere (keymap, tabline button, or from within Explorer/Finder) is instantly reflected in both Explorer and Finder.
+- [x] Toggling gitignored files anywhere is instantly reflected in both Explorer and Finder, including live_grep's prefiltered results.
+- [x] `<leader>uh` and `<leader>ug` work regardless of which screen currently has focus.
+- [x] The tabline shows two toggle icons beside the day/night button that always reflect current state and are clickable.
+- [x] No component-specific "hidden files" or "gitignored files" setting remains — exactly one source of truth (`lua/beast/visibility.lua`).
+- [x] `bench-explorer.lua`, `bench-finder-matcher.lua`, and `bench-tabline.lua` all still PASS.
+- [x] `stylua --check lua/` clean.
+
+---
+
+## Completed
+
+**2026-07-29** — All 4 phases implemented, reviewed, and verified end-to-end against real `fd`/`rg`/`ug`/`find` processes and a real headless-subprocess bigram-index build (not just unit-style assertions).
+
+- `aebc553` feat(visibility): add global file-visibility state module
+- `3e9e14d` feat(explorer): read shared visibility state for hidden/gitignored filtering
+- `4d64373` fix(explorer): exclude .git from the tree unconditionally (discovered during Phase 2 verification — pre-existing gap, not part of the original plan; user asked to fix it immediately)
+- `fbc2d68` feat(finder): read shared visibility state for hidden/gitignored filtering (includes the Phase 3 Task 3 proactive-rebuild listener, added after code review caught it missing from the first pass)
+- `a391e98` feat(tabline): add hidden/gitignored toggle buttons beside day/night button (also commits this spec's docs, adds the previously-missing `tests/test-visibility.lua`, and reflects the color-only icon decision below)
+
+**Notable deviations from the original plan, both explicitly decided rather than silently shipped:**
+- Tabline buttons use one static glyph per switch with highlight color (bright/dim) conveying on/off, not the `_on`/`_off` glyph-pair mechanism originally specced (mirroring the day/night button literally) — user confirmed color-only after a code-reviewer flagged the silent substitution.
+- `builder.lua`'s bigram-index file enumeration keeps `--hidden` unconditional (never made conditional on the `hidden` toggle) — this was a deliberate correction of an internal inconsistency between the dev spec's Architecture-Changes wording and its own Research section: only `gitignored` invalidates the index, so `hidden` must stay a safe superset there or a hidden-only toggle would silently miss files, exactly what this feature exists to prevent.
+
+**Verification results:**
+- `tests/test-visibility.lua`: 17/17 passed.
+- `scripts/bench-explorer.lua`: PASS (exit 0), ~515-530µs mixed-scenario (pre-existing soft-target WARN noise at 500µs, confirmed via `git stash` unchanged from baseline ~520-522µs).
+- `scripts/bench-finder-matcher.lua`: PASS, full_scan ~17-18ms (<80ms), subset ~16-17ms (<50ms).
+- `scripts/bench-tabline.lua`: PASS (exit 0), ~117µs cold render (pre-existing soft-target WARN noise at 50µs, confirmed via `git stash` unchanged from baseline ~122µs).
+- `stylua --check lua/` and the touched `scripts/`: clean throughout.
+- Manual E2E: all 5 PM-spec scenarios walked against a real fixture git repo (dotfiles, `.gitignore`, gitignored `node_modules/`) with real `fd`/`rg`/`ug` processes — including the bigram-prefilter rebuild-on-toggle (confirmed proactive, before any query was issued) and a live-open Finder/Explorer/tabline all refreshing without reopen.
