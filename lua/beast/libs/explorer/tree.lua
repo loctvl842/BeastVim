@@ -497,6 +497,11 @@ function M:flat(opts)
 	local list = {}
 
 	self:walk(root, function(node)
+		-- .git is never navigable, regardless of visibility state — matches
+		-- Finder, which has always excluded it via `--glob !.git`.
+		if node.name == ".git" then
+			return false
+		end
 		if node.hidden and not opts.show_hidden then
 			return false
 		end
