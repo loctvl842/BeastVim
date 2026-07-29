@@ -64,11 +64,51 @@ local function has_real_buffer()
 	return false
 end
 
+---@param vim_path string  path to a `.vim` session file (plain or branch identity)
+---@return string
+local function explorer_sidecar_path(vim_path)
+	return (vim_path:gsub("%.vim$", ".explorer.json"))
+end
+
+--- Snapshot the explorer's root, expanded folders, and focus, then close its
+--- window so `:mksession` never has to capture the synthetic explorer buffer.
+--- Returns nil when the explorer wasn't open.
+---@return { root: string, open_dirs: string[], focus: "explorer"|"main" }?
+local function capture_explorer_state()
+	local explorer_state = require("beast.libs.explorer.state")
+	if not (explorer_state.view and explorer_state.view:is_valid() and explorer_state.tree) then
+		return nil
+	end
+
+	local root = explorer_state.tree.root.path
+	local open_dirs = {}
+	for path, node in pairs(explorer_state.tree.nodes) do
+		if node.dir and node.open and path ~= root then
+			open_dirs[#open_dirs + 1] = path
+		end
+	end
+	table.sort(open_dirs)
+
+	local focus = (vim.api.nvim_get_current_win() == explorer_state.view.win) and "explorer" or "main"
+
+	require("beast.libs.explorer").close()
+
+	return { root = root, open_dirs = open_dirs, focus = focus }
+end
+
 local function save()
 	if not has_real_buffer() then
 		return
 	end
-	vim.cmd("mksession! " .. vim.fn.fnameescape(branch_path() or plain_path()))
+	local target = branch_path() or plain_path()
+	local explorer_snapshot = capture_explorer_state()
+	vim.cmd("mksession! " .. vim.fn.fnameescape(target))
+	local sidecar = explorer_sidecar_path(target)
+	if explorer_snapshot then
+		vim.fn.writefile({ vim.json.encode(explorer_snapshot) }, sidecar)
+	else
+		vim.fn.delete(sidecar)
+	end
 end
 
 M.save = save
