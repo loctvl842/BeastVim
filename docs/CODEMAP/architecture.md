@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-21 | Files scanned: 23 | Token estimate: ~2362 -->
+<!-- Generated: 2026-07-28 | Files scanned: 23 | Token estimate: ~2380 -->
 
 # Architecture
 
@@ -93,7 +93,8 @@ beast.setup(opts)
   7b. packer.lazy session (VimEnter+defer) — registers VimLeavePre autosave
   8.  packer.lazy breadcrumb / tabline / statuscolumn (BufWinEnter/BufWritePost+defer)
   9.  packer.lazy git (event-driven) — exposes ]c/[c/<leader>g* keymaps
-  10. packer.lazy explorer (VimEnter+defer + <leader>e)
+  10. packer.lazy explorer (VimEnter+defer + <leader>e + module trigger —
+        session.load() calls explorer.open() directly on restore)
   11. packer.lazy indent (BufReadPost/BufWritePost+defer)
   12. packer.lazy treesitter (FileType+defer)
   13. packer.lazy finder (keys: <leader>f/b/F/h/c)

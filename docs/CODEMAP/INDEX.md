@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-26 | Files scanned: 24 | Token estimate: ~270 -->
+<!-- Generated: 2026-07-28 | Files scanned: 24 | Token estimate: ~270 -->
 
 # BeastVim Codemaps
 
@@ -15,4 +15,4 @@ Quick-reference architecture documentation. Regenerate with `/update-codemap`.
 - Libraries: 22 — autopairs, breadcrumb, confirm, explorer, finder, git, image, indent, key, lsp, notify, packer, scroll, session, starter, statuscolumn, statusline, tabline, toast, treesitter, view, window
 - Shared modules: view/ (instance + .buf + .win submodules), animate.lua, async.lua, util/, theme/
 - Profiler: lua/beast/profile.lua (per-fn count/total/self stats)
-- Last updated: 2026-07-26 (tabline filesystem sync: cleanup_stale on FocusGained/ShellCmdPost)
+- Last updated: 2026-07-28 (session restores explorer tree state: root, expanded folders, focus)

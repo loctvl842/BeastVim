@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-21 | Files scanned: 24 | Token estimate: ~8657 -->
+<!-- Generated: 2026-07-28 | Files scanned: 24 | Token estimate: ~8780 -->
 
 # Libraries
 
@@ -28,9 +28,12 @@ explorer/
     └── paste_from_clipboard.lua
 ```
 
-API: `explorer.open(dir)`, `explorer.close()`, `explorer.toggle(cwd)`
+API: `explorer.open(dir, opts)`, `explorer.close()`, `explorer.toggle(cwd)`
+`opts.restore` (bool): skip the "re-root to whatever file is currently open"
+heuristic — `dir` wins exactly. Used by `session.load()`'s restore path.
 Config: `git = { enable = true, badges = true }` (backward-compat: `git = true/false`)
-Loaded via: `packer.lazy()` on VimEnter (deferred) + `<leader>e` keymap
+Loaded via: `packer.lazy()` on VimEnter (deferred) + `<leader>e` keymap +
+`module` trigger (so `session.load()`'s direct `require()` still runs setup)
 
 ### Git Status Integration (`git.lua`)
 
@@ -166,7 +169,7 @@ Type: native `%!` winbar; per-window cache; no View subclass
 ```
 session/
 ├── init.lua   ← setup() (VimLeavePre autocmd), load(), exists(); private
-│                identity/path encoding, save guard
+│                identity/path encoding, save guard, explorer state capture/restore
 └── config.lua ← readonly singleton (dir)
 ```
 
@@ -177,16 +180,31 @@ the plain identity when no branch-specific session exists. Save (on
 `VimLeavePre`) is skipped when 0 real file buffers are open, so an empty
 quit never clobbers a prior session.
 
-`load()` is a thin `:source` of the `:mksession`-written file — nothing
-else. Deliberately minimal: two fold-restore mechanisms (a timing-based
-retry replay, then a synchronous snapshot-based rewrite) were tried to fix
-`zc` silently no-op'ing under `foldmethod=expr` (treesitter/LSP fold
-structure not ready yet when the session sources), and both were removed
-after neither worked reliably in practice.
+`load()` is a thin `:source` of the `:mksession`-written file, plus an
+explorer-state restore step. Deliberately minimal: two fold-restore
+mechanisms (a timing-based retry replay, then a synchronous snapshot-based
+rewrite) were tried to fix `zc` silently no-op'ing under `foldmethod=expr`
+(treesitter/LSP fold structure not ready yet when the session sources), and
+both were removed after neither worked reliably in practice.
+
+### Explorer state sidecar
+
+`save()` closes the explorer window (if open) *before* `mksession!` runs —
+`:mksession` can't reconstruct the explorer's `buftype=nofile` scratch
+buffer, so it's excluded from the captured window layout entirely and
+rebuilt from scratch on load instead. The snapshot (`root`, `open_dirs`
+list, `focus` = `"explorer"`|`"main"`) is written to a
+`<identity>.explorer.json` sidecar next to the `.vim` file (same
+plain/branch identity, via `vim.json.encode`); a stale sidecar is deleted
+when the explorer was closed at save time. `load()` reads the sidecar (if
+its `root` still exists on disk) and calls
+`explorer.open(root, { restore = true })`, re-expands each remembered dir
+via `tree:open()`, then restores focus. Missing sidecar / bad JSON / a
+deleted root are all silent no-ops — the rest of the session still restores.
 
 Loaded via: `packer.lazy()` on `VimEnter` (deferred), no keys/module trigger
 — must be active without any user action.
-Tests: `tests/test-session.lua` (15 assertions).
+Tests: `tests/test-session.lua` (32 assertions, incl. 4 explorer-state scenarios).
 
 ---
 
