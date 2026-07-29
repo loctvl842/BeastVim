@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785246365998,
+  "lastUpdate": 1785329750448,
   "repoUrl": "https://github.com/loctvl842/BeastVim",
   "entries": {
     "BeastVim Startup": [
@@ -1451,6 +1451,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "BeastVim startup (warm) max",
             "value": 40.80261,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "committer": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "distinct": true,
+          "id": "9f648e5a0d5f4bdbe911fffd8365b645494c1313",
+          "message": "docs: pm/dev specs and codemap for session-explorer-state\n\nAdds the PM spec and dev spec for the explorer session-restore\nfeature, and refreshes the CODEMAP to reflect explorer.open()'s new\nopts.restore flag, its module trigger, and session's explorer-state\nsidecar.",
+          "timestamp": "2026-07-28T22:25:12+07:00",
+          "tree_id": "f011216a443aee827ee4edf660d8aad8d8cd3088",
+          "url": "https://github.com/loctvl842/BeastVim/commit/9f648e5a0d5f4bdbe911fffd8365b645494c1313"
+        },
+        "date": 1785329750133,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "BeastVim startup (warm) mean",
+            "value": 41.36289135,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) stddev",
+            "value": 0.6761051400723409,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) min",
+            "value": 40.32889,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) max",
+            "value": 42.823037,
             "unit": "ms"
           }
         ]
