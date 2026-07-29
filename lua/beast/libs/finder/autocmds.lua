@@ -73,6 +73,23 @@ function M.mount(state)
 		end,
 	})
 
+	-- Re-run the active query when the shared visibility state (hidden/
+	-- gitignored) changes, whether toggled from Explorer, the tabline buttons,
+	-- or the global keymaps. Match-pipeline sources (files, buffers, ...) reload
+	-- from source; the stream pipeline (live_grep) re-runs against the current
+	-- pattern — same calls `state.lua:new()` already makes on initial load.
+	vim.api.nvim_create_autocmd("User", {
+		group = state.augroup,
+		pattern = "BeastVisibilityChanged",
+		callback = function()
+			if state.pipeline.load then
+				state.pipeline.load(state)
+			else
+				state.pipeline.run(state)
+			end
+		end,
+	})
+
 	-- Close when focus moves to a window outside the finder
 	vim.api.nvim_create_autocmd("WinEnter", {
 		group = state.augroup,

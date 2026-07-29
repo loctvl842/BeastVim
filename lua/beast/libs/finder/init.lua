@@ -13,6 +13,7 @@ local state = nil
 function M.setup(opts)
 	require("beast.libs.finder.config").setup(opts)
 	require("beast").apply_highlights("beast.libs.finder.highlights")
+	require("beast.libs.finder.source.live_grep.engine.index").setup()
 	initialized = true
 end
 

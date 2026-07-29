@@ -18,6 +18,7 @@
 --   BEAST_FINDER_MAX_FILES      file cap
 --   BEAST_FINDER_MAX_FILE_SIZE  per-file byte cap
 --   BEAST_FINDER_MAX_COLS       optional bigram column cap
+--   BEAST_FINDER_GITIGNORED     "1" to include gitignored files, else omitted
 -- =========================================================================
 
 local function fail(msg)
@@ -45,6 +46,7 @@ local built, err = builder.run({
 	max_files = tonumber(os.getenv("BEAST_FINDER_MAX_FILES")) or 100000,
 	max_file_size = tonumber(os.getenv("BEAST_FINDER_MAX_FILE_SIZE")) or (1024 * 1024),
 	max_cols = tonumber(os.getenv("BEAST_FINDER_MAX_COLS")),
+	gitignored = os.getenv("BEAST_FINDER_GITIGNORED") == "1",
 })
 if not built then
 	return fail(err or "build failed")

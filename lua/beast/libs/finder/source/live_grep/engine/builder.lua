@@ -15,12 +15,23 @@ local serialize = require("beast.libs.finder.source.live_grep.engine.serialize")
 
 local M = {}
 
---- List files under root (rg honors .gitignore). Caps at max_files.
+--- List files under root (rg honors .gitignore unless `gitignored` is true).
+--- Caps at max_files. `--hidden` is always on: this index must stay a safe
+--- *superset* for the hidden dimension since it never gets rebuilt on a
+--- hidden-only toggle (unlike gitignored — see engine/index.lua's staleness
+--- check) — the final rg/ug pass in live_grep/init.lua does the actual
+--- hidden-file filtering.
 ---@param root string
 ---@param max_files integer
+---@param gitignored boolean
 ---@return string[]
-local function list_files(root, max_files)
-	local out = vim.fn.systemlist({ "rg", "--files", "--hidden", "--glob=!.git", root })
+local function list_files(root, max_files, gitignored)
+	local cmd = { "rg", "--files", "--hidden", "--glob=!.git" }
+	if gitignored then
+		table.insert(cmd, "--no-ignore")
+	end
+	table.insert(cmd, root)
+	local out = vim.fn.systemlist(cmd)
 	if vim.v.shell_error ~= 0 then
 		return {}
 	end
@@ -56,13 +67,13 @@ end
 --- Build an index for `root` and serialize it to `out`. Returns false (with a
 --- reason) when there's nothing to build or the write fails — the caller treats
 --- that as "no index" and falls back to a full scan.
----@param opts { root: string, out: string, max_files: integer, max_file_size: integer, max_cols?: integer }
+---@param opts { root: string, out: string, max_files: integer, max_file_size: integer, max_cols?: integer, gitignored?: boolean }
 ---@return boolean ok, string? err
 function M.run(opts)
 	if not bigram.available() then
 		return false, "no ffi/bit"
 	end
-	local files = list_files(opts.root, opts.max_files)
+	local files = list_files(opts.root, opts.max_files, opts.gitignored or false)
 	if #files == 0 then
 		return false, "no files"
 	end

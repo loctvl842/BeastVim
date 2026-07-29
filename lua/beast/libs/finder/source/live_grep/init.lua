@@ -2,6 +2,7 @@ local uv = vim.uv or vim.loop
 local bigram = require("beast.libs.finder.source.live_grep.engine.bigram")
 local config = require("beast.libs.finder.config")
 local index = require("beast.libs.finder.source.live_grep.engine.index")
+local visibility = require("beast.visibility")
 
 ---@class Beast.Finder.Source.LiveGrep: Beast.Finder.ASource
 local M = {}
@@ -32,7 +33,11 @@ local function prefilter(pattern, cwd)
 	if not idx then
 		if building ~= cwd then
 			building = cwd
-			index.build(cwd, { max_files = engine.max_files, max_file_size = engine.max_file_size }, function()
+			index.build(cwd, {
+				max_files = engine.max_files,
+				max_file_size = engine.max_file_size,
+				gitignored = visibility.gitignored,
+			}, function()
 				building = nil
 			end)
 		end
@@ -56,11 +61,17 @@ local function ensure_cmd(text)
 		M.base_args = {
 			"--json",
 			"--smart-case",
-			"--hidden",
 			"--glob=!.git",
-			"--",
-			text,
 		}
+		if visibility.hidden then
+			table.insert(M.base_args, "--hidden")
+		end
+		-- rg respects .gitignore by default; --no-ignore opts out.
+		if visibility.gitignored then
+			table.insert(M.base_args, "--no-ignore")
+		end
+		table.insert(M.base_args, "--")
+		table.insert(M.base_args, text)
 	elseif vim.fn.executable("ug") == 1 then
 		M.cmd = "ug"
 		parse_mode = "ug"
@@ -73,12 +84,20 @@ local function ensure_cmd(text)
 			"--format=%f:%n:%k:%d:%o%O%~",
 			"--color=never",
 			"--smart-case",
-			"--hidden",
 			"--exclude-dir=.git",
 			"--tabs=1",
-			"--",
-			text,
 		}
+		if visibility.hidden then
+			table.insert(M.base_args, "--hidden")
+		end
+		-- Unlike rg, ug does NOT respect .gitignore by default — --ignore-files
+		-- opts in. So the polarity here is inverted: add the flag to *hide*
+		-- gitignored files, omit it to show them.
+		if not visibility.gitignored then
+			table.insert(M.base_args, "--ignore-files")
+		end
+		table.insert(M.base_args, "--")
+		table.insert(M.base_args, text)
 	else
 		M.cmd = nil
 		M.base_args = {}

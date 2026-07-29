@@ -1,5 +1,6 @@
 local uv = vim.uv or vim.loop
 local Queue = require("beast.libs.finder.queue")
+local visibility = require("beast.visibility")
 
 ---@class Beast.Finder.Source.Files: Beast.Finder.ASource
 local M = {}
@@ -14,41 +15,61 @@ SUPPORTED = {
 		cmd = "fd",
 		args = function(cwd)
       -- stylua: ignore
-			return {
+			local args = {
 				"--type", "f",
 				"--type", "l",
 				"--color", "never",
-				"--hidden",
 				"--exclude", ".git",
-				".",
-				cwd,
 			}
+			if visibility.hidden then
+				table.insert(args, "--hidden")
+			end
+			if visibility.gitignored then
+				table.insert(args, "--no-ignore")
+			end
+			table.insert(args, ".")
+			table.insert(args, cwd)
+			return args
 		end,
 	},
 	{
 		cmd = "rg",
 		args = function(cwd)
       -- stylua: ignore
-			return {
+			local args = {
 				"--files",
 				"--color", "never",
 				"--no-messages",
-				"--hidden",
 				"--glob", "!.git",
 				"--glob", "!.git/**",
-				cwd,
 			}
+			if visibility.hidden then
+				table.insert(args, "--hidden")
+			end
+			if visibility.gitignored then
+				table.insert(args, "--no-ignore")
+			end
+			table.insert(args, cwd)
+			return args
 		end,
 	},
 	{
 		cmd = "find",
 		args = function(cwd)
       -- stylua: ignore
-			return {
+			local args = {
 				cwd,
 				"-type", "f",
 				"-not", "-path", "*/.git/*",
 			}
+			-- find has no native gitignore support, so the gitignored toggle is a
+			-- no-op here — it never shows gitignored files either way.
+			if not visibility.hidden then
+				table.insert(args, "-not")
+				table.insert(args, "-path")
+				table.insert(args, "*/.*")
+			end
+			return args
 		end,
 	},
 }

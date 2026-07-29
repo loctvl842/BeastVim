@@ -33,6 +33,7 @@ local M = {}
 ---@field id_of table<string, integer> abs path -> 0-based file id
 ---@field dead table<integer, boolean> tombstoned ids (deleted on disk)
 ---@field watcher uv.uv_fs_event_t? recursive root watcher
+---@field gitignored boolean whether gitignored files were included when this index was built
 local Index = {}
 Index.__index = Index
 
@@ -83,7 +84,7 @@ end
 --- Wrap a loaded index as the current singleton and start watching for changes.
 ---@param root string
 ---@param loaded { bigram: Beast.Finder.Bigram, files: string[] }
----@param opts { max_file_size: integer }
+---@param opts { max_file_size: integer, gitignored?: boolean }
 ---@param build_ms number
 ---@return Beast.Finder.Index
 local function install(root, loaded, opts, build_ms)
@@ -98,6 +99,7 @@ local function install(root, loaded, opts, build_ms)
 		id_of = {},
 		dead = {},
 		watcher = nil,
+		gitignored = opts.gitignored or false,
 	}, Index)
 	for i, path in ipairs(loaded.files) do
 		self.id_of[path] = i - 1
@@ -115,7 +117,7 @@ end
 --- falls back to a full rg scan). The heavy content scan runs in a headless
 --- child, so the editor's loop is never blocked by it.
 ---@param root string
----@param opts { max_files: integer, max_file_size: integer, max_cols?: integer }
+---@param opts { max_files: integer, max_file_size: integer, max_cols?: integer, gitignored?: boolean }
 ---@param on_done fun(index: Beast.Finder.Index?)
 function M.build(root, opts, on_done)
 	kill_inflight()
@@ -133,6 +135,9 @@ function M.build(root, opts, on_done)
 	environ.BEAST_FINDER_MAX_FILE_SIZE = tostring(opts.max_file_size)
 	if opts.max_cols then
 		environ.BEAST_FINDER_MAX_COLS = tostring(opts.max_cols)
+	end
+	if opts.gitignored then
+		environ.BEAST_FINDER_GITIGNORED = "1"
 	end
 	local env = {}
 	for k, v in pairs(environ) do
@@ -167,6 +172,32 @@ function M.build(root, opts, on_done)
 		return
 	end
 	inflight = handle
+end
+
+--- Proactively rebuild the current root's index when `gitignored` toggles,
+--- rather than waiting for the next query to discover staleness via `M.get`
+--- (which still happens as a fallback — this just gives the background scan
+--- a head start so it's more likely ready by the time the user actually
+--- types). No-op if no index has been built for any root yet, or the `hidden`
+--- flag toggled instead (that one never invalidates — see the note on
+--- `list_files` in engine/builder.lua).
+function M.setup()
+	local group = vim.api.nvim_create_augroup("BeastFinderIndex", { clear = true })
+	vim.api.nvim_create_autocmd("User", {
+		group = group,
+		pattern = "BeastVisibilityChanged",
+		callback = function(ev)
+			-- stylua: ignore
+			if not current or ev.data.key ~= "gitignored" then return end
+			local engine = require("beast.libs.finder.config").engine
+			M.build(current.root, {
+				max_files = engine.max_files,
+				max_file_size = engine.max_file_size,
+				max_cols = engine.max_cols,
+				gitignored = require("beast.visibility").gitignored,
+			}, function() end)
+		end,
+	})
 end
 
 --- Read one file (1-based) and feed its bigrams. Oversize files are skipped.
@@ -272,11 +303,18 @@ function Index:stop()
 	end
 end
 
---- The ready index for root, or nil if none/cwd changed.
+--- The ready index for root, or nil if none/cwd changed/stale.
+--- "Stale" here means built with a different `gitignored` setting than the
+--- shared visibility state currently wants — the survivor set the index
+--- enumerated (via `rg --files`) structurally can't contain gitignored files
+--- unless it was built with `gitignored = true`, so a mismatch here can't be
+--- patched post-hoc and must fall through to a rebuild (handled by the caller,
+--- `prefilter()` in live_grep/init.lua, which already rebuilds on a `nil` get()
+--- and falls back to a full scan for the query in flight).
 ---@param root string
 ---@return Beast.Finder.Index?
 function M.get(root)
-	if current and current.ready and current.root == root then
+	if current and current.ready and current.root == root and current.gitignored == require("beast.visibility").gitignored then
 		return current
 	end
 	return nil
