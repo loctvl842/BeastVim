@@ -8,6 +8,36 @@
 vim.opt.runtimepath:prepend(vim.fn.getcwd())
 package.path = "./lua/?.lua;./lua/?/init.lua;" .. package.path
 
+-- Stub globals the explorer modules expect (see scripts/bench-explorer.lua)
+-- since session.load() now reconstructs the explorer panel on restore.
+_G.Theme = {
+	get = function()
+		return setmetatable({}, {
+			__index = function()
+				return "#ffffff"
+			end,
+		})
+	end,
+	refresh = function() end,
+}
+
+_G.Util = require("beast.util")
+
+_G.Toast = function() end
+
+package.loaded["nvim-web-devicons"] = {
+	get_icon = function(_, _, _)
+		return "󰈙", "DevIconDefault"
+	end,
+}
+
+-- The real view lib (not bench-explorer.lua's simplified inline stub): this
+-- test exercises real window-switching autocmds (explorer/autocmds.lua's
+-- WinEnter handler), which needs the real View.win.is_normal()/find_normal().
+_G.View = require("beast.libs.view")
+
+local explorer = require("beast.libs.explorer")
+local explorer_state = require("beast.libs.explorer.state")
 local session = require("beast.libs.session")
 
 -- =========================================================================
@@ -193,6 +223,154 @@ wipe_buffers()
 local ok = pcall(session.load)
 assert_test("load() does not error when nothing was ever saved", ok)
 assert_test("load() is a true no-op (still just the unnamed buffer)", #vim.api.nvim_list_bufs() == 1)
+
+-- =========================================================================
+-- Explorer state: open + expanded folders + focus=explorer survives reload
+-- =========================================================================
+
+io.write("\n--- explorer state: open + expanded folders + focus=explorer ---\n")
+
+local proj_a = root .. "/explorer-a"
+vim.fn.mkdir(proj_a .. "/src/components", "p")
+vim.fn.mkdir(proj_a .. "/tests", "p")
+sh(proj_a, "git init -q && git checkout -q -b main")
+vim.fn.writefile({ "return {}" }, proj_a .. "/src/components/button.lua")
+sh(proj_a, "git add -A && git commit -q -m init")
+
+vim.fn.chdir(proj_a)
+local proj_a_cwd = vim.fn.getcwd()
+
+explorer.close()
+wipe_buffers()
+vim.cmd("edit " .. vim.fn.fnameescape(proj_a_cwd .. "/src/components/button.lua"))
+explorer.open(proj_a_cwd)
+explorer_state.tree:open(proj_a_cwd .. "/src/components")
+explorer_state.tree:open(proj_a_cwd .. "/tests")
+trigger_save()
+
+local sidecar_a = sessions_dir .. encode(proj_a_cwd) .. ".explorer.json"
+assert_test("sidecar written when explorer was open at quit", vim.uv.fs_stat(sidecar_a) ~= nil, "missing " .. sidecar_a)
+
+wipe_buffers()
+session.load()
+
+assert_test("explorer reopened at the saved root", explorer_state.tree and explorer_state.tree.root.path == proj_a_cwd)
+assert_test(
+	"folders expanded before quitting are expanded again (src)",
+	explorer_state.tree.nodes[proj_a_cwd .. "/src"] and explorer_state.tree.nodes[proj_a_cwd .. "/src"].open == true
+)
+assert_test(
+	"folders expanded before quitting are expanded again (tests)",
+	explorer_state.tree.nodes[proj_a_cwd .. "/tests"] and explorer_state.tree.nodes[proj_a_cwd .. "/tests"].open == true
+)
+assert_test("focus restored to the explorer panel", explorer_state.view and vim.api.nvim_get_current_win() == explorer_state.view.win)
+
+-- =========================================================================
+-- Explorer state: same, but focus=main (cursor was in the last file)
+-- =========================================================================
+
+io.write("\n--- explorer state: open + expanded folders + focus=main ---\n")
+
+local proj_b = root .. "/explorer-b"
+vim.fn.mkdir(proj_b .. "/src", "p")
+sh(proj_b, "git init -q && git checkout -q -b main")
+vim.fn.writefile({ "return {}" }, proj_b .. "/src/main.lua")
+sh(proj_b, "git add -A && git commit -q -m init")
+
+vim.fn.chdir(proj_b)
+local proj_b_cwd = vim.fn.getcwd()
+
+explorer.close()
+wipe_buffers()
+vim.cmd("edit " .. vim.fn.fnameescape(proj_b_cwd .. "/src/main.lua"))
+explorer.open(proj_b_cwd)
+explorer_state.tree:open(proj_b_cwd .. "/src")
+-- Move focus back to the file window before quitting, like a user who
+-- browsed the explorer and then clicked back into their file.
+vim.api.nvim_set_current_win(explorer_state.source_win)
+trigger_save()
+
+wipe_buffers()
+session.load()
+
+assert_test("explorer reopened at the saved root (focus=main case)", explorer_state.tree and explorer_state.tree.root.path == proj_b_cwd)
+assert_test(
+	"focus restored to the last edited file, not the explorer panel",
+	explorer_state.view and vim.api.nvim_get_current_win() ~= explorer_state.view.win
+)
+assert_test("last edited file is the current buffer", vim.fn.fnamemodify(vim.api.nvim_buf_get_name(0), ":t") == "main.lua")
+
+-- =========================================================================
+-- Explorer state: closed at quit stays closed (and clears a stale sidecar)
+-- =========================================================================
+
+io.write("\n--- explorer state: closed at quit stays closed ---\n")
+
+local proj_c = root .. "/explorer-c"
+vim.fn.mkdir(proj_c, "p")
+sh(proj_c, "git init -q && git checkout -q -b main")
+vim.fn.writefile({ "note" }, proj_c .. "/keep.lua")
+sh(proj_c, "git add -A && git commit -q -m init")
+
+vim.fn.chdir(proj_c)
+local proj_c_cwd = vim.fn.getcwd()
+local sidecar_c = sessions_dir .. encode(proj_c_cwd) .. ".explorer.json"
+
+explorer.close()
+wipe_buffers()
+vim.cmd("edit keep.lua")
+explorer.open(proj_c_cwd)
+trigger_save()
+assert_test("sidecar written while explorer was open", vim.uv.fs_stat(sidecar_c) ~= nil, "missing " .. sidecar_c)
+
+-- explorer was already closed by the previous save(); a second save should
+-- clear the now-stale sidecar rather than leave it pointing at open state.
+trigger_save()
+assert_test("stale sidecar cleared once explorer is closed at save time", vim.uv.fs_stat(sidecar_c) == nil, "sidecar still present")
+
+wipe_buffers()
+session.load()
+assert_test("explorer stays closed on reload", not explorer_state.view or not explorer_state.view:is_valid())
+assert_test("file buffers still restore normally", vim.deep_equal(open_buffer_names(), { "keep.lua" }))
+
+-- =========================================================================
+-- Explorer state: saved root deleted before reload fails silently
+-- =========================================================================
+
+io.write("\n--- explorer state: saved root deleted before reload ---\n")
+
+local proj_d = root .. "/explorer-d"
+vim.fn.mkdir(proj_d .. "/legacy", "p")
+sh(proj_d, "git init -q && git checkout -q -b main")
+vim.fn.writefile({ "note" }, proj_d .. "/keep.lua")
+sh(proj_d, "git add -A && git commit -q -m init")
+
+vim.fn.chdir(proj_d)
+local proj_d_cwd = vim.fn.getcwd()
+local legacy_root = proj_d_cwd .. "/legacy"
+
+explorer.close()
+wipe_buffers()
+vim.cmd("edit keep.lua")
+-- opts.restore=true here just forces the exact root for a deterministic
+-- test setup; it is not simulating session restore itself.
+explorer.open(legacy_root, { restore = true })
+assert_test("explorer set up at the (soon to be deleted) sub-root", explorer_state.tree.root.path == legacy_root)
+trigger_save()
+
+local sidecar_d = sessions_dir .. encode(proj_d_cwd) .. ".explorer.json"
+assert_test("sidecar written with the re-rooted explorer path", vim.uv.fs_stat(sidecar_d) ~= nil, "missing " .. sidecar_d)
+
+vim.fn.delete(legacy_root, "rf")
+wipe_buffers()
+
+local ok_load = pcall(session.load)
+assert_test("load() does not error when the saved explorer root is gone", ok_load)
+assert_test("explorer stays closed when its saved root no longer exists", not explorer_state.view or not explorer_state.view:is_valid())
+assert_test(
+	"rest of the session (file buffers) restores normally despite the missing explorer root",
+	vim.deep_equal(open_buffer_names(), { "keep.lua" })
+)
 
 -- =========================================================================
 -- Summary
