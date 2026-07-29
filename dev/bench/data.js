@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785329750448,
+  "lastUpdate": 1785330813358,
   "repoUrl": "https://github.com/loctvl842/BeastVim",
   "entries": {
     "BeastVim Startup": [
@@ -1495,6 +1495,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "BeastVim startup (warm) max",
             "value": 42.823037,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "committer": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "distinct": true,
+          "id": "87b57d9a7bfcfcc24fa770d879cfe48950396722",
+          "message": "fix(explorer): fix opts.restore regression, get buffer name before ensure_explorer\n\n0e777b7 moved ensure_explorer(dir) ahead of reading the current buffer\nname. On a first open, ensure_explorer creates the split via\nui.create(), which runs vsplit and makes the new explorer window\ncurrent — so nvim_buf_get_name(0) read afterward returned the\nexplorer's own empty buffer instead of the file being edited,\nsilently breaking auto-focus-on-current-file.",
+          "timestamp": "2026-07-29T20:10:44+07:00",
+          "tree_id": "cdcfbf0c77fc23a1ceb72a380496923ecf1fae0f",
+          "url": "https://github.com/loctvl842/BeastVim/commit/87b57d9a7bfcfcc24fa770d879cfe48950396722"
+        },
+        "date": 1785330813053,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "BeastVim startup (warm) mean",
+            "value": 41.52463175,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) stddev",
+            "value": 0.7469642726643184,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) min",
+            "value": 40.407075,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) max",
+            "value": 42.711443,
             "unit": "ms"
           }
         ]
