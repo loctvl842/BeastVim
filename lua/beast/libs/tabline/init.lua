@@ -173,9 +173,10 @@ function M.render()
 	parts[#parts + 1] = tabpages.render(ctx)
 
 	-- Visibility toggle buttons (hidden files, gitignored files), then the
-	-- day/night toggle button, both far right
-	parts[#parts + 1] = visibility_section.render()
-	parts[#parts + 1] = toggle_button.render()
+	-- day/night toggle button, both far right. Collapse to icon-only when the
+	-- buffer list would otherwise overflow (see context.lua's buttons_compact).
+	parts[#parts + 1] = visibility_section.render(ctx.buttons_compact)
+	parts[#parts + 1] = toggle_button.render(ctx.buttons_compact)
 
 	local output = table.concat(parts)
 

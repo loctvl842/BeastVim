@@ -78,6 +78,7 @@ end
 ---@field tabpages_width integer
 ---@field toggle_button_width integer
 ---@field visibility_width integer
+---@field buttons_compact boolean Icon-only right-side buttons (no label) when the buffer list would overflow
 ---@field edge_trim_bufs? table<integer, boolean> Buffers rendered with edge trimming (skip min_cell_width)
 ---@field edge_trim_compact? table<integer, string> Map of buffer → pull side ("left"|"right") for compact edge trim
 
@@ -186,16 +187,7 @@ function M.build(state)
 		end
 	end
 
-	-- Toggle button width (always visible on the right)
-	local toggle_button = require("beast.libs.tabline.sections.toggle_button")
-	local toggle_button_width = toggle_button.width()
-
-	-- Visibility toggle buttons width (always visible on the right, beside the
-	-- day/night button)
-	local visibility = require("beast.libs.tabline.sections.visibility")
-	local visibility_width = visibility.width()
-
-	return {
+	local ctx = {
 		columns = vim.o.columns,
 		current_buf = current_buf,
 		effective_active = effective,
@@ -212,9 +204,30 @@ function M.build(state)
 		tabpages = tabpages,
 		current_tabnr = current_tabnr,
 		tabpages_width = tabpages_width,
-		toggle_button_width = toggle_button_width,
-		visibility_width = visibility_width,
 	}
+
+	-- Right-side toggle buttons (day/night, hidden, gitignored) render with an
+	-- icon + text label when there's room, and collapse to icon-only when the
+	-- full-label width would force the buffer list to truncate — the buffer
+	-- list always wins the space fight over button legibility.
+	local toggle_button = require("beast.libs.tabline.sections.toggle_button")
+	local visibility = require("beast.libs.tabline.sections.visibility")
+	local truncate = require("beast.libs.tabline.truncate")
+
+	local full_buttons_width = toggle_button.width(false) + visibility.width(false)
+	local available_full = ctx.columns - (sidebar_width or 0) - tabpages_width - full_buttons_width
+
+	local natural_width = 0
+	for _, bufnr in ipairs(listed) do
+		natural_width = natural_width + truncate.estimate_cell_width(bufnr, ctx, bufnr == anchor_bufnr)
+	end
+
+	local compact = natural_width > available_full
+	ctx.buttons_compact = compact
+	ctx.toggle_button_width = toggle_button.width(compact)
+	ctx.visibility_width = visibility.width(compact)
+
+	return ctx
 end
 
 return M

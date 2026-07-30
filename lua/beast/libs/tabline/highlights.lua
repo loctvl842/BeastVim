@@ -63,9 +63,9 @@ local function APPEARANCE(p)
 			separator = { fg = p.background, bg = p.background },
 		},
 
-		toggle_button = { fg = p.dimmed1 },
+		toggle_button = { fg = p.text },
 
-		visibility = { on = p.text, off = p.dimmed1 },
+		visibility = { on = p.text, off = p.dimmed3, label = p.dimmed3 },
 
 		diagnostics = {
 			Error = p.accent1,
@@ -133,6 +133,7 @@ local function compute()
 		ToggleButton = { fg = a.toggle_button.fg, bg = fill.bg, underline = fill.underline, sp = fill.sp },
 		VisibilityOn = { fg = a.visibility.on, bg = fill.bg, underline = fill.underline, sp = fill.sp },
 		VisibilityOff = { fg = a.visibility.off, bg = fill.bg, underline = fill.underline, sp = fill.sp },
+		VisibilityLabel = { fg = a.visibility.label, bg = fill.bg, underline = fill.underline, sp = fill.sp },
 	}
 
 	for sev_name, sev_color in pairs(a.diagnostics) do

@@ -19,13 +19,17 @@ local defaults = {
 	-- Toggle button (right side — toggles background dark/light)
 	toggle_button_dark_icon = " ", -- shown in dark mode
 	toggle_button_light_icon = " ", -- shown in light mode
+	toggle_button_label = "toggle dark/light", -- text label so the icon isn't the only clue
 
-	-- Visibility toggle buttons (right side, beside the day/night button) —
+	-- Visibility toggle buttons (right side, beside the day/night button) --
 	-- toggle beast.visibility's hidden/gitignored state. One static icon per
 	-- switch; on/off is conveyed by highlight (VisibilityOn/VisibilityOff in
-	-- highlights.lua), not by swapping the glyph.
-	visibility_hidden_icon = "\u{f06e}", -- nf-fa-eye
-	visibility_gitignored_icon = (Icon and Icon.git and Icon.git.ignored) or "\u{f1188}", -- nf-md-file_cancel
+	-- highlights.lua), not by swapping the glyph. Text labels make the icons
+	-- legible on first use instead of relying on glyph recognition alone.
+	visibility_hidden_icon = " ", -- nf-fa-eye
+	visibility_hidden_label = "toggle hidden",
+	visibility_gitignored_icon = " ", -- nf-md-file_cancel
+	visibility_gitignored_label = "toggle gitignore",
 
 	-- Icons shown inside truncation markers
 	-- Left: " N <icon> " (e.g. " 3 … ")   Right: " <icon> N " (e.g. " … 2 ")
