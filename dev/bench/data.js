@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785330813358,
+  "lastUpdate": 1785420684376,
   "repoUrl": "https://github.com/loctvl842/BeastVim",
   "entries": {
     "BeastVim Startup": [
@@ -1539,6 +1539,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "BeastVim startup (warm) max",
             "value": 42.711443,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "committer": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "distinct": true,
+          "id": "69f4868b437e9b889b02188b65cfd7004fe35bb3",
+          "message": "docs(visibility): update codemaps and mark dev spec complete\n\nRegenerates docs/CODEMAP/ to reflect the new beast.visibility module and its\nconsumers (explorer, finder, tabline), and closes out\ndocs/dev-specs/visibility-init.md with the Completed section: commit list,\ndeviations from plan, and verification results.",
+          "timestamp": "2026-07-29T23:44:49+07:00",
+          "tree_id": "ec0967a454b7178b6a78bd7f9085c15462e523de",
+          "url": "https://github.com/loctvl842/BeastVim/commit/69f4868b437e9b889b02188b65cfd7004fe35bb3"
+        },
+        "date": 1785420684023,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "BeastVim startup (warm) mean",
+            "value": 41.9388778,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) stddev",
+            "value": 0.4167077852402721,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) min",
+            "value": 41.38239000000001,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) max",
+            "value": 43.094055000000004,
             "unit": "ms"
           }
         ]
