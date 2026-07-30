@@ -193,3 +193,12 @@ Each phase is independently mergeable once Phase 1 lands (Phases 2/3/4 don't dep
 - `scripts/bench-tabline.lua`: PASS (exit 0), ~117µs cold render (pre-existing soft-target WARN noise at 50µs, confirmed via `git stash` unchanged from baseline ~122µs).
 - `stylua --check lua/` and the touched `scripts/`: clean throughout.
 - Manual E2E: all 5 PM-spec scenarios walked against a real fixture git repo (dotfiles, `.gitignore`, gitignored `node_modules/`) with real `fd`/`rg`/`ug` processes — including the bigram-prefilter rebuild-on-toggle (confirmed proactive, before any query was issued) and a live-open Finder/Explorer/tabline all refreshing without reopen.
+
+### Follow-up: tabline button legibility (2026-07-30)
+
+Icon-only tabline buttons gave no hint what they did on first use. Two rounds of polish on top of Phase 4:
+
+- `0017f6d` feat(tabline): add text labels to right-side toggle buttons — hidden/gitignored/dark-light buttons each gained a text label beside the icon (`toggle hidden`, `toggle gitignore`, `toggle dark/light`). The icon still switches color for on/off state (`VisibilityOn`/`VisibilityOff`); the label renders in a separate, constant dimmed color (`VisibilityLabel`) regardless of state. Labels collapse to icon-only automatically (`ctx.buttons_compact`, computed in `context.lua` by comparing the buffer list's natural width against available space) whenever showing them would force the buffer list to truncate — the buffer list always wins the space fight over button legibility.
+- `08d011e` test(tabline): account for button width in edge-trim available calc — `tests/test-tabline-edge-trim.lua`'s own "available width" calculation never subtracted the right-side button reservation, silently drifting out of sync with what `buffer_list.lua` actually budgets for. Masked while buttons were a few columns wide; the label work above widened the gap enough to fail 9 of 46 assertions (confirmed pre-existing via `git stash` back to Phase 4, not a new regression). Fixed the calc and adjusted 3 buffer-count thresholds that assumed the old, smaller reservation.
+
+**Verification**: `stylua --check` clean; `tests/test-visibility.lua` 17/17; `tests/test-tabline-edge-trim.lua` 46/46 (was 37/46 before the test fix); `scripts/bench-tabline.lua` unchanged from baseline via `git stash` A/B (~131-135µs cold, same pre-existing soft-target WARN noise as Phase 4).
