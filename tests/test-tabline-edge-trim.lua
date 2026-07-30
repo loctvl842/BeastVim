@@ -148,7 +148,7 @@ local function run_render_test(test_name, columns, min_cell_w)
 	local display_w = vim.fn.strdisplaywidth(visible_text)
 
 	-- The buffer list portion must not exceed available width
-	local available = columns - (ctx.sidebar_width or 0) - ctx.tabpages_width
+	local available = columns - (ctx.sidebar_width or 0) - ctx.tabpages_width - ctx.toggle_button_width - ctx.visibility_width
 
 	assert_test(
 		test_name .. " (cols=" .. columns .. ", min_cell=" .. min_cell_w .. ")",
@@ -296,7 +296,7 @@ do
 	local rendered_user, visible_user, lh_user, rh_user = buffer_list.render(ctx_user)
 	local visible_text_user = strip_hl(rendered_user)
 	local display_w_user = vim.fn.strdisplaywidth(visible_text_user)
-	local available_user = 181 - (ctx_user.sidebar_width or 0) - ctx_user.tabpages_width
+	local available_user = 181 - (ctx_user.sidebar_width or 0) - ctx_user.tabpages_width - ctx_user.toggle_button_width - ctx_user.visibility_width
 
 	assert_test(
 		"user scenario: width <= available",
@@ -383,7 +383,7 @@ do
 	local rendered_skill, vis_skill, lh_skill, rh_skill = buffer_list.render(ctx_skill)
 	local text_skill = strip_hl(rendered_skill)
 	local dw_skill = vim.fn.strdisplaywidth(text_skill)
-	local avail_skill = 181 - (ctx_skill.sidebar_width or 0) - ctx_skill.tabpages_width
+	local avail_skill = 181 - (ctx_skill.sidebar_width or 0) - ctx_skill.tabpages_width - ctx_skill.toggle_button_width - ctx_skill.visibility_width
 
 	assert_test("SKILL.md: width <= available", dw_skill <= avail_skill, string.format("display_w=%d > available=%d", dw_skill, avail_skill))
 
@@ -396,8 +396,8 @@ do
 
 	-- Should pull in an extra cell via Step G
 	assert_test(
-		"SKILL.md: at least 9 buffers visible",
-		#vis_skill >= 9,
+		"SKILL.md: at least 8 buffers visible",
+		#vis_skill >= 8,
 		string.format("only %d visible (left=%d, right=%d)", #vis_skill, lh_skill, rh_skill)
 	)
 end
@@ -464,7 +464,7 @@ do
 	local r_first, v_first, lh_first, rh_first = buffer_list.render(ctx_first)
 	local t_first = strip_hl(r_first)
 	local dw_first = vim.fn.strdisplaywidth(t_first)
-	local avail_first = 181 - (ctx_first.sidebar_width or 0) - ctx_first.tabpages_width
+	local avail_first = 181 - (ctx_first.sidebar_width or 0) - ctx_first.tabpages_width - ctx_first.toggle_button_width - ctx_first.visibility_width
 
 	assert_test("commit first: width <= available", dw_first <= avail_first, string.format("display_w=%d > available=%d", dw_first, avail_first))
 
@@ -538,7 +538,7 @@ do
 	local r_sb, v_sb, lh_sb, rh_sb = buffer_list.render(ctx_sb)
 	local t_sb = strip_hl(r_sb)
 	local dw_sb = vim.fn.strdisplaywidth(t_sb)
-	local avail_sb = 181 - 40 - ctx_sb.tabpages_width
+	local avail_sb = 181 - 40 - ctx_sb.tabpages_width - ctx_sb.toggle_button_width - ctx_sb.visibility_width
 
 	assert_test("sidebar: width <= available", dw_sb <= avail_sb, string.format("display_w=%d > available=%d", dw_sb, avail_sb))
 
@@ -549,8 +549,8 @@ do
 		string.format("waste=%d cols (left=%d, right=%d, visible=%d)", waste_sb, lh_sb, rh_sb, #v_sb)
 	)
 
-	-- With 11 buffers and 141 available, should show at least 7 (6 full + 1 compact pull-in)
-	assert_test("sidebar: at least 7 buffers visible", #v_sb >= 7, string.format("only %d visible (left=%d, right=%d)", #v_sb, lh_sb, rh_sb))
+	-- With 11 buffers and 141 available, should show at least 6 (5 full + 1 compact pull-in)
+	assert_test("sidebar: at least 6 buffers visible", #v_sb >= 6, string.format("only %d visible (left=%d, right=%d)", #v_sb, lh_sb, rh_sb))
 end
 
 -- =========================================================================
@@ -614,7 +614,7 @@ do
 	local r_left, v_left, lh_left, rh_left = buffer_list.render(ctx_left)
 	local t_left = strip_hl(r_left)
 	local dw_left = vim.fn.strdisplaywidth(t_left)
-	local avail_left = 181 - 40 - ctx_left.tabpages_width
+	local avail_left = 181 - 40 - ctx_left.tabpages_width - ctx_left.toggle_button_width - ctx_left.visibility_width
 
 	assert_test("left pull-in: width <= available", dw_left <= avail_left, string.format("display_w=%d > available=%d", dw_left, avail_left))
 
@@ -630,8 +630,8 @@ do
 
 	-- Should pull in one buffer on the left side via compact
 	assert_test(
-		"left pull-in: at least 8 buffers visible",
-		#v_left >= 8,
+		"left pull-in: at least 7 buffers visible",
+		#v_left >= 7,
 		string.format("only %d visible (left=%d, right=%d)", #v_left, lh_left, rh_left)
 	)
 end
