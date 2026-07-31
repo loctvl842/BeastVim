@@ -18,7 +18,7 @@
       "src": "https://github.com/folke/lazydev.nvim"
     },
     "mini.icons": {
-      "rev": "520995f1d75da0e4cc901ee95080b1ff2bc46b94",
+      "rev": "98faae31e9be1cc054ae63485e58ceb185efcad0",
       "src": "https://github.com/nvim-mini/mini.icons"
     },
     "monokai-pro.nvim": {
