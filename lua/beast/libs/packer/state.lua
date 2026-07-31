@@ -37,6 +37,7 @@ local M = {
 	module_to_lib = {}, ---@type table<string, string> Map module names to Beast lib names (lazy() entries)
 	libs = {}, ---@type table<string, Beast.Packer.LibEntry> Beast libraries registered via packer.lazy()
 	loaded_libs = {}, ---@type table<string, boolean> Libraries that have been loaded
+	deleted_plugins = {}, ---@type string[] Names of plugins deleted this session, most-recent first
 }
 
 ---@class Beast.Packer.LibEntry

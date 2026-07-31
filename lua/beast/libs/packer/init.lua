@@ -334,6 +334,7 @@ function M.setup(opts)
 					end
 				end
 			elseif kind == "delete" then
+				table.insert(state.deleted_plugins, 1, name)
 				state.plugins[name] = nil
 				-- Remove from loaded_plugins if present
 				state.loaded_plugins[name] = nil

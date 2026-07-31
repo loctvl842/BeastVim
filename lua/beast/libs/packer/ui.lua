@@ -1404,6 +1404,23 @@ function _actions_handler.load_plugin()
 	render_state()
 end
 
+function _actions_handler.delete_plugin()
+	local name, kind = get_plugin_at_cursor()
+	if not name then
+		vim.notify("No plugin under cursor", vim.log.levels.WARN, { title = "BeastVim" })
+		return
+	end
+	if kind == "lib" then
+		Toast(name .. " is a library and can't be deleted", vim.log.levels.WARN, { title = "BeastVim" })
+		return
+	end
+
+	local ok, err = pcall(vim.pack.del, { name }, { force = true })
+	if not ok or state.plugins[name] then
+		vim.notify("Failed to delete " .. name .. (err and (": " .. tostring(err)) or ""), vim.log.levels.ERROR, { title = "BeastVim" })
+	end
+end
+
 local function mount_keymaps()
 	for _, a in ipairs(config.ui.actions) do
 		---@type string[]

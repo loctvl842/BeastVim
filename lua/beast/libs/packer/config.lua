@@ -59,6 +59,14 @@ local defaults = {
 				views = { "main", "profile" },
 			},
 			{
+				keys = { "x" },
+				label = "Delete",
+				key_hl = "DiagnosticError",
+				label_hl = "Comment",
+				on_press = "delete_plugin",
+				views = { "main" },
+			},
+			{
 				keys = { "F" },
 				label = "Filter",
 				key_hl = "DiagnosticHint",
