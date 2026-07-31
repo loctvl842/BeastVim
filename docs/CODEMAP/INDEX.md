@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-29 | Files scanned: 25 | Token estimate: ~280 -->
+<!-- Generated: 2026-07-31 | Files scanned: 25 | Token estimate: ~280 -->
 
 # BeastVim Codemaps
 
@@ -15,4 +15,4 @@ Quick-reference architecture documentation. Regenerate with `/update-codemap`.
 - Libraries: 22 — autopairs, breadcrumb, confirm, explorer, finder, git, image, indent, key, lsp, notify, packer, scroll, session, starter, statuscolumn, statusline, tabline, toast, treesitter, view, window
 - Shared modules: view/ (instance + .buf + .win submodules), animate.lua, async.lua, util/, theme/, visibility.lua (global hidden/gitignored state)
 - Profiler: lua/beast/profile.lua (per-fn count/total/self stats)
-- Last updated: 2026-07-29 (global file-visibility state shared by explorer/finder/tabline: hidden + gitignored filtering, toggle buttons)
+- Last updated: 2026-07-31 (packer UI: `x` deletes a plugin via `vim.pack.del`, "Deleted" section tracks removals this session)

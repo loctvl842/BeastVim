@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-29 | Files scanned: 24 | Token estimate: ~9170 -->
+<!-- Generated: 2026-07-31 | Files scanned: 24 | Token estimate: ~9340 -->
 
 # Libraries
 
@@ -352,6 +352,17 @@ and `defer` (vim.schedule). The `module` trigger registers a `package.searchers`
 hook so a direct `require("beast.libs.X")` from a keymap body triggers
 `setup(lib)` before returning — closes the half-init hole when keys aren't
 the only entry point.
+
+### UI: delete a plugin (`x` in the dashboard)
+
+`ui.lua`'s `x` action calls `vim.pack.del({name}, {force = true})` on the
+plugin under the cursor — `force` is required because every spec was already
+`vim.pack.add()`-ed (hence "active") at startup, loaded or not. The existing
+`PackChanged` "delete" handler in `init.lua` records the name into
+`state.deleted_plugins` (most-recent first) and clears it from `state.plugins`;
+`ui.lua` renders a "Deleted" section from that list. Immediate, no confirmation
+(product decision — see `docs/pm-specs/packer-delete-plugin.md`). Library rows
+(`packer.lazy()` entries, not real `vim.pack` plugins) reject deletion with a toast.
 
 ---
 
