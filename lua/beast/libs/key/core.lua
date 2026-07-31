@@ -297,12 +297,18 @@ end
 ---@param spec Beast.KeymapSpec
 ---@param buffer? integer|boolean Buffer number for buffer-local mapping
 function M.del(spec, buffer)
-	local km = parse(spec)
-	local ok, _ = pcall(vim.keymap.del, km.mode, km.lhs, { buffer = buffer })
-	M.managed[km.id] = nil
-	M.forget_conflict(km.id)
-	emit_changed(EVENTS.DEL, km, buffer)
-	return ok
+	local modes = normalize_modes(spec.mode)
+	for _, m in ipairs(modes) do
+		spec.mode = m
+		local km = parse(spec)
+		local ok, err = pcall(vim.keymap.del, km.mode, km.lhs, { buffer = buffer })
+		if not ok then
+			vim.notify(("Failed to remove keymap '%s' (mode: %s): %s"):format(km.lhs, km.mode, err), vim.log.levels.WARN)
+		end
+		M.managed[km.id] = nil
+		M.forget_conflict(km.id)
+		emit_changed(EVENTS.DEL, km, buffer)
+	end
 end
 
 ---Set a keymap and mark it as managed
