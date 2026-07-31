@@ -68,6 +68,14 @@ local defaults = {
 				views = { "main" },
 			},
 			{
+				keys = { "u" },
+				label = "Update",
+				key_hl = "DiagnosticWarn",
+				label_hl = "Comment",
+				on_press = "update_plugin",
+				views = { "main" },
+			},
+			{
 				keys = { "F" },
 				label = "Filter",
 				key_hl = "DiagnosticHint",

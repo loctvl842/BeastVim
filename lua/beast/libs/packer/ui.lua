@@ -377,14 +377,19 @@ function Main._render_main(main)
 	if #ops_list > 0 then
 		-- Batch progress subtitle
 		local done_count = 0
+		local all_updates = true
 		for _, item in ipairs(ops_list) do
 			if item.op.status == "success" or item.op.status == "error" then
 				done_count = done_count + 1
 			end
+			if item.op.kind ~= "update" then
+				all_updates = false
+			end
 		end
+		local ops_label = all_updates and "Updating" or "Installing"
 		table.insert(lines_segments, {
 			{
-				text = string.format("  Installing (%d/%d)   Sort: %s", done_count, #ops_list, sort_text),
+				text = string.format("  %s (%d/%d)   Sort: %s", ops_label, done_count, #ops_list, sort_text),
 				hl = "BeastPackerComment",
 			},
 		})
@@ -475,6 +480,20 @@ function Main._render_main(main)
 		table.sort(loaded, function(a, b)
 			return a.name < b.name
 		end)
+	end
+
+	if #state.deleted_plugins > 0 then
+		table.insert(
+			lines_segments,
+			{ { text = "  Deleted ", hl = "BeastPackerH2" }, { text = "(" .. #state.deleted_plugins .. ")", hl = "BeastPackerComment" } }
+		)
+		for _, name in ipairs(state.deleted_plugins) do
+			table.insert(lines_segments, {
+				{ text = "    " .. config.ui.icons.deleted .. " ", hl = "BeastPackerError" },
+				{ text = name, hl = "BeastPackerComment" },
+			})
+		end
+		table.insert(lines_segments, { new_line })
 	end
 
 	if #loaded > 0 then
@@ -588,20 +607,6 @@ function Main._render_main(main)
 				table.insert(segments, { text = "  " .. config.ui.icons.lazy .. "Manual", hl = "BeastPackerComment" })
 			end
 			table.insert(lines_segments, segments)
-		end
-		table.insert(lines_segments, { new_line })
-	end
-
-	if #state.deleted_plugins > 0 then
-		table.insert(
-			lines_segments,
-			{ { text = "  Deleted ", hl = "BeastPackerH2" }, { text = "(" .. #state.deleted_plugins .. ")", hl = "BeastPackerComment" } }
-		)
-		for _, name in ipairs(state.deleted_plugins) do
-			table.insert(lines_segments, {
-				{ text = "    " .. config.ui.icons.deleted .. " ", hl = "BeastPackerError" },
-				{ text = name, hl = "BeastPackerComment" },
-			})
 		end
 		table.insert(lines_segments, { new_line })
 	end
@@ -1114,6 +1119,7 @@ function Main._render_help(main)
 	table.insert(lines_segments, { new_line })
 	table.insert(lines_segments, { { text = "  <CR> - Load plugin or library under cursor", hl = "BeastPackerComment" } })
 	table.insert(lines_segments, { { text = "  x - Delete plugin under cursor", hl = "BeastPackerComment" } })
+	table.insert(lines_segments, { { text = "  u - Update plugin under cursor", hl = "BeastPackerComment" } })
 	table.insert(lines_segments, { { text = "  S - Toggle sort", hl = "BeastPackerComment" } })
 	table.insert(lines_segments, { { text = "  F - Cycle filter (>= 0/1/5/10/50 ms)", hl = "BeastPackerComment" } })
 	table.insert(lines_segments, { { text = "  G - Toggle group by load reason", hl = "BeastPackerComment" } })
@@ -1433,6 +1439,46 @@ function _actions_handler.delete_plugin()
 	local ok, err = pcall(vim.pack.del, { name }, { force = true })
 	if not ok or state.plugins[name] then
 		vim.notify("Failed to delete " .. name .. (err and (": " .. tostring(err)) or ""), vim.log.levels.ERROR, { title = "BeastVim" })
+	end
+end
+
+function _actions_handler.update_plugin()
+	local name, kind = get_plugin_at_cursor()
+	if not name then
+		vim.notify("No plugin under cursor", vim.log.levels.WARN, { title = "BeastVim" })
+		return
+	end
+	if kind == "lib" then
+		Toast(name .. " is a library and can't be updated", vim.log.levels.WARN, { title = "BeastVim" })
+		return
+	end
+
+	local before = operation.status[name]
+	local before_start = before and before.start_time
+	local ok, err = pcall(vim.pack.update, { name }, { force = true })
+	local after = operation.status[name]
+
+	if not ok then
+		vim.notify("Failed to update " .. name .. (err and (": " .. tostring(err)) or ""), vim.log.levels.ERROR, { title = "BeastVim" })
+		return
+	end
+
+	if after and after.start_time ~= before_start then
+		-- vim.pack fired PackChangedPre/PackChanged; the Operations section already
+		-- shows success/error for this run.
+		return
+	end
+
+	-- vim.pack.update() swallows per-plugin fetch errors internally and fires no
+	-- event when there's nothing to check out, so "up to date" and "fetch failed"
+	-- are indistinguishable from its public API alone. Probe the remote directly
+	-- to tell them apart.
+	local spec = state.plugins[name]
+	local reachable = not spec or vim.system({ "git", "ls-remote", "--exit-code", spec.src }, { text = true }):wait().code == 0
+	if reachable then
+		Toast(name .. " is already up to date", vim.log.levels.INFO, { title = "BeastVim" })
+	else
+		vim.notify("Failed to update " .. name .. ": remote unreachable", vim.log.levels.ERROR, { title = "BeastVim" })
 	end
 end
 
