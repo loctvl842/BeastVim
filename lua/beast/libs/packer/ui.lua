@@ -592,6 +592,20 @@ function Main._render_main(main)
 		table.insert(lines_segments, { new_line })
 	end
 
+	if #state.deleted_plugins > 0 then
+		table.insert(
+			lines_segments,
+			{ { text = "  Deleted ", hl = "BeastPackerH2" }, { text = "(" .. #state.deleted_plugins .. ")", hl = "BeastPackerComment" } }
+		)
+		for _, name in ipairs(state.deleted_plugins) do
+			table.insert(lines_segments, {
+				{ text = "    " .. config.ui.icons.deleted .. " ", hl = "BeastPackerError" },
+				{ text = name, hl = "BeastPackerComment" },
+			})
+		end
+		table.insert(lines_segments, { new_line })
+	end
+
 	apply_segments(main, lines_segments)
 end
 
@@ -1099,6 +1113,7 @@ function Main._render_help(main)
 
 	table.insert(lines_segments, { new_line })
 	table.insert(lines_segments, { { text = "  <CR> - Load plugin or library under cursor", hl = "BeastPackerComment" } })
+	table.insert(lines_segments, { { text = "  x - Delete plugin under cursor", hl = "BeastPackerComment" } })
 	table.insert(lines_segments, { { text = "  S - Toggle sort", hl = "BeastPackerComment" } })
 	table.insert(lines_segments, { { text = "  F - Cycle filter (>= 0/1/5/10/50 ms)", hl = "BeastPackerComment" } })
 	table.insert(lines_segments, { { text = "  G - Toggle group by load reason", hl = "BeastPackerComment" } })
