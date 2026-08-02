@@ -504,10 +504,13 @@ function Main._render_main(main)
 		for _, spec in ipairs(loaded) do
 			---@type Beast.Packer.UI.Segment[]
 			local segments = {}
-			-- Lib rows: badge in the left column, loaded check kept inline so
-			-- success status is still visible. Plugin rows are unchanged.
+			-- Lib/builtin rows: badge in the left column, loaded check kept
+			-- inline so success status is still visible. Plugin rows are unchanged.
 			if state.libs[spec.name] then
 				table.insert(segments, { text = " " .. config.ui.icons.lib .. " ", hl = "BeastPackerComment" })
+				table.insert(segments, { text = config.ui.icons.loaded .. " ", hl = "BeastPackerProgress" })
+			elseif spec.builtin then
+				table.insert(segments, { text = " " .. config.ui.icons.builtin .. " ", hl = "BeastPackerComment" })
 				table.insert(segments, { text = config.ui.icons.loaded .. " ", hl = "BeastPackerProgress" })
 			else
 				table.insert(segments, { text = "    " .. config.ui.icons.loaded .. " ", hl = "BeastPackerProgress" })
@@ -546,10 +549,13 @@ function Main._render_main(main)
 		for _, spec in ipairs(pending) do
 			---@type Beast.Packer.UI.Segment[]
 			local segments = {}
-			-- Lib rows: badge in the left column, pending circle kept inline so
-			-- the load status is still visible. Plugin rows are unchanged.
+			-- Lib/builtin rows: badge in the left column, pending circle kept
+			-- inline so the load status is still visible. Plugin rows are unchanged.
 			if state.libs[spec.name] then
 				table.insert(segments, { text = " " .. config.ui.icons.lib .. " ", hl = "BeastPackerComment" })
+				table.insert(segments, { text = config.ui.icons.pending .. " ", hl = "BeastPackerProgress" })
+			elseif spec.builtin then
+				table.insert(segments, { text = " " .. config.ui.icons.builtin .. " ", hl = "BeastPackerComment" })
 				table.insert(segments, { text = config.ui.icons.pending .. " ", hl = "BeastPackerProgress" })
 			else
 				table.insert(segments, { text = "    " .. config.ui.icons.pending .. " ", hl = "BeastPackerProgress" })
@@ -1285,8 +1291,9 @@ end
 -- =============================================================================
 
 --- Extract the plugin/lib name from the line under the cursor.
---- Plugin rows: "    <icon> <name> ..."         → name is 2nd token.
---- Lib rows:    " 󰂖 <status_icon> <name> ..."  → name is 3rd token.
+--- Plugin rows:  "    <icon> <name> ..."         → name is 2nd token.
+--- Lib rows:     " 󰂖 <status_icon> <name> ..."  → name is 3rd token.
+--- Builtin rows: " ★ <status_icon> <name> ..."  → name is 3rd token (same badge layout as lib rows).
 ---@return string|nil name, "plugin"|"lib"|nil kind
 local function get_plugin_at_cursor()
 	-- stylua: ignore
@@ -1433,6 +1440,11 @@ function _actions_handler.delete_plugin()
 	end
 	if kind == "lib" then
 		Toast(name .. " is a library and can't be deleted", vim.log.levels.WARN, { title = "BeastVim" })
+		return
+	end
+	local spec = state.plugins[name]
+	if spec and spec.builtin then
+		Toast(name .. " is a builtin plugin and can't be deleted", vim.log.levels.WARN, { title = "BeastVim" })
 		return
 	end
 

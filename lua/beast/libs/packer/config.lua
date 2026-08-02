@@ -36,6 +36,7 @@ local defaults = {
 
 			path = "󰉓 ", -- folder/path icon
 			lib = "󰂖 ", -- beast lib badge (distinguishes packer.lazy() libs from plugins)
+			builtin = "★ ", -- ships with BeastVim by default; blocks delete
 			deleted = "󰆴 ", -- trash / deleted
 
 			-- Operation status icons
