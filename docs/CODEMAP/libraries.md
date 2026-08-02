@@ -334,6 +334,7 @@ Tests: `tests/test-autopairs-engine.lua` (53), `tests/test-autopairs-skip.lua` (
 ```
 packer/
 ├── init.lua         ← setup(specs), normalize, load pipeline, packer.lazy()
+├── builtin.lua      ← full specs of plugins shipped with BeastVim by default (blink.cmp)
 ├── config.lua       ← pack_dir, auto_install, ui options
 ├── state.lua        ← plugins registry, loaded status
 ├── import.lua       ← spec importer (handles { import = "..." })
@@ -363,6 +364,16 @@ plugin under the cursor — `force` is required because every spec was already
 `ui.lua` renders a "Deleted" section from that list. Immediate, no confirmation
 (product decision — see `docs/pm-specs/packer-delete-plugin.md`). Library rows
 (`packer.lazy()` entries, not real `vim.pack` plugins) reject deletion with a toast.
+
+### UI: builtin plugins (★ badge, delete-blocked)
+
+`builtin.lua` returns full `Beast.Packer.PluginSpec[]` entries (not a name
+list) — anything defined there is builtin by construction. `init.lua`'s
+`setup()` merges them ahead of the user's own specs (before import expansion)
+and stamps `spec.builtin = true` on each. `ui.lua` renders a `★` badge
+(`config.ui.icons.builtin`) on builtin rows in Loaded/Not Loaded, same layout
+as the `lib` badge. `x` (delete) is blocked with a toast for builtin plugins;
+`u` (update) is unaffected. See `docs/pm-specs/packer-builtin-plugins.md`.
 
 ---
 

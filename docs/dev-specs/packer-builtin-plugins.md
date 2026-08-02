@@ -229,12 +229,26 @@ lazily required through `import.expand_imports` deep inside `setup(opts)`.
 ---
 
 # Success Criteria
-- [ ] `blink.cmp` (and any name added to `builtin.lua`) shows the `★` badge
+- [x] `blink.cmp` (and any name added to `builtin.lua`) shows the `★` badge
       in both Loaded and Not Loaded sections.
-- [ ] Pressing `x` on a builtin plugin shows
+- [x] Pressing `x` on a builtin plugin shows
       `"<name> is a builtin plugin and can't be deleted"` and does not delete it.
-- [ ] Pressing `u` on a builtin plugin updates it with no special-casing.
-- [ ] Non-builtin plugins are unaffected by `x`/`u`.
-- [ ] Library rows are unaffected (`x`/`u` still both blocked with their
+- [x] Pressing `u` on a builtin plugin updates it with no special-casing.
+- [x] Non-builtin plugins are unaffected by `x`/`u`.
+- [x] Library rows are unaffected (`x`/`u` still both blocked with their
       existing messages).
-- [ ] `./scripts/bench-startup.sh` shows no meaningful regression after Phase 1.
+- [x] `./scripts/bench-startup.sh` shows no meaningful regression after Phase 1.
+
+---
+
+## Completed
+
+**2026-08-02** - Both phases implemented, reviewed, and verified.
+
+- `cddeb77` feat(packer): mark blink.cmp as a builtin plugin (Phase 1 - includes a mid-implementation redesign: `builtin.lua` moved from a name→bool lookup table to holding the plugin's full spec directly, plus discovering and fixing a `_G.gh`/`_G.Icon` require-timing bug that would have crashed startup)
+- `477e9e5` feat(packer): badge builtin plugins and block their deletion (Phase 2)
+
+Verification results:
+- Phase 1: `stylua --check` clean; headless `require("beast.libs.packer.builtin")` returns the expected spec; real (non-`--clean`) headless startup confirmed no crash from the `gh`/`Icon` timing issue; `state.plugins["blink.cmp"].builtin == true` while all other plugins are `nil`; re-`require`ing `builtin.lua` after setup still returns exactly 1 entry (not polluted by the merge). `./scripts/bench-startup.sh`: 33.89ms mean / 31.28ms steady (🟢 Excellent, target <150/50ms).
+- Phase 2: headless functional test opening the real Packer dashboard confirmed the `★` badge renders in both Loaded (after force-loading `blink.cmp`) and Not Loaded sections; pressing `x` with the cursor on `blink.cmp` fired exactly `Toast("blink.cmp is a builtin plugin and can't be deleted", WARN, {title="BeastVim"})` and left `blink.cmp` registered (not deleted). `update_plugin` and the library-row guard were verified unchanged by code review rather than by live-triggering a real `vim.pack.update`/`vim.pack.del`, to avoid a real network fetch or destructive delete against this environment's actual installed plugins.
+- Two independent `code-reviewer` passes (one per phase) both returned PASS with no blocking or warning findings.
