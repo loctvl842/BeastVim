@@ -1,5 +1,15 @@
+-- BeastVim treesitter infrastructure library.
+--
+-- Owns parser install/highlight/fold policy. Per-language interest is either
+-- declared statically via `config.ensure_installed`, or registered at
+-- runtime by callers (typically `BeastVim/<Lang>` extensions) via the public
+-- `M.ensure_parser(lang)` — an explicit call is itself the "yes, install
+-- this" signal, so it bypasses the `ensure_installed` allowlist that gates
+-- the automatic FileType-triggered install path.
+
 local config = require("beast.libs.treesitter.config")
 
+---@class Beast.Treesitter
 local M = {}
 
 ---@type Beast.Lib.Meta
@@ -39,27 +49,18 @@ end
 -- Forward declaration (ensure_parser callback references start_buf)
 local start_buf
 
---- Attempt async parser installation for a language.
---- After successful install, re-triggers start_buf on all matching buffers.
+--- Install a parser for `lang`, unconditionally (no `ensure_installed`
+--- check) — the caller has already decided this parser is wanted. Public:
+--- `BeastVim/<Lang>` extensions call this directly (e.g.
+--- `Treesitter.ensure_parser("lua")`) instead of being listed in the static
+--- `ensure_installed` config. Idempotent (dedupes via `installing`/`has_parser`).
+--- After a successful install, re-triggers start_buf on all matching buffers.
 ---@param lang string
----@param buf number The buffer that triggered this install
-local function ensure_parser(lang, buf)
+function M.ensure_parser(lang)
 	-- stylua: ignore
 	if installing[lang] then return end
 	-- stylua: ignore
 	if has_parser(lang) then return end
-
-	-- Check if the lang is in ensure_installed (entries are either "lang" or {"lang", "filetype"})
-	local should_install = false
-	for _, entry in ipairs(config.ensure_installed) do
-		local name = type(entry) == "table" and entry[1] or entry
-		if name == lang then
-			should_install = true
-			break
-		end
-	end
-	-- stylua: ignore
-	if not should_install then return end
 
 	installing[lang] = true
 
@@ -85,6 +86,26 @@ local function ensure_parser(lang, buf)
 	end)
 end
 
+--- Gate for the automatic FileType-triggered install path: only installs
+--- languages explicitly listed in `config.ensure_installed` (entries are
+--- either "lang" or {"lang", "filetype"}). Extension-registered languages
+--- bypass this via the public M.ensure_parser above.
+---@param lang string
+local function auto_ensure_parser(lang)
+	local should_install = false
+	for _, entry in ipairs(config.ensure_installed) do
+		local name = type(entry) == "table" and entry[1] or entry
+		if name == lang then
+			should_install = true
+			break
+		end
+	end
+	-- stylua: ignore
+	if not should_install then return end
+
+	M.ensure_parser(lang)
+end
+
 --- Start treesitter highlighting (and optionally folding) for a buffer.
 ---@param buf number
 start_buf = function(buf)
@@ -98,7 +119,7 @@ start_buf = function(buf)
 	if not lang then return end
 
 	-- Try installing if configured
-	ensure_parser(lang, buf)
+	auto_ensure_parser(lang)
 
 	-- Only start if parser is available
 	-- stylua: ignore
