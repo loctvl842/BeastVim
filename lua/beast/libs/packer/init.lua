@@ -218,6 +218,19 @@ function M.setup(opts)
 	-- a filesystem check when the table is empty.
 	local specs = config.spec
 
+	-- Plugins that ship with BeastVim by default (lua/beast/libs/packer/builtin.lua).
+	-- Framework-level: always present, not part of the user's own spec list.
+	-- Required here rather than at file-top because these specs call
+	-- gh(...)/reference Icon.* at table-construction time, and _G.gh/_G.Icon
+	-- aren't set until beast.setup() reaches this point (see lua/beast/init.lua).
+	-- vim.deepcopy so vim.list_extend mutates a fresh array, not the cached
+	-- module table require() would keep returning on subsequent requires.
+	local builtin_specs = vim.deepcopy(require("beast.libs.packer.builtin"))
+	for _, spec in ipairs(builtin_specs) do
+		spec.builtin = true
+	end
+	specs = vim.list_extend(builtin_specs, specs)
+
 	-- Step 0: Expand imports (plugin discovery)
 	specs = import.expand_imports(specs)
 	-- Filter those with cond == false

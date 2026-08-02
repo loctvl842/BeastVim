@@ -19,6 +19,7 @@
 ---@field config? fun() Configuration function (runs after plugin loads)
 ---@field build? string|string[]|fun(spec: Beast.Packer.PluginSpec, dir: string) Build step to run after install/update (like lazy.nvim). String/list run as Ex/shell commands; function receives the spec and the plugin install directory.
 ---@field version? string|vim.VersionRange Version constraint passed to `vim.pack.add` (e.g. `vim.version.range("*")`)
+---@field builtin? boolean Ships with BeastVim by default (see packer/builtin.lua) - badged in the UI and blocked from deletion
 
 -- Track packer vs startup plugins
 ---@class Beast.Packer.LoadReason
