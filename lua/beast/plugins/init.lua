@@ -2,6 +2,7 @@
 return {
 	{ import = "beast.plugins.colorscheme" },
 	{ import = "beast.plugins.development" },
+	{ import = "beast.plugins.lang" },
 	{
 		name = "nvim-web-devicons",
 		src = gh("nvim-tree/nvim-web-devicons"),

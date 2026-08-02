@@ -17,6 +17,10 @@
       "rev": "ff2cbcba459b637ec3fd165a2be59b7bbaeedf0d",
       "src": "https://github.com/folke/lazydev.nvim"
     },
+    "lua_ls": {
+      "rev": "b52ae2a816a9636c4ddab023e3d42e8830436b4e",
+      "src": "https://github.com/BeastVim/lua_ls"
+    },
     "mini.icons": {
       "rev": "98faae31e9be1cc054ae63485e58ceb185efcad0",
       "src": "https://github.com/nvim-mini/mini.icons"

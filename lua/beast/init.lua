@@ -45,6 +45,11 @@ function M.setup(opts)
 	_G.Key = Util.mod("beast.libs.key") ---@type Beast.Key
 	_G.View = Util.mod("beast.libs.view") ---@type Beast.View
 	_G.Icon = Util.mod("beast.icon") ---@type Beast.Icon
+	-- Exposed early (not gated on the lazy FileType trigger below) so
+	-- BeastVim/<Lang> extensions can call Treesitter.ensure_parser(lang) from
+	-- their own plugin config regardless of load order. Util.mod only loads
+	-- the module file itself here — ts.setup()/ts.enable() still run lazily.
+	_G.Treesitter = Util.mod("beast.libs.treesitter") ---@type Beast.Treesitter
 
 	packer.lazy("beast.theme", {
 		event = { name = "VimEnter", defer = true },
