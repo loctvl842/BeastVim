@@ -54,8 +54,8 @@ local function APPEARANCE(p)
 		},
 
 		tab = {
-			selected = { fg = p.text, bg = active_bg, bold = true },
-			visible = { fg = inactive_fg, bg = inactive_bg, bold = true },
+			selected = { fg = p.text, bg = active_bg, sp = sep_alt, underline = true, bold = true },
+			visible = { fg = inactive_fg, bg = inactive_bg, sp = sep_alt, underline = true, bold = true },
 		},
 
 		offset = {
