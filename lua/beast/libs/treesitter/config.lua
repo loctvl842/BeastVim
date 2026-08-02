@@ -8,6 +8,9 @@ local defaults = {
 	fold = {
 		enable = false,
 	},
+	indent = {
+		enable = true,
+	},
 	-- Sticky context header: a floating overlay pinned to the top of the
 	-- window that shows the enclosing treesitter scopes (function, class,
 	-- conditional, loop, …) of the node under the cursor once their header

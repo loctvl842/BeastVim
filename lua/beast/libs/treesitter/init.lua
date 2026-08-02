@@ -106,6 +106,23 @@ local function auto_ensure_parser(lang)
 	M.ensure_parser(lang)
 end
 
+--- Assign the treesitter `indentexpr` to `buf`, but only when an `indents`
+--- query actually exists for `lang`. Buffers whose language has no indents
+--- query are left untouched — `'indentexpr'` overrides Neovim's own
+--- cindent/smartindent/ftplugin indenting once set, so never assigning it is
+--- what keeps those buffers behaving exactly as they did before this lib.
+---@param buf number
+---@param lang string
+local function apply_indentexpr(buf, lang)
+	-- stylua: ignore
+	if not config.indent.enable then return end
+	local ok, query = pcall(vim.treesitter.query.get, lang, "indents")
+	-- stylua: ignore
+	if not ok or not query then return end
+
+	vim.bo[buf].indentexpr = "v:lua.require'beast.libs.treesitter.indent'.indentexpr()"
+end
+
 --- Start treesitter highlighting (and optionally folding) for a buffer.
 ---@param buf number
 start_buf = function(buf)
@@ -137,6 +154,8 @@ start_buf = function(buf)
 		end
 	end
 
+	apply_indentexpr(buf, lang)
+
 	started[buf] = true
 
 	-- Pull the richer upstream query set (highlights/injections/indents/locals
@@ -155,6 +174,7 @@ start_buf = function(buf)
 					if config.highlight.enable then
 						pcall(vim.treesitter.start, b, lang)
 					end
+					apply_indentexpr(b, lang)
 				end
 			end
 			if package.loaded["beast.libs.treesitter.context"] then
@@ -172,6 +192,7 @@ end
 
 function M.setup(opts)
 	config.setup(opts)
+	require("beast.libs.treesitter.query_predicates")
 	for _, entry in ipairs(config.ensure_installed) do
 		if type(entry) == "table" then
 			vim.treesitter.language.register(entry[1], entry[2])
