@@ -67,7 +67,6 @@ o.fillchars = {
   diff = "╱",
   eob = " ",
 }
-o.formatexpr = "v:lua.require'beastvim.util'.format.formatexpr()"
 o.formatoptions = "jcroqlnt" -- tcqj
 o.grepformat = "%f:%l:%c:%m"
 -- session

@@ -9,6 +9,10 @@
       "rev": "426dbebe06b5c69fd846ceb17b42e12f890aedf1",
       "src": "https://github.com/catppuccin/nvim"
     },
+    "conform.nvim": {
+      "rev": "619363c30309d29ffa631e67c8183f2a72caa373",
+      "src": "https://github.com/stevearc/conform.nvim"
+    },
     "friendly-snippets": {
       "rev": "6cd7280adead7f586db6fccbd15d2cac7e2188b9",
       "src": "https://github.com/rafamadriz/friendly-snippets"
@@ -18,7 +22,7 @@
       "src": "https://github.com/folke/lazydev.nvim"
     },
     "lua_ls": {
-      "rev": "8ec66acc2fe7284cc6e22136c5a5937a1dabc165",
+      "rev": "d078d2473437e0cc680d150dfca5cc266bc22f2c",
       "src": "https://github.com/BeastVim/lua_ls"
     },
     "mason.nvim": {

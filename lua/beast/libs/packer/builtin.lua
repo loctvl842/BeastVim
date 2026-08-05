@@ -177,4 +177,42 @@ return {
 			})
 		end,
 	},
+
+	{
+		name = "conform.nvim",
+		src = gh("stevearc/conform.nvim"),
+		dependencies = { "mason.nvim" },
+		lazy = {
+			module = { "conform" },
+			cmd = { "ConformInfo" },
+      keys = {
+        {
+          "<leader>W",
+          function()
+            local cf = require("conform")
+            cf.format({
+              lsp_fallback = false,
+              timeout = 1000,
+            })
+            vim.cmd([[w!]])
+          end,
+          desc = "Format and save",
+        },
+      }
+		},
+		config = function()
+			-- Per-filetype `formatters_by_ft` entries are NOT set here.
+			-- `BeastVim/<Lang>` extensions register their own via
+			-- `require("conform").formatters_by_ft.<ft> = {...}` (a plain
+			-- mutable table conform exposes, same shape as `Mason.ensure_package`
+			-- callers already use for LSP `cmd`/treesitter parsers) - see lua_ls.
+			require("conform").setup({
+				default_format_opts = {
+					timeout_ms = 3000,
+					lsp_format = "fallback",
+				},
+			})
+			vim.opt.formatexpr = "v:lua.require'conform'.formatexpr()"
+		end,
+	},
 }

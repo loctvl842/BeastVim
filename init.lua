@@ -84,13 +84,3 @@ require("beast").setup({
 		fold = { enable = true },
 	},
 })
-
--- Save & format: LSP format + ESLint fix-all, then write.
-vim.keymap.set("n", "<leader>W", function()
-	vim.lsp.buf.format({ async = false })
-	-- vim.lsp.buf.code_action({
-	-- 	context = { only = { "source.fixAll.eslint" }, diagnostics = {} },
-	-- 	apply = true,
-	-- })
-	vim.cmd("write")
-end, { desc = "Save & format" })

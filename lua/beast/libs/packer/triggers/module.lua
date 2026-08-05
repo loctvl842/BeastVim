@@ -19,6 +19,22 @@ function M.loader(modname, load_plugin, load_lib)
 			return nil
 		end
 		load_plugin(plugin_name, { type = "module", detail = modname })
+
+		-- `load_plugin` (packadd + config()) may have required `modname` itself
+		-- re-entrantly (e.g. a plugin's own config() calling
+		-- `require(modname).setup(...)` on itself). Lua's require() doesn't
+		-- recheck package.loaded between searchers within a single top-level
+		-- call, so returning nil here would let it fall through to the real
+		-- path-based loader and execute the module file a *second* time --
+		-- producing a second, unconfigured instance that this call returns
+		-- instead of the one config() just set up. If config() already
+		-- populated package.loaded[modname], hand back that same instance.
+		if package.loaded[modname] ~= nil then
+			local loaded = package.loaded[modname]
+			return function()
+				return loaded
+			end
+		end
 		return nil
 	end
 
