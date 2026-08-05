@@ -5,5 +5,11 @@ return {
     src = gh("BeastVim/lua_ls"),
     lazy = { filetype = "lua" },
     config = function() require("lua_ls").setup() end,
+  },
+  {
+    name = "typescript",
+    src = gh("BeastVim/typescript"),
+    lazy = { filetype = { "javascript", "javascriptreact", "typescript", "typescriptreact" } },
+    config = function() require("typescript").setup() end,
   }
 }
