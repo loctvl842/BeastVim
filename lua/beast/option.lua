@@ -6,6 +6,25 @@ vim.g.maplocalleader = "\\"
 vim.g.matchparen_timeout = 100
 vim.g.matchparen_insert_timeout = 30
 
+-- Over SSH there is no local X11/Wayland display for xclip/xsel/wl-copy to
+-- attach to, so `unnamedplus` alone can't reach the client's clipboard. OSC52
+-- pipes the clipboard contents through the terminal escape sequence instead,
+-- which works over plain SSH as long as the terminal (e.g. Windows Terminal)
+-- honors it.
+if vim.env.SSH_TTY and (vim.env.DISPLAY or "") == "" and (vim.env.WAYLAND_DISPLAY or "") == "" then
+  vim.g.clipboard = {
+    name = "OSC 52",
+    copy = {
+      ["+"] = require("vim.ui.clipboard.osc52").copy("+"),
+      ["*"] = require("vim.ui.clipboard.osc52").copy("*"),
+    },
+    paste = {
+      ["+"] = require("vim.ui.clipboard.osc52").paste("+"),
+      ["*"] = require("vim.ui.clipboard.osc52").paste("*"),
+    },
+  }
+end
+
 local o = vim.opt
 -- stylua: ignore start
 o.backup            = false                             -- creates a backup file
