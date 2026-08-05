@@ -418,6 +418,20 @@ Bench: `scripts/bench-lsp.lua` measures capabilities resolution (50-contributor 
 
 ---
 
+## mason — Mason Package Install Helper
+
+```
+mason/
+└── init.lua ← bin(name), ensure_package(names, callback)
+```
+
+API: `Mason.bin(name)` (absolute path to a Mason-managed binary shim under `stdpath("data")/mason/bin/`, whether or not it's installed yet), `Mason.ensure_package(names, callback)` (installs Mason packages not yet installed via `mason-registry`; idempotent, dedupes/queues concurrent installs of the same package; calls `callback` once every name is installed).
+Global: `_G.Mason`, exposed eagerly from `beast/init.lua` next to `_G.Treesitter` so `BeastVim/<Lang>` extensions can call it from their own `setup()` regardless of load order.
+`require("mason-registry")` is itself a module-loader trigger (`packer/builtin.lua`) — packadds + runs `require("mason").setup()` on first use, so `ensure_package` never has to load the plugin manually.
+`callback` is where the caller must call `Lsp.register(...)` — not before. A `vim.lsp` client that fails to spawn once (binary not installed yet) is left broken by Neovim's LSP client and never retries, so registration is gated on the binary actually existing rather than racing it. `callback` runs synchronously when already installed and the registry cache is warm (the common case); only the first-ever install goes through the async path. All mason-registry callbacks are `vim.schedule_wrap`-ed before touching `Lsp.register`/`vim.lsp.enable`, since mason-core's async internals sometimes resolve from a libuv fast-event context where nvim API calls are illegal.
+
+---
+
 ## image — Inline Image Renderer + Viewer
 
 ```

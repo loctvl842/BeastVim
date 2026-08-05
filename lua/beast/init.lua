@@ -50,6 +50,9 @@ function M.setup(opts)
 	-- their own plugin config regardless of load order. Util.mod only loads
 	-- the module file itself here — ts.setup()/ts.enable() still run lazily.
 	_G.Treesitter = Util.mod("beast.libs.treesitter") ---@type Beast.Treesitter
+	-- Same rationale as Treesitter above: BeastVim/<Lang> extensions call
+	-- Mason.ensure_package(...) from their own setup() regardless of load order.
+	_G.Mason = Util.mod("beast.libs.mason") ---@type Beast.Mason
 
 	packer.lazy("beast.theme", {
 		event = { name = "VimEnter", defer = true },

@@ -18,8 +18,12 @@
       "src": "https://github.com/folke/lazydev.nvim"
     },
     "lua_ls": {
-      "rev": "b52ae2a816a9636c4ddab023e3d42e8830436b4e",
+      "rev": "8ec66acc2fe7284cc6e22136c5a5937a1dabc165",
       "src": "https://github.com/BeastVim/lua_ls"
+    },
+    "mason.nvim": {
+      "rev": "2a6940af80375532e5e9e7c1f2fc6319a1b7a69d",
+      "src": "https://github.com/mason-org/mason.nvim"
     },
     "mini.icons": {
       "rev": "98faae31e9be1cc054ae63485e58ceb185efcad0",
@@ -50,7 +54,7 @@
       "src": "https://github.com/folke/tokyonight.nvim"
     },
     "typescript": {
-      "rev": "fab4668a55722b5266e2919b8f062c80175ca6ea",
+      "rev": "0201d0e81cd5e93e226f8ef1b9427a22808e87c3",
       "src": "https://github.com/BeastVim/typescript"
     },
     "which-key.nvim": {

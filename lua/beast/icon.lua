@@ -4,11 +4,6 @@ local M = {
 		vim = "",
 		nvim = "",
 	},
-	mason = {
-		pending = " ",
-		installed = "󰄳 ",
-		uninstalled = "󰚌 ",
-	},
 	diagnostics = {
 		error = "",
 		warn = "",

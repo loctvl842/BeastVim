@@ -156,4 +156,25 @@ return {
 			})
 		end,
 	},
+
+	{
+		name = "mason.nvim",
+		src = gh("mason-org/mason.nvim"),
+		build = ":MasonUpdate",
+		lazy = {
+			module = { "mason" },
+      cmd = { "Mason", "MasonInstall", "MasonUpdate" },
+		},
+		config = function()
+			require("mason").setup({
+				ui = {
+					icons = {
+						package_pending = " ",
+						package_installed = "󰄳 ",
+						package_uninstalled = "󰚌 ",
+					},
+				},
+			})
+		end,
+	},
 }
