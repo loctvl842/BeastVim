@@ -9,8 +9,14 @@ vim.g.matchparen_insert_timeout = 30
 -- Over SSH there is no local X11/Wayland display for xclip/xsel/wl-copy to
 -- attach to, so `unnamedplus` alone can't reach the client's clipboard. OSC52
 -- pipes the clipboard contents through the terminal escape sequence instead,
--- which works over plain SSH as long as the terminal (e.g. Windows Terminal)
--- honors it.
+-- which works over plain SSH as long as the terminal honors it.
+--
+-- Paste is intentionally NOT wired to OSC52's query sequence: most terminals
+-- (including Windows Terminal) refuse to answer it for security reasons
+-- (it would let a remote shell silently read the local clipboard), so
+-- vim.ui.clipboard.osc52's paste() just hangs for ~10s before giving up.
+-- Use the terminal's native paste (e.g. Ctrl+Shift+V) instead, which injects
+-- the text via bracketed paste and needs no clipboard provider at all.
 if vim.env.SSH_TTY and (vim.env.DISPLAY or "") == "" and (vim.env.WAYLAND_DISPLAY or "") == "" then
   vim.g.clipboard = {
     name = "OSC 52",
@@ -19,8 +25,14 @@ if vim.env.SSH_TTY and (vim.env.DISPLAY or "") == "" and (vim.env.WAYLAND_DISPLA
       ["*"] = require("vim.ui.clipboard.osc52").copy("*"),
     },
     paste = {
-      ["+"] = require("vim.ui.clipboard.osc52").paste("+"),
-      ["*"] = require("vim.ui.clipboard.osc52").paste("*"),
+      ["+"] = function()
+        vim.notify("Paste from system clipboard over SSH: use the terminal's native paste (Ctrl+Shift+V).", vim.log.levels.WARN)
+        return { "" }
+      end,
+      ["*"] = function()
+        vim.notify("Paste from system clipboard over SSH: use the terminal's native paste (Ctrl+Shift+V).", vim.log.levels.WARN)
+        return { "" }
+      end,
     },
   }
 end
