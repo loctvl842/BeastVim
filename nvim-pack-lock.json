@@ -26,8 +26,8 @@
       "src": "https://github.com/nvim-mini/mini.icons"
     },
     "monokai-pro.nvim": {
-      "rev": "dfe37919bf2427d306cdc68e6d1857ab7e762e8d",
-      "src": "https://github.com/loctvl842/monokai-pro.nvim.git"
+      "rev": "a68e38b8e55d69a215d0f02598900a79c356da9d",
+      "src": "https://github.com/loctvl842/monokai-pro.nvim"
     },
     "nvim-web-devicons": {
       "rev": "4fc505ac7bd7692824a142e96e5f529c133862f8",

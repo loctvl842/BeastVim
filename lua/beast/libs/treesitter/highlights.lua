@@ -31,6 +31,7 @@
 local M = {}
 
 function M.get()
+  if not Theme.is_builtin_colorscheme() then return end
 	local p = Theme.get()
 	return {
 		-- Identifiers ---------------------------------------------------------
