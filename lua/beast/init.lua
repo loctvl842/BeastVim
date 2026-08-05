@@ -428,7 +428,9 @@ function M.setup(opts)
 		bind("gr", "textDocument/references", "lsp_references", "Goto references")
 		bind("gD", "textDocument/declaration", "lsp_declarations", "Goto declaration")
 		bind("gi", "textDocument/implementation", "lsp_implementations", "Goto implementation")
-		Key.safe_set("n", "gl", vim.diagnostic.open_float, { group = "LSP", desc = "Show diagnostics" })
+		Key.safe_set("n", "gl", function()
+			vim.diagnostic.open_float(nil, { source = true })
+		end, { group = "LSP", desc = "Show diagnostics" })
 	end)
 
 	-- stylua: ignore

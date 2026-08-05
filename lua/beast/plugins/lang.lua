@@ -11,5 +11,11 @@ return {
     src = gh("BeastVim/typescript"),
     lazy = { filetype = { "javascript", "javascriptreact", "typescript", "typescriptreact" } },
     config = function() require("typescript").setup() end,
+  },
+  {
+    name = "python",
+    src = gh("BeastVim/python"),
+    lazy = { filetype = "python" },
+    config = function() require("python").setup() end,
   }
 }
