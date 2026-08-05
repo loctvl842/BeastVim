@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-31 | Files scanned: 24 | Token estimate: ~9340 -->
+<!-- Generated: 2026-08-02 | Files scanned: 24 | Token estimate: ~9640 -->
 
 # Libraries
 
@@ -381,18 +381,21 @@ as the `lib` badge. `x` (delete) is blocked with a toast for builtin plugins;
 
 ```
 treesitter/
-├── init.lua       ← setup(opts), enable()/disable(), start_buf + auto-install trigger
-├── config.lua     ← ensure_installed + fold/highlight/context toggles
-├── install.lua    ← async parser install + upstream query sync
-├── parsers.lua    ← parser URL/revision registry + status
-├── highlights.lua ← BeastTreesitter* groups
-├── health.lua     ← :checkhealth beast.libs.treesitter
-└── context/       ← sticky symbol context view
+├── init.lua             ← setup(opts), enable()/disable(), start_buf + auto-install trigger
+├── config.lua           ← ensure_installed + fold/highlight/indent/context toggles
+├── install.lua          ← async parser install + upstream query sync (incl. indents.scm)
+├── parsers.lua          ← parser URL/revision registry + status
+├── indent.lua           ← indentexpr(): indents.scm capture-walking algorithm (no core equivalent)
+├── query_predicates.lua ← registers `kind-eq?` (needed by ecma indents.scm's #not-kind-eq?)
+├── highlights.lua       ← BeastTreesitter* groups
+├── health.lua           ← :checkhealth beast.libs.treesitter
+└── context/             ← sticky symbol context view
     ├── init.lua, context.lua, query.lua, render.lua, highlights.lua
 ```
 
 API: `treesitter.setup(opts)`, `treesitter.enable()`, `treesitter.disable()`
 Loaded via: `packer.lazy()` on FileType (deferred)
+Indent: `start_buf` assigns `vim.bo[buf].indentexpr` only when `vim.treesitter.query.get(lang, "indents")` exists — buffers without one never have it touched, so filetypes without a parser/indents query keep Neovim's default indenting untouched
 
 ---
 
