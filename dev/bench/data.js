@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785949740695,
+  "lastUpdate": 1785986156598,
   "repoUrl": "https://github.com/loctvl842/BeastVim",
   "entries": {
     "BeastVim Startup": [
@@ -1759,6 +1759,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "BeastVim startup (warm) max",
             "value": 32.599731,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "loclepnvx@gmail.com",
+            "name": "ON NO",
+            "username": "loctvl842"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3ba0ac777d5230d473fe290482470920a356982d",
+          "message": "Merge pull request #1 from loctvl842/feat/osc52-clipboard-ssh\n\nFeat/osc52 clipboard ssh",
+          "timestamp": "2026-08-06T10:15:17+07:00",
+          "tree_id": "ed187414234a5d43d7548b3122a707ba15257a15",
+          "url": "https://github.com/loctvl842/BeastVim/commit/3ba0ac777d5230d473fe290482470920a356982d"
+        },
+        "date": 1785986156059,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "BeastVim startup (warm) mean",
+            "value": 45.97983334999999,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) stddev",
+            "value": 43.161718759428446,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) min",
+            "value": 24.828247,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) max",
+            "value": 174.988885,
             "unit": "ms"
           }
         ]
