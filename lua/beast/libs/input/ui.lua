@@ -10,6 +10,57 @@ local MAX_WIDTH_RATIO = 0.6
 -- deciding whether there's enough room to anchor above the cursor.
 local BOX_HEIGHT = 3
 
+local ns = vim.api.nvim_create_namespace("beast_input")
+
+-- Opts for whichever input is currently focused. `M.completefunc` reads this
+-- because 'completefunc'/'omnifunc' can only hold a global function name, not
+-- a per-call closure. Unlike `beast.libs.confirm` (whose modal loop makes a
+-- second instance structurally impossible), this is async, so a second input
+-- can open before the first's deferred BufLeave-cancel runs; `close()` below
+-- only clears this if it still belongs to the closing instance, so a stale
+-- teardown can't clobber a newer, still-open input's state.
+local current_opts = nil ---@type Beast.Input.Opts?
+
+--- Bridges opts.completion to Neovim's completion contract (:help
+--- complete-functions), the same technique dressing.nvim uses: dispatch
+--- "custom"/"customlist" completion specs to their named function — including
+--- the "v:lua.foo.bar" form, which can't be looked up via vim.fn[name] since
+--- that only resolves plain identifiers, not dotted v:lua paths — anything
+--- else to vim.fn.getcompletion.
+---@param findstart 0|1
+---@param base string
+---@return integer|string[]
+function M.completefunc(findstart, base)
+	if findstart == 1 then
+		return 0
+	end
+
+	local completion = current_opts and current_opts.completion or ""
+	local pieces = vim.split(completion, ",", { plain = true })
+	if pieces[1] == "custom" or pieces[1] == "customlist" then
+		local funcname = pieces[2]
+		local ok, result
+		if vim.startswith(funcname, "v:lua.") then
+			local luafunc = loadstring("return " .. funcname:sub(7) .. "(...)")
+			ok, result = pcall(luafunc, base, base, #base)
+		else
+			ok, result = pcall(vim.fn[funcname], base, base, #base)
+		end
+		if not ok then
+			return {}
+		end
+		return pieces[1] == "custom" and vim.split(result, "\n", { plain = true }) or result
+	end
+
+	local ok, result = pcall(vim.fn.getcompletion, base, completion)
+	return ok and result or {}
+end
+
+---@return string
+local function trigger_completion()
+	return vim.fn.pumvisible() == 1 and "<C-n>" or "<C-x><C-u>"
+end
+
 ---@param prompt string
 ---@param default? string
 ---@return integer
@@ -29,14 +80,38 @@ local function format_title(prompt)
 	return " " .. trimmed .. " "
 end
 
+--- Apply opts.highlight(text) to the buffer as extmarks, clearing whatever
+--- was there before. opts.highlight returns {start_col, end_col, hl_group}
+--- triples over byte offsets in the current line, per :help vim.ui.input.
+---@param buf integer
+---@param opts Beast.Input.Opts
+local function apply_highlight(buf, opts)
+  -- stylua: ignore
+  if not opts.highlight then return end
+
+	local text = vim.api.nvim_buf_get_lines(buf, 0, 1, false)[1] or ""
+	local ok, highlights = pcall(opts.highlight, text)
+	vim.api.nvim_buf_clear_namespace(buf, ns, 0, -1)
+  -- stylua: ignore
+  if not ok or type(highlights) ~= "table" then return end
+
+	for _, h in ipairs(highlights) do
+		pcall(vim.api.nvim_buf_add_highlight, buf, ns, h[3], 0, h[1], h[2])
+	end
+end
+
 --- Attach confirm/cancel behavior to an already-open input window: pre-fills
 --- the default text, wires <CR>/<Esc> and BufLeave-cancel, then enters insert
---- mode with the cursor at the end of the default text.
+--- mode with the cursor at the end of the default text. Also bridges
+--- opts.completion and opts.highlight, matching native vim.ui.input's
+--- contract.
 ---@param buf integer
 ---@param win integer
 ---@param opts Beast.Input.Opts
 ---@param on_confirm fun(text: string?)
 function M.attach(buf, win, opts, on_confirm)
+	current_opts = opts
+
 	View.win.wo(win, "winhighlight", "Normal:BeastInputNormal,FloatBorder:BeastInputBorder,FloatTitle:BeastInputTitle")
 	vim.wo[win].cursorline = false
 	vim.wo[win].number = false
@@ -50,11 +125,33 @@ function M.attach(buf, win, opts, on_confirm)
 		vim.api.nvim_buf_set_lines(buf, 0, -1, false, { opts.default })
 	end
 
+	if opts.completion then
+		vim.bo[buf].completefunc = "v:lua.require'beast.libs.input.ui'.completefunc"
+		vim.bo[buf].omnifunc = "v:lua.require'beast.libs.input.ui'.completefunc"
+		vim.keymap.set("i", "<Tab>", trigger_completion, { buffer = buf, expr = true, silent = true })
+	end
+
+	if opts.highlight then
+		apply_highlight(buf, opts)
+		vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI" }, {
+			buffer = buf,
+			callback = function()
+				apply_highlight(buf, opts)
+			end,
+		})
+	end
+
 	local closed = false
 	local function close()
     -- stylua: ignore
     if closed then return end
 		closed = true
+		-- Only clear if we're still the active instance: if a second input
+		-- opened while this one's BufLeave-cancel was pending, `current_opts`
+		-- already points at that newer instance and must not be clobbered.
+		if current_opts == opts then
+			current_opts = nil
+		end
 		vim.cmd("stopinsert")
 		if vim.api.nvim_win_is_valid(win) then
 			vim.api.nvim_win_close(win, true)
