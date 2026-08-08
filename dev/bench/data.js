@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786163544383,
+  "lastUpdate": 1786163554199,
   "repoUrl": "https://github.com/loctvl842/BeastVim",
   "entries": {
     "BeastVim Startup": [
@@ -1935,6 +1935,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "BeastVim startup (warm) max",
             "value": 295.338023,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "committer": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "distinct": true,
+          "id": "ef31ad3ef9720211d5b004eea3eb8f34c06b5be6",
+          "message": "fix(finder): guard singleton instance from reentrant open() in reset()\n\nreset() unconditionally nils the module-level `instance` singleton at\nthe end, even if a reentrant open() (e.g. triggered from an on_close\ncallback) already installed a newer instance during cleanup. That nil\nwould let a later open() skip closing the still-visible finder,\nallowing two to stack. Only clear it if it's still self's own.",
+          "timestamp": "2026-08-08T11:32:01+07:00",
+          "tree_id": "43118191ab19db86b8cececa449245406b6b2982",
+          "url": "https://github.com/loctvl842/BeastVim/commit/ef31ad3ef9720211d5b004eea3eb8f34c06b5be6"
+        },
+        "date": 1786163553582,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "BeastVim startup (warm) mean",
+            "value": 38.369844549999996,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) stddev",
+            "value": 0.46375250843804255,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) min",
+            "value": 37.535365,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) max",
+            "value": 39.618369,
             "unit": "ms"
           }
         ]
