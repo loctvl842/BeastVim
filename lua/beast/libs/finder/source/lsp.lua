@@ -2,7 +2,7 @@
 ---
 --- Async source: fires the LSP request and streams each unique location to the
 --- finder via `cb(item)`, then `cb(nil)` once every client has responded.
---- The early single-result jump is handled by the match pipeline (via the
+--- The early single-result jump is handled by `finder/preflight.lua` (via the
 --- `auto_select` flag), not here — the source is a pure data producer.
 
 local M = {}
