@@ -113,6 +113,25 @@ function M.load(state)
 			-- to it without showing the picker (e.g. LSP go-to-definition with a
 			-- single location). reset() refocuses main_win, so action.open edits
 			-- in a normal window rather than the floating input.
+			--
+			-- KNOWN BUG: the cursor can land one column left of item.pos here.
+			-- state:reset() closes the input window while it's still in insert
+			-- mode; leaving insert mode shifts the cursor left one column
+			-- (insert mode allows a virtual past-EOL position normal mode
+			-- doesn't), and that shift is not synchronous with reset() - it
+			-- lands on some later event-loop tick. action.open's cursor-set
+			-- races it. We tried making action.open's cursor-set win that race
+			-- by wrapping it in vim.schedule, but this call site already runs
+			-- inside a vim.schedule of its own (queued by the coroutine-driven
+			-- match loop above), so action.open's schedule nests inside this
+			-- one - and how many ticks the insert-mode-exit shift actually
+			-- needs isn't something either layer can see or control. Stacking
+			-- more vim.schedule calls to out-wait it is guessing, not a fix.
+			-- The real fix has to reason about the whole close-picker ->
+			-- restore-focus -> jump lifecycle as one sequence (e.g. force the
+			-- mode transition to complete, synchronously, before any cursor
+			-- gets set - not defer around it), not patch timing at each call
+			-- site independently.
 			if source.auto_select and #state.query.matched == 1 then
 				local item = state.query.matched[1]
 				vim.schedule(function()
