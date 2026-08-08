@@ -57,6 +57,7 @@ function M.open(source_name, opts)
 			if #items == 1 then
 				require("beast.libs.finder.action").open_file(main_win, items[1])
 			elseif #items > 1 then
+				opts.preloaded_items = items
 				open_finder(source_name, opts)
 			end
 		end)

@@ -34,6 +34,7 @@ M.__index = M
 -- ---------------------------------------------------------------------------
 ---@class Beast.Finder.QueryOpts
 ---@field cwd? string
+---@field preloaded_items? Beast.Finder.Item[]  Already-fetched items (e.g. from finder/preflight.lua); skips the source re-fetch in pipeline/match.lua
 
 ---@param source Beast.Finder.ASource
 ---@param opts? Beast.Finder.QueryOpts
@@ -44,7 +45,7 @@ function M:new(source, opts)
 	local is_live = source and source.live or false
 
 	local query = setmetatable({
-		items = {},
+		items = opts.preloaded_items or {},
 		matched = {},
 		filter = Filter({ cwd = opts.cwd }),
 		source = source,

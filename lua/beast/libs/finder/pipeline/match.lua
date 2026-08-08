@@ -56,24 +56,30 @@ function M.load(state)
 	local s = get(state.query)
 
 	if source.async then
-		state.query.items = {}
-		ui.input.start_spinner(state.view.input)
-		collectgarbage("stop")
-
-		local finder_done = false
+		-- A non-empty `items` here means the caller already fetched the full
+		-- result set (finder/preflight.lua, when it found more than one
+		-- result) — skip re-querying the source and drain straight into
+		-- scoring instead of streaming.
+		local preloaded = #state.query.items > 0
 		local items = state.query.items
+		local finder_done = preloaded
 
-		-- Items arrive via cb()
-		source.get(state.query.filter, function(item)
-			if item == nil then
-				finder_done = true
-				return
-			end
-			items[#items + 1] = item
-			if s.loader_task then
-				s.loader_task:resume()
-			end
-		end)
+		if not preloaded then
+			ui.input.start_spinner(state.view.input)
+			collectgarbage("stop")
+
+			-- Items arrive via cb()
+			source.get(state.query.filter, function(item)
+				if item == nil then
+					finder_done = true
+					return
+				end
+				items[#items + 1] = item
+				if s.loader_task then
+					s.loader_task:resume()
+				end
+			end)
+		end
 
 		-- Concurrent coroutine: collect items into TopK during streaming
 		s.loader_task = async.spawn(function()
@@ -111,8 +117,10 @@ function M.load(state)
 
 			vim.schedule(function()
 				render.render(state)
-				ui.input.stop_spinner(state.view.input)
-				collectgarbage("restart")
+				if not preloaded then
+					ui.input.stop_spinner(state.view.input)
+					collectgarbage("restart")
+				end
 			end)
 
 			if state.query.filter.pattern ~= "" then
