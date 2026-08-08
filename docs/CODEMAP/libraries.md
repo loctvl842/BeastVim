@@ -1,4 +1,4 @@
-<!-- Generated: 2026-08-08 | Files scanned: 24 | Token estimate: ~10490 -->
+<!-- Generated: 2026-08-09 | Files scanned: 25 | Token estimate: ~10760 -->
 
 # Libraries
 
@@ -335,6 +335,37 @@ API: `confirm(msg, "&Yes\n&No", 1)` → integer (0=dismissed, 1..N=choice)
 
 ---
 
+## input — Cursor-Aware `vim.ui.input` Replacement
+
+```
+input/
+├── init.lua       ← run(opts, on_confirm), setup() (assigns vim.ui.input)
+├── config.lua     ← disabled flag
+├── position.lua   ← pure resolve(box_height): cursor-anchored (above/below
+│                     flip) vs. centered fallback
+├── ui.lua         ← float creation, confirm/cancel, completion + highlight
+│                     bridging
+└── highlights.lua ← BeastInput* groups
+```
+
+API: none beyond `setup()` — assigns `vim.ui.input` directly, same opts
+contract as native (`prompt`, `default`, `completion`, `highlight`).
+Position: `relative="cursor"` with anchor `SW` (grows up, preferred) or `NW`
+(grows down, `row=1` to clear the cursor's own line) when the current window
+is a normal buffer; centered near-top `relative="editor"` overlay otherwise
+(current window is floating/`beast-`-owned, or has a non-empty `buftype`).
+`opts.completion` bridges to `vim.fn.getcompletion` / `completefunc`
+(`custom`/`customlist`, incl. `v:lua.foo.bar` funcrefs) with `<Tab>` to
+trigger; `opts.highlight` repaints extmarks on `TextChanged{,I}`.
+Loaded **eagerly** from `beast/init.lua` (not `packer.lazy`'s `module`
+trigger — nothing `require()`s it directly, unlike `confirm`, since
+Neovim/LSP call the global `vim.ui.input` themselves). Headless/`disabled`
+fallback delegates to the real native `vim.ui.input`, captured at
+module-load time before `setup()` overwrites it.
+Tests: `tests/test-input-position.lua` (12 assertions, position resolver).
+
+---
+
 ## autopairs — Insert-Mode Autopairs (native, no plugin)
 
 ```
@@ -616,22 +647,6 @@ Loaded via: `packer.lazy()` on `BufReadPost` (deferred).
 - Bench `scripts/bench-git-wezterm.sh`: 50ms debounce median 52.59ms, 1ms debounce median 2.82ms (5k-line fixture, real wezterm pane).
 - Pure-Lua diff via `vim.text.diff` — no subprocess per recompute; `git show :file` / `git show HEAD:file` only on attach + stage + FocusGained.
 - ADRs: 022 (native lib vs gitsigns.nvim), 023 (vim.text.diff backend), 024 (distinct namespace for coexistence).
-
----
-
-
-
-```
-breadcrumb/
-├── init.lua       ← render(), setup(), _invalidate()
-├── config.lua     ← separator, icons, depth limit
-├── context.lua    ← treesitter-based symbol context extraction
-├── filepath.lua   ← filepath segment builder
-└── highlights.lua ← BeastBreadcrumb* groups
-```
-
-API: `breadcrumb.render()` — returns winbar string (via `%!v:lua`)
-Loaded via: `packer.lazy()` on VimEnter (deferred, winbar)
 
 ---
 

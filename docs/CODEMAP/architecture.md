@@ -1,4 +1,4 @@
-<!-- Generated: 2026-08-08 | Files scanned: 24 | Token estimate: ~2600 -->
+<!-- Generated: 2026-08-09 | Files scanned: 25 | Token estimate: ~2700 -->
 
 # Architecture
 
@@ -46,6 +46,7 @@ lua/beast/
 │   ├── git/              ← native git signs / preview / stage / blame
 │   ├── image/            ← terminal inline-image protocol helpers + viewer
 │   ├── indent/           ← indent guides + scope (decoration provider)
+│   ├── input/            ← vim.ui.input replacement (cursor-anchored / centered)
 │   ├── key/              ← keybinding registry, cheatsheet, press-and-wait hint
 │   ├── lsp/              ← Lsp.register / capabilities / on_attach dispatcher
 │   ├── notify/           ← floating notification stack
@@ -92,6 +93,9 @@ beast.setup(opts)
   4.  notify.setup(cfg.notify) + toast.setup(cfg.toast) — EAGER (_G.Toast set)
   5.  packer.lazy confirm (module trigger: beast.libs.confirm)
   6.  image.viewer.setup(cfg.image) — EAGER (terminal inline-image support)
+  6b. input.setup() — EAGER (monkey-patches vim.ui.input directly; no
+        require() call site exists to hang packer.lazy's module trigger off,
+        since Neovim/LSP call the global vim.ui.input themselves)
   7.  packer.lazy statusline (VimEnter+defer) — uses components registry
   7b. packer.lazy session (VimEnter+defer) — registers VimLeavePre autosave
   8.  packer.lazy breadcrumb / tabline / statuscolumn (BufWinEnter/BufWritePost+defer)
@@ -114,8 +118,8 @@ beast.setup(opts)
 
 ## Lazy Lib Loading (`packer.lazy`)
 
-Every lib above (except theme/notify/toast/image eager setup paths, plus `lsp`
-and `starter`)
+Every lib above (except theme/notify/toast/image/input eager setup paths,
+plus `lsp` and `starter`)
 loads via `packer.lazy(mod, opts)`. Trigger types:
 
 | Trigger | Field | Sync? | Use case |
@@ -171,8 +175,9 @@ Each `<lib>/highlights.lua` exposes a pure `M.get(): table<string, hl>` and
 optional `M.post_apply()`. See ADR-026 for the contract.
 
 `M.highlight_modules` includes: `beast.theme.highlights`, `beast.theme.blink`,
-plus `<lib>.highlights` for confirm, explorer, finder, key, notify, packer,
-statusline, breadcrumb, tabline, toast, indent, treesitter, statuscolumn, git.
+plus `<lib>.highlights` for confirm, input, explorer, finder, key, notify,
+packer, statusline, breadcrumb, tabline, toast, indent, treesitter,
+statuscolumn, git.
 Builtin-only (gated by `Theme.is_builtin_colorscheme()`): treesitter,
 theme.highlights, theme.blink.
 
