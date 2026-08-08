@@ -199,7 +199,7 @@ local function parse_line(line)
 			records[#records + 1] = {
 				file = file,
 				lnum = lnum,
-				col = sm.start or 0,
+				col = sm.start + 1 or 1,
 				text = text,
 				match_text = match_text,
 			}
