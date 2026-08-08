@@ -72,7 +72,8 @@ function M.run(cmd, opts, on_done)
 	end
 
 	-- Use termopen which works in the current buffer
-	local job_id = vim.fn.termopen(shell_cmd, {
+	local job_id = vim.fn.jobstart(shell_cmd, {
+		term = true,
 		on_exit = function(_, rc, _)
 			vim.schedule(function()
 				-- Parse output file
