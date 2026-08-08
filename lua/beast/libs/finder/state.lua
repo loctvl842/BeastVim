@@ -121,7 +121,12 @@ function M:reset()
 	if self.augroup then
 		vim.api.nvim_del_augroup_by_id(self.augroup)
 	end
-	instance = nil
+	-- A reentrant open() from inside on_close() (or another callback run
+	-- synchronously above) may have already installed a newer instance;
+	-- don't clobber it.
+	if instance == self then
+		instance = nil
+	end
 end
 
 function M:relayout()
