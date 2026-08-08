@@ -72,7 +72,9 @@ local function mount_list_keymaps(state)
 		local item = ui.list.selected(state.view.list)
 		if item then
 			state:reset()
-			action.open(state, item)
+			vim.schedule(function()
+				action.open(state, item)
+			end)
 		end
 	end)
 
@@ -81,14 +83,18 @@ local function mount_list_keymaps(state)
 		local item = ui.list.selected(state.view.list)
 		if item then
 			state:reset()
-			action.open_split(state, item)
+			vim.schedule(function()
+				action.open_split(state, item)
+			end)
 		end
 	end)
 	lmap({ "i", "n" }, "<C-v>", function()
 		local item = ui.list.selected(state.view.list)
 		if item then
 			state:reset()
-			action.open_vsplit(state, item)
+			vim.schedule(function()
+				action.open_split(state, item)
+			end)
 		end
 	end)
 
@@ -208,7 +214,9 @@ function M.mount(state)
 		local item = ui.list.selected(state.view.list)
 		if item then
 			state:reset()
-			action.open(state, item)
+			vim.schedule(function()
+				action.open(state, item)
+			end)
 		end
 	end)
 
@@ -217,14 +225,18 @@ function M.mount(state)
 		local item = ui.list.selected(state.view.list)
 		if item then
 			state:reset()
-			action.open_split(state, item)
+			vim.schedule(function()
+				action.open_split(state, item)
+			end)
 		end
 	end)
 	map({ "i", "n" }, "<C-v>", function()
 		local item = ui.list.selected(state.view.list)
 		if item then
 			state:reset()
-			action.open_vsplit(state, item)
+			vim.schedule(function()
+				action.open_vsplit(state, item)
+			end)
 		end
 	end)
 	-- Copy path

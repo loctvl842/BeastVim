@@ -43,14 +43,7 @@ function M.open_file(state, item)
 	vim.cmd("edit " .. vim.fn.fnameescape(item.file))
 
 	if item.pos then
-		-- Deferred: reset() stops insert mode on the (now-closed) input window,
-		-- but Neovim's insert-mode-exit cursor shift (-1 column, since insert
-		-- mode allows a virtual past-EOL position normal mode doesn't) can land
-		-- on the next event-loop tick rather than synchronously. Scheduling
-		-- here guarantees our cursor set runs after that shift, not before it.
-		vim.schedule(function()
-			pcall(vim.api.nvim_win_set_cursor, 0, { math.max(1, item.pos[1]), item.pos[2] or 0 })
-		end)
+		pcall(vim.api.nvim_win_set_cursor, 0, { math.max(1, item.pos[1]), item.pos[2] or 0 })
 	end
 end
 
