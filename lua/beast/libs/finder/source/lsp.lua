@@ -90,7 +90,7 @@ function M.create(method)
 									text = rel .. ":" .. it.lnum .. ": " .. it.text,
 									file = it.filename,
 									-- locations_to_items returns 1-indexed col; finder.pos uses 0-indexed
-									pos = { it.lnum, math.max(0, it.col - 1) },
+									pos = { it.lnum, math.max(0, it.col) },
 									end_pos = { it.end_lnum or it.lnum, math.max(0, (it.end_col or it.col) - 1) },
 									cwd = cwd,
 									grep_text = it.text,
