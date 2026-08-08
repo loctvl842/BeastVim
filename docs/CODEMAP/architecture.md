@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-29 | Files scanned: 24 | Token estimate: ~2520 -->
+<!-- Generated: 2026-08-08 | Files scanned: 24 | Token estimate: ~2600 -->
 
 # Architecture
 
@@ -187,7 +187,11 @@ theme.highlights, theme.blink.
 - **Shared global state**: `beast.visibility` (hidden/gitignored) is read
   directly by explorer/finder/tabline and fires `User BeastVisibilityChanged`
   (`data = {key, value}`) on toggle — same one-signal-invalidation pattern as
-  `BeastGitIndexChanged`/`BeastKeysChanged`/`BeastStatuslineGitChanged`
+  `BeastGitIndexChanged`/`BeastKeysChanged`/`BeastStatuslineGitChanged`/
+  `BeastFinderStatusChanged` (the last is lib-owned, not global — finder is
+  the sole writer, statusline's `finder_lsp` component the sole reader;
+  fired both on change and on a throttled timer tick while a check is in
+  flight, so the statusline's event-gated cache re-runs the spinner frame)
 - **vim.notify override**: notify.setup() replaces `vim.notify`
 - **Statusline / Tabline = `%!`**: native, no third-party framework (ADR-009)
 - **Transient UI buffers**: `beast-*` filetype convention

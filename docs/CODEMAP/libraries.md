@@ -1,4 +1,4 @@
-<!-- Generated: 2026-08-02 | Files scanned: 24 | Token estimate: ~9640 -->
+<!-- Generated: 2026-08-08 | Files scanned: 24 | Token estimate: ~10490 -->
 
 # Libraries
 
@@ -61,9 +61,14 @@ Pin rule iterates to fixed point; sets `scrolloff` to keep cursor below float.
 
 ```
 finder/
-├── init.lua       ← open(source, opts), setup()
+├── init.lua       ← open(source, opts) — pre-flight gate for auto_select
+│                     sources, then open_finder() (State + keymaps + autocmds); setup()
+├── preflight.lua  ← run a source to completion with no picker UI (generation-
+│                     guarded: a rapid re-trigger supersedes a pending check)
+├── status.lua     ← "is a pre-flight check running, for what" — start()/stop(),
+│                     fires User BeastFinderStatusChanged (statusline reads it)
 ├── config.lua     ← width, height, preview_ratio, debounce, matcher opts
-├── query.lua      ← Query class: layout, source loading, batch flush, rematch
+├── query.lua      ← Query class: layout, source loading (or opts.preloaded_items), batch flush, rematch
 ├── filter.lua     ← Filter class: pattern + cwd state
 ├── matcher.lua    ← fuzzy matching (smartcase, scoring, positions)
 ├── score.lua      ← scoring algorithm (bonus tables, gap penalties)
@@ -71,7 +76,8 @@ finder/
 ├── queue.lua      ← priority queue helper
 ├── format.lua     ← per-source display formatters (filename, live_grep, help_tags, …)
 ├── match_hl.lua   ← fuzzy match highlight extmarks (list + preview)
-├── action.lua     ← open, open_help, open_split, open_vsplit, copy_path
+├── action.lua     ← open(state,item) [source-name dispatch], open_help/open_file/
+│                     open_split/open_vsplit(win,item), copy_path(item)
 ├── keymaps.lua    ← input/list/preview pane keymaps + printable-char redirect
 ├── autocmds.lua   ← picker lifetime autocmds (BufEnter, WinClosed)
 ├── highlights.lua ← BeastFinder* groups
@@ -116,7 +122,29 @@ Query:new(source_name, opts)
 ```
 
 Sources: `files` (async, fd/rg/find), `buffers` (sync), `live_grep` (live async),
-`colorschemes` (sync, rtp-only), `help_tags` (sync, rtp-only — loaded plugins only).
+`colorschemes` (sync, rtp-only), `help_tags` (sync, rtp-only — loaded plugins only),
+`lsp_definitions`/`lsp_references`/`lsp_declarations`/`lsp_implementations`
+(async, `source/lsp.lua` factory; `auto_select = true`, `label` for the statusline).
+
+### Pre-flight (`auto_select` sources — the 4 `lsp_*` sources)
+
+```
+finder.open(source_name)
+  → source.auto_select?
+      yes → status.start(label) → preflight.check(source, filter, cb)
+              1 item  → action.open_file(main_win, item)      — no picker ever opens
+              0 items → (source already notified "not found")
+              >1 item → open_finder(source_name, { preloaded_items = items })
+                          — pipeline/match.lua skips its own source.get() when
+                            Query.items is already populated
+            cb always calls status.stop() first
+      no  → open_finder(source_name, opts)   — the normal picker path
+```
+
+Removes the old post-load "close picker and jump" branch (and the cursor-
+column race it caused) for the single-result case entirely — the picker
+window is only ever constructed once the result count is already known to
+be > 1.
 
 ### Visibility (hidden/gitignored filtering)
 
@@ -497,9 +525,11 @@ statusline/
 ├── truncate.lua      ← cross-region priority drop until total fits width
 └── components/
     ├── init.lua          ← barrel + types
-    ├── mode.lua, git_branch.lua, git_commit.lua
+    ├── mode.lua, git_branch.lua, git_commit.lua, macro.lua
     ├── diagnostics.lua, position.lua, filetype.lua
     ├── shiftwidth.lua, encoding.lua
+    └── finder_lsp.lua    ← finder pre-flight "checking" spinner, reads
+                            beast.libs.finder.status (User BeastFinderStatusChanged)
 ```
 
 API: `stl.setup({ left = {...}, right = {...} })` — components are tables.
