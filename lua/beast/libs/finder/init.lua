@@ -52,7 +52,7 @@ function M.open(source_name, opts)
 		local main_win = View.win.find_normal()
 		require("beast.libs.finder.preflight").check(source, filter, function(items)
 			if #items == 1 then
-				require("beast.libs.finder.action").open_file({ main_win = main_win }, items[1])
+				require("beast.libs.finder.action").open_file({ main_win = main_win } --[[@as Beast.Finder.State]], items[1])
 			elseif #items > 1 then
 				open_picker(source_name, opts)
 			end
