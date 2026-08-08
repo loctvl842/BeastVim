@@ -21,7 +21,7 @@ end
 
 ---@param source_name Beast.Finder.Source
 ---@param opts Beast.Finder.Opts
-local function open_picker(source_name, opts)
+local function open_finder(source_name, opts)
 	state = State(source_name, opts)
 	require("beast.libs.finder.keymaps").mount(state)
 	require("beast.libs.finder.autocmds").mount(state)
@@ -54,13 +54,13 @@ function M.open(source_name, opts)
 			if #items == 1 then
 				require("beast.libs.finder.action").open_file(main_win, items[1])
 			elseif #items > 1 then
-				open_picker(source_name, opts)
+				open_finder(source_name, opts)
 			end
 		end)
 		return
 	end
 
-	open_picker(source_name, opts)
+	open_finder(source_name, opts)
 end
 
 function M.close()
