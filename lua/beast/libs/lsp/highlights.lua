@@ -6,10 +6,14 @@ local M = {}
 
 function M.get()
 	local p = Theme.get()
+	if not Theme.is_builtin_colorscheme() then return end
+	local blend = Util.colors.blend
+  local bg = blend(p.text, 0.2, p.background)
+
 	return {
-		LspReferenceText = { bg = p.dark2 },
-		LspReferenceRead = { bg = p.dark2 },
-		LspReferenceWrite = { bg = p.dark2, underline = true },
+		LspReferenceText = { bg = bg },
+		LspReferenceRead = { bg = bg },
+		LspReferenceWrite = { bg = bg },
 	}
 end
 
