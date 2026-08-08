@@ -431,6 +431,7 @@ function M.setup(opts)
 		Key.safe_set("n", "gl", function()
 			vim.diagnostic.open_float(nil, { source = true })
 		end, { group = "LSP", desc = "Show diagnostics" })
+		Key.safe_set("n", "<leader>lr", vim.lsp.buf.rename, { group = "LSP", desc = "Rename" })
 	end)
 
 	-- stylua: ignore
