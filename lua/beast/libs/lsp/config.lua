@@ -28,6 +28,12 @@ local defaults = {
 	codelens = {
 		enabled = false,
 	},
+	document_highlight = {
+		-- When the attached client supports textDocument/documentHighlight,
+		-- highlight other occurrences of the symbol under the cursor on
+		-- CursorHold and clear them on CursorMoved.
+		enabled = true,
+	},
 	fold = {
 		-- When the attached client supports textDocument/foldingRange, set
 		-- foldexpr=v:lua.vim.lsp.foldexpr() on the buffer's windows. Fires

@@ -192,6 +192,36 @@ local ok_health, err = pcall(require("beast.libs.lsp.health").check)
 assert_true(":checkhealth runs cleanly", ok_health, err)
 
 -- =========================================================================
+-- Phase 4
+-- =========================================================================
+
+print("Phase 4: document_highlight config wiring")
+
+cfg.setup({ document_highlight = { enabled = true } })
+assert_eq("document_highlight.enabled honored", cfg.document_highlight.enabled, true)
+
+assert_true("dispatcher calls apply_document_highlight", src:find("apply_document_highlight%(client") ~= nil)
+assert_true("dispatcher gates on textDocument/documentHighlight", src:find("textDocument/documentHighlight") ~= nil)
+assert_true("dispatcher wires CursorHold/CursorHoldI", src:find('"CursorHold", "CursorHoldI"') ~= nil)
+assert_true("dispatcher wires CursorMoved to clear_references", src:find("clear_references") ~= nil)
+
+local hl_ok, hl_mod = pcall(require, "beast.libs.lsp.highlights")
+assert_true("beast.libs.lsp.highlights loads", hl_ok, hl_mod)
+if hl_ok then
+	_G.Theme = { get = function()
+		return setmetatable({}, {
+			__index = function()
+				return "#000000"
+			end,
+		})
+	end }
+	local groups = hl_mod.get()
+	assert_true("defines LspReferenceText", groups.LspReferenceText ~= nil)
+	assert_true("defines LspReferenceRead", groups.LspReferenceRead ~= nil)
+	assert_true("defines LspReferenceWrite", groups.LspReferenceWrite ~= nil)
+end
+
+-- =========================================================================
 -- Summary
 -- =========================================================================
 

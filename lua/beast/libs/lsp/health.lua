@@ -60,9 +60,10 @@ function M.check()
 
 	-- Feature toggles
 	local cfg = require("beast.libs.lsp.config")
-	health.info(string.format("inlay_hints.enabled: %s", tostring(cfg.inlay_hints and cfg.inlay_hints.enabled)))
-	health.info(string.format("codelens.enabled:    %s", tostring(cfg.codelens and cfg.codelens.enabled)))
-	health.info(string.format("fold.enabled:        %s", tostring(cfg.fold and cfg.fold.enabled)))
+	health.info(string.format("inlay_hints.enabled:        %s", tostring(cfg.inlay_hints and cfg.inlay_hints.enabled)))
+	health.info(string.format("codelens.enabled:           %s", tostring(cfg.codelens and cfg.codelens.enabled)))
+	health.info(string.format("document_highlight.enabled: %s", tostring(cfg.document_highlight and cfg.document_highlight.enabled)))
+	health.info(string.format("fold.enabled:               %s", tostring(cfg.fold and cfg.fold.enabled)))
 
 	-- Capability contributors
 	local ok_caps, caps = pcall(require, "beast.libs.lsp.capabilities")
