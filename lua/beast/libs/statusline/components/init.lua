@@ -58,6 +58,7 @@ local M = {}
 M.diagnostics = require("beast.libs.statusline.components.diagnostics")
 M.encoding = require("beast.libs.statusline.components.encoding")
 M.filetype = require("beast.libs.statusline.components.filetype")
+M.finder_lsp = require("beast.libs.statusline.components.finder_lsp")
 M.git_branch = require("beast.libs.statusline.components.git_branch")
 M.git_commit = require("beast.libs.statusline.components.git_commit")
 M.macro = require("beast.libs.statusline.components.macro")

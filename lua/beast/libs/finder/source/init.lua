@@ -3,6 +3,7 @@
 ---@field live boolean
 ---@field async boolean
 ---@field auto_select boolean  Jump to the item immediately if it's the only one
+---@field label? string  Display label for the statusline pre-flight indicator (auto_select sources only)
 ---@field get fun(filter: Beast.Finder.Filter, cb?: fun(item: Beast.Finder.Item|nil))
 ---@field cmd? string
 ---@field args? string[]

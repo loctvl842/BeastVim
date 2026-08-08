@@ -50,7 +50,10 @@ function M.open(source_name, opts)
 		-- than one falls through to the normal picker.
 		local filter = Filter({ cwd = opts.cwd })
 		local main_win = View.win.find_normal()
+		local finder_status = require("beast.libs.finder.status")
+		finder_status.start(source.label)
 		require("beast.libs.finder.preflight").check(source, filter, function(items)
+			finder_status.stop()
 			if #items == 1 then
 				require("beast.libs.finder.action").open_file(main_win, items[1])
 			elseif #items > 1 then

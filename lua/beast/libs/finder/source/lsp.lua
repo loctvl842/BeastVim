@@ -20,12 +20,14 @@ end
 
 --- Build a single source table for one of the supported LSP methods.
 ---@param method "textDocument/definition"|"textDocument/references"|"textDocument/declaration"|"textDocument/implementation"
+---@param label string display label for the statusline pre-flight indicator, e.g. "Definition"
 ---@return Beast.Finder.ASource
-function M.create(method)
+function M.create(method, label)
 	local source = {
 		live = false,
 		async = true,
 		auto_select = true,
+		label = label,
 	}
 
 	---@param filter Beast.Finder.Filter
