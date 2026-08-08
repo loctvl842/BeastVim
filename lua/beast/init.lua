@@ -84,6 +84,12 @@ function M.setup(opts)
 	-- Inline image viewer (active only on terminals with a graphics protocol)
 	require("beast.libs.image.viewer").setup(cfg.image or {})
 
+	-- vim.ui.input replacement — must run eagerly (not via packer.lazy's
+	-- module trigger): nothing in this config `require`s it directly, since
+	-- Neovim/LSP internals call the global vim.ui.input(...) themselves, so
+	-- the patch has to exist before anything might invoke it.
+	require("beast.libs.input").setup()
+
 	-- Statusline (declarative components, native %! evaluation)
 	packer.lazy("beast.libs.statusline", {
 		event = { name = "VimEnter", defer = true },
