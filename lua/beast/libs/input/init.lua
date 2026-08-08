@@ -26,7 +26,7 @@ function M.run(opts, on_confirm)
 		return native_input(opts, on_confirm)
 	end
 
-	ui.open_centered(opts or {}, on_confirm)
+	ui.open(opts or {}, on_confirm)
 end
 
 ---@param opts? Beast.Input.Config
