@@ -36,6 +36,7 @@ M.highlight_modules = {
 	"beast.libs.indent.highlights",
 	"beast.libs.treesitter.highlights",
 	"beast.libs.treesitter.context.highlights",
+	"beast.libs.lsp.highlights",
 }
 
 --- Highlight modules that are only needed for builtin colorschemes

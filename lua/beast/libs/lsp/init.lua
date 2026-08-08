@@ -85,6 +85,7 @@ function M.setup(opts)
 	config.setup(opts)
 	vim.diagnostic.config(config.diagnostics)
 	require("beast.libs.lsp.attach").setup()
+	require("beast").apply_highlights("beast.libs.lsp.highlights")
 	install_commands()
 end
 

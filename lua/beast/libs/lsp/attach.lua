@@ -85,15 +85,47 @@ local function apply_codelens(client, buf)
 	vim.lsp.codelens.enable(true, { bufnr = buf })
 end
 
----Run the per-attach side-effects (fold/inlay/codelens) for a given
----(client, buffer). Extracted so we can re-apply on dynamic capability
----registration as well as on LspAttach.
+---Highlight other occurrences of the symbol under the cursor when the
+---client supports it. Buffer-scoped augroup (cleared + recreated on every
+---call) so re-applying from the `registerCapability` handler doesn't stack
+---duplicate autocmds.
+---@param client vim.lsp.Client
+---@param buf integer
+local function apply_document_highlight(client, buf)
+	local cfg = require("beast.libs.lsp.config")
+	if not (cfg.document_highlight and cfg.document_highlight.enabled) then
+		return
+	end
+	if not client:supports_method("textDocument/documentHighlight") then
+		return
+	end
+	local group = vim.api.nvim_create_augroup("BeastVim-lsp-document_highlight-" .. buf, { clear = true })
+	vim.api.nvim_create_autocmd({ "CursorHold", "CursorHoldI" }, {
+		group = group,
+		buffer = buf,
+		callback = function()
+			vim.lsp.buf.document_highlight()
+		end,
+	})
+	vim.api.nvim_create_autocmd("CursorMoved", {
+		group = group,
+		buffer = buf,
+		callback = function()
+			vim.lsp.buf.clear_references()
+		end,
+	})
+end
+
+---Run the per-attach side-effects (fold/inlay/codelens/document_highlight)
+---for a given (client, buffer). Extracted so we can re-apply on dynamic
+---capability registration as well as on LspAttach.
 ---@param client vim.lsp.Client
 ---@param buf integer
 local function apply_capabilities(client, buf)
 	apply_fold(client, buf)
 	apply_inlay_hints(client, buf)
 	apply_codelens(client, buf)
+	apply_document_highlight(client, buf)
 end
 
 ---Store the BeastVim-extension fields for a server. The native LSP fields
