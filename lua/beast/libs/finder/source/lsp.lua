@@ -35,6 +35,11 @@ function M.create(method, label)
 	function source.get(filter, cb)
 		local win = filter.cur_win
 		local buf = vim.api.nvim_win_get_buf(win)
+		-- Captured now, synchronously, before the async request fires below -
+		-- this is the trigger-time position even if the cursor moves while
+		-- the language server is still responding.
+		local cur_pos = vim.api.nvim_win_get_cursor(win)
+		local cur_file = vim.api.nvim_buf_get_name(buf)
 
 		local clients = vim.lsp.get_clients({ bufnr = buf, method = method })
 		if #clients == 0 then
@@ -83,20 +88,30 @@ function M.create(method, label)
 						for _, it in ipairs(qf_items) do
 							local key = it.filename .. ":" .. it.lnum .. ":" .. it.col
 							if not seen[key] then
-								seen[key] = true
-								idx = idx + 1
-								local rel = make_rel(cwd, it.filename)
-								cb({
-									idx = idx,
-									score = 0,
-									text = rel .. ":" .. it.lnum .. ": " .. it.text,
-									file = it.filename,
-									-- locations_to_items returns 1-indexed col; finder.pos uses 0-indexed
-									pos = { it.lnum, math.max(0, it.col - 1) },
-									end_pos = { it.end_lnum or it.lnum, math.max(0, (it.end_col or it.col) - 1) },
-									cwd = cwd,
-									grep_text = it.text,
-								})
+								-- locations_to_items returns 1-indexed col; finder.pos uses 0-indexed
+								local pos = { it.lnum, math.max(0, it.col - 1) }
+								local end_pos = { it.end_lnum or it.lnum, math.max(0, (it.end_col or it.col) - 1) }
+								-- Skip the occurrence the cursor was already on when the
+								-- jump was triggered - it's not a place to jump to.
+								local is_cur_pos = it.filename == cur_file
+									and pos[1] == cur_pos[1]
+									and cur_pos[2] >= pos[2]
+									and cur_pos[2] < end_pos[2]
+								if not is_cur_pos then
+									seen[key] = true
+									idx = idx + 1
+									local rel = make_rel(cwd, it.filename)
+									cb({
+										idx = idx,
+										score = 0,
+										text = rel .. ":" .. it.lnum .. ": " .. it.text,
+										file = it.filename,
+										pos = pos,
+										end_pos = end_pos,
+										cwd = cwd,
+										grep_text = it.text,
+									})
+								end
 							end
 						end
 					end
