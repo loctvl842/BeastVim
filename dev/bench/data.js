@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786163554199,
+  "lastUpdate": 1786185016589,
   "repoUrl": "https://github.com/loctvl842/BeastVim",
   "entries": {
     "BeastVim Startup": [
@@ -1979,6 +1979,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "BeastVim startup (warm) max",
             "value": 39.618369,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "loclepnvx@gmail.com",
+            "name": "ON NO",
+            "username": "loctvl842"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3d80c2113b7feffc84d469a3e0365538db3ee6f7",
+          "message": "Merge pull request #2 from loctvl842/feat/lsp-document-highlight\n\nfeat(lsp): support textDocument/documentHighlight",
+          "timestamp": "2026-08-08T17:29:43+07:00",
+          "tree_id": "32dcf10cc87d913d865336fd8a56d7bd3283f343",
+          "url": "https://github.com/loctvl842/BeastVim/commit/3d80c2113b7feffc84d469a3e0365538db3ee6f7"
+        },
+        "date": 1786185015937,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "BeastVim startup (warm) mean",
+            "value": 25.724290399999997,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) stddev",
+            "value": 0.5817097631375255,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) min",
+            "value": 25.050121,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) max",
+            "value": 27.426284000000003,
             "unit": "ms"
           }
         ]
