@@ -4,20 +4,19 @@ local M = {}
 ---@param item Beast.Finder.Item
 function M.open(state, item)
 	if state.query.source.name == "help_tags" then
-		return M.open_help(state, item)
+		return M.open_help(state.main_win, item)
 	elseif state.query.source.name == "colorschemes" then
 		pcall(vim.cmd.colorscheme, item.text)
 		return
 	end
-	M.open_file(state, item)
+	M.open_file(state.main_win, item)
 end
 
----@param state Beast.Finder.State
+---@param win? integer window to focus before opening; falls back to the current window
 ---@param item Beast.Finder.Item
-function M.open_help(state, item)
+function M.open_help(win, item)
 	-- stylua: ignore
 	if not item or not item.help_tag then return end
-	local win = state.main_win
 	if win and vim.api.nvim_win_is_valid(win) then
 		vim.api.nvim_set_current_win(win)
 	end
@@ -31,12 +30,11 @@ function M.open_help(state, item)
 	end
 end
 
----@param state Beast.Finder.State
+---@param win? integer window to focus before opening; falls back to the current window
 ---@param item Beast.Finder.Item
-function M.open_file(state, item)
+function M.open_file(win, item)
 	-- stylua: ignore
 	if not item or not item.file then return end
-	local win = state.main_win
 	if win and vim.api.nvim_win_is_valid(win) then
 		vim.api.nvim_set_current_win(win)
 	end
@@ -47,24 +45,22 @@ function M.open_file(state, item)
 	end
 end
 
----@param state Beast.Finder.State
+---@param win? integer window to focus before opening; falls back to the current window
 ---@param item Beast.Finder.Item
-function M.open_split(state, item)
+function M.open_split(win, item)
 	-- stylua: ignore
 	if not item or not item.file then return end
-	local win = state.main_win
 	if win and vim.api.nvim_win_is_valid(win) then
 		vim.api.nvim_set_current_win(win)
 	end
 	vim.cmd("split " .. vim.fn.fnameescape(item.file))
 end
 
----@param state Beast.Finder.State
+---@param win? integer window to focus before opening; falls back to the current window
 ---@param item Beast.Finder.Item
-function M.open_vsplit(state, item)
+function M.open_vsplit(win, item)
 	-- stylua: ignore
 	if not item or not item.file then return end
-	local win = state.main_win
 	if win and vim.api.nvim_win_is_valid(win) then
 		vim.api.nvim_set_current_win(win)
 	end

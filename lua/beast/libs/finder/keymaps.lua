@@ -84,7 +84,7 @@ local function mount_list_keymaps(state)
 		if item then
 			state:reset()
 			vim.schedule(function()
-				action.open_split(state, item)
+				action.open_split(state.main_win, item)
 			end)
 		end
 	end)
@@ -93,7 +93,7 @@ local function mount_list_keymaps(state)
 		if item then
 			state:reset()
 			vim.schedule(function()
-				action.open_split(state, item)
+				action.open_split(state.main_win, item)
 			end)
 		end
 	end)
@@ -226,7 +226,7 @@ function M.mount(state)
 		if item then
 			state:reset()
 			vim.schedule(function()
-				action.open_split(state, item)
+				action.open_split(state.main_win, item)
 			end)
 		end
 	end)
@@ -235,7 +235,7 @@ function M.mount(state)
 		if item then
 			state:reset()
 			vim.schedule(function()
-				action.open_vsplit(state, item)
+				action.open_vsplit(state.main_win, item)
 			end)
 		end
 	end)
