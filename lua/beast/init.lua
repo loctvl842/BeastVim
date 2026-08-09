@@ -90,6 +90,10 @@ function M.setup(opts)
 	-- the patch has to exist before anything might invoke it.
 	require("beast.libs.input").setup()
 
+	-- vim.ui.select replacement — must run eagerly, same rationale as
+	-- vim.ui.input above.
+	require("beast.libs.select").setup()
+
 	-- Statusline (declarative components, native %! evaluation)
 	packer.lazy("beast.libs.statusline", {
 		event = { name = "VimEnter", defer = true },

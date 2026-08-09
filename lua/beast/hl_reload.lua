@@ -23,6 +23,7 @@ M.highlight_modules = {
 	"beast.theme.blink",
 	"beast.libs.confirm.highlights",
 	"beast.libs.input.highlights",
+	"beast.libs.select.highlights",
 	"beast.libs.explorer.highlights",
 	"beast.libs.finder.highlights",
 	"beast.libs.key.highlights",
