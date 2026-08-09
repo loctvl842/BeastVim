@@ -11,7 +11,6 @@ local WIDTH_RATIO = 0.5
 local MIN_WIDTH = 40
 local MAX_WIDTH = 90
 local DEBOUNCE_MS = 30
-local DEFAULT_FOOTER = " Confirm enter   Cancel esc "
 
 --- Wraps a raw item with its original 1-based index, so filtering (which
 --- narrows `items` to a subset) never loses the index the native
@@ -27,13 +26,27 @@ local function format_title(prompt)
 	return " " .. trimmed .. " "
 end
 
+---@param footer_hints? { key: string, label: string }[]
+---@return string
+local function format_footer(footer_hints)
+	local parts = { "Confirm enter   Cancel esc" }
+	for _, hint in ipairs(footer_hints or {}) do
+		parts[#parts + 1] = hint.label .. " " .. hint.key
+	end
+	return " " .. table.concat(parts, "   ") .. " "
+end
+
 ---@class Beast.Select.Opts
 ---@field prompt string
 ---@field format_item fun(item: any): string
 ---@field kind? string
+---@field format_tag? fun(item: any): string?
+---@field footer_hints? { key: string, label: string }[]
 
 --- Open the picker. `items`/`opts`/`on_choice` follow the native
---- `vim.ui.select` contract.
+--- `vim.ui.select` contract; `opts.format_tag`/`opts.footer_hints` are
+--- BeastVim-specific extensions (see PM spec Behavior Rules) — third-party
+--- plugins that only pass native opts fields simply don't get them.
 ---@param items any[]
 ---@param opts Beast.Select.Opts
 ---@param on_choice fun(item: any?, idx: integer?)
@@ -85,7 +98,7 @@ function M.open(items, opts, on_choice)
 	vim.wo[input_win].signcolumn = "no"
 	vim.wo[input_win].wrap = false
 
-	local list_view = list.create(top + 3, left, content_w, list_h, nil, DEFAULT_FOOTER)
+	local list_view = list.create(top + 3, left, content_w, list_h, nil, format_footer(opts.footer_hints))
 
 	---@type Beast.Select.Wrapped[]
 	local wrapped = {}
@@ -98,6 +111,11 @@ function M.open(items, opts, on_choice)
 		return opts.format_item(w.value)
 	end
 
+	---@param w Beast.Select.Wrapped
+	local function format_tag(w)
+		return opts.format_tag(w.value)
+	end
+
 	local function render_filtered(query)
 		local filtered = {}
 		for _, w in ipairs(wrapped) do
@@ -105,7 +123,7 @@ function M.open(items, opts, on_choice)
 				filtered[#filtered + 1] = w
 			end
 		end
-		list.render(list_view, filtered, format_item)
+		list.render(list_view, filtered, format_item, opts.format_tag and format_tag or nil)
 	end
 
 	render_filtered("")

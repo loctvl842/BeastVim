@@ -10,6 +10,7 @@ local EMPTY_TEXT = "No matching items"
 ---@field items any[]
 ---@field cursor integer 1-based index into items
 ---@field _format_item fun(item: any): string
+---@field _format_tag? fun(item: any): string?
 ---@field _offset integer 0-based index of the first visible item
 ---@field _win_height integer current window height (viewport size)
 ---@field _max_height integer height cap the window never grows past
@@ -22,6 +23,7 @@ local ListView = View:extend(
 		obj.items = {}
 		obj.cursor = 1
 		obj._format_item = nil
+		obj._format_tag = nil
 		obj._offset = 0
 		obj._win_height = max_height
 		obj._max_height = max_height
@@ -116,7 +118,7 @@ local function render_bullets(view, visible_count)
 end
 
 --- Write the visible slice of items to the buffer, with the bullet marker
---- on the current row.
+--- and an optional right-aligned dim tag per row.
 ---@param view Beast.Select.ListView
 local function render_visible(view)
 	if not view:is_valid() then
@@ -140,8 +142,16 @@ local function render_visible(view)
 	local visible_count = math.min(view._win_height, #items - view._offset)
 
 	local lines = {} ---@type string[]
+	local tags = {} ---@type table<integer, string>
 	for i = 1, visible_count do
-		lines[i] = view._format_item(items[view._offset + i])
+		local item = items[view._offset + i]
+		lines[i] = view._format_item(item)
+		if view._format_tag then
+			local tag = view._format_tag(item)
+			if tag then
+				tags[i] = tag
+			end
+		end
 	end
 
 	vim.bo[view.buf].modifiable = true
@@ -149,6 +159,14 @@ local function render_visible(view)
 	vim.bo[view.buf].modifiable = false
 
 	vim.api.nvim_buf_clear_namespace(view.buf, view.ns, 0, -1)
+	for i, tag in pairs(tags) do
+		vim.api.nvim_buf_set_extmark(view.buf, view.ns, i - 1, 0, {
+			virt_text = { { tag, "BeastSelectListTag" } },
+			virt_text_pos = "right_align",
+			hl_mode = "combine",
+		})
+	end
+
 	render_bullets(view, visible_count)
 
 	local cursor_row0 = view.cursor - view._offset - 1
@@ -158,12 +176,14 @@ end
 ---@param view Beast.Select.ListView
 ---@param items any[]
 ---@param format_item fun(item: any): string
-function M.render(view, items, format_item)
+---@param format_tag? fun(item: any): string?
+function M.render(view, items, format_item, format_tag)
 	if not view:is_valid() then
 		return
 	end
 	view.items = items
 	view._format_item = format_item
+	view._format_tag = format_tag
 	resize_to_fit(view)
 	view.cursor = math.min(view.cursor, math.max(1, #items))
 	view._offset = clamp_offset(view, view.cursor, view._offset)

@@ -10,6 +10,8 @@ local native_select = vim.ui.select
 ---@field prompt? string
 ---@field format_item? fun(item: any): string
 ---@field kind? string
+---@field format_tag? fun(item: any): string? BeastVim extension: optional right-aligned dim tag per item.
+---@field footer_hints? { key: string, label: string }[] BeastVim extension: extra footer hints alongside Confirm/Cancel.
 
 local M = {}
 
@@ -33,6 +35,8 @@ function M.run(items, opts, on_choice)
 		prompt = opts.prompt or "Select one of:",
 		format_item = opts.format_item or tostring,
 		kind = opts.kind,
+		format_tag = opts.format_tag,
+		footer_hints = opts.footer_hints,
 	}, on_choice)
 end
 
