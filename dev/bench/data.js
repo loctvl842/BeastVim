@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786211368962,
+  "lastUpdate": 1786515067305,
   "repoUrl": "https://github.com/loctvl842/BeastVim",
   "entries": {
     "BeastVim Startup": [
@@ -2067,6 +2067,48 @@ window.BENCHMARK_DATA = {
           {
             "name": "BeastVim startup (warm) max",
             "value": 40.915890000000005,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "loctranphuc.le@worldquant.com",
+            "name": "locle"
+          },
+          "committer": {
+            "email": "loctranphuc.le@worldquant.com",
+            "name": "locle"
+          },
+          "distinct": true,
+          "id": "7558dae988bc34d84ff4df240eec6fb56a26f418",
+          "message": "fix(explorer): some dir cannot recognize type",
+          "timestamp": "2026-08-12T02:10:21-04:00",
+          "tree_id": "cdfdb9ca3f96e693c65e50d65e96a0df91b01a79",
+          "url": "https://github.com/loctvl842/BeastVim/commit/7558dae988bc34d84ff4df240eec6fb56a26f418"
+        },
+        "date": 1786515065387,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "BeastVim startup (warm) mean",
+            "value": 40.14431545000001,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) stddev",
+            "value": 0.7701441765722542,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) min",
+            "value": 38.689115,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) max",
+            "value": 41.433911,
             "unit": "ms"
           }
         ]
