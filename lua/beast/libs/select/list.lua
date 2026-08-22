@@ -53,14 +53,18 @@ function M.create(win_row, win_col, win_w, win_h, border, footer)
 		style = "minimal",
 		border = border or { "", "", "", "│", "╯", "─", "╰", "│" },
 		footer = footer,
-		footer_pos = footer and "left" or nil,
+		footer_pos = footer and "right" or nil,
 		zindex = 101,
 	})
 
-	View.win.wo(win, "cursorline", false)
+	View.win.wo(win, "cursorline", true)
 	View.win.wo(win, "scrolloff", 0)
 	View.win.wo(win, "wrap", false)
-	View.win.wo(win, "winhl", "Normal:BeastSelectNormal,FloatBorder:BeastSelectBorder,FloatFooter:BeastSelectFooter")
+	View.win.wo(
+		win,
+		"winhl",
+		"Normal:BeastSelectNormal,FloatBorder:BeastSelectBorder,FloatFooter:BeastSelectFooter,CursorLine:BeastSelectListCursorLine"
+	)
 
 	return ListView(buf, win, ns, win_h)
 end
