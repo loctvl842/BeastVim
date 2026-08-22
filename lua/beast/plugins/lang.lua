@@ -17,5 +17,11 @@ return {
     src = gh("BeastVim/python"),
     lazy = { filetype = "python" },
     config = function() require("python").setup() end,
-  }
+  },
+  {
+    name = "cpp",
+    src = gh("BeastVim/cpp"),
+    lazy = { filetype = { "c", "cpp", "objc", "objcpp", "cuda" } },
+    config = function() require("cpp").setup() end,
+  },
 }
