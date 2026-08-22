@@ -1,4 +1,4 @@
-<!-- Generated: 2026-08-09 | Files scanned: 25 | Token estimate: ~2700 -->
+<!-- Generated: 2026-08-09 | Files scanned: 26 | Token estimate: ~2750 -->
 
 # Architecture
 
@@ -53,6 +53,7 @@ lua/beast/
 │   ├── packer/           ← plugin loader + packer.lazy() (event/keys/
 │   │                       filetype/module/cmd/path triggers)
 │   ├── scroll/           ← smooth viewport scrolling
+│   ├── select/           ← vim.ui.select replacement (themed search-filter picker)
 │   ├── session/          ← save/restore session per project dir + git branch
 │   ├── starter/          ← native intro screen extensions (key hint rows)
 │   ├── statuscolumn/     ← native %! statuscolumn
@@ -96,6 +97,8 @@ beast.setup(opts)
   6b. input.setup() — EAGER (monkey-patches vim.ui.input directly; no
         require() call site exists to hang packer.lazy's module trigger off,
         since Neovim/LSP call the global vim.ui.input themselves)
+  6c. select.setup() — EAGER (same rationale as input above, but for
+        vim.ui.select)
   7.  packer.lazy statusline (VimEnter+defer) — uses components registry
   7b. packer.lazy session (VimEnter+defer) — registers VimLeavePre autosave
   8.  packer.lazy breadcrumb / tabline / statuscolumn (BufWinEnter/BufWritePost+defer)
@@ -118,8 +121,8 @@ beast.setup(opts)
 
 ## Lazy Lib Loading (`packer.lazy`)
 
-Every lib above (except theme/notify/toast/image/input eager setup paths,
-plus `lsp` and `starter`)
+Every lib above (except theme/notify/toast/image/input/select eager setup
+paths, plus `lsp` and `starter`)
 loads via `packer.lazy(mod, opts)`. Trigger types:
 
 | Trigger | Field | Sync? | Use case |
@@ -137,7 +140,7 @@ body's `require()` could return the lib before `setup()` ran. See
 
 ```
 Beast.View / Beast.View.Module (view/init.lua + buf.lua + win.lua)
-  └── extended by: notify, toast, explorer, key, finder
+  └── extended by: notify, toast, explorer, key, finder, select
                    (InputView, ListView, PreviewView, ...)
 
 animate.lua  (M.tween primitive)
@@ -175,8 +178,8 @@ Each `<lib>/highlights.lua` exposes a pure `M.get(): table<string, hl>` and
 optional `M.post_apply()`. See ADR-026 for the contract.
 
 `M.highlight_modules` includes: `beast.theme.highlights`, `beast.theme.blink`,
-plus `<lib>.highlights` for confirm, input, explorer, finder, key, notify,
-packer, statusline, breadcrumb, tabline, toast, indent, treesitter,
+plus `<lib>.highlights` for confirm, input, select, explorer, finder, key,
+notify, packer, statusline, breadcrumb, tabline, toast, indent, treesitter,
 statuscolumn, git.
 Builtin-only (gated by `Theme.is_builtin_colorscheme()`): treesitter,
 theme.highlights, theme.blink.

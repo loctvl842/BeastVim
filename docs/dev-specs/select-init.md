@@ -156,14 +156,25 @@ Add `lua/beast/libs/select/`, structured like `input/` (config/highlights/init/u
 
 # Success Criteria
 
-- [ ] Any plugin calling `vim.ui.select` (LSP code actions, git integrations, etc.) automatically gets the new themed picker with no caller-side code changes.
-- [ ] Typing in the search field narrows the list live, matching against item labels.
-- [ ] The highlighted row shows a bullet marker, and pressing Enter returns that item (and its original-array index) to `on_choice`, matching native behavior.
-- [ ] Items with a caller-supplied tag show it right-aligned in dim text, separate from the label.
-- [ ] Callers that supply extra footer hints see them alongside the default Confirm/Cancel hints.
-- [ ] Filtering to zero results shows an empty-state message, not a blank list.
-- [ ] Esc cancels and returns nil, matching native `vim.ui.select`.
-- [ ] Visual style (border, colors, title, bullet marker) matches BeastVim's existing confirm dialog, input box, and finder search box.
-- [ ] `tests/test-select-filter.lua` passes headless.
-- [ ] `bench-startup.sh` shows no meaningful regression vs. baseline.
-- [ ] `:checkhealth beast.libs.select` reports no errors.
+- [x] Any plugin calling `vim.ui.select` (LSP code actions, git integrations, etc.) automatically gets the new themed picker with no caller-side code changes.
+- [x] Typing in the search field narrows the list live, matching against item labels.
+- [x] The highlighted row shows a bullet marker, and pressing Enter returns that item (and its original-array index) to `on_choice`, matching native behavior.
+- [x] Items with a caller-supplied tag show it right-aligned in dim text, separate from the label.
+- [x] Callers that supply extra footer hints see them alongside the default Confirm/Cancel hints.
+- [x] Filtering to zero results shows an empty-state message, not a blank list.
+- [x] Esc cancels and returns nil, matching native `vim.ui.select`.
+- [x] Visual style (border, colors, title, bullet marker) matches BeastVim's existing confirm dialog, input box, and finder search box.
+- [x] `tests/test-select-filter.lua` passes headless.
+- [x] `bench-startup.sh` shows no meaningful regression vs. baseline.
+- [x] `:checkhealth beast.libs.select` reports no errors.
+
+---
+
+## Completed
+
+**2026-08-09** — Both phases implemented and committed.
+
+- `e9b2176` feat(select): add themed vim.ui.select replacement (Phase 1: core picker) (code review caught a real bug: a stale scroll offset wasn't re-capped after filtering shrank a long list, hiding matches — reproduced live via a scripted wezterm session (30 items, scroll to offset ~6, filter to 3 matches) before and after the fix; also fixed a debounce-timer leak on close and moved the dialog from dead-center to upper-middle positioning to match the PM spec)
+- `6718495` feat(select): add data-driven tag and custom footer hints (Phase 2) (format_tag/footer_hints had been implemented a phase early during Phase 1 — reverted out of Phase 1 per code review, then re-added here as originally scoped; second review passed with only a variable-naming nit, fixed)
+
+Verification: `tests/test-select-filter.lua` — 10/10 assertions pass headless. `stylua --check` clean throughout. `:checkhealth beast.libs.select` fully green. `bench-startup.sh` (warm, 10 runs): 29.5ms mean nvim-internal time, 43.4ms wall-clock (hyperfine) — no regression vs. `input`'s own recorded baseline (28.11ms). The interactive UI flow (open/filter/scroll/confirm/cancel/empty-state/tag/footer_hints) isn't headlessly testable — `:startinsert` doesn't take effect when driven synchronously from a headless `-c "lua ..."` script, a Neovim quirk, not a code bug — so it was verified end-to-end via real interactive sessions driven through `wezterm cli` (spawn a pane, send-text keystrokes, get-text to read the rendered screen), including the exact scroll+filter bug repro.

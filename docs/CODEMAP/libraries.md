@@ -1,4 +1,4 @@
-<!-- Generated: 2026-08-09 | Files scanned: 25 | Token estimate: ~10760 -->
+<!-- Generated: 2026-08-09 | Files scanned: 26 | Token estimate: ~11060 -->
 
 # Libraries
 
@@ -363,6 +363,44 @@ Neovim/LSP call the global `vim.ui.input` themselves). Headless/`disabled`
 fallback delegates to the real native `vim.ui.input`, captured at
 module-load time before `setup()` overwrites it.
 Tests: `tests/test-input-position.lua` (12 assertions, position resolver).
+
+---
+
+## select — Themed `vim.ui.select` Replacement
+
+```
+select/
+├── init.lua       ← run(items, opts, on_choice), setup() (assigns vim.ui.select)
+├── config.lua     ← disabled flag, ui.backdrop blend
+├── filter.lua     ← pure matches(text, query): case-insensitive literal substring
+├── list.lua       ← Beast.Select.ListView : virtualized rows, bullet-marker
+│                     extmark, right-aligned tag extmark, dynamic resize-to-fit,
+│                     empty state
+├── ui.lua         ← backdrop + input + list window orchestration, keymaps,
+│                     debounced filter wiring
+└── health.lua     ← :checkhealth beast.libs.select
+```
+
+API: none beyond `setup()` — assigns `vim.ui.select` directly, same
+`(items, opts, on_choice)` contract as native (`opts.prompt`,
+`opts.format_item`, `opts.kind`). BeastVim-only extensions:
+`opts.format_tag(item): string?` (right-aligned dim tag per row) and
+`opts.footer_hints: {key,label}[]` (extra footer hints beside
+Confirm/Cancel) — both silently absent for callers using only the native
+contract.
+Search box (prompt buffer) filters live via `filter.matches` against
+`format_item(item)` output; list window height dynamically resizes to fit
+the current match count (capped at 15 rows) via `nvim_win_set_config`.
+Footer hint row uses Neovim's native floating-window `footer`/`footer_pos`
+option (no bespoke footer window). Filtering preserves each item's
+*original* array index for `on_choice(item, idx)`, independent of the
+filtered view's position.
+Loaded **eagerly** from `beast/init.lua` (same rationale as `input`:
+nothing `require()`s it directly, since Neovim/LSP/plugins call the global
+`vim.ui.select` themselves). Headless/`disabled` fallback delegates to the
+real native `vim.ui.select`, captured at module-load time before `setup()`
+overwrites it.
+Tests: `tests/test-select-filter.lua` (10 assertions, filter matcher).
 
 ---
 
