@@ -1,4 +1,4 @@
-<!-- Generated: 2026-08-09 | Files scanned: 26 | Token estimate: ~340 -->
+<!-- Generated: 2026-08-23 | Files scanned: 27 | Token estimate: ~360 -->
 
 # BeastVim Codemaps
 
@@ -11,8 +11,8 @@ Quick-reference architecture documentation. Regenerate with `/update-codemap`.
 ## Project Stats
 - Language: Lua
 - Platform: Neovim plugin (config-as-plugin)
-- Lines of code: ~42,850 across 292 lua files
+- Lines of code: ~43,060 across 293 lua files
 - Libraries: 25 — autopairs, breadcrumb, confirm, explorer, finder, git, image, indent, input, key, lsp, mason, notify, packer, scroll, select, session, starter, statuscolumn, statusline, tabline, toast, treesitter, view, window
 - Shared modules: view/ (instance + .buf + .win submodules), animate.lua, async.lua, util/, theme/, visibility.lua (global hidden/gitignored state)
 - Profiler: lua/beast/profile.lua (per-fn count/total/self stats)
-- Last updated: 2026-08-09 (new `select` lib replaces native `vim.ui.select`: themed search-filterable picker with bullet marker, dynamic list resizing, empty state, native footer/footer_pos hint row, and opt-in format_tag/footer_hints extensions — eagerly wired same as `input`)
+- Last updated: 2026-08-23 (explorer gained `clipboard.lua`: copy/cut/paste now round-trips through the `"+"` register so paste works across separate Neovim sessions, with a same-process fallback when the active clipboard provider can't answer a query)

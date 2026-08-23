@@ -1,4 +1,4 @@
-<!-- Generated: 2026-08-09 | Files scanned: 26 | Token estimate: ~11060 -->
+<!-- Generated: 2026-08-23 | Files scanned: 27 | Token estimate: ~11470 -->
 
 # Libraries
 
@@ -9,6 +9,7 @@ explorer/
 ├── init.lua       ← open/close/toggle, setup, replace_netrw
 ├── config.lua     ← style, width, side, icons, git, sticky, mappings
 ├── state.lua      ← tree, view, sticky, source_win, augroup, watchers, git_root/job/timer
+├── clipboard.lua  ← "+" register read/write/toggle for cross-session copy/cut/paste
 ├── tree.lua       ← filesystem tree with flat cache, unwatch_subtree()
 ├── git.lua        ← async git status engine (vim.system, porcelain v1, propagation)
 ├── ui.lua         ← create split window, focus_path, render, flush
@@ -54,6 +55,19 @@ BeastVisibilityChanged` to re-filter + redraw live.
 Floating overlay pinning ancestor directories above the visible region.
 View subclass: `Beast.Explorer.StickyView : Beast.View`.
 Pin rule iterates to fixed point; sets `scrolloff` to keep cursor below float.
+
+### Cross-session clipboard (`clipboard.lua`)
+
+`copy_to_clipboard`/`cut_to_clipboard`/`paste_from_clipboard` route through
+the `"+"` register (write/clear/read/toggle) instead of pure in-process
+state, so a paste in a different Neovim session sees what was marked
+elsewhere. Payload: marked paths one per line + trailing `copy`/`cut`
+marker line; anything else decodes to `nil` ("not ours"). `state.clipboard`
+remains as a same-session render cache for the `(copy)`/`(cut)` suffix,
+resynced from the register on `FocusGained` and `explorer.open()`. Falls
+back to the session's own last local write when the active `g:clipboard`
+provider can't honestly answer a query (SSH-without-display OSC52 case in
+`option.lua`), avoiding both a stuck-empty clipboard and paste-warning spam.
 
 ---
 
