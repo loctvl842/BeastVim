@@ -9,6 +9,24 @@ local M = {}
 -- assumption the rest of the explorer already makes for filesystem paths.
 local REG = "+"
 
+-- Over SSH without a local display, option.lua wires "+" to an OSC52
+-- provider whose paste() is intentionally a no-op (most terminals refuse to
+-- answer the OSC52 query) — it always returns "", even for a value this same
+-- process just wrote a moment ago via setreg(). Querying that register is
+-- pointless and, worse, its paste() also fires a "use the terminal's native
+-- paste" warning notify on every call. In that one environment, fall back to
+-- this session's own last write instead of asking a register that can never
+-- honestly answer — that's what keeps same-session copy/cut/paste working
+-- there, same as it does everywhere else; cross-session sync simply isn't
+-- reachable in that environment, consistent with option.lua's own comment.
+---@return boolean
+local function provider_can_query()
+	return not (vim.g.clipboard and vim.g.clipboard.name == "OSC 52")
+end
+
+---@type Beast.Explorer.Clipboard?
+local last_local = nil
+
 ---@param paths string[]
 ---@param mode "copy"|"cut"
 ---@return string
@@ -45,14 +63,19 @@ end
 ---@param mode "copy"|"cut"
 function M.write(paths, mode)
 	vim.fn.setreg(REG, encode(paths, mode))
+	last_local = { paths = paths, mode = mode }
 end
 
 function M.clear()
 	vim.fn.setreg(REG, "")
+	last_local = nil
 end
 
 ---@return Beast.Explorer.Clipboard?
 function M.read()
+	if not provider_can_query() then
+		return last_local
+	end
 	return decode(vim.fn.getreg(REG))
 end
 

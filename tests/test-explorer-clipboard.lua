@@ -81,5 +81,50 @@ assert_eq("toggle() with a different mode overwrites instead of clearing", resul
 
 clipboard.clear()
 
+io.write("\n--- SSH-without-display OSC52 fallback: local write is trusted, no notify spam ---\n")
+do
+	-- Mirrors the g:clipboard override in option.lua for SSH_TTY without a
+	-- display: paste() always returns "" and warns, even for a value this
+	-- same process just wrote — querying it is pointless and, before this
+	-- module accounted for it, spammed a misleading warning on every read.
+	local saved_clipboard = vim.g.clipboard
+	vim.g.clipboard = {
+		name = "OSC 52",
+		copy = { ["+"] = function() end, ["*"] = function() end },
+		paste = {
+			["+"] = function()
+				vim.notify("should not fire from clipboard.lua", vim.log.levels.WARN)
+				return { "" }
+			end,
+			["*"] = function()
+				return { "" }
+			end,
+		},
+	}
+
+	local notify_count = 0
+	local saved_notify = vim.notify
+	vim.notify = function(...)
+		notify_count = notify_count + 1
+		return saved_notify(...)
+	end
+
+	clipboard.clear()
+	clipboard.write({ "/tmp/a.txt" }, "copy")
+	assert_eq("read() falls back to the local write instead of the always-empty register", clipboard.read(), {
+		paths = { "/tmp/a.txt" },
+		mode = "copy",
+	})
+
+	local toggled = clipboard.toggle({ "/tmp/a.txt" }, "copy")
+	assert_eq("toggle-off still works (local fallback, not the register)", toggled, nil)
+
+	assert_eq("clipboard.lua never calls the provider's paste() (no notify)", notify_count, 0)
+
+	vim.notify = saved_notify
+	vim.g.clipboard = saved_clipboard
+	clipboard.clear()
+end
+
 io.write(string.format("\n=== %d passed, %d failed ===\n", passed, failed))
 os.exit(failed > 0 and 1 or 0)
