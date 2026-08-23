@@ -24,4 +24,10 @@ return {
     lazy = { filetype = { "c", "cpp", "objc", "objcpp", "cuda" } },
     config = function() require("cpp").setup() end,
   },
+  {
+    name = "json",
+    src = gh("BeastVim/json"),
+    lazy = { filetype = { "json", "jsonc" } },
+    config = function() require("json").setup() end,
+  },
 }
