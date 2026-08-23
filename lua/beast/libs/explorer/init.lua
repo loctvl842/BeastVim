@@ -22,6 +22,9 @@ M.meta = { name = "explorer", description = "File tree explorer" }
 local function ensure_explorer(dir)
 	dir = dir and vim.fn.fnamemodify(dir, ":p"):gsub("/$", "") or Util.root()
 	if not state.tree or state.tree.root.path ~= dir then
+		-- Re-rooting abandons the old tree's expanded-directory watchers;
+		-- stop them explicitly or they leak (fs_event handles pile up).
+		watch.stop_all()
 		state.tree = Tree(dir)
 	end
 	if not state.view or not state.view:is_valid() then

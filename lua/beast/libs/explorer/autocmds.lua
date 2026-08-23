@@ -100,17 +100,28 @@ function M.mount()
 			-- stylua: ignore
 			if not (state.view and state.view:is_valid() and state.tree) then return end
 			local path = vim.api.nvim_buf_get_name(0)
+			local path_norm = nil ---@type string|nil
 			local next_active = nil ---@type string|nil
 			if path ~= "" and vim.fn.filereadable(path) == 1 then
-				local path_norm = vim.fn.fnamemodify(path, ":p"):gsub("/$", "")
+				path_norm = vim.fn.fnamemodify(path, ":p"):gsub("/$", "")
 				local root = state.tree.root.path
 				if path_norm == root or path_norm:sub(1, #root + 1) == (root .. "/") then
 					next_active = path_norm
 				end
 			end
 
-			-- Non-file / out-of-root buffer: clear marker and stop.
+			-- Out-of-root buffer: if it's a real file belonging to a different
+			-- project, follow it by re-rooting the explorer (without stealing
+			-- focus - only fires for actual files, never for terminal/quickfix/
+			-- scratch buffers, which just clear the marker below).
 			if not next_active then
+				if path_norm then
+					local new_root = Util.root()
+					if new_root ~= state.tree.root.path then
+						require("beast.libs.explorer").open(new_root)
+						return
+					end
+				end
 				ui.flush()
 				return
 			end
