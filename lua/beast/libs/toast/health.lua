@@ -154,14 +154,12 @@ function M.check()
 		health.warn("Missing icons for: " .. table.concat(missing_icons, ", "))
 	end
 
-	-- Check highlight groups referenced in config.hl
+	-- Check highlight groups defined by toast/highlights.lua
 	local missing_hls = {}
-	for lvl, hl_pair in pairs(config.hl) do
-		for _, hl_name in pairs(hl_pair) do
-			local hl = vim.api.nvim_get_hl(0, { name = hl_name })
-			if vim.tbl_isempty(hl) then
-				missing_hls[#missing_hls + 1] = hl_name .. " (" .. lvl .. ")"
-			end
+	for hl_name in pairs(require("beast.libs.toast.highlights").get()) do
+		local hl = vim.api.nvim_get_hl(0, { name = hl_name })
+		if vim.tbl_isempty(hl) then
+			missing_hls[#missing_hls + 1] = hl_name
 		end
 	end
 	if #missing_hls == 0 then

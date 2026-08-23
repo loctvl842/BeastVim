@@ -120,3 +120,5 @@ function M.check()
 		health.warn("git config user.name is unset — blame formatter will not substitute 'You'")
 	end
 end
+
+return M

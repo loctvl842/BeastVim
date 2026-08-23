@@ -139,8 +139,8 @@ function M.check()
 
 		-- Report phase times if available
 		local phases = profile_mod.phases or {}
-		for phase, ms in pairs(phases) do
-			health.info(string.format("Phase: %s = %.1fms", phase, ms))
+		for phase, prof in pairs(phases) do
+			health.info(string.format("Phase: %s = %.1fms", phase, prof.ms))
 		end
 	end
 end

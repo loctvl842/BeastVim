@@ -51,8 +51,8 @@ function M.check()
 	-- =========================================================================
 	health.start("beast.libs.breadcrumb — registration")
 
-	local groups = vim.api.nvim_get_autocmds({ group = "BeastBreadcrumb" })
-	if groups and #groups > 0 then
+	local ok_groups, groups = pcall(vim.api.nvim_get_autocmds, { group = "BeastBreadcrumb" })
+	if ok_groups and groups and #groups > 0 then
 		health.ok(string.format("Augroup BeastBreadcrumb registered (%d autocmds)", #groups))
 	else
 		health.warn("Augroup BeastBreadcrumb has no autocmds (setup() not called?)")
