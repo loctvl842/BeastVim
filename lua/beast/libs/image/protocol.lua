@@ -18,9 +18,12 @@ local protocol_cache
 --- Which inline-image protocol the host terminal speaks, or nil for none.
 --- - "iterm": iTerm2 OSC 1337 (iTerm2, WezTerm)
 --- - "kitty": Kitty graphics protocol (Kitty, Ghostty)
---- Conservative: bails under tmux/zellij since passthrough escaping isn't
---- implemented. Cached with a `false` sentinel so a negative result (terminal
---- not supported) is remembered rather than re-probed on every call.
+--- tmux is supported via DCS passthrough (see `tmux_wrap`); the outer
+--- terminal's env vars (WEZTERM_PANE, KITTY_WINDOW_ID, ...) still leak through
+--- tmux, so detection works unchanged there. Zellij still bails: its
+--- passthrough escaping isn't implemented. Cached with a `false` sentinel so a
+--- negative result (terminal not supported) is remembered rather than
+--- re-probed on every call.
 ---@return Beast.Image.Protocol|nil
 function M.detect()
 	if protocol_cache ~= nil then
@@ -28,7 +31,7 @@ function M.detect()
 	end
 	---@type Beast.Image.Protocol|false
 	local result = false
-	if not vim.env.TMUX and not vim.env.ZELLIJ then
+	if not vim.env.ZELLIJ then
 		local prog = vim.env.TERM_PROGRAM
 		local term = vim.env.TERM or ""
 		if prog == "WezTerm" or prog == "iTerm.app" or vim.env.WEZTERM_PANE then
@@ -151,6 +154,17 @@ end
 ---@return boolean
 function M.is_png(bytes)
 	return bytes:sub(1, 8) == "\137PNG\r\n\26\n"
+end
+
+--- Wrap a terminal payload in tmux's DCS passthrough so it reaches the outer
+--- terminal instead of being swallowed by tmux. Per tmux's passthrough spec,
+--- every ESC byte inside the wrapped payload must be doubled; the wrapper's
+--- own framing must not be. Requires `set -g allow-passthrough on` in the
+--- user's tmux.conf — without it tmux silently drops the sequence.
+---@param payload string
+---@return string
+function M.tmux_wrap(payload)
+	return ESC .. "Ptmux;" .. payload:gsub(ESC, ESC .. ESC) .. ESC .. "\\"
 end
 
 return M

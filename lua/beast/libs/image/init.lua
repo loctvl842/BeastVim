@@ -8,8 +8,10 @@
 --- re-`render` after any repaint of the region (resize, full redraw) and
 --- `clear` it before tearing the window down.
 ---
---- Supported on WezTerm/iTerm2 (OSC 1337) and Kitty/Ghostty (Kitty protocol).
---- Elsewhere `render` returns false so callers can fall back to a text preview.
+--- Supported on WezTerm/iTerm2 (OSC 1337) and Kitty/Ghostty (Kitty protocol),
+--- including inside tmux via DCS passthrough (requires `allow-passthrough on`
+--- in tmux.conf). Elsewhere `render` returns false so callers can fall back to
+--- a text preview.
 local dimensions = require("beast.libs.image.dimensions")
 local protocol = require("beast.libs.image.protocol")
 
@@ -59,9 +61,56 @@ function M.supported()
 end
 
 --- Write raw bytes to the controlling terminal, bypassing Neovim's renderer.
+--- Wrapped in tmux's DCS passthrough when running under tmux, since tmux
+--- otherwise swallows the raw escape sequences instead of forwarding them to
+--- the outer terminal.
 ---@param data string
 local function term_write(data)
+	if vim.env.TMUX then
+		data = protocol.tmux_wrap(data)
+	end
 	pcall(vim.fn.chansend, vim.v.stderr, data)
+end
+
+--- The tmux pane's top-left offset within the real terminal screen (rows below
+--- the status bar / panes above it, columns right of panes to its left), or
+--- 0,0 outside tmux. Passthrough cursor-positioning escapes move the *real*
+--- terminal's cursor, which knows nothing about tmux's pane layout, so every
+--- absolute row/col computed from Neovim's own (pane-relative) screen must be
+--- shifted by this before drawing — otherwise the image lands near the
+--- terminal's top-left instead of inside the pane.
+---
+--- Shelling out to tmux is comparatively expensive, and render() needs the
+--- offset twice per call (erase + draw), so the result is cached until the
+--- pane layout might have changed. A tmux split/resize/move sends SIGWINCH to
+--- the pane, which Neovim observes as VimResized, so that's what invalidates it.
+---@type { row: integer, col: integer }?
+local tmux_offset_cache
+if vim.env.TMUX then
+	vim.api.nvim_create_autocmd("VimResized", {
+		group = vim.api.nvim_create_augroup("beast_image_tmux_offset", { clear = true }),
+		callback = function()
+			tmux_offset_cache = nil
+		end,
+	})
+end
+
+---@return integer row_offset, integer col_offset
+local function tmux_offset()
+	if not vim.env.TMUX then
+		return 0, 0
+	end
+	if tmux_offset_cache then
+		return tmux_offset_cache.row, tmux_offset_cache.col
+	end
+	local out = vim.fn.system({ "tmux", "display-message", "-p", "-F", "#{pane_top},#{pane_left}" })
+	if vim.v.shell_error ~= 0 then
+		return 0, 0
+	end
+	local top, left = out:match("(%d+),(%d+)")
+	local row, col = tonumber(top) or 0, tonumber(left) or 0
+	tmux_offset_cache = { row = row, col = col }
+	return row, col
 end
 
 --- The last image we drew, so it can be erased exactly. The iTerm2 protocol has
@@ -126,7 +175,8 @@ local function erase_last(proto)
 		bottom = math.min(bottom, wr + wh)
 	end
 	if right > left and bottom > top then
-		term_write(protocol.erase_rect_seq(top, left, right - left, bottom - top, normal_bg()))
+		local row_off, col_off = tmux_offset()
+		term_write(protocol.erase_rect_seq(top + row_off, left + col_off, right - left, bottom - top, normal_bg()))
 	end
 end
 
@@ -212,7 +262,8 @@ function M.render(win, path, opts)
 	erase_last(proto)
 
 	local seq = (proto == "kitty") and protocol.kitty_seq(bytes, draw_w, draw_h) or protocol.iterm_seq(bytes, draw_w, draw_h)
-	term_write(protocol.at_cursor(draw_row, draw_col, seq))
+	local row_off, col_off = tmux_offset()
+	term_write(protocol.at_cursor(draw_row + row_off, draw_col + col_off, seq))
 	last_placement = { win = win, row = draw_row, col = draw_col, w = draw_w, h = draw_h }
 	return true
 end
