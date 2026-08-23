@@ -1,3 +1,4 @@
+local clipboard = require("beast.libs.explorer.clipboard")
 local config = require("beast.libs.explorer.config")
 local diagnostics = require("beast.libs.explorer.diagnostics")
 local git = require("beast.libs.explorer.git")
@@ -323,6 +324,10 @@ function M.mount()
 		callback = function()
 			-- stylua: ignore
 			if not (state.tree and state.view and state.view:is_valid()) then return end
+			-- Pick up a copy/cut/clear made by another Neovim session while this
+			-- one was unfocused — the register is the source of truth, this is
+			-- just refreshing the local (copy)/(cut) render cache from it.
+			state.clipboard = clipboard.read()
 			watch._schedule_refresh(state.tree.root.path)
 			git.schedule_refresh(function()
 				ui.flush()

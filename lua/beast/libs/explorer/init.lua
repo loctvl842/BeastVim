@@ -1,5 +1,6 @@
 local Tree = require("beast.libs.explorer.tree")
 local autocmds = require("beast.libs.explorer.autocmds")
+local clipboard = require("beast.libs.explorer.clipboard")
 local config = require("beast.libs.explorer.config")
 local diagnostics = require("beast.libs.explorer.diagnostics")
 local git = require("beast.libs.explorer.git")
@@ -75,6 +76,10 @@ function M.open(dir, opts)
 
   -- stylua: ignore
   local on_done = has_file and function() ui.focus_path(file_norm) end or nil
+	-- Seed the render cache from whatever's on the shared clipboard, so a
+	-- freshly opened explorer reflects a copy/cut made in another session
+	-- (or before Neovim was last quit) from its very first paint.
+	state.clipboard = clipboard.read()
 	ui.render(on_done)
 	-- Force full git refresh on open so badges always appear.
 	-- Without this, a stale cache from a previous close→reopen cycle
