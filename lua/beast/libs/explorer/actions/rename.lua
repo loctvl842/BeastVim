@@ -1,3 +1,4 @@
+local clipboard = require("beast.libs.explorer.clipboard")
 local config = require("beast.libs.explorer.config")
 local prompt = require("beast.libs.explorer.prompt")
 local state = require("beast.libs.explorer.state")
@@ -48,7 +49,8 @@ function M.run()
 				end
 			end
 
-			state.clipboard = nil -- avoid side-effect from clipboard
+			clipboard.clear() -- avoid side-effect from clipboard
+			state.clipboard = nil
 			state.tree:refresh(parent_path)
 			ui.render(function()
 				ui.focus_path(new_path)

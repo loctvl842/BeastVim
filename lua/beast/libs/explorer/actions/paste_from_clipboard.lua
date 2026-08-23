@@ -1,3 +1,4 @@
+local clipboard = require("beast.libs.explorer.clipboard")
 local config = require("beast.libs.explorer.config")
 local prompt = require("beast.libs.explorer.prompt")
 local state = require("beast.libs.explorer.state")
@@ -78,6 +79,7 @@ function PasteSession:start()
 end
 
 function PasteSession:finish()
+	clipboard.clear()
 	state.clipboard = nil
 
 	for _, err in ipairs(self.errors) do
@@ -103,10 +105,24 @@ function PasteSession:_add_error(err)
 	end
 end
 
+--- Drops the current head off both the shared register and this session's
+--- local render cache, keeping them in lockstep as the paste consumes paths
+--- one at a time (self.paths hasn't had its own head removed yet at this
+--- point — that's `_advance`'s job).
 function PasteSession:_remove_from_clipboard()
-	-- stylua: ignore
-	if not state.clipboard then return end
-	table.remove(state.clipboard.paths, 1)
+	local remaining = {}
+	for i = 2, #self.paths do
+		remaining[#remaining + 1] = self.paths[i]
+	end
+
+	if #remaining == 0 then
+		clipboard.clear()
+		state.clipboard = nil
+	else
+		clipboard.write(remaining, self.mode)
+		state.clipboard = { paths = remaining, mode = self.mode }
+	end
+
 	ui.render()
 end
 
@@ -262,10 +278,12 @@ local function ensure_destination_open(dest_dir_node, cb)
 end
 
 function M.run()
-	if not state.clipboard or not state.clipboard.paths or #state.clipboard.paths == 0 then
+	local clip = clipboard.read()
+	if not clip then
 		vim.notify("Clipboard is empty", vim.log.levels.INFO)
 		return
 	end
+	state.clipboard = clip
 
 	local dest_dir_node = resolve_destination_dir_node()
 
@@ -274,8 +292,8 @@ function M.run()
 
 	---@type Beast.Explorer.PasteSession
 	local session = PasteSession({
-		paths = state.clipboard.paths,
-		mode = state.clipboard.mode,
+		paths = clip.paths,
+		mode = clip.mode,
 		dest_dir_node = dest_dir_node,
 	})
 

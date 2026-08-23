@@ -1,3 +1,4 @@
+local clipboard = require("beast.libs.explorer.clipboard")
 local config = require("beast.libs.explorer.config")
 local state = require("beast.libs.explorer.state")
 local ui = require("beast.libs.explorer.ui")
@@ -9,11 +10,7 @@ local M = setmetatable({}, {
 })
 
 local function set_clipboard(paths)
-	if state.clipboard and state.clipboard.mode == "copy" then
-		state.clipboard = nil
-	else
-		state.clipboard = { paths = paths, mode = "copy" }
-	end
+	state.clipboard = clipboard.toggle(paths, "copy")
 	ui.render()
 end
 
