@@ -97,14 +97,16 @@ function M:reset()
 	end
 	if self.view then
 		require("beast.libs.finder.ui.input").stop_spinner(self.view.input)
+		-- Erase any inline image before closing windows: image.clear() clips its
+		-- erase rect to the preview window's current bounds, so it must run while
+		-- that window is still valid (Kitty placements persist past window close;
+		-- no-op for the iTerm2 protocol).
+		if self.view.preview and self.view.preview.loaded_image then
+			require("beast.libs.image").clear()
+		end
 		self.view.input:close()
 		self.view.list:close()
 		if self.view.preview then
-			-- Erase any inline image (Kitty placements persist past window close;
-			-- no-op for the iTerm2 protocol).
-			if self.view.preview.loaded_image then
-				require("beast.libs.image").clear()
-			end
 			self.view.preview:close()
 		end
 		if self.view.backdrop then
