@@ -1,0 +1,110 @@
+---
+name: explorer-active-file-marker
+description: Replace the explorer's active-file background tint with a configurable left-gutter marker glyph
+generated: 2026-09-04
+---
+
+> PM Spec: [docs/pm-specs/explorer-active-file-marker.md](../pm-specs/explorer-active-file-marker.md)
+
+# Summary
+
+Remove the `BeastExplorerActiveFile` full-line background tint and replace it with a single glyph (`┃` by default, configurable) spliced into the leading padding column of the active file's row. The glyph's color comes from a redefined (fg-only) `BeastExplorerActiveFile` highlight group, applied as a small highlight overlay rather than a background extmark.
+
+---
+
+# Context
+
+## Problem
+`render.lua` currently marks the file that's open in the editor by applying `BeastExplorerActiveFile` as a `line_hl_group` background extmark (`M.write()`, lines 349-354), fed by an `active_line` value threaded out of `M.build()`. This background color sits close enough to `BeastExplorerCursorLine`'s background that the two are hard to tell apart at a glance — a problem re-tuning colors can't fully solve, per the PM spec. The fix needs to move the "this is the open file" signal off the background entirely and onto a shape (a fixed-position glyph) that reads the same regardless of what background is under it.
+
+### Solution
+`render.build()` will splice a configurable marker glyph (default `┃`) into the first column of the active file's row — inside the existing padding gutter that every row already reserves via `config.padding` — and attach a small highlight for just that glyph, appended after the row's base indent highlight so it renders on top. `render.write()` drops the background-extmark branch entirely. The marker glyph becomes a new `config.icon.active_file` setting, following the same plain-string/empty-string-hides convention as `config.icon.file`. `BeastExplorerActiveFile` stays as the highlight group name but its definition changes from a `bg` tint to an `fg`-only color, so no other file needs to reference a new group name.
+
+---
+
+# Research
+
+### Repo Search
+- Searched for: `active_path`, `active_line`, `ActiveFile` across `lua/beast/libs/explorer/`
+- Found: `state.active_path` (`state.lua:44-51`) is a live-computed getter (current buffer of `source_win`), not manually tracked — no new state plumbing needed. Its only consumer is `render.lua` (`build()` reads it once, `write()` receives the derived `active_line`). Three callers of `render.build()`/`render.write()` exist: `ui.lua:91-92` (uses all 4 return values), `health.lua:269-271` (already destructures only `lines, hls, badges`, ignoring the 4th — safe to drop), and `scripts/bench-explorer.lua:284-319` (already destructures only 2 values and passes 2 args — also safe to drop, confirmed via a before/after bench run during code review).
+- Found reusable pattern: the clipboard `(copy)`/`(cut)` suffix highlight (`render.lua:297-302`) already overlays a highlight on part of an already-highlighted line by appending a later extmark for the same line — the marker's highlight reuses this exact append-order-wins approach instead of inventing a priority scheme.
+- Found reusable pattern: `config.icon.dir_open` / `dir_closed` / `file` (`config.lua:14-16`) are the existing plain-string, single-glyph icon settings (vs. the per-status table used for git/diagnostic badges) — the marker is a single on/off glyph, so it follows this pattern, not the table one.
+- Reuse opportunity: **Yes** — no new mechanism needed for either the highlight-layering or the config shape; both have a direct existing precedent in this same file.
+
+### Built-in / Existing Lib Check
+- Checked: Neovim's sign column (`sign_define`) and the `sign_text` extmark field as an alternative way to render a gutter glyph.
+- Found: Not used anywhere in the explorer today — every existing decoration (file/dir icons, git badges, clipboard suffix, tree connectors) is literal buffer text plus a text-highlight extmark, computed once in `render.build()` and written in `render.write()`. Signs would be a second, parallel decoration mechanism sitting outside the prefix builder that every other row-level piece of state (badges, sticky headers) already keys off of.
+- Decision: **Build** — extend the existing text-based prefix/highlight pipeline in `render.lua`, consistent with how every other piece of row decoration already works.
+
+---
+
+# Architecture Changes
+
+- `lua/beast/libs/explorer/config.lua` — **Modify.** Add `icon.active_file = "┃"` to `defaults.icon`, alongside `dir_open`/`dir_closed`/`file`. Empty string hides it, matching the git/diagnostic icon convention already documented in this table.
+- `lua/beast/libs/explorer/highlights.lua` — **Modify.** Redefine `ActiveFile` from `{ bg = Util.colors.lighten(p.dark1, 20) }` to an `fg`-only color (`p.accent4`, currently unused in this file, so it doesn't collide with any `Git*` or `Clip` color). Update the adjacent comment to describe the new gutter-marker purpose instead of the old row-tint purpose.
+- `lua/beast/libs/explorer/render.lua` — **Modify.**
+  - In `M.build()`: for each file node where `node.path == active_path`, splice the configured marker glyph into the first display column of that row's `prefix` (leaving the rest of the `config.padding` gutter, if wider than 1 column, blank so connector alignment doesn't shift), and append a highlight for just the glyph's byte range using the `BeastExplorerActiveFile` group, added right after that row's existing indent highlight so it renders on top (same append-order pattern as the clipboard suffix).
+  - Remove `active_line` tracking and drop it from `M.build()`'s return signature (now returns `lines, hls, badges`).
+  - In `M.write()`: remove the `active_line` parameter and the `line_hl_group` background-extmark block (lines 349-354).
+  - If `config.padding == 0`, there's no gutter column to put the marker in — skip the splice for that row (no crash, marker simply doesn't render; this mirrors the existing "depth-0 gets no connector" edge-case comment style already in this file).
+- `lua/beast/libs/explorer/ui.lua` — **Modify.** Update the one call site (line 91-92): `local lines, hls, badges = render.build(nodes)` / `render.write(lines, hls, badges)`.
+
+## Implementation Phases
+
+## Phase 1: Marker glyph replaces the background tint — the whole feature
+1. **Add the configurable glyph** (File: `lua/beast/libs/explorer/config.lua`)
+   - Action: Add `icon.active_file = "┃"` to `defaults.icon`, next to `dir_open`/`dir_closed`/`file`, with a one-line comment noting empty string hides it (matching the git/diagnostic table's documented convention).
+   - Why: Matches PM spec requirement that the glyph be user-configurable the same way other explorer icons are.
+   - Depends on: None
+   - Risk: Low
+
+2. **Redefine the highlight group** (File: `lua/beast/libs/explorer/highlights.lua`)
+   - Action: Change `ActiveFile = { bg = ... }` to `ActiveFile = { fg = p.accent4 }`; update the preceding comment to describe it as the gutter-marker color, not a row-tint color.
+   - Why: The group name stays stable (nothing else needs to change what group it references) but its role changes from background tint to glyph foreground color.
+   - Depends on: None
+   - Risk: Low
+
+3. **Splice the marker into the render pipeline** (File: `lua/beast/libs/explorer/render.lua`)
+   - Action: In `M.build()`'s node loop, when a file node's path equals `active_path`, override that row's leading gutter cell with `config.icon.active_file` (skip if empty string or `config.padding == 0`), and append a `BeastExplorerActiveFile` highlight for the glyph's column range immediately after the row's indent highlight. Remove the `active_line` variable, its tracking, and its place in the return tuple.
+   - Why: This is the core behavior change — the PM spec's `┃` marker.
+   - Depends on: Steps 1-2
+   - Risk: Medium (byte-vs-column splicing into an already-built prefix string; must preserve connector alignment for `config.padding > 1`)
+
+4. **Remove the background-extmark write path** (File: `lua/beast/libs/explorer/render.lua`)
+   - Action: In `M.write()`, drop the `active_line` parameter and the `if active_line then ... line_hl_group = "BeastExplorerActiveFile" ... end` block.
+   - Why: The background-tint approach is explicitly removed per the PM spec's behavior rules.
+   - Depends on: Step 3
+   - Risk: Low
+
+5. **Update the call site** (File: `lua/beast/libs/explorer/ui.lua`)
+   - Action: Change `local lines, hls, badges, active_line = render.build(nodes)` / `render.write(lines, hls, badges, active_line)` to the 3-value form.
+   - Why: Keep the only production caller in sync with the new `build()`/`write()` signatures.
+   - Depends on: Steps 3-4
+   - Risk: Low
+
+(`health.lua`'s call to `render.build()` already destructures only `lines, hls, badges` — no change needed there, but it's the regression gate for this phase; see Testing Strategy.)
+
+---
+
+# Testing Strategy
+
+- Headless: `nvim --clean --headless -l tests/test-explorer-clipboard.lua` (unrelated, but confirms nothing in the lib's require graph broke) and `NVIM_APPNAME=BeastVim nvim --headless -c "checkhealth beast.explorer" -c "qa"` — this exercises `render.build()` end-to-end (`health.lua:269-283`) and will fail loudly if the new signature or the splice logic raises.
+- Manual: Follow the PM spec's 5 scenarios directly in `NVIM_APPNAME=BeastVim nvim`:
+  1. Open a file from the explorer → its row shows `┃` at the far left.
+  2. Switch to a different open buffer → marker relocates.
+  3. Move the cursor around without switching buffers → marker stays put; only `BeastExplorerCursorLine` moves.
+  4. Collapse the active file's parent directory → marker disappears; expand it again → marker reappears.
+  5. Point the explorer at a non-file buffer → no row shows the marker.
+  6. Additionally: set `explorer.setup({ icon = { active_file = "" } })` and confirm the marker fully disables; set it to a different glyph and confirm the swap.
+- No new automated test file — consistent with the precedent set by `docs/dev-specs/explorer-highlights-palette.md`, which also relied on manual verification only, since this repo has no existing visual/render assertion tests for `explorer/render.lua`.
+
+# Success Criteria
+
+- [ ] The currently open file's row shows `┃` (or the configured glyph) at the far left of the explorer.
+- [ ] No other row shows the marker.
+- [ ] The marker relocates correctly when the user switches to a different open file.
+- [ ] The marker is visually distinguishable from the cursor-line background, including when both land on the same row.
+- [ ] The old active-file background highlight no longer appears anywhere in the explorer.
+- [ ] `icon.active_file` is configurable via `explorer.setup()`; empty string hides the marker entirely.
+- [ ] `:checkhealth beast.explorer` still reports a successful `render.build()` call (structural regression gate).
+- [ ] No regression in existing explorer rendering (icons, git badges, clipboard suffix, sticky headers, indent connectors).

@@ -14,6 +14,9 @@ local defaults = {
 		dir_open = "", --  "󰝰", -- nf-md-folder_open
 		dir_closed = "", -- "󰉋", -- nf-md-folder
 		file = "󰈙", -- fallback when devicons has no match
+		-- Left-gutter marker for the file currently open in the editor.
+		-- Empty string ("") hides the marker entirely.
+		active_file = "┃",
 		-- Per-status glyph for the right-aligned git badge.
 		-- Behavior:
 		--   * Empty string ("") hides the badge for that status; name coloring still applies.

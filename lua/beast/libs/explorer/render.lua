@@ -175,12 +175,12 @@ end
 --- Build the lines and highlight specs for the current tree state.
 --- Line 1 is always the root header; nodes occupy lines 2..N.
 ---@param nodes Beast.Explorer.Node[]
----@return string[], {line:integer,col_s:integer,col_e:integer,group:string}[], {line:integer,chunks:{[1]:string,[2]:string?}[]}[], integer|nil
+---@return string[], {line:integer,col_s:integer,col_e:integer,group:string}[], {line:integer,chunks:{[1]:string,[2]:string?}[]}[]
 function M.build(nodes)
 	local lines = {} ---@type string[]
 	local hls = {} ---@type {line:integer,col_s:integer,col_e:integer,group:string}[]
 	local badges = {} ---@type {line:integer,chunks:{[1]:string,[2]:string?}[]}[]
-	local active_line = nil ---@type integer|nil  -- 0-indexed extmark line for the active file
+	local marker_glyph = config.icon.active_file ---@type string  -- left-gutter marker for the active file
 	local inline_spacer = state.inline_prompt_spacer
 	local spacer_inserted = false
 
@@ -209,9 +209,13 @@ function M.build(nodes)
 		local line_idx = #lines -- 0-indexed for extmarks
 		local prefix = prefixes[node.path]
 
-		-- Track which line the active file sits on (file nodes only)
-		if not node.dir and node.path == active_path then
-			active_line = line_idx
+		-- Splice the active-file marker into the leading gutter cell (file
+		-- nodes only). Leaves the rest of a wider `config.padding` gutter
+		-- blank so connector alignment doesn't shift.
+		local is_active_file = not node.dir and node.path == active_path
+		local show_marker = is_active_file and marker_glyph ~= "" and config.padding > 0
+		if show_marker then
+			prefix = marker_glyph .. string.rep(" ", config.padding - 1) .. prefix:sub(config.padding + 1)
 		end
 
 		-- Icon
@@ -239,6 +243,11 @@ function M.build(nodes)
 
 		-- Tree-line characters (Indent Markers) in a subtle colour
 		hls[#hls + 1] = { line = line_idx, col_s = 0, col_e = #prefix, group = "BeastExplorerIndent" }
+
+		-- Active-file marker glyph color, layered on top of the indent highlight
+		if show_marker then
+			hls[#hls + 1] = { line = line_idx, col_s = 0, col_e = #marker_glyph, group = "BeastExplorerActiveFile" }
+		end
 
 		-- File / directory icon
 		if icon_hl then
@@ -321,15 +330,14 @@ function M.build(nodes)
 		hls[#hls + 1] = { line = #lines - 1, col_s = 0, col_e = #inline_spacer.prefix, group = "BeastExplorerIndent" }
 	end
 
-	return lines, hls, badges, active_line
+	return lines, hls, badges
 end
 
 --- Write lines and highlights atomically to the explorer buffer.
 ---@param lines string[]
 ---@param hls {line:integer,col_s:integer,col_e:integer,group:string}[]
 ---@param badges? {line:integer,chunks:{[1]:string,[2]:string?}[]}[]
----@param active_line? integer  0-indexed line for the active-file background highlight
-function M.write(lines, hls, badges, active_line)
+function M.write(lines, hls, badges)
 	-- Write lines + highlights atomically; ignore errors from a race-closed window
 	pcall(function()
 		vim.bo[state.view.buf].modifiable = true
@@ -341,15 +349,6 @@ function M.write(lines, hls, badges, active_line)
 			pcall(vim.api.nvim_buf_set_extmark, state.view.buf, state.view.ns, h.line, h.col_s, {
 				end_col = h.col_e,
 				hl_group = h.group,
-			})
-		end
-
-		-- Active-file line: subtle bg highlight that CursorLine overrides when
-		-- the nav cursor lands on the same line (CursorLine has higher priority).
-		if active_line then
-			pcall(vim.api.nvim_buf_set_extmark, state.view.buf, state.view.ns, active_line, 0, {
-				line_hl_group = "BeastExplorerActiveFile",
-				priority = 50,
 			})
 		end
 

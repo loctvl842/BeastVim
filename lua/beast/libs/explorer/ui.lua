@@ -88,8 +88,8 @@ end
 ---@return Beast.Explorer.Node[]
 function M.flush()
 	local nodes = state.tree:flat({ show_hidden = config.show_hidden })
-	local lines, hls, badges, active_line = render.build(nodes)
-	render.write(lines, hls, badges, active_line)
+	local lines, hls, badges = render.build(nodes)
+	render.write(lines, hls, badges)
 	return nodes
 end
 
