@@ -20,11 +20,14 @@ function M.get()
 		Comment = { fg = p.dimmed3 },
 		Clip = { fg = p.accent5 },
 		Cursor = { blend = 100, nocombine = true },
-		-- Active file: color for the left-gutter marker glyph on the row of
-		-- the file currently open in the editor. A distinct accent (not used
-		-- by any Git* or Clip color in this file) so it reads independently
-		-- of whatever background (incl. CursorLine) is under it.
+		-- Active file: two layered cues for the file currently open in the
+		-- editor, so it reads reliably even when CursorLine lands on the
+		-- same row. ActiveFile colors the left-gutter marker glyph (a
+		-- distinct accent, not used by any Git*/Clip color in this file);
+		-- ActiveFileBg is a subtle full-row background tint, same as before
+		-- the marker glyph existed.
 		ActiveFile = { fg = p.accent4 },
+		ActiveFileBg = { bg = Util.colors.lighten(p.dark1, 15) },
 
 		-- Git status. Color = kind (what changed). Staged-only files get a
 		-- dimmed variant blended toward the sidebar bg, so worktree changes

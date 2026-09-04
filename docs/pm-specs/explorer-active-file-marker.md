@@ -1,12 +1,12 @@
 ---
 name: explorer-active-file-marker
-description: Mark the active file in the explorer with a left-edge bar icon instead of a background highlight
+description: Mark the active file in the explorer with a left-edge bar icon, layered on top of the existing background highlight
 generated: 2026-09-04
 ---
 
 # Summary
 
-The file explorer marks whichever file is currently open in the editor with a small vertical bar (`┃`) at the far left of its row, replacing the current background-color highlight for that purpose.
+The file explorer marks whichever file is currently open in the editor with a small vertical bar (`┃`) at the far left of its row, layered on top of the existing row background highlight so the two cues reinforce each other instead of one replacing the other.
 
 ---
 
@@ -16,7 +16,7 @@ Today, the file that's open in the editor is marked by tinting its row backgroun
 
 ## Why now
 
-A shape-based marker (a bar in a fixed position) reads unambiguously regardless of what background color is under it, and doesn't require constantly re-tuning two highlight colors against each other every time a theme changes.
+A shape-based marker (a bar in a fixed position) reads unambiguously regardless of what background color is under it, and doesn't require constantly re-tuning two highlight colors against each other every time a theme changes. The background tint stays as a secondary cue — it's still useful at a glance — the marker just removes the ambiguity the background alone couldn't resolve.
 
 ---
 
@@ -110,7 +110,7 @@ Step 1: Explorer is open over a buffer that isn't a real file on
 - Exactly one row (or zero, if the active file isn't visible) shows the marker at a time.
 - The marker only applies to files, never to directories.
 - The marker is independent of the cursor line: they can appear on the same row together, or on different rows, and neither affects whether the other shows.
-- The background-tint approach for marking the active file is removed entirely — the marker is the only signal for "this is the open file."
+- The background tint for marking the active file stays, and now renders together with the marker — the marker is an additional signal, not a replacement, for "this is the open file."
 - The marker glyph is configurable, the same way file icons and git badge icons already are — a user can set it to a different character (or turn it off) instead of being stuck with `┃`.
 
 ---
@@ -121,7 +121,7 @@ Step 1: Explorer is open over a buffer that isn't a real file on
 - [ ] No other row shows the marker.
 - [ ] The marker relocates correctly when the user switches to a different open file.
 - [ ] The marker is visually distinguishable at a glance from the cursor-line background, including when both land on the same row.
-- [ ] The old active-file background highlight no longer appears anywhere in the explorer.
+- [ ] The active-file background highlight still appears alongside the marker, on the same row.
 
 ---
 
