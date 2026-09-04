@@ -35,7 +35,7 @@ local state = {
 ---@field source_win integer|nil
 ---@field clipboard Beast.Explorer.Clipboard|nil
 ---@field active_path string|nil  -- file currently open in the editor (for the active-file indicator)
----@field inline_prompt_spacer? {after_path:string,after_line:integer,prefix:string}  -- temporary spacer row for prompt.inline
+---@field inline_prompt_spacer? {after_path:string,after_line:integer,prefix:string,override_last_path:string?}  -- temporary spacer row for prompt.inline
 ---@field watchers table<string, uv.uv_fs_event_t>
 ---@field git Beast.Explorer.GitState
 ---@field diagnostics Beast.Explorer.DiagnosticsState

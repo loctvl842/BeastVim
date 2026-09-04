@@ -175,46 +175,6 @@ local function name_col(node)
 	return config.padding + depth_padding + prefix_icon + 1
 end
 
---- Replace one connector string with another on a buffer line and add a highlight extmark.
---- Reads the line from the buffer to avoid stale captures.
----@param buf integer
----@param ns integer
----@param row integer   0-indexed buffer row
----@param from_str string  connector to find
----@param to_str string    connector to replace with
-local function swap_connector(buf, ns, row, from_str, to_str)
-	local line = vim.api.nvim_buf_get_lines(buf, row, row + 1, false)[1] or ""
-
-	-- Find the last occurrence: branch connectors sit rightmost in the prefix,
-	-- and in classic style branch == vertical so we must skip earlier matches.
-	local start_col = nil
-	local search_from = 1
-	while true do
-		local s = line:find(from_str, search_from, true)
-		if not s then
-			break
-		end
-		start_col = s
-		search_from = s + 1
-	end
-  -- stylua: ignore
-	if not start_col then return end
-
-	start_col = start_col - 1 -- Lua 1-based → 0-based byte col
-	local end_col = start_col + #from_str
-
-	vim.bo[buf].modifiable = true
-	vim.api.nvim_buf_set_text(buf, row, start_col, row, end_col, { to_str })
-	vim.bo[buf].modifiable = false
-
-	vim.api.nvim_buf_set_extmark(buf, ns, row, start_col, {
-		end_col = start_col + #to_str,
-		hl_group = "BeastExplorerIndent",
-		hl_mode = "combine",
-		priority = 200,
-	})
-end
-
 -- ================================
 -- Methods
 -- ================================
@@ -251,10 +211,10 @@ function M.inline(target_dir, current_node, on_confirm, on_cancel, initial)
   -- stylua: ignore
   if not state.view or not state.view:is_valid() then return end
 
+	on_cancel = on_cancel or function() end
 	local exp_buf = state.view.buf
 	local exp_width = vim.api.nvim_win_get_width(state.view.win)
 	local current_pos = vim.api.nvim_win_get_cursor(state.view.win)[1]
-	local st = styles[config.style]
 
 	if not current_node.dir and not current_node.expanded then
 		state.tree:expand(current_node)
@@ -263,22 +223,20 @@ function M.inline(target_dir, current_node, on_confirm, on_cancel, initial)
 	local is_last = (current_node.dir == false and current_node.last) or (current_node.dir and next(current_node.children) == nil)
 	local child_prefix = build_child_prefix(target_dir, is_last)
 	local prefix_cols = vim.fn.strdisplaywidth(child_prefix)
+	-- The current node was "last" → its connector must read as not-last while
+	-- the spacer row below it is showing (see render.build_prefixes).
+	local needs_connector_override = current_node.dir == false and current_node.last
 	state.inline_prompt_spacer = {
 		after_path = current_node.path,
 		after_line = current_pos,
 		prefix = child_prefix,
+		override_last_path = needs_connector_override and current_node.path or nil,
 	}
 
 	-- Insert a blank line with tree prefix to push content down
 	vim.bo[exp_buf].modifiable = true
 	vim.api.nvim_buf_set_lines(exp_buf, current_pos, current_pos, false, { child_prefix })
 	vim.bo[exp_buf].modifiable = false
-
-	-- The current node was "last" → swap └╴ to ├╴ since a new sibling is being added
-	local needs_connector_restore = current_node.dir == false and current_node.last
-	if needs_connector_restore then
-		swap_connector(exp_buf, state.view.ns, current_pos - 1, st.last_branch, st.branch)
-	end
 
 	-- Highlight the inserted prefix line
 	pcall(vim.api.nvim_buf_set_extmark, exp_buf, state.view.ns, current_pos, 0, {
@@ -308,16 +266,8 @@ function M.inline(target_dir, current_node, on_confirm, on_cancel, initial)
 		end
 	end
 
-	local function override_on_cancel()
-    -- stylua: ignore
-    if on_cancel then on_cancel() end
-		if needs_connector_restore then
-			swap_connector(exp_buf, state.view.ns, current_pos - 1, st.branch, st.last_branch)
-		end
-	end
-
 	local float_row = math.max(0, current_pos - vim.fn.line("w0") + 1)
-	open_float(float_row, indent, input_width, initial, on_confirm, override_on_cancel, remove_blank)
+	open_float(float_row, indent, input_width, initial, on_confirm, on_cancel, remove_blank)
 end
 
 return M

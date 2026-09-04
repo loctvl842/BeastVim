@@ -141,6 +141,11 @@ function M.build_prefixes(nodes)
 	local pad = string.rep(" ", config.padding)
 	local cache = {} ---@type table<string, string>  path → continuation prefix
 
+	-- A pending prompt.inline spacer row temporarily adds a sibling below
+	-- this node, so its connector must read as "not last" until the spacer
+	-- is cleared (confirm/cancel) — see state.inline_prompt_spacer.
+	local override_last_path = state.inline_prompt_spacer and state.inline_prompt_spacer.override_last_path
+
 	-- The continuation prefix is everything a child inherits from its parent:
 	-- parent's continuation + the connector segment for the parent's own level.
 	-- The child then appends its own connector (branch or last_branch).
@@ -154,11 +159,12 @@ function M.build_prefixes(nodes)
 			cache[node.path] = pad
 		else
 			local parent_cont = cache[node.parent] or pad
+			local is_last = node.last and node.path ~= override_last_path
 			-- Own connector
-			local own = node.last and st.last_branch or st.branch
+			local own = is_last and st.last_branch or st.branch
 			result[node.path] = parent_cont .. own
 			-- Continuation for children: what comes before child's own connector
-			local segment = node.last and st.indent or st.vertical
+			local segment = is_last and st.indent or st.vertical
 			cache[node.path] = parent_cont .. segment
 		end
 	end
