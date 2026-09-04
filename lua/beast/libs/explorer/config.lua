@@ -44,6 +44,15 @@ local defaults = {
 			[vim.diagnostic.severity.INFO] = (Icon and Icon.diagnostics and Icon.diagnostics.info) or "I",
 			[vim.diagnostic.severity.HINT] = (Icon and Icon.diagnostics and Icon.diagnostics.hint) or "H",
 		},
+		-- Per-mode glyph for the right-aligned clipboard badge (shown on nodes
+		-- currently marked to copy or cut).
+		-- Behavior:
+		--   * Empty string ("") hides the badge.
+		--   * Highlight group (BeastExplorerClip) is fixed; only the glyph is configurable.
+		clip = {
+			copy = "󰆏",
+			cut = "󰆐",
+		},
 	},
 	mappings = {
 		["<CR>"] = "open",

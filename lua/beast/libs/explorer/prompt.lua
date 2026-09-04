@@ -159,8 +159,6 @@ local function open_float(row, col, width, initial, on_confirm, on_cancel, clean
 end
 
 --- Compute the display column where the node name begins on its explorer line.
---- Uses the last occurrence of node.name in the rendered line, so it still works
---- when the line contains extra suffixes like " (copy)" earlier in the text.
 ---@param node Beast.Explorer.Node
 ---@return integer           -- display-width columns before the name
 local function name_col(node)

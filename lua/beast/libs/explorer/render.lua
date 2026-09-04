@@ -47,6 +47,21 @@ local function git_icon(status)
 	return glyph
 end
 
+--- Resolve the user-configured icon for a clipboard mode. Returns nil when
+--- mode is nil/unknown or the user mapped it to an empty string.
+---@param mode? "copy"|"cut"
+---@return string?
+local function clip_icon(mode)
+	-- stylua: ignore
+	if not mode then return nil end
+	local icons = config.icon and config.icon.clip
+	local glyph = icons and icons[mode]
+	if glyph == nil or glyph == "" then
+		return nil
+	end
+	return glyph
+end
+
 local DIAGNOSTIC_HL = {
 	[vim.diagnostic.severity.ERROR] = "DiagnosticError",
 	[vim.diagnostic.severity.WARN] = "DiagnosticWarn",
@@ -233,13 +248,7 @@ function M.build(nodes)
 			end
 		end
 
-		-- Clipboard indicator suffix
-		local clip_suffix = ""
-		if clipboard_paths[node.path] then
-			clip_suffix = " " .. "(" .. state.clipboard.mode .. ")"
-		end
-
-		lines[#lines + 1] = prefix .. icon_str .. " " .. node.name .. clip_suffix
+		lines[#lines + 1] = prefix .. icon_str .. " " .. node.name
 
 		-- Tree-line characters (Indent Markers) in a subtle colour
 		hls[#hls + 1] = { line = line_idx, col_s = 0, col_e = #prefix, group = "BeastExplorerIndent" }
@@ -273,8 +282,9 @@ function M.build(nodes)
 			end
 		end
 
-		-- Right-aligned badges: diagnostic icon (leftmost) then git icon.
-		-- Combined into a single virt_text so both stay visible on the same line.
+		-- Right-aligned badges: diagnostic icon, then git icon, then clipboard
+		-- icon (leftmost to rightmost). Combined into a single virt_text so
+		-- all three stay visible on the same line.
 		do
 			local chunks = {} ---@type {[1]:string,[2]:string?}[]
 
@@ -294,6 +304,16 @@ function M.build(nodes)
 				end
 			end
 
+			if clipboard_paths[node.path] and state.clipboard then
+				local glyph = clip_icon(state.clipboard.mode)
+				if glyph then
+					if #chunks > 0 then
+						chunks[#chunks + 1] = { " ", nil }
+					end
+					chunks[#chunks + 1] = { glyph, "BeastExplorerClip" }
+				end
+			end
+
 			if #chunks > 0 then
 				badges[#badges + 1] = { line = line_idx, chunks = chunks }
 			end
@@ -301,13 +321,6 @@ function M.build(nodes)
 		-- Dim hidden files/dirs
 		if node.hidden then
 			hls[#hls + 1] = { line = line_idx, col_s = 0, col_e = #lines[line_idx + 1], group = "BeastExplorerComment" }
-		end
-
-		-- Highlight the clipboard suffix
-		if clip_suffix ~= "" then
-			local line_len = #lines[line_idx + 1]
-			local suffix_hl = "BeastExplorerClip"
-			hls[#hls + 1] = { line = line_idx, col_s = line_len - #clip_suffix, col_e = line_len, group = suffix_hl }
 		end
 
 		-- Keep prompt.inline temporary spacer visible across full re-renders.
