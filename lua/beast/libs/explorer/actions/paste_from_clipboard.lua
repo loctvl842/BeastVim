@@ -1,5 +1,6 @@
 local clipboard = require("beast.libs.explorer.clipboard")
 local config = require("beast.libs.explorer.config")
+local git = require("beast.libs.explorer.git")
 local prompt = require("beast.libs.explorer.prompt")
 local state = require("beast.libs.explorer.state")
 local ui = require("beast.libs.explorer.ui")
@@ -234,6 +235,8 @@ function PasteSession:apply_plan(plan)
 		self:_advance()
 		return
 	end
+
+	git.schedule_refresh()
 
 	self:_remove_from_clipboard()
 
