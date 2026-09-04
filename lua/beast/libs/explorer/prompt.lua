@@ -94,11 +94,13 @@ local function open_float(row, col, width, initial, on_confirm, on_cancel, clean
 	end
 
 	local closed = false
+	local resize_augroup = vim.api.nvim_create_augroup("BeastExplorerPromptResize", { clear = true })
 
 	local function close_input()
     -- stylua: ignore
 		if closed then return end
 		closed = true
+		vim.api.nvim_del_augroup_by_id(resize_augroup)
 		vim.cmd("stopinsert")
 		View.win.wo(state.view.win, "cursorline", true)
 
@@ -155,6 +157,14 @@ local function open_float(row, col, width, initial, on_confirm, on_cancel, clean
 		callback = function()
 			vim.schedule(cancel)
 		end,
+	})
+
+	-- The float's row/col/width are computed once at open time; a resize of
+	-- the explorer window (or the terminal) invalidates them, so close
+	-- instead of drifting to a wrong position.
+	vim.api.nvim_create_autocmd({ "WinResized", "VimResized" }, {
+		group = resize_augroup,
+		callback = cancel,
 	})
 end
 
