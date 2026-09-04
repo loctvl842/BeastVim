@@ -1,4 +1,4 @@
-<!-- Generated: 2026-08-23 | Files scanned: 27 | Token estimate: ~360 -->
+<!-- Generated: 2026-09-04 | Files scanned: 27 | Token estimate: ~365 -->
 
 # BeastVim Codemaps
 
@@ -15,4 +15,4 @@ Quick-reference architecture documentation. Regenerate with `/update-codemap`.
 - Libraries: 25 — autopairs, breadcrumb, confirm, explorer, finder, git, image, indent, input, key, lsp, mason, notify, packer, scroll, select, session, starter, statuscolumn, statusline, tabline, toast, treesitter, view, window
 - Shared modules: view/ (instance + .buf + .win submodules), animate.lua, async.lua, util/, theme/, visibility.lua (global hidden/gitignored state)
 - Profiler: lua/beast/profile.lua (per-fn count/total/self stats)
-- Last updated: 2026-08-23 (explorer gained `clipboard.lua`: copy/cut/paste now round-trips through the `"+"` register so paste works across separate Neovim sessions, with a same-process fallback when the active clipboard provider can't answer a query)
+- Last updated: 2026-09-04 (explorer's active-file indicator switched from a `BeastExplorerActiveFile` background tint to a configurable `┃` left-gutter marker glyph — `config.icon.active_file`; plus small prior fixes: create-prompt connector alignment across re-render, root filetype detection)

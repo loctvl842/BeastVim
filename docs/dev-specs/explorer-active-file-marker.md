@@ -100,11 +100,27 @@ Remove the `BeastExplorerActiveFile` full-line background tint and replace it wi
 
 # Success Criteria
 
-- [ ] The currently open file's row shows `┃` (or the configured glyph) at the far left of the explorer.
-- [ ] No other row shows the marker.
-- [ ] The marker relocates correctly when the user switches to a different open file.
-- [ ] The marker is visually distinguishable from the cursor-line background, including when both land on the same row.
-- [ ] The old active-file background highlight no longer appears anywhere in the explorer.
-- [ ] `icon.active_file` is configurable via `explorer.setup()`; empty string hides the marker entirely.
-- [ ] `:checkhealth beast.explorer` still reports a successful `render.build()` call (structural regression gate).
-- [ ] No regression in existing explorer rendering (icons, git badges, clipboard suffix, sticky headers, indent connectors).
+- [x] The currently open file's row shows `┃` (or the configured glyph) at the far left of the explorer.
+- [x] No other row shows the marker.
+- [x] The marker relocates correctly when the user switches to a different open file.
+- [x] The marker is visually distinguishable from the cursor-line background, including when both land on the same row.
+- [x] The old active-file background highlight no longer appears anywhere in the explorer.
+- [x] `icon.active_file` is configurable via `explorer.setup()`; empty string hides the marker entirely.
+- [x] `:checkhealth beast.explorer` still reports a successful `render.build()` call (structural regression gate).
+- [x] No regression in existing explorer rendering (icons, git badges, clipboard suffix, sticky headers, indent connectors).
+
+---
+
+## Completed
+
+**2026-09-04** — Phase 1 (the whole feature) implemented, reviewed, and verified in one pass.
+
+- `e8b4407` feat(explorer): mark active file with left-gutter glyph instead of bg tint
+
+Verification:
+- `stylua --check` clean on all 4 touched files.
+- `tests/test-explorer-clipboard.lua`: 19/19 passed (unrelated lib, confirms require graph intact).
+- `:checkhealth beast.libs.explorer`: `render.build()` returned 3 lines, 6 highlights, 0 badges — structural gate passed. The pre-existing "missing highlight groups" warning in that same health run is unrelated (theme not loaded under a minimal headless invocation; it lists every `BeastExplorer*` group, not just this one).
+- `scripts/bench-explorer.lua`: ~530µs/render on the "mixed" scenario, matching the pre-existing (unrelated) soft-target breach on both sides of the diff — no perf regression.
+- code-reviewer subagent: PASS WITH WARNINGS. Verified the gutter-splice math empirically (padding=1, padding=3, padding=0, empty-glyph) via a standalone harness against a real tree/buffer; caught that `scripts/bench-explorer.lua` was a third caller of `render.build()`/`render.write()` not mentioned in this file's Research section (harmless — already used a 2-value destructure — corrected the Research section text above) and a minor duplicated-guard nit (hoisted into a `show_marker` local in `render.lua`).
+- Manual: re-verified directly (not just via the reviewer) with a headless harness driving a real `Tree`/buffer — confirmed the marker glyph is genuinely `┃` (U+2503) byte-for-byte, appears only on the active file's row, preserves connector alignment at `padding=1` and `padding=3`, disappears with `icon.active_file = ""`, and no-ops safely at `padding=0`.
