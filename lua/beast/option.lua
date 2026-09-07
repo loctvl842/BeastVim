@@ -15,26 +15,52 @@ vim.g.matchparen_insert_timeout = 30
 -- (including Windows Terminal) refuse to answer it for security reasons
 -- (it would let a remote shell silently read the local clipboard), so
 -- vim.ui.clipboard.osc52's paste() just hangs for ~10s before giving up.
--- Use the terminal's native paste (e.g. Ctrl+Shift+V) instead, which injects
--- the text via bracketed paste and needs no clipboard provider at all.
+--
+-- Neovim calls the provider's paste() on every read of "+" (and of the
+-- unnamed register, via 'clipboard = "unnamedplus"'), then overwrites the
+-- internal register with whatever it returns. A paste() that always answers
+-- "" would therefore clobber every yank/delete done in this session, and 'p'
+-- after 'y'/'d'/'x' would fail with E353. So paste() instead serves the last
+-- value this session copied - same-session yank/paste keeps working. Only
+-- pasting text that was copied outside this session still needs the
+-- terminal's native paste (e.g. Ctrl+Shift+V), which injects the text via
+-- bracketed paste and needs no clipboard provider at all.
+---@return boolean
 if vim.env.SSH_TTY and (vim.env.DISPLAY or "") == "" and (vim.env.WAYLAND_DISPLAY or "") == "" then
-  vim.g.clipboard = {
-    name = "OSC 52",
-    copy = {
-      ["+"] = require("vim.ui.clipboard.osc52").copy("+"),
-      ["*"] = require("vim.ui.clipboard.osc52").copy("*"),
-    },
-    paste = {
-      ["+"] = function()
-        vim.notify("Paste from system clipboard over SSH: use the terminal's native paste (Ctrl+Shift+V).", vim.log.levels.WARN)
-        return { "" }
-      end,
-      ["*"] = function()
-        vim.notify("Paste from system clipboard over SSH: use the terminal's native paste (Ctrl+Shift+V).", vim.log.levels.WARN)
-        return { "" }
-      end,
-    },
-  }
+	local osc52 = require("vim.ui.clipboard.osc52")
+	-- Last (lines, regtype) this session sent through OSC52 copy. regtype is
+	-- "" while nothing has been copied yet, and is kept alongside lines so
+	-- linewise/charwise/blockwise pastes round-trip correctly.
+	local last_copied = { lines = { "" }, regtype = "" }
+
+	local function copy_with_cache(reg)
+		local osc_copy = osc52.copy(reg)
+		return function(lines, regtype)
+			last_copied = { lines = lines, regtype = regtype }
+			osc_copy(lines, regtype)
+		end
+	end
+
+	local function paste_from_cache()
+		if last_copied.regtype ~= "" then
+			return { last_copied.lines, last_copied.regtype }
+		end
+
+		vim.notify("Paste from system clipboard over SSH: use the terminal's native paste (Ctrl+Shift+V).", vim.log.levels.WARN)
+		return { "" }
+	end
+
+	vim.g.clipboard = {
+		name = "OSC 52",
+		copy = {
+			["+"] = copy_with_cache("+"),
+			["*"] = copy_with_cache("*"),
+		},
+		paste = {
+			["+"] = paste_from_cache,
+			["*"] = paste_from_cache,
+		},
+	}
 end
 
 local o = vim.opt

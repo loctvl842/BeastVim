@@ -64,6 +64,15 @@ end
 local preview = require("beast.libs.git.preview")
 local build_rows = preview._test.build_rows
 local render_rows = preview._test.render_rows
+local buffer_source = preview._test.buffer_source
+
+-- build_rows(source, removed_text, added_text, hunks, ctx_n): the tests
+-- below preview unstaged hunks, so the live buffer is the source and the
+-- removed side comes from the base text (added_text = nil reads added and
+-- context lines back from the source).
+local function build_rows_unstaged(buf, base_text, hunks, ctx_n)
+	return build_rows(buffer_source(buf), base_text, nil, hunks, ctx_n)
+end
 
 -- Sample buffer of 30 baseline lines; we tweak it to match what the
 -- fixture script produces, then construct hunks by hand.
@@ -89,7 +98,7 @@ do
 	local buf = make_buf(cur)
 
 	local hunk = { a_start = 5, a_count = 1, b_start = 4, b_count = 1 }
-	local rows = build_rows(buf, { base = base_text }, { hunk }, 3)
+	local rows = build_rows_unstaged(buf, { base = base_text }, { hunk }, 3)
 
 	-- Expect the removed and added rows to share lnum=4.
 	-- Find the - and + rows.
@@ -120,7 +129,7 @@ do
 	local buf = make_buf(cur)
 
 	local hunk = { a_start = 1, a_count = 1, b_start = 0, b_count = 0 }
-	local rows = build_rows(buf, { base = base_text }, { hunk }, 3)
+	local rows = build_rows_unstaged(buf, { base = base_text }, { hunk }, 3)
 
 	local minus = rows[1]
 	assert_eq("topdelete removed lnum is clamped to 1", minus.lnum, 1)
@@ -144,7 +153,7 @@ do
 	local buf = make_buf(cur)
 
 	local hunk = { a_start = 10, a_count = 0, b_start = 11, b_count = 3 }
-	local rows = build_rows(buf, { base = base_text }, { hunk }, 0)
+	local rows = build_rows_unstaged(buf, { base = base_text }, { hunk }, 0)
 
 	assert_eq("3 added rows", #rows, 3)
 	assert_eq("first added lnum", rows[1].lnum, 11)
@@ -237,7 +246,7 @@ do
 	local buf = make_buf(cur)
 	local base = "x\n\nMIDDLE\n\nx\n"
 	local hunk = { a_start = 3, a_count = 1, b_start = 3, b_count = 1 }
-	local rows = build_rows(buf, { base = base }, { hunk }, 2)
+	local rows = build_rows_unstaged(buf, { base = base }, { hunk }, 2)
 
 	for _, r in ipairs(rows) do
 		if r.marker == "  " then

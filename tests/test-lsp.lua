@@ -31,6 +31,9 @@ _G.Util = { colors = {
 	build = function()
 		return {}
 	end,
+	blend = function(fg, pct, bg)
+		return bg
+	end,
 } }
 _G.View = { win = { find_normal = function() end, wo = function() end } }
 _G.Key = { safe_set = function() end, managed = {} }
@@ -208,13 +211,18 @@ assert_true("dispatcher wires CursorMoved to clear_references", src:find("clear_
 local hl_ok, hl_mod = pcall(require, "beast.libs.lsp.highlights")
 assert_true("beast.libs.lsp.highlights loads", hl_ok, hl_mod)
 if hl_ok then
-	_G.Theme = { get = function()
-		return setmetatable({}, {
-			__index = function()
-				return "#000000"
-			end,
-		})
-	end }
+	_G.Theme = {
+		get = function()
+			return setmetatable({}, {
+				__index = function()
+					return "#000000"
+				end,
+			})
+		end,
+    is_builtin_colorscheme = function()
+      return true
+    end
+	}
 	local groups = hl_mod.get()
 	assert_true("defines LspReferenceText", groups.LspReferenceText ~= nil)
 	assert_true("defines LspReferenceRead", groups.LspReferenceRead ~= nil)
