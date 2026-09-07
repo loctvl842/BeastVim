@@ -70,7 +70,7 @@
       "src": "https://github.com/folke/tokyonight.nvim"
     },
     "typescript": {
-      "rev": "0201d0e81cd5e93e226f8ef1b9427a22808e87c3",
+      "rev": "e995f8ca651fcf147d16c9d0aa0e4c6e88cfc628",
       "src": "https://github.com/BeastVim/typescript"
     },
     "which-key.nvim": {
