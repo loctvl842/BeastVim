@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788789205708,
+  "lastUpdate": 1788790906612,
   "repoUrl": "https://github.com/loctvl842/BeastVim",
   "entries": {
     "BeastVim Startup": [
@@ -2329,6 +2329,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "BeastVim startup (warm) max",
             "value": 344.001067,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "committer": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "distinct": true,
+          "id": "b81793be02e537a0d8a7d9af907c1caad858bf7d",
+          "message": "fix(clipboard): osc broken cannot paste internallyu",
+          "timestamp": "2026-09-07T21:21:03+07:00",
+          "tree_id": "85f9e89abf4be99e82a6aecfc897d165eacf2f70",
+          "url": "https://github.com/loctvl842/BeastVim/commit/b81793be02e537a0d8a7d9af907c1caad858bf7d"
+        },
+        "date": 1788790905768,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "BeastVim startup (warm) mean",
+            "value": 289.76896845000005,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) stddev",
+            "value": 12.253676028202896,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) min",
+            "value": 275.216446,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) max",
+            "value": 306.381947,
             "unit": "ms"
           }
         ]
