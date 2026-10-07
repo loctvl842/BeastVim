@@ -201,17 +201,30 @@ return {
 				{
 					"<leader>W",
 					function()
-						local cf = require("conform")
-						cf.format({
+						local s = vim.fn.getpos("v")
+						local e = vim.fn.getpos(".")
+						-- cursor may be at either end of the selection
+						if s[2] > e[2] or (s[2] == e[2] and s[3] > e[3]) then
+							s, e = e, s
+						end
+						local mode = vim.fn.mode()
+						local last = vim.api.nvim_buf_get_lines(0, e[2] - 1, e[2], true)[1]
+						local start_col = mode == "V" and 0 or s[3] - 1
+						local end_col = mode == "V" and #last or math.min(e[3], #last)
+
+						require("conform").format({
 							lsp_fallback = false,
 							timeout = 1000,
 							range = {
-								start = vim.api.nvim_buf_get_mark(0, "<"),
-								["end"] = vim.api.nvim_buf_get_mark(0, ">"),
+								start = { s[2], start_col },
+								["end"] = { e[2], end_col },
 							},
 						})
-						vim.cmd([[w!]])
+						vim.cmd("w!")
+						vim.cmd("normal! \27")
 					end,
+					mode = "v",
+					desc = "Format Selection and Save",
 				},
 			},
 		},
