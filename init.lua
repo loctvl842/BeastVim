@@ -68,6 +68,7 @@ require("beast").setup({
 		},
 	},
 	packer = {
+		colorscheme = { name = "monokai-pro" },
 		spec = { { import = "beast.plugins" } },
 	},
 	treesitter = {

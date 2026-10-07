@@ -20,7 +20,7 @@
 local M = {}
 
 function M.get()
-  if not Theme.is_builtin_colorscheme() then return end
+  if Theme.kind() == "plugin" then return end
 	local p = Theme.get()
 
 	local callables = p.accent4 -- cyan  → Function / Method / Constructor

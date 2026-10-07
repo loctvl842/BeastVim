@@ -219,8 +219,8 @@ if hl_ok then
 				end,
 			})
 		end,
-    is_builtin_colorscheme = function()
-      return true
+    kind = function()
+      return "nvim"
     end
 	}
 	local groups = hl_mod.get()

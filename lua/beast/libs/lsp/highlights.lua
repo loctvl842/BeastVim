@@ -6,7 +6,7 @@ local M = {}
 
 function M.get()
 	local p = Theme.get()
-	if not Theme.is_builtin_colorscheme() then return end
+	if Theme.kind() == "plugin" then return end
 	local blend = Util.colors.blend
   local bg = blend(p.text, 0.2, p.background)
 

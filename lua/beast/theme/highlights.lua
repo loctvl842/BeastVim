@@ -23,15 +23,15 @@
 --   `Special` (logo bars), `String` (diagonals + version), `Identifier`,
 --   `NonText` (separators), and `SpecialKey` (`:` / `<Enter>`). We override the
 --   first three below but pull their colors from accent4/3/5, which
---   `extract_builtin()` sources directly from `NvimLightCyan`/`Green`/`Blue` —
+--   `beast.theme.sources.nvim` sources directly from `NvimLightCyan`/`Green`/`Blue` —
 --   the exact hexes `default` uses. NonText and SpecialKey are intentionally
 --   left untouched. Net effect: zero visual change to the intro screen.
---   Keep this property when editing accent4/3/5 mappings or extract_builtin().
+--   Keep this property when editing accent4/3/5 mappings or the nvim source.
 
 local M = {}
 
 function M.get()
-  if not Theme.is_builtin_colorscheme() then return end
+  if Theme.kind() == "plugin" then return end
 	local p = Theme.get()
 	local blend = Util.colors.blend
 	return {

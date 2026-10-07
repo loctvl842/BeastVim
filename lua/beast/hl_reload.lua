@@ -41,10 +41,10 @@ M.highlight_modules = {
 	"beast.libs.lsp.highlights",
 }
 
---- Highlight modules that are only needed for builtin colorschemes
+--- Highlight modules that are skipped for plugin colorschemes
 --- (third-party schemes define their own treesitter highlights).
 ---@type table<string, boolean>
-local builtin_only_highlights = {
+local overlay_only_highlights = {
 	["beast.libs.treesitter.highlights"] = true,
 }
 
@@ -77,12 +77,12 @@ end
 --- from every gated module first, then push them via a single nvim_set_hl
 --- pass, then run any post_apply hooks (statusline redraw, icon cache, etc.).
 function M.reload_highlights()
-	local is_builtin = Theme.is_builtin_colorscheme()
+	local is_plugin = Theme.kind() == "plugin"
 	local merged = {}
 	local post_hooks = {}
 	for _, mod_name in ipairs(M.highlight_modules) do
 		-- stylua: ignore
-		if not is_builtin and builtin_only_highlights[mod_name] then goto continue end
+		if is_plugin and overlay_only_highlights[mod_name] then goto continue end
 		local parent = mod_name:gsub("%.highlights$", "")
 		-- stylua: ignore
 		if not package.loaded[parent] then goto continue end
