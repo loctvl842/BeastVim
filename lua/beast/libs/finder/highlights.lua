@@ -2,7 +2,7 @@ local M = {}
 
 function M.get()
 	local p = Theme.get()
-  local bg = Util.colors.darken(p.dimmed5, 15)
+  local bg = Util.colors.lighten(p.dark1, 10)
 	return Util.colors.build("BeastFinder", {
 		-- Shared
 		Backdrop = { bg = "#000000" },

@@ -2,14 +2,15 @@ local M = {}
 
 function M.get()
 	local p = Theme.get()
+  local bg = Util.colors.lighten(p.dark1, 10)
 	return Util.colors.build("BeastPacker", {
 		Backdrop = { bg = "#000000" },
-		Normal = { bg = p.dark1, fg = p.dimmed1 },
-		Border = { fg = p.dark1, bg = p.dark1 },
-		WinBar = { bg = p.dark1 },
+		Normal = { bg = bg, fg = p.dimmed1 },
+		Border = { fg = bg, bg = bg },
+		WinBar = { bg = bg },
 		Title = { fg = p.accent3, bold = true },
-		Subtitle = { fg = p.dimmed2, bg = p.dark1 },
-		H1 = { bg = p.accent2, fg = p.dark1, bold = true },
+		Subtitle = { fg = p.dimmed2, bg = bg },
+		H1 = { bg = p.accent2, fg = bg, bold = true },
 		H2 = { fg = p.dimmed1, bold = true },
 		Comment = { fg = p.dimmed3 },
 
@@ -24,8 +25,8 @@ function M.get()
 
 		-- UI elements
 		Plugin = { fg = p.accent4 },
-		Button = { bg = Util.colors.lighten(p.dark1, 20), fg = p.dimmed2 },
-		ButtonActive = { bg = p.accent5, fg = p.dark1, bold = true },
+		Button = { bg = Util.colors.lighten(bg, 20), fg = p.dimmed2 },
+		ButtonActive = { bg = p.accent5, fg = bg, bold = true },
 
 		-- Status
 		Warning = { fg = p.accent2 },
