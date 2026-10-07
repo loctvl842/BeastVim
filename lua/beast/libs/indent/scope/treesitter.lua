@@ -164,15 +164,17 @@ function M.find(buf, pos)
 	local body_from = from + 1
 	local body_to = to
 
-	-- Multi-line headers (wrapped python signature): start at the real body node.
-	-- A block starting on its own indentation (python) is the first body line;
-	-- one preceded by header text (`{`) begins on the next line.
+	-- Multi-line headers (wrapped python signature): the body starts on the line
+	-- after whatever precedes the body node. Comment siblings are skipped since
+	-- they are not part of the block but still belong to the body.
 	local body_node = scope_node:field("body")[1]
-	if body_node then
-		local b_row, b_col = body_node:range()
-		local before = vim.api.nvim_buf_get_text(buf, b_row, 0, b_row, b_col, {})[1]
-		local start = before:find("%S") and b_row + 2 or b_row + 1
-		body_from = math.max(body_from, start)
+	local prev = body_node and body_node:prev_sibling()
+	while prev and prev:type() == "comment" do
+		prev = prev:prev_sibling()
+	end
+	if prev then
+		local _, _, p_row = prev:range()
+		body_from = math.max(body_from, p_row + 2)
 	end
 	-- stylua: ignore
 	if body_from > body_to then return nil end
