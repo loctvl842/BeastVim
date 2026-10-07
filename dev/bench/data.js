@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788790906612,
+  "lastUpdate": 1791382661019,
   "repoUrl": "https://github.com/loctvl842/BeastVim",
   "entries": {
     "BeastVim Startup": [
@@ -2373,6 +2373,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "BeastVim startup (warm) max",
             "value": 306.381947,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "committer": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "distinct": true,
+          "id": "329c03fc1bc2c096814d5149e6f116919fe390bb",
+          "message": "refactor(theme): split palette extraction into per-kind sources",
+          "timestamp": "2026-10-07T21:16:55+07:00",
+          "tree_id": "db9a7c6d4e27e086ad64e53e1adc580a6f738a5d",
+          "url": "https://github.com/loctvl842/BeastVim/commit/329c03fc1bc2c096814d5149e6f116919fe390bb"
+        },
+        "date": 1791382660641,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "BeastVim startup (warm) mean",
+            "value": 228.10286545,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) stddev",
+            "value": 5.555952690845181,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) min",
+            "value": 220.32134900000003,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) max",
+            "value": 240.65498300000002,
             "unit": "ms"
           }
         ]
