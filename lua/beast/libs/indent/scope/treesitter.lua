@@ -153,13 +153,16 @@ function M.find(buf, pos)
 	if not scope_node then return nil end
 
 	-- Node range (0-indexed) → 1-indexed
-	local node_from, _, node_to = scope_node:range()
+	local node_from, _, node_to, node_end_col = scope_node:range()
 	local from = node_from + 1
-	local to = node_to + 1
+	-- End position is exclusive: col 0 means the node ends on the previous line
+	local to = node_end_col == 0 and node_to or node_to + 1
 
-	-- Body is between the edges
+	-- Body starts after the header. The last line is kept even when it is a
+	-- closing delimiter (`end`, `}`): collect_segments drops it by indent, and
+	-- indentation-based languages (python) have no closing line at all.
 	local body_from = from + 1
-	local body_to = to - 1
+	local body_to = to
 	-- stylua: ignore
 	if body_from > body_to then return nil end
 
