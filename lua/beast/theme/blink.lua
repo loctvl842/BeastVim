@@ -31,7 +31,7 @@ function M.get()
 	local values = p.accent6 -- cyan6 → Number / Boolean / Constant
 
 	local menu_bg = p.dimmed5
-	local menu_sel_bg = p.dimmed3
+	local menu_sel_bg = p.dimmed4
 	local border_fg = p.dimmed3
 
 	return {
