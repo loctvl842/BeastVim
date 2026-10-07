@@ -163,7 +163,7 @@ function M.draw(buf, ns, win, top, bottom, leftcol, sw)
 						-- Start at the vertical line's column (not the text) so a wrapped
 						-- header's continuation line stays connected to it
 						local start, width = 0, 0
-						while start < text_start - 1 and width < scope.indent - sw do
+						while start < #text and width < scope.indent - sw do
 							width = width + (text:byte(start + 1) == 9 and sw - (width % sw) or 1)
 							start = start + 1
 						end
