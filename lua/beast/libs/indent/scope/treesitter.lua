@@ -163,6 +163,17 @@ function M.find(buf, pos)
 	-- indentation-based languages (python) have no closing line at all.
 	local body_from = from + 1
 	local body_to = to
+
+	-- Multi-line headers (wrapped python signature): start at the real body node.
+	-- A block starting on its own indentation (python) is the first body line;
+	-- one preceded by header text (`{`) begins on the next line.
+	local body_node = scope_node:field("body")[1]
+	if body_node then
+		local b_row, b_col = body_node:range()
+		local before = vim.api.nvim_buf_get_text(buf, b_row, 0, b_row, b_col, {})[1]
+		local start = before:find("%S") and b_row + 2 or b_row + 1
+		body_from = math.max(body_from, start)
+	end
 	-- stylua: ignore
 	if body_from > body_to then return nil end
 
