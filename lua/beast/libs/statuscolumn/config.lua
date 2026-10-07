@@ -111,7 +111,10 @@ local function apply_window_defaults()
 			vim.api.nvim_set_option_value("number", true, { win = win })
 			vim.api.nvim_set_option_value("signcolumn", "yes", { win = win })
 			vim.api.nvim_set_option_value("foldlevel", 99, { win = win })
-			vim.api.nvim_set_option_value("foldmethod", "indent", { win = win })
+			-- Setup is deferred, so treesitter/LSP may already have set foldmethod=expr
+			if vim.wo[win].foldmethod ~= "expr" then
+				vim.api.nvim_set_option_value("foldmethod", "indent", { win = win })
+			end
 			vim.api.nvim_set_option_value("foldenable", true, { win = win })
 			vim.api.nvim_set_option_value("foldcolumn", "1", { win = win })
 			vim.api.nvim_set_option_value("foldtext", "", { win = win })
