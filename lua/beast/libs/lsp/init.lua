@@ -40,6 +40,36 @@ local function split_spec(cfg)
 	return lsp_cfg, extras
 end
 
+---Build a `root_dir` function from `root_markers`, replacing Neovim's
+---priority-ordered lookup. Each ancestor directory is scored by how many of
+---the markers it contains; the highest score wins and ties go to the nearest
+---directory. So a repo root with `.git` + `pyproject.toml` beats a nested
+---package that only has `pyproject.toml`.
+---@param markers (string|string[])[]
+---@return fun(bufnr: integer, on_dir: fun(root_dir?: string))
+local function scored_root_dir(markers)
+	local flat = vim.iter(markers):flatten():totable()
+	return function(bufnr, on_dir)
+		local name = vim.api.nvim_buf_get_name(bufnr)
+		if name == "" then
+			return on_dir(nil)
+		end
+		local best, best_score = nil, 0
+		for dir in vim.fs.parents(name) do
+			local score = 0
+			for _, marker in ipairs(flat) do
+				if vim.uv.fs_stat(dir .. "/" .. marker) then
+					score = score + 1
+				end
+			end
+			if score > best_score then
+				best, best_score = dir, score
+			end
+		end
+		on_dir(best)
+	end
+end
+
 ---Build a multi-line summary of LSP state focused on the current buffer.
 ---@return string
 local function build_info()
@@ -99,6 +129,10 @@ end
 ---                  server is recorded but not enabled (cheap binary checks,
 ---                  project-marker gates, etc.)
 ---
+---`root_markers` (when `root_dir` is not given) is resolved by score, not
+---priority: the ancestor directory containing the most markers wins, ties
+---go to the nearest (see `scored_root_dir`).
+---
 ---Capabilities default to a snapshot of `M.capabilities()` taken at register
 ---time (Neovim's vim.lsp validator strictly requires a table). To pick up
 ---contributors registered later (e.g. blink.cmp on InsertEnter), we also
@@ -120,6 +154,10 @@ function M.register(name, cfg)
 	if extras.enabled and extras.enabled() == false then
 		disp.register_server(name, extras)
 		return
+	end
+
+	if lsp_cfg.root_markers and lsp_cfg.root_dir == nil then
+		lsp_cfg.root_dir = scored_root_dir(lsp_cfg.root_markers)
 	end
 
 	if lsp_cfg.capabilities == nil then
