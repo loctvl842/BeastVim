@@ -1,4 +1,4 @@
-<!-- Generated: 2026-08-23 | Files scanned: 27 | Token estimate: ~11470 -->
+<!-- Generated: 2026-10-08 | Files scanned: 30 | Token estimate: ~11589 -->
 
 # Libraries
 
@@ -112,7 +112,7 @@ finder/
 │   │       ├── serialize.lua  ← binary index dump/load (header + col_for uint16 pairs + raw uint32 matrix + NUL paths)
 │   │       ├── builder.lua    ← pure build routine (rg --files → read → serialize.write); runs in the child
 │   │       └── index.lua      ← spawns headless builder subprocess, loads via ffi.copy, fs_event refresh, query→paths
-│   ├── colorschemes.lua ← sync (rtp-only globpath)
+│   ├── colorschemes.lua ← sync (rtp-only globpath); grouped beastvim > nvim builtin > plugin, alphabetical within group
 │   └── help_tags.lua  ← sync (rtp-only tag parsing)
 └── ui/
     ├── init.lua     ← barrel (input, list, preview, backdrop)
@@ -625,7 +625,7 @@ API: `stl.setup({ left = {...}, right = {...} })` — components are tables.
 ```
 statuscolumn/
 ├── init.lua       ← setup(), render() (hot path, pcall-wrapped), producer dispatch, autocmds
-├── config.lua     ← segments (slot lists), git, fold, ft_ignore, bt_ignore
+├── config.lua     ← segments (slot lists), git, fold, ft_ignore, bt_ignore; window defaults keep foldmethod=expr (set by treesitter/LSP) instead of forcing indent
 ├── ffi.lua        ← cdef for display_tick, fold_info, find_window_by_handle (pcall-guarded)
 ├── cache.lua      ← per-(win,tick,buf) sign-map + per-line interned strings
 ├── number.lua     ← format(win,lnum,relnum,virtnum) — hybrid &nu/&rnu support
@@ -715,6 +715,8 @@ indent/
     ├── indent.lua     ← indent-based scope detection
     └── treesitter.lua ← treesitter-based scope detection
 ```
+
+Scope body (treesitter): starts after the node preceding the `body` field (comment siblings skipped, handles wrapped headers) and runs through the node's last line (python has no closing line; `end`/`}` dropped by indent filter). Underline starts at the vertical-line column (`scope.indent - sw`) on the header's last line.
 
 API: `indent.setup(opts)` — registers decoration provider
 Loaded via: `packer.lazy()` on VimEnter (deferred)

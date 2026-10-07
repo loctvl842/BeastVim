@@ -1,4 +1,4 @@
-<!-- Generated: 2026-08-09 | Files scanned: 26 | Token estimate: ~2750 -->
+<!-- Generated: 2026-10-08 | Files scanned: 30 | Token estimate: ~2945 -->
 
 # Architecture
 
@@ -23,9 +23,15 @@ lua/beast/
 ├── hl_reload.lua         ← M.highlight_modules registry + apply_highlights /
 │                           reload_highlights + ColorScheme autocmd dispatcher
 ├── theme/
-│   ├── init.lua          ← Theme.get / Theme.refresh / Theme.is_builtin_colorscheme()
-│   ├── highlights.lua    ← BeastTheme* base groups (builtin-only)
-│   └── blink.lua         ← blink.cmp highlight overrides
+│   ├── init.lua          ← Theme.get / Theme.refresh / Theme.kind() ("beastvim"|"nvim"|"plugin")
+│   ├── palette.lua       ← Beast.Theme.Palette defaults + from_groups / extract helpers
+│   ├── sources/          ← per-kind palette extraction; first match wins, plugin is fallback
+│   │   ├── init.lua      ← ordered list + detect() by vim.g.colors_name
+│   │   ├── beastvim.lua  ← repo `colors/*` (palette in BeastVim* carrier groups)
+│   │   ├── nvim.lua      ← $VIMRUNTIME/colors (NvimDark*/NvimLight* named colors)
+│   │   └── plugin.lua    ← third-party schemes (samples well-known groups)
+│   ├── highlights.lua    ← BeastTheme* base groups (skipped for plugin schemes)
+│   └── blink.lua         ← blink.cmp highlight overrides (skipped for plugin schemes)
 ├── util/
 │   ├── init.lua          ← Util.wo, Util.mod, Util.hrtime, find_normal_win, ...
 │   ├── colors.lua        ← Util.colors.{set_hl, blend, lighten, inspect}
@@ -166,7 +172,7 @@ Theme.get / Theme.refresh
       → M.reload_highlights()
         ├── for each module in M.highlight_modules:
         │     skip if parent lib not loaded
-        │     skip builtin-only highlights (treesitter) on third-party schemes
+        │     skip overlay-only highlights (treesitter) on plugin schemes (Theme.kind())
         │     mod = Util.mod(m)               ← fast loader, bypasses package.loaded
         │     merge mod.get() into `merged`
         │     queue mod.post_apply (if defined)
@@ -181,8 +187,12 @@ optional `M.post_apply()`. See ADR-026 for the contract.
 plus `<lib>.highlights` for confirm, input, select, explorer, finder, key,
 notify, packer, statusline, breadcrumb, tabline, toast, indent, treesitter,
 statuscolumn, git.
-Builtin-only (gated by `Theme.is_builtin_colorscheme()`): treesitter,
-theme.highlights, theme.blink.
+Skipped for plugin schemes (gated by `Theme.kind() == "plugin"`): treesitter,
+theme.highlights, theme.blink; lsp highlights branch on the same check.
+
+Repo-root `colors/monokai-pro{,-classic,-light,-machine,-octagon,-ristretto,-spectrum}.lua`
+are the "beastvim" kind: set `Normal` + 15 `BeastVim*` fg carriers read by
+`theme/sources/beastvim.lua`.
 
 ## Patterns
 
