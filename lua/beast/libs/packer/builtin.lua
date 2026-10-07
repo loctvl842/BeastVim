@@ -163,7 +163,7 @@ return {
 		build = ":MasonUpdate",
 		lazy = {
 			module = { "mason" },
-      cmd = { "Mason", "MasonInstall", "MasonUpdate" },
+			cmd = { "Mason", "MasonInstall", "MasonUpdate" },
 		},
 		config = function()
 			require("mason").setup({
@@ -185,20 +185,35 @@ return {
 		lazy = {
 			module = { "conform" },
 			cmd = { "ConformInfo" },
-      keys = {
-        {
-          "<leader>W",
-          function()
-            local cf = require("conform")
-            cf.format({
-              lsp_fallback = false,
-              timeout = 1000,
-            })
-            vim.cmd([[w!]])
-          end,
-          desc = "Format and save",
-        },
-      }
+			keys = {
+				{
+					"<leader>W",
+					function()
+						local cf = require("conform")
+						cf.format({
+							lsp_fallback = false,
+							timeout = 1000,
+						})
+						vim.cmd([[w!]])
+					end,
+					desc = "Format and save",
+				},
+				{
+					"<leader>W",
+					function()
+						local cf = require("conform")
+						cf.format({
+							lsp_fallback = false,
+							timeout = 1000,
+							range = {
+								start = vim.api.nvim_buf_get_mark(0, "<"),
+								["end"] = vim.api.nvim_buf_get_mark(0, ">"),
+							},
+						})
+						vim.cmd([[w!]])
+					end,
+				},
+			},
 		},
 		config = function()
 			-- Per-filetype `formatters_by_ft` entries are NOT set here.
