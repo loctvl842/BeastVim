@@ -2,28 +2,29 @@ local M = {}
 
 function M.get()
 	local p = Theme.get()
+  local bg = Util.colors.darken(p.dimmed5, 15)
 	return Util.colors.build("BeastFinder", {
 		-- Shared
 		Backdrop = { bg = "#000000" },
-		Border = { fg = p.dimmed3, bg = p.dark1 },
-		Normal = { bg = p.dark1, fg = p.text },
+		Border = { fg = p.dimmed3, bg = bg },
+		Normal = { bg = bg, fg = p.text },
 		-- Input
-		InputNormal = { bg = p.dark1, fg = p.text },
-		InputPromptPrefix = { bg = p.dark1, fg = p.accent2 },
-		InputTitle = { bg = p.dark1, fg = p.accent3, bold = true },
-		Spinner = { bg = p.dark1, fg = p.accent2 },
+		InputNormal = { bg = bg, fg = p.text },
+		InputPromptPrefix = { bg = bg, fg = p.accent2 },
+		InputTitle = { bg = bg, fg = p.accent3, bold = true },
+		Spinner = { bg = bg, fg = p.accent2 },
 		-- List
-		ListCursorLine = { bg = Util.colors.blend(p.dimmed3, 0.3, p.dark1), bold = true },
+		ListCursorLine = { bg = Util.colors.blend(p.dimmed3, 0.3, bg), bold = true },
 		ListSelectionPrefix = { fg = p.accent2 },
-		ListMatch = { bg = Util.colors.blend(p.text, 0.15, p.dark1), bold = true },
+		ListMatch = { bg = Util.colors.blend(p.text, 0.15, bg), bold = true },
 		ListFile = { fg = p.text },
 		ListDir = { fg = p.dimmed3 },
 		ListCursor = { blend = 100, nocombine = true },
 		-- Preview
-		PreviewBorder = { fg = p.dimmed3, bg = p.dark1 },
-		PreviewTitle = { bg = p.dark1, fg = p.accent3, bold = true },
-		PreviewMatch = { bg = Util.colors.blend(p.accent4, 0.1, p.dark1), bold = true, underline = true },
-		PreviewCurrentMatch = { bg = Util.colors.blend(p.accent4, 0.25, p.dark1), bold = true },
+		PreviewBorder = { fg = p.dimmed3, bg = bg },
+		PreviewTitle = { bg = bg, fg = p.accent3, bold = true },
+		PreviewMatch = { bg = Util.colors.blend(p.accent4, 0.1, bg), bold = true, underline = true },
+		PreviewCurrentMatch = { bg = Util.colors.blend(p.accent4, 0.25, bg), bold = true },
 	})
 end
 
