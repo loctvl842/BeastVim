@@ -30,8 +30,8 @@ function M.get()
 	local content = p.accent3 -- mint  → String / Text / Snippet / AI
 	local values = p.accent6 -- cyan6 → Number / Boolean / Constant
 
-	local menu_bg = p.dark1
-	local menu_sel_bg = p.dark2
+	local menu_bg = p.dimmed5
+	local menu_sel_bg = p.dimmed3
 	local border_fg = p.dimmed3
 
 	return {
