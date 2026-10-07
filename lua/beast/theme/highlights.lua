@@ -1,4 +1,4 @@
--- BeastVim base highlights — palette-driven, gated to builtin colorschemes.
+-- BeastVim base highlights - palette-driven, skipped for plugin colorschemes.
 --
 -- Cyan + sky stay the dominant tone (matches Neovim `default`'s built-in
 -- Function/Identifier coloring), but each role gets its own accent so the
@@ -34,6 +34,8 @@ function M.get()
   if Theme.kind() == "plugin" then return end
 	local p = Theme.get()
 	local blend = Util.colors.blend
+	local line_bg = blend(p.text, 0.05, p.background)
+	local selection_bg = blend(p.dimmed1, 0.15, p.background)
 	return {
 		-- :h group-name --------------------------------------------------------
 		Comment = { fg = p.dimmed3, italic = true },
@@ -122,6 +124,44 @@ function M.get()
 
 		NormalFloat = { bg = p.background, fg = p.dimmed2 },
 		WinSeparator = { fg = Util.colors.blend(p.text, 0.4, p.background) },
+
+		-- Editor chrome — mirrors monokai-pro.nvim `groups/editor.lua`
+		-- (scheme.editor.* → palette: lineHighlight = text@5%, selection =
+		-- dimmed1@15%, findMatch = text@15%). Without these, `highlight clear`
+		-- leaves Neovim's cool blue-grey defaults on a warm background.
+		ColorColumn = { bg = p.dimmed5 },
+		Conceal = { fg = p.dimmed3 },
+		CursorLine = { bg = line_bg },
+		CursorColumn = { bg = line_bg },
+		CursorLineNr = { fg = p.dimmed1, bold = true },
+		CursorLineFold = { fg = p.text, bg = p.background },
+		LineNr = { fg = p.dimmed4 },
+		MatchParen = { fg = p.accent3, bold = true, underline = true },
+		Whitespace = { fg = p.dimmed4 },
+		Visual = { bg = selection_bg },
+
+		-- Search
+		Search = { bg = blend(p.text, 0.15, p.background) },
+		IncSearch = { fg = p.dark1, bg = p.accent3, bold = true },
+		CurSearch = { link = "IncSearch" },
+
+		-- Popup menu & float titles
+		Pmenu = { fg = p.dimmed2, bg = p.dimmed5 },
+		PmenuSel = { bg = p.dimmed3, bold = true },
+		PmenuSbar = { bg = Util.colors.darken(p.dimmed5, 10) },
+		PmenuThumb = { bg = selection_bg },
+		FloatTitle = { fg = p.dark1, bg = p.accent3 },
+
+		-- Vim diff / health (`:checkhealth`, fugitive-style diff buffers)
+		diffAdded = { fg = p.accent4 },
+		diffChanged = { fg = p.accent3 },
+		diffRemoved = { fg = p.accent1 },
+		diffFile = { fg = p.accent3 },
+		diffNewFile = { fg = p.accent3 },
+		diffLine = { fg = p.accent5 },
+		healthError = { fg = p.accent1 },
+		healthSuccess = { fg = p.accent4 },
+		healthWarning = { fg = p.accent2 },
 	}
 end
 

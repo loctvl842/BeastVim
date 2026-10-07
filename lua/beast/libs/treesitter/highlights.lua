@@ -1,31 +1,24 @@
--- BeastVim treesitter highlights — diversified, role-based.
+-- BeastVim treesitter highlights - role-based, mapped from monokai-pro.nvim.
 --
--- READABILITY RULES (enforced uniformly):
---   1. Members recede, calls pop. @property / @variable.member render as plain
---      text so `foo.bar()` reads as text.text-cyan(): the call jumps out.
---   2. Parameters use italic alone, not yellow. Yellow is reserved for the
---      Type family so `def f(x: Type)` doesn't paint x and Type the same hue.
---   3. Italic is meaningful: keyword OR meta-marker (builtin / parameter /
---      comment / annotation). Never decorative.
---   4. Same role across nesting levels = same color (e.g. all @function.*
---      cyan); the only modifier is italic for builtin/special variants.
+-- Source of truth: monokai-pro.nvim `theme/plugins/treesitter.lua`. Its
+-- `c.base.*` names map to palette keys (see `theme/scheme.lua`):
+--   red → accent1, orange ("blue") → accent2, yellow → accent3,
+--   green → accent4, cyan → accent5, magenta → accent6, white → text.
 --
 -- ROLE → COLOR:
---   text  (plain)     → noise: @variable, @variable.member, @property
---   text  (italic)    → params: @variable.parameter*
---   cyan  (accent4)   → callables: @function*, link targets
---   sky   (accent5)   → structure: @keyword* (decl/import), @module,
---                       @function.macro, @constant.macro
---   yellow (accent2)  → shape: @type*, @constructor, @attribute*,
---                       @annotation, @tag.attribute
---   coral (accent1)   → values + flow break + builtin markers:
---                       @constant*, @number, @boolean, @string.escape,
---                       @keyword.return/conditional/repeat/exception/function,
---                       @label, @tag, @variable.builtin
---   mint  (accent3)   → content: @string, @character
---   dimmed            → scaffold: @operator, @punctuation.*, @comment
+--   text   (plain)    → noise: @variable, @variable.member, @property, @markup.list*
+--   orange (accent2)  → params: @variable.parameter* (italic), @markup.link*
+--   red    (accent1)  → flow + syntax: @keyword*, @operator, @punctuation.bracket,
+--                       @tag, @field
+--   yellow (accent3)  → content: @string*, @character*, @markup.raw, @markup.math
+--   green  (accent4)  → callables + shape: @function*, @constructor, @attribute*,
+--                       @type.definition, @markup.heading
+--   cyan   (accent5)  → types + names: @type*, @module*, @label, @annotation,
+--                       @tag.attribute, @keyword.function, @keyword.type
+--   purple (accent6)  → values: @constant*, @boolean, @number, @string.escape
+--   dimmed            → scaffold: @punctuation.delimiter/special, @comment
 --
--- We avoid `link = "Constant"` / "Boolean" / etc. — those are unstyled under
+-- We avoid `link = "Constant"` / "Boolean" / etc. - those are unstyled under
 -- `default`, so linking collapses captures to plain text.
 
 local M = {}
@@ -37,41 +30,41 @@ function M.get()
 		-- Identifiers ---------------------------------------------------------
 		["@variable"] = { fg = p.text },
 		["@variable.member"] = { fg = p.text },
-		["@variable.parameter"] = { fg = p.text, italic = true },
-		["@variable.parameter.builtin"] = { fg = p.text, italic = true },
-		["@variable.builtin"] = { fg = p.accent1, italic = true },
+		["@variable.parameter"] = { fg = p.accent2, italic = true },
+		["@variable.parameter.builtin"] = { fg = p.accent2, italic = true },
+		["@variable.builtin"] = { fg = p.dimmed1, italic = true },
 		["@property"] = { fg = p.text },
-		["@field"] = { fg = p.text },
+		["@field"] = { fg = p.accent1 },
 
 		-- Values --------------------------------------------------------------
-		["@constant"] = { fg = p.accent1 },
-		["@constant.builtin"] = { fg = p.accent1, italic = true },
-		["@constant.macro"] = { fg = p.accent5 },
-		["@boolean"] = { fg = p.accent1 },
-		["@number"] = { fg = p.accent1 },
-		["@number.float"] = { fg = p.accent1 },
+		["@constant"] = { fg = p.accent6 },
+		["@constant.builtin"] = { fg = p.accent6, italic = true },
+		["@constant.macro"] = { fg = p.accent6 },
+		["@boolean"] = { fg = p.accent6 },
+		["@number"] = { fg = p.accent6 },
+		["@number.float"] = { fg = p.accent6 },
 
 		-- Strings -------------------------------------------------------------
 		["@string"] = { fg = p.accent3 },
-		["@string.documentation"] = { fg = p.dimmed3, italic = true },
-		["@string.escape"] = { fg = p.accent1 },
+		["@string.documentation"] = { fg = p.dimmed3 },
+		["@string.escape"] = { fg = p.accent6 },
 		["@string.regexp"] = { fg = p.accent3, italic = true },
 		["@string.special"] = { fg = p.accent1 },
 		["@string.special.symbol"] = { fg = p.accent1 },
 		["@string.special.url"] = { fg = p.accent4, underline = true },
 		["@character"] = { fg = p.accent3 },
-		["@character.printf"] = { fg = p.accent1 },
-		["@character.special"] = { fg = p.accent1 },
+		["@character.printf"] = { fg = p.accent3 },
+		["@character.special"] = { fg = p.accent3 },
 
 		-- Types & shape -------------------------------------------------------
-		["@type"] = { fg = p.accent2 },
-		["@type.builtin"] = { fg = p.accent2, italic = true },
-		["@type.definition"] = { fg = p.accent2 },
-		["@type.qualifier"] = { fg = p.accent2, italic = true },
-		["@constructor"] = { fg = p.accent2 },
-		["@attribute"] = { fg = p.accent2, italic = true },
-		["@attribute.builtin"] = { fg = p.accent2, italic = true },
-		["@annotation"] = { fg = p.accent2, italic = true },
+		["@type"] = { fg = p.accent5 },
+		["@type.builtin"] = { fg = p.accent5, italic = true },
+		["@type.definition"] = { fg = p.accent4 },
+		["@type.qualifier"] = { fg = p.accent5, italic = true },
+		["@constructor"] = { fg = p.accent4 },
+		["@attribute"] = { fg = p.accent4, italic = true },
+		["@attribute.builtin"] = { fg = p.accent4, italic = true },
+		["@annotation"] = { fg = p.accent5, italic = true },
 
 		-- Functions -----------------------------------------------------------
 		["@function"] = { fg = p.accent4 },
@@ -79,22 +72,22 @@ function M.get()
 		["@function.call"] = { link = "@function" },
 		["@function.method"] = { link = "@function" },
 		["@function.method.call"] = { link = "@function" },
-		["@function.macro"] = { fg = p.accent5 },
+		["@function.macro"] = { fg = p.accent4 },
 
 		-- Modules & labels ----------------------------------------------------
 		["@module"] = { fg = p.accent5 },
 		["@module.builtin"] = { fg = p.accent5, italic = true },
-		["@namespace.builtin"] = { fg = p.accent1, italic = true },
-		["@label"] = { fg = p.accent1 },
+		["@namespace.builtin"] = { fg = p.accent5, italic = true },
+		["@label"] = { fg = p.accent5 },
 
 		-- Operators & punctuation ---------------------------------------------
-		["@operator"] = { fg = p.dimmed1 },
-		["@punctuation.bracket"] = { fg = p.dimmed1 },
+		["@operator"] = { fg = p.accent1 },
+		["@punctuation.bracket"] = { fg = p.accent1 },
 		["@punctuation.delimiter"] = { fg = p.dimmed2 },
 		["@punctuation.special"] = { fg = p.dimmed2 },
 
 		-- Keywords ------------------------------------------------------------
-		["@keyword"] = { fg = p.accent5, italic = true },
+		["@keyword"] = { fg = p.accent1, italic = true },
 		["@keyword.modifier"] = { link = "@keyword" },
 		["@keyword.coroutine"] = { link = "@keyword" },
 		["@keyword.import"] = { link = "@keyword" },
@@ -103,14 +96,14 @@ function M.get()
 		["@keyword.directive.define"] = { link = "@keyword" },
 		["@keyword.operator"] = { link = "@operator" },
 
-		["@keyword.storage"] = { fg = p.accent2, italic = true },
-		["@keyword.type"] = { fg = p.accent2, italic = true },
+		["@keyword.storage"] = { fg = p.accent1, italic = true },
+		["@keyword.type"] = { fg = p.accent5, italic = true },
 
 		["@keyword.return"] = { fg = p.accent1, italic = true },
 		["@keyword.conditional"] = { fg = p.accent1, italic = true },
 		["@keyword.repeat"] = { fg = p.accent1, italic = true },
 		["@keyword.exception"] = { fg = p.accent1, italic = true },
-		["@keyword.function"] = { fg = p.accent1, italic = true },
+		["@keyword.function"] = { fg = p.accent5, italic = true },
 		["@keyword.debug"] = { fg = p.accent1, italic = true },
 		["@keyword.conditional.ternary"] = { link = "@operator" },
 
@@ -131,21 +124,21 @@ function M.get()
 		["@markup.emphasis"] = { italic = true },
 		["@markup.strikethrough"] = { strikethrough = true },
 		["@markup.underline"] = { underline = true },
-		["@markup.heading"] = { fg = p.accent5, bold = true },
+		["@markup.heading"] = { fg = p.accent4, bold = true },
 		["@markup.quote"] = { fg = p.text, italic = true },
-		["@markup.math"] = { fg = p.accent1 },
-		["@markup.environment"] = { fg = p.accent5 },
-		["@markup.environment.name"] = { fg = p.accent2 },
-		["@markup.link"] = { fg = p.accent4 },
-		["@markup.link.label"] = { fg = p.accent1 },
-		["@markup.link.label.symbol"] = { fg = p.accent1 },
-		["@markup.link.url"] = { fg = p.accent4, underline = true },
+		["@markup.math"] = { fg = p.accent3 },
+		["@markup.environment"] = { fg = p.text },
+		["@markup.environment.name"] = { fg = p.text },
+		["@markup.link"] = { fg = p.accent2, underline = true },
+		["@markup.link.label"] = { fg = p.accent2, underline = true },
+		["@markup.link.label.symbol"] = { fg = p.accent2, underline = true },
+		["@markup.link.url"] = { fg = p.accent2, underline = true },
 		["@markup.raw"] = { fg = p.accent3 },
-		["@markup.raw.markdown_inline"] = { fg = p.accent5, bg = p.dark1 },
-		["@markup.list"] = { fg = p.accent5 },
-		["@markup.list.checked"] = { fg = p.accent3 },
-		["@markup.list.unchecked"] = { fg = p.dimmed2 },
-		["@markup.list.markdown"] = { fg = p.accent6, bold = true },
+		["@markup.raw.markdown_inline"] = { fg = p.accent3, bg = p.dark1 },
+		["@markup.list"] = { fg = p.text },
+		["@markup.list.checked"] = { fg = p.text },
+		["@markup.list.unchecked"] = { fg = p.text },
+		["@markup.list.markdown"] = { fg = p.text, bold = true },
 		["@none"] = {},
 
 		-- Diff ----------------------------------------------------------------
@@ -156,7 +149,7 @@ function M.get()
 		-- Tags (HTML/JSX) -----------------------------------------------------
 		["@tag"] = { fg = p.accent1 },
 		["@tag.builtin"] = { fg = p.accent1, italic = true },
-		["@tag.attribute"] = { fg = p.accent2 },
+		["@tag.attribute"] = { fg = p.accent5 },
 		["@tag.delimiter"] = { fg = p.dimmed2 },
 
 		-- Misc ----------------------------------------------------------------
@@ -185,7 +178,7 @@ function M.get()
 		["@conceal.markdown"] = { fg = p.dimmed2 },
 		["@markup.raw.block.markdown"] = { bg = p.dark1 },
 		["@markup.raw.delimiter.markdown"] = { fg = p.dimmed2 },
-		["@punctuation.special.markdown"] = { fg = p.accent6, bold = true },
+		["@punctuation.special.markdown"] = { fg = p.dimmed2 },
 	}
 end
 
