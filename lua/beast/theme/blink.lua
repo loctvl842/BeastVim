@@ -25,7 +25,7 @@ function M.get()
 
 	local callables = p.accent4 -- cyan  → Function / Method / Constructor
 	local structure = p.accent5 -- sky   → Variable / Field / Property / Module
-	local shape = p.accent2 -- yellow → Class / Interface / Struct / Enum
+	local shape = p.accent3 -- yellow → Class / Interface / Struct / Enum
 	local flow = p.accent1 -- coral  → Keyword / Operator
 	local content = p.accent3 -- mint  → String / Text / Snippet / AI
 	local values = p.accent6 -- cyan6 → Number / Boolean / Constant
