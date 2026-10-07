@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791391430317,
+  "lastUpdate": 1791392722058,
   "repoUrl": "https://github.com/loctvl842/BeastVim",
   "entries": {
     "BeastVim Startup": [
@@ -2461,6 +2461,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "BeastVim startup (warm) max",
             "value": 598.372598,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "committer": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "distinct": true,
+          "id": "19db39c59dea2e15edceccbe7b7f4d9f242caf56",
+          "message": "feat(finder): group colorschemes as beastvim, builtin, plugin",
+          "timestamp": "2026-10-08T00:04:22+07:00",
+          "tree_id": "51bafa29facad58676bd9c9878e78ce7f3d70e9d",
+          "url": "https://github.com/loctvl842/BeastVim/commit/19db39c59dea2e15edceccbe7b7f4d9f242caf56"
+        },
+        "date": 1791392721108,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "BeastVim startup (warm) mean",
+            "value": 368.5190232500001,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) stddev",
+            "value": 76.20147168487964,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) min",
+            "value": 336.03067000000004,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) max",
+            "value": 633.085263,
             "unit": "ms"
           }
         ]
