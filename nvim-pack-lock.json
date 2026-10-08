@@ -1,5 +1,9 @@
 {
   "plugins": {
+    "blink-cmp-supermaven": {
+      "rev": "635ce12e9e2d2a5a483728ac764d0bc5b57af23b",
+      "src": "https://github.com/huijiro/blink-cmp-supermaven"
+    },
     "blink.cmp": {
       "rev": "78336bc89ee5365633bcf754d93df01678b5c08f",
       "src": "https://github.com/saghen/blink.cmp",
@@ -64,6 +68,10 @@
     "smear-cursor.nvim": {
       "rev": "9e9378d6ee34bb3782e0e8c63d9ec8ca618b479b",
       "src": "https://github.com/sphamba/smear-cursor.nvim"
+    },
+    "supermaven-nvim": {
+      "rev": "07d20fce48a5629686aefb0a7cd4b25e33947d50",
+      "src": "https://github.com/supermaven-inc/supermaven-nvim"
     },
     "tokyonight.nvim": {
       "rev": "cdc07ac78467a233fd62c493de29a17e0cf2b2b6",
