@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791393138464,
+  "lastUpdate": 1791471671348,
   "repoUrl": "https://github.com/loctvl842/BeastVim",
   "entries": {
     "BeastVim Startup": [
@@ -2549,6 +2549,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "BeastVim startup (warm) max",
             "value": 593.6067,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "committer": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "distinct": true,
+          "id": "a1bd9d740ce9d93928cfda59b89d87882d0b506b",
+          "message": "feat(statusline): add blink source status component",
+          "timestamp": "2026-10-08T21:50:52+07:00",
+          "tree_id": "c3b9c0a6c27f00f81c45663be0627811780fff72",
+          "url": "https://github.com/loctvl842/BeastVim/commit/a1bd9d740ce9d93928cfda59b89d87882d0b506b"
+        },
+        "date": 1791471669922,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "BeastVim startup (warm) mean",
+            "value": 392.41046335,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) stddev",
+            "value": 56.630269140160216,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) min",
+            "value": 338.485401,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) max",
+            "value": 578.2070110000001,
             "unit": "ms"
           }
         ]
