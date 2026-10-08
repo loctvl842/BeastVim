@@ -121,7 +121,7 @@ function M.get()
 		FoldColumn = { fg = p.dimmed1, bg = p.background },
 
 		NormalFloat = { bg = p.dimmed5, fg = p.dimmed2 },
-		FloatBorder = { fg = p.dimmed5, bg = p.dimmed5 },
+    FloatBorder = { fg = p.dimmed1, bg = p.background },
 		WinSeparator = { fg = Util.colors.blend(p.text, 0.4, p.background) },
 
 		-- Editor chrome — mirrors monokai-pro.nvim `groups/editor.lua`
