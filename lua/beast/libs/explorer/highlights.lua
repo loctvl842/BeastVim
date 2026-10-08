@@ -37,13 +37,13 @@ function M.get()
 		GitConflict = { fg = p.accent1, bold = true },
 		GitDeleted = { fg = p.accent1 },
 		GitDeletedStaged = { fg = Util.colors.blend(p.accent1, 0.7, Util.colors.darken(p.dark1, 5)) },
-		GitModified = { fg = p.accent2 },
-		GitModifiedStaged = { fg = Util.colors.blend(p.accent2, 0.7, Util.colors.darken(p.dark1, 5)) },
-		GitAdded = { fg = p.accent3 },
-		GitAddedStaged = { fg = Util.colors.blend(p.accent3, 0.7, Util.colors.darken(p.dark1, 5)) },
+		GitModified = { fg = p.accent3 },
+		GitModifiedStaged = { fg = Util.colors.blend(p.accent3, 0.7, Util.colors.darken(p.dark1, 5)) },
+		GitAdded = { fg = p.accent4 },
+		GitAddedStaged = { fg = Util.colors.blend(p.accent4, 0.7, Util.colors.darken(p.dark1, 5)) },
 		GitRenamed = { fg = p.accent5 },
 		GitRenamedStaged = { fg = Util.colors.blend(p.accent5, 0.7, Util.colors.darken(p.dark1, 5)) },
-		GitUntracked = { fg = p.accent3 },
+		GitUntracked = { fg = p.dimmed1 },
 		GitIgnored = { fg = p.dimmed4 },
 
 		-- Sticky ancestor headers (float overlay)
