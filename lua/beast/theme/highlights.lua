@@ -31,7 +31,9 @@
 local M = {}
 
 function M.get()
-  if Theme.kind() == "plugin" then return end
+	if Theme.kind() == "plugin" then
+		return
+	end
 	local p = Theme.get()
 	local blend = Util.colors.blend
 	local line_bg = blend(p.text, 0.05, p.background)
@@ -121,7 +123,7 @@ function M.get()
 		FoldColumn = { fg = p.dimmed1, bg = p.background },
 
 		NormalFloat = { bg = p.dimmed5, fg = p.dimmed2 },
-    FloatBorder = { fg = p.dimmed1, bg = p.background },
+		FloatBorder = { fg = p.dimmed5, bg = p.dimmed5 },
 		WinSeparator = { fg = Util.colors.blend(p.text, 0.4, p.background) },
 
 		-- Editor chrome — mirrors monokai-pro.nvim `groups/editor.lua`
