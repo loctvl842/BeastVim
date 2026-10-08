@@ -55,6 +55,7 @@
 
 local M = {}
 
+M.blink = require("beast.libs.statusline.components.blink")
 M.diagnostics = require("beast.libs.statusline.components.diagnostics")
 M.encoding = require("beast.libs.statusline.components.encoding")
 M.filetype = require("beast.libs.statusline.components.filetype")
