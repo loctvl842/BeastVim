@@ -126,8 +126,10 @@ end
 --- Start treesitter highlighting (and optionally folding) for a buffer.
 ---@param buf number
 start_buf = function(buf)
+	-- `:e` re-fires FileType on the same buffer and tears down the highlighter,
+	-- so `started` alone is not proof that highlighting is still attached.
 	-- stylua: ignore
-	if started[buf] then return end
+	if started[buf] and (not config.highlight.enable or vim.treesitter.highlighter.active[buf]) then return end
 	-- stylua: ignore
 	if not vim.api.nvim_buf_is_valid(buf) then return end
 
