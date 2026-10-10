@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1791471671348,
+  "lastUpdate": 1791614901444,
   "repoUrl": "https://github.com/loctvl842/BeastVim",
   "entries": {
     "BeastVim Startup": [
@@ -2593,6 +2593,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "BeastVim startup (warm) max",
             "value": 578.2070110000001,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "committer": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "distinct": true,
+          "id": "67ce5a1aebb53a9f71a8ecf764d6fcf3e25f191c",
+          "message": "fix(treesitter): restart highlighter after :e re-fires FileType",
+          "timestamp": "2026-10-10T13:47:00+07:00",
+          "tree_id": "4cca935b1e6231454603eb0a2bbcb8ffa8937701",
+          "url": "https://github.com/loctvl842/BeastVim/commit/67ce5a1aebb53a9f71a8ecf764d6fcf3e25f191c"
+        },
+        "date": 1791614900452,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "BeastVim startup (warm) mean",
+            "value": 399.9099019,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) stddev",
+            "value": 59.37756094203236,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) min",
+            "value": 346.11156400000004,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) max",
+            "value": 524.6478079999999,
             "unit": "ms"
           }
         ]
