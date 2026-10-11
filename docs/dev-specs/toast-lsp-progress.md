@@ -41,7 +41,7 @@ Add a small progress adapter under `lua/beast/libs/toast/` and expose two public
 # Architecture Changes
 
 - `lua/beast/libs/toast/init.lua` — public `update(record)` / `dismiss_id(id)` helpers and progress setup hook.
-- `lua/beast/libs/toast/progress.lua` — `LspProgress` autocmd, token tracking, throttled rerender, completion linger.
+- `lua/beast/libs/toast/progress.lua` — `LspProgress` autocmd, one toast per client (not per token). Repeats of the same message are counted silently and repainted as `message (n)` at most once per `show_delay` window, so servers that open a token per edit (basedpyright) produce one toast, not a pile. Throttled rerender, quiet-window ✔ frame, completion linger that a new event continues.
 - `lua/beast/libs/toast/stack.lua` — in-place update path.
 - `lua/beast/libs/toast/ui.lua` — refresh toast width when progress text changes.
 - `lua/beast/libs/toast/config.lua` — progress config block.

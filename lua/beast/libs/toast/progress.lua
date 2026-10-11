@@ -1,13 +1,20 @@
 -- LSP progress → toast adapter.
 --
--- Subscribes to the LspProgress autocmd (Neovim 0.10+), coalesces events per
--- (client_id, token) into a single sticky toast, and re-renders all active
--- tokens on a throttled vim.uv timer. Each progress event mutates the
--- cached Record; the timer calls toast.update(record) to repaint.
+-- Subscribes to the LspProgress autocmd (Neovim 0.10+) and shows ONE toast per
+-- LSP client, not per token. Servers like basedpyright open a brand new token
+-- for every tiny analysis pass (begin("") -> report("1 file to analyze") ->
+-- done, all within tens of ms), so a toast per token would flash and stack.
 --
--- One token = one toast. Spinner is time-derived (no per-token state).
--- On kind=="end", the toast renders a final ✔ frame and dismisses after
--- config.progress.done_linger ms.
+--   * The first message of a burst creates the toast immediately.
+--   * Repeats of the same message are only counted; the toast is repainted at
+--     most once per config.progress.show_delay window, as "<message> (n)".
+--     Percentage tokens (lua_ls) are never counted.
+--   * Once no token is active and no event arrived for a full window, the
+--     toast renders a final ✔ frame and dismisses after config.progress.done_linger
+--     ms. A new event during that linger continues the same toast and count.
+--
+-- Repaints run on a throttled vim.uv timer. The spinner is time-derived (no
+-- per-client state).
 --
 -- Loosely coupled: only uses the public toast API (toast(), toast.update,
 -- toast.dismiss_id) — never touches stack/state/ui directly.
@@ -17,17 +24,27 @@ local toast = require("beast.libs.toast")
 
 local M = {}
 
----@class Beast.Toast.Progress.Entry
----@field record Beast.Toast.Record
----@field client_id integer
----@field client_name string
+---@class Beast.Toast.Progress.Frame
 ---@field title string
 ---@field message string
 ---@field percentage? integer
----@field kind string                "begin" | "report" | "end"
+---@field count integer          consecutive occurrences of `message`
+---@field done? boolean          final ✔ frame
 
----@type table<string, Beast.Toast.Progress.Entry>
-local tokens = {}
+---@class Beast.Toast.Progress.Client
+---@field id integer
+---@field name string
+---@field tokens table<string, true>     active token keys
+---@field last? Beast.Toast.Progress.Frame  latest content, counted silently
+---@field disp? Beast.Toast.Progress.Frame  what is currently painted
+---@field record? Beast.Toast.Record
+---@field done boolean                   true while the final frame lingers
+---@field last_event number              hrtime ms of the last event
+---@field next_paint number              hrtime ms before which content is not repainted
+---@field dismiss_gen integer            bumped to cancel a pending linger dismiss
+
+---@type table<integer, Beast.Toast.Progress.Client>
+local clients = {}
 
 ---@type uv.uv_timer_t|nil
 local timer = nil
@@ -37,66 +54,63 @@ local timer_running = false
 -- HELPERS
 -- =============================================================================
 
+---@return number
+local function now_ms()
+	return vim.uv.hrtime() / 1e6
+end
+
 ---Time-derived spinner frame. No per-entry state.
 ---@return string
 local function spinner()
 	local frames = config.progress.spinner
 	local interval = config.progress.spinner_interval
-	local ms = math.floor(vim.uv.hrtime() / 1e6)
-	local idx = math.floor(ms / interval) % #frames + 1
+	local idx = math.floor(now_ms() / interval) % #frames + 1
 	return frames[idx]
 end
 
----Build the segment list for an entry. The plain-text message is derived
----from the segments via table.concat so the two can never drift.
+---Build the segment list for a frame. The plain-text message is derived
+---from the segments via table.concat so the two can never drift. The title
+---segment is omitted when empty (basedpyright sends `begin("")`); the toast
+---itself already carries the client name.
 ---Shapes:
 ---  with percentage: "<title>  ⠹  [████░░░░░░░░░░░░░░░░] 42%  <message>"
----  no percentage:   "<title>  ⠹  <message>"
----  done:            "<title>  ✔  <message>"
----@param entry Beast.Toast.Progress.Entry
+---  no percentage:   "<title>  ⠹  <message> (n)"      ((n) only when n > 1)
+---  done:            "<title>  ✔  <message or 'done'> (n)"
+---@param frame Beast.Toast.Progress.Frame
 ---@return string text
 ---@return Beast.Toast.Fragment[] segments
-local function format_line(entry)
-	local title = entry.title or ""
-	local msg = entry.message or ""
-	local segs
+local function format_line(frame)
+	local msg = frame.message or ""
+	local segs = {}
 
-	if entry.kind == "end" then
-		segs = {
-			{ text = title, hl = "BeastToastProgressTitle" },
-			{ text = "  " },
-			{ text = "✔", hl = "BeastToastProgressDone" },
-			{ text = "  " },
-			{ text = msg ~= "" and msg or "done", hl = "BeastToastProgressMessage" },
-		}
+	if frame.title ~= "" then
+		segs[#segs + 1] = { text = frame.title, hl = "BeastToastProgressTitle" }
+		segs[#segs + 1] = { text = "  " }
+	end
+
+	if frame.done then
+		segs[#segs + 1] = { text = "✔", hl = "BeastToastProgressDone" }
+		segs[#segs + 1] = { text = "  " }
+		segs[#segs + 1] = { text = msg ~= "" and msg or "done", hl = "BeastToastProgressMessage" }
 	else
-		local spin = spinner()
-		if entry.percentage ~= nil then
+		segs[#segs + 1] = { text = spinner(), hl = "BeastToastProgressSpinner" }
+		segs[#segs + 1] = { text = "  " }
+		if frame.percentage ~= nil then
 			local width = config.progress.bar_width
-			local pct = math.max(0, math.min(100, entry.percentage))
-			local done = math.floor(pct / 100 * width + 0.5)
-			segs = {
-				{ text = title, hl = "BeastToastProgressTitle" },
-				{ text = "  " },
-				{ text = spin, hl = "BeastToastProgressSpinner" },
-				{ text = "  " },
-				{ text = "[", hl = "BeastToastProgressBracket" },
-				{ text = string.rep("█", done), hl = "BeastToastProgressBarDone" },
-				{ text = string.rep("░", width - done), hl = "BeastToastProgressBarTodo" },
-				{ text = "] ", hl = "BeastToastProgressBracket" },
-				{ text = ("%d%%"):format(pct), hl = "BeastToastProgressPercent" },
-				{ text = "  " },
-				{ text = msg, hl = "BeastToastProgressMessage" },
-			}
-		else
-			segs = {
-				{ text = title, hl = "BeastToastProgressTitle" },
-				{ text = "  " },
-				{ text = spin, hl = "BeastToastProgressSpinner" },
-				{ text = "  " },
-				{ text = msg, hl = "BeastToastProgressMessage" },
-			}
+			local pct = math.max(0, math.min(100, frame.percentage))
+			local filled = math.floor(pct / 100 * width + 0.5)
+			segs[#segs + 1] = { text = "[", hl = "BeastToastProgressBracket" }
+			segs[#segs + 1] = { text = string.rep("█", filled), hl = "BeastToastProgressBarDone" }
+			segs[#segs + 1] = { text = string.rep("░", width - filled), hl = "BeastToastProgressBarTodo" }
+			segs[#segs + 1] = { text = "] ", hl = "BeastToastProgressBracket" }
+			segs[#segs + 1] = { text = ("%d%%"):format(pct), hl = "BeastToastProgressPercent" }
+			segs[#segs + 1] = { text = "  " }
 		end
+		segs[#segs + 1] = { text = msg, hl = "BeastToastProgressMessage" }
+	end
+
+	if frame.count > 1 and frame.percentage == nil then
+		segs[#segs + 1] = { text = (" (%d)"):format(frame.count), hl = "BeastToastProgressCount" }
 	end
 
 	local parts = {}
@@ -106,6 +120,47 @@ local function format_line(entry)
 	return table.concat(parts), segs
 end
 
+---Repaint a client's toast from `disp`. No-op until the toast exists.
+---@param c Beast.Toast.Progress.Client
+local function paint(c)
+	if not (c.record and c.disp) then
+		return
+	end
+	local text, segs = format_line(c.disp)
+	c.record.message = text
+	c.record.segments = segs
+	toast.update(c.record)
+end
+
+---Copy `last` into `disp` (what is on screen) and open the next count window.
+---@param c Beast.Toast.Progress.Client
+---@param done? boolean
+local function flush(c, done)
+	c.disp = vim.tbl_extend("force", c.last, { done = done or false })
+	c.next_paint = now_ms() + config.progress.show_delay
+	paint(c)
+end
+
+---Create the client's toast right away (leading edge) once it has content.
+---@param c Beast.Toast.Progress.Client
+local function show(c)
+	if c.record or not c.last then
+		return
+	end
+	c.disp = vim.tbl_extend("force", c.last, { done = false })
+	local text, segs = format_line(c.disp)
+	local record = toast(text, "INFO", {
+		title = c.name,
+		timeout = false,
+		segments = segs,
+	})
+	-- toast() returns {} when filtered by level; stay unshown.
+	if record and record.id then
+		c.record = record
+		c.next_paint = now_ms() + config.progress.show_delay
+	end
+end
+
 -- =============================================================================
 -- EVENT HANDLING
 -- =============================================================================
@@ -113,7 +168,51 @@ end
 ---Forward declaration: defined after `tick` below.
 local ensure_timer
 
----Merge an LSP progress event into an entry. Creates the toast on first event.
+---Fold an event's content into `last`. Same message as before (and no
+---percentage) only bumps the count; anything else starts a new count at 1.
+---Events with no title, message or percentage (basedpyright's `begin("")`)
+---carry nothing to show and are ignored.
+---@param c Beast.Toast.Progress.Client
+---@param value lsp.WorkDoneProgressBegin|lsp.WorkDoneProgressReport
+local function merge(c, value)
+	local msg = value.message or ""
+	local title = value.title or ""
+	if msg == "" and title == "" and value.percentage == nil then
+		return
+	end
+
+	local l = c.last
+	if l and msg ~= "" and l.message == msg and value.percentage == nil and l.percentage == nil then
+		l.count = l.count + 1
+		return
+	end
+	c.last = {
+		title = title ~= "" and title or (l and l.title or ""),
+		message = msg ~= "" and msg or (l and l.message or ""),
+		percentage = value.percentage ~= nil and value.percentage or (l and l.percentage),
+		count = 1,
+	}
+end
+
+---Mark the final frame and dismiss the toast after done_linger.
+---@param c Beast.Toast.Progress.Client
+local function finish(c)
+	c.done = true
+	flush(c, true)
+	local gen = c.dismiss_gen
+	vim.defer_fn(function()
+		-- A new event during the linger bumped dismiss_gen: keep the toast.
+		if c.dismiss_gen ~= gen or not c.done then
+			return
+		end
+		toast.dismiss_id(c.record.id)
+		if clients[c.id] == c then
+			clients[c.id] = nil
+		end
+	end, config.progress.done_linger)
+end
+
+---Merge an LSP progress event into its client's state.
 ---@param client_id integer
 ---@param params lsp.ProgressParams
 local function on_event(client_id, params)
@@ -121,68 +220,42 @@ local function on_event(client_id, params)
 		return
 	end
 
-	local id = client_id .. "." .. tostring(params.token)
-	local entry = tokens[id]
 	local value = params.value
+	local key = tostring(params.token)
+	local c = clients[client_id]
 
-	if not entry then
+	if not c then
 		local client = vim.lsp.get_client_by_id(client_id)
 		-- The autocmd can outlive the client briefly; bail rather than guess a name.
 		if not client then
 			return
 		end
-		entry = {
-			client_id = client_id,
-			client_name = client.name,
-			title = value.title or "",
-			message = value.message or "",
-			percentage = value.percentage,
-			kind = value.kind or "begin",
+		c = {
+			id = client_id,
+			name = client.name,
+			tokens = {},
+			done = false,
+			last_event = 0,
+			next_paint = 0,
+			dismiss_gen = 0,
 		}
-		local text, segs = format_line(entry)
-		local record = toast(text, "INFO", {
-			title = entry.client_name,
-			timeout = false,
-			segments = segs,
-		})
-		-- toast() returns {} when filtered by level; bail without registering.
-		if not record or not record.id then
-			return
-		end
-		entry.record = record
-		tokens[id] = entry
+		clients[client_id] = c
+	end
+
+	c.last_event = now_ms()
+
+	if value.kind == "end" then
+		c.tokens[key] = nil
 	else
-		entry.title = value.title or entry.title
-		entry.message = value.message or entry.message
-		if value.percentage ~= nil then
-			entry.percentage = value.percentage
+		c.tokens[key] = true
+		merge(c, value)
+		-- New work cancels a pending linger dismiss and continues the same toast.
+		if c.done then
+			c.next_paint = 0 -- leave the ✔ frame on the next tick
 		end
-		entry.kind = value.kind or entry.kind
-	end
-
-	if entry.kind == "end" and entry.percentage ~= nil then
-		entry.percentage = 100
-	end
-
-	-- Repaint immediately so the begin/end frame is visible even if the timer
-	-- has not yet fired (or is about to stop).
-	local text, segs = format_line(entry)
-	entry.record.message = text
-	entry.record.segments = segs
-	toast.update(entry.record)
-
-	if entry.kind == "end" then
-		local stale_id = entry.record.id
-		vim.defer_fn(function()
-			-- Guard against same-token reuse: if a fresh `begin` arrived for this id
-			-- within done_linger, kind will have flipped back — don't dismiss.
-			local cur = tokens[id]
-			if cur and cur.record.id == stale_id and cur.kind == "end" then
-				toast.dismiss_id(stale_id)
-				tokens[id] = nil
-			end
-		end, config.progress.done_linger)
-		return
+		c.done = false
+		c.dismiss_gen = c.dismiss_gen + 1
+		show(c)
 	end
 
 	ensure_timer()
@@ -192,28 +265,46 @@ end
 -- TIMER LOOP
 -- =============================================================================
 
----Throttled frame: re-renders every active (non-end) token.
+---Throttled frame, per client:
+---  * promote to the final ✔ frame after a full quiet window with no token
+---  * repaint changed content at most once per window
+---  * keep the spinner moving while a token is active
 local function tick()
-	if vim.tbl_isempty(tokens) then
+	local active = false
+	local now = now_ms()
+	local window = config.progress.show_delay
+
+	for id, c in pairs(clients) do
+		if not vim.lsp.get_client_by_id(c.id) then
+			if c.record then
+				toast.dismiss_id(c.record.id)
+			end
+			c.dismiss_gen = c.dismiss_gen + 1
+			clients[id] = nil
+		elseif not c.record then
+			-- Nothing worth showing (e.g. only empty begin/end): forget it.
+			if next(c.tokens) == nil then
+				clients[id] = nil
+			else
+				active = true
+			end
+		elseif not c.done then
+			active = true
+			if next(c.tokens) == nil and now - c.last_event >= window then
+				finish(c)
+			elseif now >= c.next_paint and not vim.deep_equal(c.disp, vim.tbl_extend("force", c.last, { done = false })) then
+				flush(c)
+			elseif next(c.tokens) ~= nil then
+				paint(c)
+			end
+		end
+	end
+
+	if not active then
 		if timer then
 			timer:stop()
 		end
 		timer_running = false
-		return
-	end
-
-	for id, entry in pairs(tokens) do
-		if entry.kind ~= "end" then
-			if not vim.lsp.get_client_by_id(entry.client_id) then
-				toast.dismiss_id(entry.record.id)
-				tokens[id] = nil
-			else
-				local text, segs = format_line(entry)
-				entry.record.message = text
-				entry.record.segments = segs
-				toast.update(entry.record)
-			end
-		end
 	end
 end
 
@@ -254,6 +345,6 @@ function M.setup()
 end
 
 -- Exposed for tests.
-M._tokens = tokens
+M._clients = clients
 
 return M

@@ -22,6 +22,7 @@ local defaults = {
 	progress = {
 		enabled = true,
 		throttle = 100,
+		show_delay = 300, -- repaint/count window (ms): repeats are counted, text repaints at most once per window
 		done_linger = 1000,
 		bar_width = 20,
 		spinner = { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" },
