@@ -54,7 +54,7 @@
       "src": "https://github.com/nvim-tree/nvim-web-devicons"
     },
     "python": {
-      "rev": "978ea9ecaaf485247a934a804805a90f4b19bb0e",
+      "rev": "821a66c6a0d5fdc562e9fd64ad05aa8146b46a69",
       "src": "https://github.com/BeastVim/python"
     },
     "render-markdown": {
