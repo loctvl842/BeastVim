@@ -94,6 +94,8 @@ function M.setup(opts)
 	-- vim.ui.input above.
 	require("beast.libs.select").setup()
 
+	require("beast.libs.confirm").setup()
+
 	-- Statusline (declarative components, native %! evaluation)
 	packer.lazy("beast.libs.statusline", {
 		event = { name = "VimEnter", defer = true },

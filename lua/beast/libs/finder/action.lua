@@ -38,7 +38,11 @@ function M.open_file(win, item)
 	if win and vim.api.nvim_win_is_valid(win) then
 		vim.api.nvim_set_current_win(win)
 	end
-	vim.cmd("edit " .. vim.fn.fnameescape(item.file))
+	-- `:edit` on the buffer already shown means "reload from disk": with unsaved
+	-- changes that fails (E37) or, with 'confirm', pops the native save prompt.
+	if vim.fn.fnamemodify(item.file, ":p") ~= vim.api.nvim_buf_get_name(0) then
+		vim.cmd("edit " .. vim.fn.fnameescape(item.file))
+	end
 
 	if item.pos then
 		pcall(vim.api.nvim_win_set_cursor, 0, { math.max(1, item.pos[1]), item.pos[2] or 0 })
