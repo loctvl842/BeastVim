@@ -7,6 +7,20 @@ local M = {}
 
 local IDE_NAME = "Neovim"
 
+--- The name `/ide` shows. Several instances can share a folder, so each one
+--- carries its start time and pid; `:Review status` prints the same string.
+---@return string
+function M.name()
+	return ("%s (%s, pid %d)"):format(IDE_NAME, os.date("%H:%M:%S"), uv.os_getpid())
+end
+
+--- Names this lib writes: the bare legacy name or the labelled form.
+---@param name any
+---@return boolean
+local function is_ours(name)
+	return type(name) == "string" and (name == IDE_NAME or name:find("^" .. IDE_NAME .. " %(") ~= nil)
+end
+
 ---@return string
 function M.dir()
 	local base = vim.env.CLAUDE_CONFIG_DIR
@@ -39,8 +53,9 @@ end
 ---@param port integer
 ---@param token string
 ---@param workspace_folders string[]
+---@param name string  display name, see M.name()
 ---@return string? path, string? err
-function M.write(port, token, workspace_folders)
+function M.write(port, token, workspace_folders, name)
 	local dir = M.dir()
 	local made, merr = pcall(vim.fn.mkdir, dir, "p", tonumber("700", 8))
 	if not made then
@@ -58,7 +73,7 @@ function M.write(port, token, workspace_folders)
 	local body = vim.json.encode({
 		pid = uv.os_getpid(),
 		workspaceFolders = workspace_folders,
-		ideName = IDE_NAME,
+		ideName = name,
 		transport = "ws",
 		authToken = token,
 	})
@@ -84,7 +99,7 @@ function M.remove(path)
 end
 
 --- Remove lock files left behind by crashed Neovim instances. Only files this
---- lib could have written (ideName == "Neovim") whose process is gone are
+--- lib could have written (ideName "Neovim" or "Neovim (...)") whose process is gone are
 --- touched; another IDE's lock file is never deleted.
 function M.cleanup_stale()
 	local dir = M.dir()
@@ -95,7 +110,7 @@ function M.cleanup_stale()
 			f:close()
 		end
 		local ok, data = pcall(vim.json.decode, body or "")
-		if ok and type(data) == "table" and data.ideName == IDE_NAME and type(data.pid) == "number" then
+		if ok and type(data) == "table" and is_ours(data.ideName) and type(data.pid) == "number" then
 			-- Signal 0 probes existence without delivering anything. Only ESRCH
 			-- means "gone"; EPERM means a live process we may not signal.
 			local alive, _, code = uv.kill(data.pid, 0)

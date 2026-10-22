@@ -11,6 +11,7 @@ M.meta = { name = "review", description = "Review proposed file changes inline, 
 ---@class Beast.Review.Host
 ---@field listener Beast.Review.Listener
 ---@field lock_path string
+---@field name string               what `/ide` lists this instance as
 ---@field clients integer           open WebSocket sessions
 ---@field last_message_ns? integer  hrtime of the newest inbound message
 ---@field last_refused? { reason: string, at_ns: integer }  newest failed handshake
@@ -83,14 +84,15 @@ function M.start()
 		return false
 	end
 
-	local path, lerr = lockfile.write(listener.port, token, { vim.fn.getcwd() })
+	local name = lockfile.name()
+	local path, lerr = lockfile.write(listener.port, token, { vim.fn.getcwd() }, name)
 	if not path then
 		listener:close()
 		notify("cannot write lock file: " .. tostring(lerr), vim.log.levels.ERROR)
 		return false
 	end
 
-	h.listener, h.lock_path = listener, path
+	h.listener, h.lock_path, h.name = listener, path, name
 	host = h
 	return true
 end
@@ -107,6 +109,7 @@ end
 
 ---@class Beast.Review.Status
 ---@field running boolean
+---@field name? string
 ---@field port? integer
 ---@field clients integer
 ---@field last_message_ago_s? number
@@ -120,6 +123,7 @@ function M.status()
 	end
 	return {
 		running = true,
+		name = host.name,
 		port = host.listener.port,
 		clients = host.clients,
 		last_message_ago_s = host.last_message_ns and (uv.hrtime() - host.last_message_ns) / 1e9 or nil,
@@ -141,6 +145,7 @@ local function status_lines()
 	local sessions = ("connected (%d session%s)"):format(s.clients, s.clients == 1 and "" or "s")
 	local lines = {
 		("Review: running on 127.0.0.1:%d"):format(s.port),
+		("Listed in /ide as: %s"):format(s.name),
 		("Claude Code: %s"):format(s.clients > 0 and sessions or "not connected"),
 		("Last message: %s"):format(last),
 	}

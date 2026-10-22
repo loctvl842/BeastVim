@@ -85,6 +85,7 @@ do
 	write_lock("1.lock", { pid = dead, ideName = "Neovim", transport = "ws", authToken = "x", workspaceFolders = {} })
 	write_lock("2.lock", { pid = dead, ideName = "VS Code", transport = "ws", authToken = "x", workspaceFolders = {} })
 	write_lock("3.lock", { pid = uv.os_getpid(), ideName = "Neovim", transport = "ws", authToken = "x", workspaceFolders = {} })
+	write_lock("6.lock", { pid = dead, ideName = "Neovim (09:00:00, pid 1)", transport = "ws", authToken = "x", workspaceFolders = {} })
 	write_lock("4.lock", { pid = 1, ideName = "Neovim", transport = "ws", authToken = "x", workspaceFolders = {} }) -- alive, not ours to signal
 	vim.fn.writefile({ "not json" }, lock_dir .. "/5.lock")
 end
@@ -96,6 +97,7 @@ local lock_path = status.lock_path
 print("== stale lock cleanup (result) ==")
 do
 	assert_test("dead Neovim lock removed", not exists(lock_dir .. "/1.lock"))
+	assert_test("dead labelled Neovim lock removed", not exists(lock_dir .. "/6.lock"))
 	assert_test("other IDE's lock kept", exists(lock_dir .. "/2.lock"))
 	assert_test("live Neovim lock kept", exists(lock_dir .. "/3.lock"))
 	assert_test("lock of a process we cannot signal kept", exists(lock_dir .. "/4.lock"))
@@ -108,7 +110,11 @@ do
 	assert_eq("lives under CLAUDE_CONFIG_DIR/ide/<port>.lock", lock_path, ("%s/%d.lock"):format(lock_dir, status.port))
 	lock = vim.json.decode(read(lock_path))
 	assert_eq("pid", lock.pid, uv.os_getpid())
-	assert_eq("ideName", lock.ideName, "Neovim")
+	assert_test(
+		"ideName carries start time and pid",
+		lock.ideName == ("Neovim (%s, pid %d)"):format(lock.ideName:match("(%d%d:%d%d:%d%d)") or "?", uv.os_getpid())
+	)
+	assert_eq("status shows the same name /ide lists", status.name, lock.ideName)
 	assert_eq("transport", lock.transport, "ws")
 	assert_eq("workspaceFolders", lock.workspaceFolders, { vim.fn.getcwd() })
 	assert_test(

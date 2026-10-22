@@ -821,7 +821,7 @@ review/
     ├── jsonrpc.lua    ← JSON-RPC envelope, deferred replies, cancel-on-disconnect
     ├── mcp.lua        ← MCP method table (initialize, tools/list, tools/call, ...)
     ├── tools.lua      ← openDiff, closeAllDiffTabs, close_tab, getOpenEditors, getWorkspaceFolders, openFile
-    └── lockfile.lua   ← ~/.claude/ide/<port>.lock (0600), token, stale cleanup
+    └── lockfile.lua   ← ~/.claude/ide/<port>.lock (0600), token, stale cleanup, name() = "Neovim (HH:MM:SS, pid N)" so /ide can tell instances apart
 ```
 
 API: `propose(path, contents, on_done)` returns a cancel function. `on_done(outcome, stats)`
