@@ -22,6 +22,7 @@ M.reload_highlights = hl.reload_highlights
 ---@field autopairs? Beast.Autopairs.Config
 ---@field lsp? Beast.Lsp.Config
 ---@field visibility? Beast.Visibility.Config
+---@field review? Beast.Review.Config
 local defaults = {}
 
 ---@param opts? Beast.Config
@@ -130,6 +131,20 @@ function M.setup(opts)
 			breadcrumb.setup(cfg.breadcrumb or {})
 		end,
 	})
+
+	-- Review (inline diff review of changes proposed by Claude Code). Always
+	-- reachable through :Review; the IDE server only starts when opted in via
+	-- `review = { enabled = true }`.
+	local review_spec = {
+		cmd = "Review",
+		setup = function(review)
+			review.setup(cfg.review or {})
+		end,
+	}
+	if cfg.review and cfg.review.enabled then
+		review_spec.event = { name = "VimEnter", defer = true }
+	end
+	packer.lazy("beast.libs.review", review_spec)
 
 	-- Session (auto-save/restore per project dir + git branch)
 	packer.lazy("beast.libs.session", {

@@ -13,6 +13,7 @@ M.meta = { name = "review", description = "Review proposed file changes inline, 
 ---@field lock_path string
 ---@field clients integer           open WebSocket sessions
 ---@field last_message_ns? integer  hrtime of the newest inbound message
+---@field last_refused? { reason: string, at_ns: integer }  newest failed handshake
 
 ---@type Beast.Review.Host?
 local host
@@ -73,6 +74,9 @@ function M.start()
 			h.clients = h.clients - 1
 			jsonrpc.client_closed(client)
 		end,
+		on_reject = function(reason)
+			h.last_refused = { reason = reason, at_ns = uv.hrtime() }
+		end,
 	})
 	if not listener then
 		notify("cannot start: " .. tostring(err), vim.log.levels.ERROR)
@@ -106,6 +110,7 @@ end
 ---@field port? integer
 ---@field clients integer
 ---@field last_message_ago_s? number
+---@field last_refused? { reason: string, ago_s: number }
 ---@field lock_path? string
 
 ---@return Beast.Review.Status
@@ -118,6 +123,10 @@ function M.status()
 		port = host.listener.port,
 		clients = host.clients,
 		last_message_ago_s = host.last_message_ns and (uv.hrtime() - host.last_message_ns) / 1e9 or nil,
+		last_refused = host.last_refused and {
+			reason = host.last_refused.reason,
+			ago_s = (uv.hrtime() - host.last_refused.at_ns) / 1e9,
+		} or nil,
 		lock_path = host.lock_path,
 	}
 end
@@ -130,12 +139,16 @@ local function status_lines()
 	end
 	local last = s.last_message_ago_s and ("%.0fs ago"):format(s.last_message_ago_s) or "never"
 	local sessions = ("connected (%d session%s)"):format(s.clients, s.clients == 1 and "" or "s")
-	return {
+	local lines = {
 		("Review: running on 127.0.0.1:%d"):format(s.port),
 		("Claude Code: %s"):format(s.clients > 0 and sessions or "not connected"),
 		("Last message: %s"):format(last),
-		("Lock file: %s"):format(s.lock_path),
 	}
+	if s.last_refused then
+		lines[#lines + 1] = ("Last refused connection: %s (%.0fs ago)"):format(s.last_refused.reason, s.last_refused.ago_s)
+	end
+	lines[#lines + 1] = ("Lock file: %s"):format(s.lock_path)
+	return lines
 end
 
 local subcommands = {

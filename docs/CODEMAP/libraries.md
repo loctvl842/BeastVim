@@ -798,3 +798,50 @@ Loaded via: `packer.lazy()` on `WinNew` + `<leader>z` / `<leader>z=` keys (defer
 
 Ports the layout core from `anuvyklack/windows.nvim`, dropping `middleclass` and
 `animation.nvim` deps. Animation reuses the shared `beast.libs.animate.tween` primitive.
+
+---
+
+## review — Inline Review of Changes Proposed by Claude Code
+
+```
+review/
+├── init.lua        ← propose(path, contents, on_done) -> cancel, start/stop/status, :Review, setup()
+├── config.lua      ← enabled, focus, keys (accept/reject/accept_all/reject_all/next/prev)
+├── highlights.lua  ← BeastReviewCurrent / Incoming / Label
+├── hunks.lua       ← pure: split(text), compute(old, new) -> {row, old_count, old, new}[]
+├── render.lua      ← display-only extmark bands (red Current, green Incoming virt_lines); locate() reads positions back from extmarks
+├── session.lua     ← one review of one buffer: per-hunk decide, save-on-finish, per-buffer queue, cancel handles
+├── keymaps.lua     ← buffer-local keys while a review is pending; restores shadowed maps
+├── health.lua
+└── server/         ← loopback WebSocket + MCP server for Claude Code's IDE protocol
+    ├── init.lua       ← start(opts) -> listener (defaults, assert token)
+    ├── tcp.lua        ← 127.0.0.1 listener, per-connection state machine, handshake timeout
+    ├── handshake.lua  ← HTTP upgrade, token check first, Sec-WebSocket-Protocol negotiation
+    ├── frame.lua      ← RFC 6455 framing (masking, 7/16/64-bit lengths, payload cap)
+    ├── sha1.lua       ← SHA-1 on LuaJIT `bit` (Neovim has none)
+    ├── jsonrpc.lua    ← JSON-RPC envelope, deferred replies, cancel-on-disconnect
+    ├── mcp.lua        ← MCP method table (initialize, tools/list, tools/call, ...)
+    ├── tools.lua      ← openDiff, closeAllDiffTabs, close_tab, getOpenEditors, getWorkspaceFolders, openFile
+    └── lockfile.lua   ← ~/.claude/ide/<port>.lock (0600), token, stale cleanup
+```
+
+API: `propose(path, contents, on_done)` returns a cancel function. `on_done(outcome, stats)`
+fires once every hunk is decided: `"saved"` (>= 1 accepted, file written), `"rejected"`,
+`"cancelled"`, or `"error"`. Nothing is written to disk until a hunk is accepted, and the
+buffer never contains conflict markers (bands are extmarks only).
+
+Commands: `:Review start|stop|status|propose <file>`. `status` reports the port, connected
+sessions, last message, and the reason for the last refused connection.
+
+Claude Code flow: `/ide` lists editors by `~/.claude/ide/*.lock`; it connects with the lock
+file's token, then calls `openDiff` with the proposed file contents and waits. The reply is
+`FILE_SAVED` or `DIFF_REJECTED`. Claude Code does NOT reconnect to a restarted editor (new
+port): run `/ide` again after restarting Neovim.
+
+The IDE protocol is reverse-engineered (see `coder/claudecode.nvim` PROTOCOL.md), not
+official; every protocol-facing name lives in `server/mcp.lua` and `server/tools.lua`.
+Opt-in: `review = { enabled = true }` in the `setup()` opts starts the server at VimEnter;
+`:Review` always lazy-loads the lib.
+
+Tests: `tests/test-review-{hunks,session,ws,protocol}.lua` (shared fake client:
+`tests/review_ws_client.lua`).

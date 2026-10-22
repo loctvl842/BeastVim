@@ -67,9 +67,23 @@ do
 	assert_test("good request accepted", ok and resp:find("101 Switching Protocols", 1, true) ~= nil)
 	assert_test("response carries accept key", resp:find("s3pPLMBiTxaQ9kYGzzhZRbK+xOo=", 1, true) ~= nil)
 
-	ok, resp = handshake.respond(req({ ["x-claude-code-ide-authorization"] = "wrong" }), TOKEN)
+	assert_test("no subprotocol offered -> none answered", resp:find("Sec-WebSocket-Protocol", 1, true) == nil)
+	_, resp = handshake.respond(req({ ["sec-websocket-protocol"] = "mcp" }), TOKEN)
+	assert_test("offered mcp is echoed", resp:find("Sec-WebSocket-Protocol: mcp\r\n", 1, true) ~= nil)
+	_, resp = handshake.respond(req({ ["sec-websocket-protocol"] = "foo, mcp, bar" }), TOKEN)
+	assert_test("mcp preferred from a list", resp:find("Sec-WebSocket-Protocol: mcp\r\n", 1, true) ~= nil)
+	_, resp = handshake.respond(req({ ["sec-websocket-protocol"] = "foo, bar" }), TOKEN)
+	assert_test(
+		"otherwise exactly one offered protocol is chosen",
+		resp:find("Sec-WebSocket-Protocol: foo\r\n", 1, true) ~= nil and resp:find("bar", 1, true) == nil
+	)
+
+	local reason
+	ok, resp, reason = handshake.respond(req({ ["x-claude-code-ide-authorization"] = "wrong" }), TOKEN)
+	assert_eq("wrong token reason", reason, "wrong auth token")
 	assert_test("wrong token -> 401", not ok and resp:find("401", 1, true) ~= nil)
-	ok, resp = handshake.respond(req({ ["x-claude-code-ide-authorization"] = false }), TOKEN)
+	ok, resp, reason = handshake.respond(req({ ["x-claude-code-ide-authorization"] = false }), TOKEN)
+	assert_eq("missing token reason", reason, "missing auth token")
 	assert_test("missing token -> 401", not ok and resp:find("401", 1, true) ~= nil)
 	ok, resp = handshake.respond(req({ ["x-claude-code-ide-authorization"] = TOKEN .. "0" }), TOKEN)
 	assert_test("longer token -> 401", not ok and resp:find("401", 1, true) ~= nil)
@@ -131,7 +145,7 @@ local function open(port)
 	return ws.open(port, TOKEN)
 end
 
-local events = { open = 0, closed = 0, messages = {} }
+local events = { open = 0, closed = 0, messages = {}, rejected = {} }
 local srv, serr = server.start({
 	token = TOKEN,
 	max_payload = 100000,
@@ -145,6 +159,9 @@ local srv, serr = server.start({
 	end,
 	on_close = function()
 		events.closed = events.closed + 1
+	end,
+	on_reject = function(reason)
+		events.rejected[#events.rejected + 1] = reason
 	end,
 })
 assert(srv, serr)
@@ -176,6 +193,30 @@ do
 	assert_test("no token gets 401", c.data:find("401", 1, true) ~= nil)
 	c:close()
 	assert_eq("rejected peers never reach on_open", events.open, 0)
+	assert_eq(
+		"refusals are reported with a reason",
+		wait(function()
+			return #events.rejected == 2
+		end),
+		true
+	)
+	assert_eq("reasons", events.rejected, { "wrong auth token", "missing auth token" })
+
+	-- A client that offers a subprotocol gets one back on the wire.
+	c = connect(srv.port)
+	c:write(upgrade_request(TOKEN, { "Sec-WebSocket-Protocol: mcp" }))
+	wait(function()
+		return c.data:find("\r\n\r\n", 1, true) ~= nil
+	end)
+	assert_test(
+		"101 echoes Sec-WebSocket-Protocol: mcp",
+		c.data:find("101", 1, true) ~= nil and c.data:find("Sec-WebSocket-Protocol: mcp\r\n", 1, true) ~= nil
+	)
+	c:close()
+	wait(function()
+		return events.closed == 1
+	end)
+	events.open, events.closed = 0, 0
 end
 
 print("== server: messages ==")

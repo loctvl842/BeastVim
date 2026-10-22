@@ -32,6 +32,7 @@ local OP, CLOSE = frame.OP, frame.CLOSE
 ---@field on_open fun(client: Beast.Review.Client)
 ---@field on_message fun(client: Beast.Review.Client, text: string)
 ---@field on_close fun(client: Beast.Review.Client)
+---@field on_reject fun(reason: string)  a connection failed the handshake
 
 ---@class Beast.Review.Listener
 ---@field port integer
@@ -157,16 +158,24 @@ local function on_data(opts, client, chunk)
 		return
 	end
 
+	local function refused(reason)
+		vim.schedule(function()
+			opts.on_reject(reason)
+		end)
+	end
+
 	local req, rest, err = handshake.parse(client.buf)
 	if err then
+		refused(err)
 		return client.write_and_close("HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
 	end
 	if not req then
 		return
 	end
 
-	local ok, response = handshake.respond(req, opts.token)
+	local ok, response, reason = handshake.respond(req, opts.token)
 	if not ok then
+		refused(reason or "refused")
 		return client.write_and_close(response)
 	end
 

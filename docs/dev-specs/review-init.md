@@ -199,3 +199,16 @@ A new `review` lib with its own config, highlights, health, and namespace, indep
 - [ ] Without opt-in, nothing listens and startup is unaffected (lib not loaded).
 - [ ] `:Review status` always shows whether it is running and whether Claude Code is connected.
 - [ ] Technical gates: connections without the correct token get `401` and no further processing; the lock file is mode 0600 and removed on exit; SHA-1 matches RFC vectors; all four headless tests PASS; `stylua --check lua/` clean; `docs/CODEMAP/libraries.md` updated.
+
+---
+
+# Phase 5 notes - real Claude Code session (2026-10-22)
+
+Findings from connecting the actual `claude` CLI, recorded here because the protocol is reverse-engineered.
+
+- **Subprotocol is mandatory.** The first real connection failed ("Failed to connect to neovim") because the handshake did not answer `Sec-WebSocket-Protocol`. Claude Code is a Node client and aborts when it offers a subprotocol and the server picks none. `server/handshake.lua` now echoes exactly one offered protocol, preferring `mcp` (RFC 6455 4.2.2). The RFC vectors and our own client could not have caught this.
+- **No automatic reconnect.** Claude Code keeps the connection to the port it saw at `/ide` time. Restarting Neovim gives a new port and lock file; `/ide` must be run again. While disconnected, edits are written straight to disk with no review, which looks exactly like "the feature does nothing". `claude --ide` may auto-connect when one IDE matches (unverified).
+- **Diagnostics.** `:Review status` now reports the reason for the last refused connection (`wrong auth token`, `not a WebSocket upgrade`, ...) and the time since the last message, so protocol drift is visible instead of silent.
+- **Verified live:** `/ide` lists Neovim; connecting works; an `Edit` on a file open in Neovim was applied through the review and the edit tool completed.
+- **Not yet verified live:** rejecting a hunk set and what Claude says afterwards; a *partial* accept (PM-spec risk: Claude is told `FILE_SAVED` although the file differs from its proposal). If Claude misbehaves after a partial accept, the fallback is to reply `DIFF_REJECTED` and not save on partial accepts, which needs a PM spec change.
+- **Default:** the lib default for `enabled` is a user decision (the spec says opt-in `false`). `lua/beast/init.lua` only starts the server at VimEnter when `review.enabled` is passed in user opts; with a `true` lib default, the first `:Review <anything>` also starts it.

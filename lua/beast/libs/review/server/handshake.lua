@@ -81,28 +81,47 @@ local function reject(code, reason)
 	return ("HTTP/1.1 %d %s\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"):format(code, reason)
 end
 
+--- A client that offers subprotocols aborts unless the server answers with
+--- exactly one of them (RFC 6455 section 4.2.2). Prefer MCP's.
+---@param offered? string  Sec-WebSocket-Protocol request header
+---@return string?
+local function pick_protocol(offered)
+	local first
+	for name in (offered or ""):gmatch("[^,%s]+") do
+		if name == "mcp" then
+			return name
+		end
+		first = first or name
+	end
+	return first
+end
+
 --- Decide how to answer an upgrade request.
 ---@param req Beast.Review.Request
 ---@param token string
 ---@return boolean ok
 ---@return string response  101 on success, otherwise an error response
+---@return string? reason   why the request was refused (for diagnostics)
 function M.respond(req, token)
 	local h = req.headers
 	if not equal(h[AUTH_HEADER], token) then
-		return false, reject(401, "Unauthorized")
+		return false, reject(401, "Unauthorized"), h[AUTH_HEADER] and "wrong auth token" or "missing auth token"
 	end
 	if req.method ~= "GET" or (h.upgrade or ""):lower() ~= "websocket" then
-		return false, reject(400, "Bad Request")
+		return false, reject(400, "Bad Request"), "not a WebSocket upgrade"
 	end
 	if not (h.connection or ""):lower():find("upgrade", 1, true) then
-		return false, reject(400, "Bad Request")
+		return false, reject(400, "Bad Request"), "missing Connection: Upgrade"
 	end
 	if h["sec-websocket-version"] ~= "13" or not h["sec-websocket-key"] or h["sec-websocket-key"] == "" then
-		return false, reject(400, "Bad Request")
+		return false, reject(400, "Bad Request"), "bad Sec-WebSocket-Version or Key"
 	end
+
+	local protocol = pick_protocol(h["sec-websocket-protocol"])
 	return true,
-		("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: %s\r\n\r\n"):format(
-			M.accept_key(h["sec-websocket-key"])
+		("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: %s\r\n%s\r\n"):format(
+			M.accept_key(h["sec-websocket-key"]),
+			protocol and ("Sec-WebSocket-Protocol: %s\r\n"):format(protocol) or ""
 		)
 end
 
