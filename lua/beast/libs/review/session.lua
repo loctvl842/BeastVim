@@ -18,6 +18,7 @@ local M = {}
 ---@field rejected integer
 ---@field user_edits boolean  buffer had unsaved edits that were saved along with the review
 ---@field message? string     failure detail when outcome is "error"
+---@field content? string     final file text when outcome is "saved" (the caller writes it if the session did not)
 
 ---@class Beast.Review.Item
 ---@field hunk Beast.Review.Hunk
@@ -31,6 +32,8 @@ local M = {}
 ---@field accepted integer
 ---@field rejected integer
 ---@field was_empty boolean   buffer was a single blank line (new/empty file)
+---@field write boolean
+---@field proposal Beast.Review.Proposal
 ---@field user_edits boolean
 ---@field finished boolean
 local Session = {}
@@ -41,6 +44,7 @@ local active = {}
 ---@class Beast.Review.Request
 ---@field text string
 ---@field on_done fun(outcome: Beast.Review.Outcome, stats: Beast.Review.Stats)
+---@field write boolean                  save the file on completion (false: hand the text to the caller)
 ---@field session? Beast.Review.Session  set once the request is being reviewed
 
 ---@type table<integer, Beast.Review.Request[]>
@@ -191,6 +195,20 @@ local function save(self)
 	return ok, ok and nil or tostring(err)
 end
 
+--- The file text as it should now exist on disk: the buffer, with the
+--- proposal's line endings.
+---@param self Beast.Review.Session
+---@return string
+local function final_content(self)
+	local sep = self.proposal.crlf and "\r\n" or "\n"
+	local lines = api.nvim_buf_get_lines(self.buf, 0, -1, false)
+	local text = table.concat(lines, sep)
+	if #lines > 0 and self.proposal.eol then
+		text = text .. sep
+	end
+	return text
+end
+
 ---@param self Beast.Review.Session
 ---@param outcome Beast.Review.Outcome
 ---@param unloading? boolean  buffer is going away: touch nothing in it
@@ -210,11 +228,21 @@ local function finish(self, outcome, unloading)
 	local name = short_name(self.buf)
 
 	if outcome == "saved" then
-		local ok, err = save(self)
+		local ok, err = true, nil
+		if self.write then
+			ok, err = save(self)
+		else
+			-- The caller (Claude Code) writes the file. Saving here would make
+			-- its own write fail with "file changed since read". The buffer
+			-- already holds the text it is about to write, so mark it clean
+			-- and let autoread pick the new mtime up quietly.
+			stats.content = final_content(self)
+			vim.bo[self.buf].modified = false
+		end
 		if ok then
 			local extra = self.user_edits and " (includes your unsaved edits)" or ""
 			local rejected = self.rejected > 0 and (", " .. self.rejected .. " rejected") or ""
-			notify(("saved %s - %d accepted%s%s"):format(name, self.accepted, rejected, extra))
+			notify(("%s %s - %d accepted%s%s"):format(self.write and "saved" or "accepted", name, self.accepted, rejected, extra))
 		else
 			outcome, stats.message = "error", err
 			notify(("could not save %s: %s"):format(name, err), vim.log.levels.ERROR)
@@ -307,7 +335,7 @@ local function start(buf, req)
 	local list = hunks.compute(current, proposal.lines)
 	local user_edits = vim.bo[buf].modified
 	if #list == 0 then
-		complete(on_done, "saved", { accepted = 0, rejected = 0, user_edits = false })
+		complete(on_done, "saved", { accepted = 0, rejected = 0, user_edits = false, content = text })
 		drain(buf)
 		return
 	end
@@ -320,6 +348,8 @@ local function start(buf, req)
 		accepted = 0,
 		rejected = 0,
 		was_empty = was_empty,
+		write = req.write,
+		proposal = proposal,
 		user_edits = user_edits,
 		finished = false,
 	}, Session)
@@ -368,10 +398,11 @@ end
 ---@param buf integer
 ---@param text string
 ---@param on_done fun(outcome: Beast.Review.Outcome, stats: Beast.Review.Stats)
+---@param opts? { write?: boolean }  write = false: do not save, report the final text in stats.content
 ---@return fun() cancel
-function M.submit(buf, text, on_done)
+function M.submit(buf, text, on_done, opts)
 	---@type Beast.Review.Request
-	local req = { text = text, on_done = on_done }
+	local req = { text = text, on_done = on_done, write = not (opts and opts.write == false) }
 	M._run(buf, req)
 	return function()
 		if req.session then

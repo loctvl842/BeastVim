@@ -169,6 +169,11 @@ local function tool_text(msg)
 	return msg and msg.result and msg.result.content and msg.result.content[1].text
 end
 
+--- Second content item of a reply (the final text for FILE_SAVED, the tab name for DIFF_REJECTED).
+local function tool_payload(msg)
+	return msg and msg.result and msg.result.content and msg.result.content[2] and msg.result.content[2].text
+end
+
 print("== status lines ==")
 do
 	local text = table.concat(review.status_lines(), "\n")
@@ -294,7 +299,12 @@ do
 	local msg = ws.recv(c)
 	assert_eq("reply id", msg.id, id)
 	assert_eq("FILE_SAVED", tool_text(msg), "FILE_SAVED")
-	assert_eq("file has the proposal", read(path), "a\nX\n")
+	assert_eq("reply carries the final file text", tool_payload(msg), "a\nX\n")
+	-- Claude Code writes the file from that reply. If we wrote it first, its
+	-- own write would fail with "file changed since read".
+	assert_eq("review did not write the file", read(path), "a\nb\n")
+	assert_eq("buffer holds the accepted text", vim.api.nvim_buf_get_lines(buf, 0, -1, false), { "a", "X" })
+	assert_eq("buffer marked clean so autoread can reload quietly", vim.bo[buf].modified, false)
 end
 
 print("== openDiff: reject ==")
@@ -306,6 +316,7 @@ do
 	local msg = ws.recv(c)
 	assert_eq("reply id", msg.id, id)
 	assert_eq("DIFF_REJECTED", tool_text(msg), "DIFF_REJECTED")
+	assert_eq("reply echoes the tab name", tool_payload(msg), "tab")
 	assert_eq("file unchanged", read(path), "a\nb\n")
 end
 
@@ -316,6 +327,7 @@ do
 	local msg = ws.recv(c)
 	assert_eq("immediate reply", msg.id, id)
 	assert_eq("FILE_SAVED", tool_text(msg), "FILE_SAVED")
+	assert_eq("final text is the unchanged proposal", tool_payload(msg), "a\nb\n")
 end
 
 print("== openDiff: new file ==")
@@ -324,8 +336,42 @@ do
 	open_diff(path, "hello\n")
 	local buf = buf_of(path)
 	session.get(buf):decide_all(true)
-	assert_eq("FILE_SAVED", tool_text(ws.recv(c)), "FILE_SAVED")
-	assert_eq("created with parents", read(path), "hello\n")
+	local reply = ws.recv(c)
+	assert_eq("FILE_SAVED", tool_text(reply), "FILE_SAVED")
+	assert_eq("reply carries the new file's text", tool_payload(reply), "hello\n")
+	assert_eq("review did not create the file (Claude Code does)", read(path), nil)
+end
+
+print("== openDiff: partial accept ==")
+do
+	local path = make_file("1\n2\n3\n4\n5\n6\n7\n")
+	open_diff(path, "1\nA\n3\n4\n5\nB\n7\n")
+	local buf = buf_of(path)
+	vim.api.nvim_buf_call(buf, review.accept) -- hunk 1: 2 -> A
+	vim.api.nvim_buf_call(buf, review.reject) -- hunk 2: 6 -> B
+	local reply = ws.recv(c)
+	assert_eq("saved", tool_text(reply), "FILE_SAVED")
+	assert_eq("Claude gets exactly what was kept", tool_payload(reply), "1\nA\n3\n4\n5\n6\n7\n")
+	assert_eq("file untouched by us", read(path), "1\n2\n3\n4\n5\n6\n7\n")
+end
+
+print("== openDiff: text fidelity ==")
+do
+	-- No trailing newline stays absent; CRLF stays CRLF.
+	local p1 = make_file("a\nb")
+	open_diff(p1, "a\nX")
+	session.get(buf_of(p1)):decide_all(true)
+	assert_eq("no trailing newline preserved", tool_payload(ws.recv(c)), "a\nX")
+
+	local p2 = make_file("a\r\nb\r\n")
+	open_diff(p2, "a\r\nX\r\n")
+	session.get(buf_of(p2)):decide_all(true)
+	assert_eq("CRLF preserved", tool_payload(ws.recv(c)), "a\r\nX\r\n")
+
+	local p3 = make_file("a\n")
+	open_diff(p3, "")
+	session.get(buf_of(p3)):decide_all(true)
+	assert_eq("emptying a file", tool_payload(ws.recv(c)), "")
 end
 
 print("== openDiff: closeAllDiffTabs / close_tab ==")

@@ -7,10 +7,14 @@ local jsonrpc = require("beast.libs.review.server.jsonrpc")
 
 local M = {}
 
----@param s string
+---@param ... string
 ---@return table
-local function text(s)
-	return { content = { { type = "text", text = s } } }
+local function text(...)
+	local content = {}
+	for i, s in ipairs({ ... }) do
+		content[i] = { type = "text", text = s }
+	end
+	return { content = content }
 end
 
 ---@param code integer
@@ -64,16 +68,17 @@ M.tools = {
 			-- Registered before proposing: the review can complete synchronously.
 			local entry = { tab_name = args.tab_name }
 			open_diffs[entry] = true
+			-- Claude Code writes the file itself from the reply, so the review must not.
 			entry.cancel = require("beast.libs.review").propose(path, args.new_file_contents, function(outcome, stats)
 				open_diffs[entry] = nil
 				if outcome == "saved" then
-					ctx.reply(text("FILE_SAVED"))
+					ctx.reply(text("FILE_SAVED", stats.content))
 				elseif outcome == "error" then
 					ctx.reply(nil, jsonrpc.error(jsonrpc.ERR.INTERNAL, "Could not save file", stats.message))
 				else
-					ctx.reply(text("DIFF_REJECTED")) -- rejected, or cancelled before the user decided
+					ctx.reply(text("DIFF_REJECTED", args.tab_name or "")) -- rejected, or cancelled before the user decided
 				end
-			end)
+			end, { write = false })
 			ctx.on_cancel(entry.cancel)
 			return jsonrpc.DEFERRED
 		end,

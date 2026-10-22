@@ -839,7 +839,8 @@ sessions, last message, and the reason for the last refused connection.
 
 Claude Code flow: `/ide` lists editors by `~/.claude/ide/*.lock`; it connects with the lock
 file's token, then calls `openDiff` with the proposed file contents and waits. The reply is
-`FILE_SAVED` or `DIFF_REJECTED`. Claude Code does NOT reconnect to a restarted editor (new
+`["FILE_SAVED", <final text>]` or `["DIFF_REJECTED", <tab_name>]`: Claude Code writes the file
+itself, so the review runs with `write = false` and never saves on this path. Claude Code does NOT reconnect to a restarted editor (new
 port): run `/ide` again after restarting Neovim.
 
 The IDE protocol is reverse-engineered (see `coder/claudecode.nvim` PROTOCOL.md), not

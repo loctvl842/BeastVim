@@ -27,12 +27,13 @@ local host
 ---@param path string
 ---@param contents string
 ---@param on_done? fun(outcome: Beast.Review.Outcome, stats: Beast.Review.Stats)
+---@param opts? { write?: boolean }  write = false: leave the file to the caller (Claude Code writes it itself)
 ---@return fun() cancel  abandon this proposal without writing anything
-function M.propose(path, contents, on_done)
+function M.propose(path, contents, on_done, opts)
 	local buf = vim.fn.bufadd(vim.fn.fnamemodify(path, ":p"))
 	vim.fn.bufload(buf)
 	vim.bo[buf].buflisted = true
-	return session.submit(buf, contents, on_done or function() end)
+	return session.submit(buf, contents, on_done or function() end, opts)
 end
 
 --- Listen for Claude Code on loopback and advertise ourselves in its
