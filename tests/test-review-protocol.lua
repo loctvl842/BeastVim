@@ -29,7 +29,10 @@ local function assert_eq(name, got, expected)
 	assert_test(name, vim.deep_equal(got, expected), "expected " .. vim.inspect(expected) .. ", got " .. vim.inspect(got))
 end
 
-vim.notify = function() end
+require("beast.libs.toast").toast = function() end
+vim.notify = function()
+	error("review must not call vim.notify")
+end
 
 -- Isolate the discovery directory from the real ~/.claude.
 local root = vim.fn.tempname()
@@ -164,6 +167,15 @@ end
 
 local function tool_text(msg)
 	return msg and msg.result and msg.result.content and msg.result.content[1].text
+end
+
+print("== status lines ==")
+do
+	local text = table.concat(review.status_lines(), "\n")
+	assert_test("names the instance as /ide lists it", text:find("Listed in /ide as: " .. lock.ideName, 1, true) ~= nil)
+	assert_test("shows the port", text:find("127.0.0.1:" .. status.port, 1, true) ~= nil)
+	assert_test("says whether Claude is connected", text:find("Claude Code: not connected", 1, true) ~= nil)
+	assert_test("shows the lock file", text:find(lock_path, 1, true) ~= nil)
 end
 
 print("== authentication ==")

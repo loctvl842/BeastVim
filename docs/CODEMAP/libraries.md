@@ -808,6 +808,7 @@ review/
 ├── init.lua        ← propose(path, contents, on_done) -> cancel, accept/reject/accept_all/reject_all/next_hunk/prev_hunk, start/stop/status, :Review, setup()
 ├── config.lua      ← enabled, focus
 ├── highlights.lua  ← BeastReviewCurrent / Incoming / Label
+├── notify.lua      ← every user notice goes through Toast (single-line); multi-line :Review status uses nvim_echo
 ├── hunks.lua       ← pure: split(text), compute(old, new) -> {row, old_count, old, new}[]
 ├── render.lua      ← display-only extmark bands (red Current, green Incoming virt_lines); locate() reads positions back from extmarks
 ├── session.lua     ← one review of one buffer: per-hunk decide, save-on-finish, per-buffer queue, cancel handles

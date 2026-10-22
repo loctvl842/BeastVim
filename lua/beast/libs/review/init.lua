@@ -1,4 +1,5 @@
 local config = require("beast.libs.review.config")
+local notify = require("beast.libs.review.notify")
 local session = require("beast.libs.review.session")
 
 local uv = vim.uv or vim.loop
@@ -18,12 +19,6 @@ M.meta = { name = "review", description = "Review proposed file changes inline, 
 
 ---@type Beast.Review.Host?
 local host
-
----@param msg string
----@param level? integer
-local function notify(msg, level)
-	vim.notify(msg, level or vim.log.levels.INFO, { title = M.meta.name })
-end
 
 --- Propose `contents` as the new text of `path`. The file opens in a window
 --- (or is created), the change shows as Current vs Incoming hunks, and
@@ -136,7 +131,7 @@ function M.status()
 end
 
 ---@return string[]
-local function status_lines()
+function M.status_lines()
 	local s = M.status()
 	if not s.running then
 		return { "Review: stopped" }
@@ -156,10 +151,20 @@ local function status_lines()
 	return lines
 end
 
+--- Multi-line query output belongs on the command line: a toast is one
+--- truncated row, which would cut off the instance name.
+local function show_status()
+	local lines, chunks = M.status_lines(), {}
+	for i, line in ipairs(lines) do
+		chunks[i] = { line .. (i < #lines and "\n" or "") }
+	end
+	vim.api.nvim_echo(chunks, true, {})
+end
+
 local subcommands = {
 	start = function()
 		if M.start() then
-			notify(table.concat(status_lines(), "\n"))
+			show_status()
 		end
 	end,
 	stop = function()
@@ -167,7 +172,7 @@ local subcommands = {
 		notify("Review: stopped")
 	end,
 	status = function()
-		notify(table.concat(status_lines(), "\n"))
+		show_status()
 	end,
 	-- Manual driver: treat a local file as the proposal for the current buffer.
 	propose = function(arg)

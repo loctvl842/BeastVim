@@ -6,6 +6,7 @@ local api = vim.api
 
 local config = require("beast.libs.review.config")
 local hunks = require("beast.libs.review.hunks")
+local notify = require("beast.libs.review.notify")
 local render = require("beast.libs.review.render")
 
 local M = {}
@@ -44,16 +45,6 @@ local active = {}
 
 ---@type table<integer, Beast.Review.Request[]>
 local queued = {}
-
-local function title()
-	return require("beast.libs.review").meta.name
-end
-
----@param msg string
----@param level? integer
-local function notify(msg, level)
-	vim.notify(msg, level or vim.log.levels.INFO, { title = title() })
-end
 
 ---@param buf integer
 ---@return string

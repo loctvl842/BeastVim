@@ -28,10 +28,15 @@ local function assert_eq(name, got, expected)
 	assert_test(name, vim.deep_equal(got, expected), "expected " .. vim.inspect(expected) .. ", got " .. vim.inspect(got))
 end
 
--- Silence and capture notices.
+-- Silence and capture notices (the lib reports through Toast, never vim.notify).
 local notices = {}
-vim.notify = function(msg)
+local toasted_with_title
+require("beast.libs.toast").toast = function(msg, _, opts)
+	toasted_with_title = opts and opts.title
 	notices[#notices + 1] = msg
+end
+vim.notify = function()
+	error("review must not call vim.notify")
 end
 
 local dir = vim.fn.tempname()
@@ -253,6 +258,16 @@ do
 	assert_eq("saved immediately", res.outcome, "saved")
 	assert_eq("nothing accepted", res.stats.accepted, 0)
 	assert_test("no session left", session.get(buf) == nil)
+end
+
+print("== notices go through Toast ==")
+do
+	local path = make_file("a\n")
+	local buf, res = propose(path, "A\n")
+	assert_test("a proposal produced a toast", #notices > 0)
+	assert_eq("toast titled after the lib", toasted_with_title, "review")
+	press(buf, "reject_all")
+	assert_eq("outcome rejected", res.outcome, "rejected")
 end
 
 print("== actions with nothing pending ==")
