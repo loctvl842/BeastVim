@@ -359,7 +359,11 @@ function M.set(spec, buffer)
 
 	-- Store the full keymap object for later export
 	M.managed[km.id] = km
-	record_call(km.id, km)
+	-- Buffer-local maps never overwrite a global one (or another buffer's), so
+	-- they don't belong in the set-time conflict history keyed by (mode, lhs).
+	if not buffer then
+		record_call(km.id, km)
+	end
 	emit_changed(EVENTS.SET, km, buffer)
 end
 
