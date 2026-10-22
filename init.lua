@@ -7,7 +7,7 @@ vim.g.loaded_tarPlugin = 1
 vim.g.loaded_zipPlugin = 1
 vim.g.loaded_tohtml = 1
 vim.g.loaded_tutor = 1
--- netrw: replaced by beast.libs.explorer (neo-tree backend)
+-- netrw: replaced by beast.libs.explorer (native split-panel explorer with git status)
 vim.g.loaded_netrw = 1
 vim.g.loaded_netrwPlugin = 1
 
@@ -48,6 +48,7 @@ require("beast").setup({
 			{ "fL", "zL", desc = "Half screen to the right" },
 		},
 	},
+	review = { enabled = true },
 	explorer = {
 		icon = {
 			dir_open = "󰝰", -- nf-md-folder_open

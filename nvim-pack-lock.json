@@ -34,7 +34,7 @@
       "src": "https://github.com/folke/lazydev.nvim"
     },
     "lua_ls": {
-      "rev": "d078d2473437e0cc680d150dfca5cc266bc22f2c",
+      "rev": "7af8d13fef81821323ed5eb983333c61fcd1ee1a",
       "src": "https://github.com/BeastVim/lua_ls"
     },
     "mason.nvim": {
@@ -54,7 +54,7 @@
       "src": "https://github.com/nvim-tree/nvim-web-devicons"
     },
     "python": {
-      "rev": "821a66c6a0d5fdc562e9fd64ad05aa8146b46a69",
+      "rev": "76a01daf58f313d7ee405c9fc2d9db3f7ef3db66",
       "src": "https://github.com/BeastVim/python"
     },
     "render-markdown": {
