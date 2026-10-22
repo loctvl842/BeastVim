@@ -93,7 +93,8 @@ A new `review` lib with its own config, highlights, health, and namespace, indep
    - Why: This is the entire review behavior from the PM spec, independent of any protocol.
    - Depends on: Step 2
    - Risk: High (extmark ranges after user edits inside a hunk; invalid extmark at accept time must skip that hunk with a notice rather than corrupt the buffer; new-file buffer and rejection cleanup; undo grouping so one accept is one undo step).
-4. **Keymaps** (File: `keymaps.lua`)
+4. **Keymaps** (File: `keymaps.lua` - superseded, see note)
+   - **Changed after Phase 5 (user request):** the buffer-local keymaps and `keys` config were removed. Keys are now global bindings registered via `packer.lazy({ keys = ... })` in `lua/beast/init.lua`, so they appear in the key lib's cheatsheet. `review.accept/reject/accept_all/reject_all/next_hunk/prev_hunk` act on the current buffer's pending review and notify "no review pending in this buffer" otherwise. Remapping is done in that packer spec, not in `review/config`.
    - Action: On session start, install buffer-local maps (defaults `<leader>ra` accept hunk, `<leader>rr` reject hunk, `<leader>rA` accept all, `<leader>rR` reject all, `]r` / `[r` navigate), saving and restoring any existing buffer-local maps; remove on session end.
    - Why: Keys exist only while a review is pending (PM rule).
    - Depends on: Step 3

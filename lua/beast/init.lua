@@ -135,8 +135,19 @@ function M.setup(opts)
 	-- Review (inline diff review of changes proposed by Claude Code). Always
 	-- reachable through :Review; the IDE server only starts when opted in via
 	-- `review = { enabled = true }`.
+	-- Global keys (not buffer-local) so they are registered in the key lib and
+	-- listed in the cheatsheet; each one reports when no review is pending.
 	local review_spec = {
 		cmd = "Review",
+		-- stylua: ignore
+		keys = {
+			{ "<leader>ra", function() require("beast.libs.review").accept() end, mode = "n", desc = "Accept review hunk", group = "Review" },
+			{ "<leader>rr", function() require("beast.libs.review").reject() end, mode = "n", desc = "Reject review hunk", group = "Review" },
+			{ "<leader>rA", function() require("beast.libs.review").accept_all() end, mode = "n", desc = "Accept all review hunks", group = "Review" },
+			{ "<leader>rR", function() require("beast.libs.review").reject_all() end, mode = "n", desc = "Reject all review hunks", group = "Review" },
+			{ "]r", function() require("beast.libs.review").next_hunk() end, mode = "n", desc = "Next review hunk", group = "Review" },
+			{ "[r", function() require("beast.libs.review").prev_hunk() end, mode = "n", desc = "Previous review hunk", group = "Review" },
+		},
 		setup = function(review)
 			review.setup(cfg.review or {})
 		end,

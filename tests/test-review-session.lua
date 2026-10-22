@@ -67,14 +67,18 @@ local function propose(path, contents)
 	return vim.fn.bufnr(vim.fn.fnamemodify(path, ":p")), result
 end
 
---- Trigger a review key through its real buffer-local mapping.
+local ACTIONS = {
+	accept = "accept",
+	reject = "reject",
+	accept_all = "accept_all",
+	reject_all = "reject_all",
+	next = "next_hunk",
+	prev = "prev_hunk",
+}
+
+--- Run a review action the way the global key does: against the current buffer.
 local function press(buf, action)
-	local lhs = require("beast.libs.review.config").keys[action]
-	local map = vim.api.nvim_buf_call(buf, function()
-		return vim.fn.maparg(lhs, "n", false, true)
-	end)
-	assert(map.callback, "no mapping for " .. action)
-	vim.api.nvim_buf_call(buf, map.callback)
+	vim.api.nvim_buf_call(buf, review[ACTIONS[action]])
 end
 
 local function marks(buf)
@@ -251,27 +255,30 @@ do
 	assert_test("no session left", session.get(buf) == nil)
 end
 
-print("== keymaps: installed while pending, previous map restored ==")
+print("== actions with nothing pending ==")
 do
-	local path = make_file("a\nb\n")
+	local path = make_file("a\n")
 	vim.fn.bufload(vim.fn.bufadd(path))
-	local pre = vim.fn.bufnr(path)
-	vim.keymap.set("n", "]r", "<Nop>", { buffer = pre, desc = "mine" })
-	local buf, res = propose(path, "A\nb\n")
-	local during = vim.api.nvim_buf_call(buf, function()
-		return vim.fn.maparg("]r", "n", false, true)
-	end)
-	assert_test("review owns ]r while pending", (during.desc or ""):find("Review", 1, true) ~= nil)
-	press(buf, "reject_all")
-	local after = vim.api.nvim_buf_call(buf, function()
-		return vim.fn.maparg("]r", "n", false, true)
-	end)
-	assert_eq("user's own map restored", after.desc, "mine")
-	assert_eq("outcome rejected", res.outcome, "rejected")
-	local accept = vim.api.nvim_buf_call(buf, function()
-		return vim.fn.maparg("<leader>ra", "n", false, true)
-	end)
-	assert_test("review-only keys removed", next(accept) == nil)
+	local buf = vim.fn.bufnr(path)
+	for name, fn in pairs(ACTIONS) do
+		notices = {}
+		local ok = pcall(vim.api.nvim_buf_call, buf, review[fn])
+		assert_test(name .. " does not error", ok)
+		assert_eq(name .. " says nothing is pending", notices, { "no review pending in this buffer" })
+	end
+	assert_eq("buffer untouched", lines(buf), { "a" })
+end
+
+print("== actions only affect the current buffer's review ==")
+do
+	local p1, p2 = make_file("1\n"), make_file("2\n")
+	local b1, r1 = propose(p1, "one\n")
+	local b2, r2 = propose(p2, "two\n")
+	press(b2, "reject_all")
+	assert_eq("buffer 2 rejected", r2.outcome, "rejected")
+	assert_test("buffer 1 still pending", session.get(b1) ~= nil and r1.outcome == nil)
+	press(b1, "accept_all")
+	assert_eq("buffer 1 saved", r1.outcome, "saved")
 end
 
 print("== next / prev wrap ==")

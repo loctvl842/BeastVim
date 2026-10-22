@@ -805,13 +805,12 @@ Ports the layout core from `anuvyklack/windows.nvim`, dropping `middleclass` and
 
 ```
 review/
-├── init.lua        ← propose(path, contents, on_done) -> cancel, start/stop/status, :Review, setup()
-├── config.lua      ← enabled, focus, keys (accept/reject/accept_all/reject_all/next/prev)
+├── init.lua        ← propose(path, contents, on_done) -> cancel, accept/reject/accept_all/reject_all/next_hunk/prev_hunk, start/stop/status, :Review, setup()
+├── config.lua      ← enabled, focus
 ├── highlights.lua  ← BeastReviewCurrent / Incoming / Label
 ├── hunks.lua       ← pure: split(text), compute(old, new) -> {row, old_count, old, new}[]
 ├── render.lua      ← display-only extmark bands (red Current, green Incoming virt_lines); locate() reads positions back from extmarks
 ├── session.lua     ← one review of one buffer: per-hunk decide, save-on-finish, per-buffer queue, cancel handles
-├── keymaps.lua     ← buffer-local keys while a review is pending; restores shadowed maps
 ├── health.lua
 └── server/         ← loopback WebSocket + MCP server for Claude Code's IDE protocol
     ├── init.lua       ← start(opts) -> listener (defaults, assert token)
@@ -829,6 +828,10 @@ API: `propose(path, contents, on_done)` returns a cancel function. `on_done(outc
 fires once every hunk is decided: `"saved"` (>= 1 accepted, file written), `"rejected"`,
 `"cancelled"`, or `"error"`. Nothing is written to disk until a hunk is accepted, and the
 buffer never contains conflict markers (bands are extmarks only).
+
+Keys are global, registered through `packer.lazy` in `lua/beast/init.lua` (so the key lib
+lists them): `<leader>ra/rr` accept/reject hunk, `<leader>rA/rR` all, `]r`/`[r` navigate.
+Each acts on the current buffer's pending review and says so when there is none.
 
 Commands: `:Review start|stop|status|propose <file>`. `status` reports the port, connected
 sessions, last message, and the reason for the last refused connection.

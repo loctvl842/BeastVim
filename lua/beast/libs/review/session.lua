@@ -6,7 +6,6 @@ local api = vim.api
 
 local config = require("beast.libs.review.config")
 local hunks = require("beast.libs.review.hunks")
-local keymaps = require("beast.libs.review.keymaps")
 local render = require("beast.libs.review.render")
 
 local M = {}
@@ -33,7 +32,6 @@ local M = {}
 ---@field was_empty boolean   buffer was a single blank line (new/empty file)
 ---@field user_edits boolean
 ---@field finished boolean
----@field keys? Beast.Review.KeyHandle
 local Session = {}
 Session.__index = Session
 
@@ -214,9 +212,6 @@ local function finish(self, outcome, unloading)
 	pcall(api.nvim_del_augroup_by_name, "beast_review_" .. self.buf)
 
 	if not unloading then
-		if self.keys then
-			keymaps.detach(self.buf, self.keys)
-		end
 		render.clear_all(self.buf)
 	end
 
@@ -344,27 +339,6 @@ local function start(buf, req)
 	for i, h in ipairs(list) do
 		self.items[i] = { hunk = h, marks = render.paint(buf, h, i, #list), decided = false }
 	end
-
-	self.keys = keymaps.attach(buf, {
-		accept = function()
-			self:decide_nearest(true)
-		end,
-		reject = function()
-			self:decide_nearest(false)
-		end,
-		accept_all = function()
-			self:decide_all(true)
-		end,
-		reject_all = function()
-			self:decide_all(false)
-		end,
-		next = function()
-			self:step(1)
-		end,
-		prev = function()
-			self:step(-1)
-		end,
-	})
 
 	-- Closing the buffer mid-review counts as reject-all.
 	api.nvim_create_autocmd("BufUnload", {

@@ -179,6 +179,64 @@ local subcommands = {
 	end,
 }
 
+--- The review pending on the current buffer, if any. Review keys are global
+--- (registered through packer.lazy so they show up in the key lib), so each
+--- action says so when there is nothing to act on.
+---@return Beast.Review.Session?
+local function pending()
+	local s = session.get(vim.api.nvim_get_current_buf())
+	if not s then
+		notify("no review pending in this buffer")
+	end
+	return s
+end
+
+--- Accept the hunk under the cursor.
+function M.accept()
+	local s = pending()
+	if s then
+		s:decide_nearest(true)
+	end
+end
+
+--- Reject the hunk under the cursor.
+function M.reject()
+	local s = pending()
+	if s then
+		s:decide_nearest(false)
+	end
+end
+
+function M.accept_all()
+	local s = pending()
+	if s then
+		s:decide_all(true)
+	end
+end
+
+function M.reject_all()
+	local s = pending()
+	if s then
+		s:decide_all(false)
+	end
+end
+
+--- Jump to the next pending hunk.
+function M.next_hunk()
+	local s = pending()
+	if s then
+		s:step(1)
+	end
+end
+
+--- Jump to the previous pending hunk.
+function M.prev_hunk()
+	local s = pending()
+	if s then
+		s:step(-1)
+	end
+end
+
 ---@param opts? Beast.Review.Config
 function M.setup(opts)
 	require("beast").apply_highlights("beast.libs.review.highlights")
