@@ -6,7 +6,7 @@
 -- =========================================================================
 
 vim.opt.runtimepath:prepend(vim.fn.getcwd())
-package.path = "./lua/?.lua;./lua/?/init.lua;" .. package.path
+package.path = "./lua/?.lua;./lua/?/init.lua;./tests/?.lua;" .. package.path
 
 local bit = require("bit")
 local frame = require("beast.libs.review.server.frame")
@@ -14,7 +14,8 @@ local handshake = require("beast.libs.review.server.handshake")
 local server = require("beast.libs.review.server")
 local sha1 = require("beast.libs.review.server.sha1")
 
-local uv = vim.uv or vim.loop
+local ws = require("review_ws_client")
+local client_frame, connect, upgrade_request, wait = ws.client_frame, ws.connect, ws.upgrade_request, ws.wait
 local TOKEN = "a3f1c2d4e5f60718293a4b5c6d7e8f90"
 
 local passed, failed = 0, 0
@@ -31,10 +32,6 @@ end
 
 local function assert_eq(name, got, expected)
 	assert_test(name, vim.deep_equal(got, expected), "expected " .. vim.inspect(expected) .. ", got " .. vim.inspect(got))
-end
-
-local function wait(cond, ms)
-	return vim.wait(ms or 2000, cond, 5)
 end
 
 print("== sha1 (RFC 3174 vectors) ==")
@@ -96,41 +93,6 @@ do
 	assert_eq("malformed request line -> error", err, "malformed request line")
 end
 
---- Build a masked client frame.
-local function client_frame(opcode, payload, opts)
-	opts = opts or {}
-	local fin = opts.fin == false and 0 or 128
-	local len = #payload
-	local mask = { 0x12, 0x34, 0x56, 0x78 }
-	local head
-	if len < 126 then
-		head = string.char(fin + opcode, (opts.unmasked and 0 or 128) + len)
-	elseif len < 65536 then
-		head = string.char(fin + opcode, 128 + 126, bit.rshift(len, 8), bit.band(len, 255))
-	else
-		head = string.char(
-			fin + opcode,
-			128 + 127,
-			0,
-			0,
-			0,
-			0,
-			bit.band(bit.rshift(len, 24), 255),
-			bit.band(bit.rshift(len, 16), 255),
-			bit.band(bit.rshift(len, 8), 255),
-			bit.band(len, 255)
-		)
-	end
-	if opts.unmasked then
-		return head .. payload
-	end
-	local out = {}
-	for i = 1, len do
-		out[i] = string.char(bit.bxor(payload:byte(i), mask[(i - 1) % 4 + 1]))
-	end
-	return head .. string.char(unpack(mask)) .. table.concat(out)
-end
-
 print("== frame ==")
 do
 	local f, used = frame.decode(client_frame(frame.OP.TEXT, "hello"), 1000)
@@ -165,65 +127,8 @@ do
 	assert_eq("encode 64-bit header", enc:sub(1, 10), "\129\127\0\0\0\0\0\1\17\112")
 end
 
---- Minimal raw TCP client for exercising the server.
-local function connect(port)
-	local c = { data = "", closed = false }
-	c.sock = uv.new_tcp()
-	c.sock:connect("127.0.0.1", port, function(err)
-		c.connected, c.err = true, err
-		if err then
-			return
-		end
-		c.sock:read_start(function(rerr, chunk)
-			if rerr or not chunk then
-				c.closed = true
-				return
-			end
-			c.data = c.data .. chunk
-		end)
-	end)
-	wait(function()
-		return c.connected
-	end)
-	function c:write(s)
-		self.sock:write(s)
-	end
-	function c:close()
-		if not self.sock:is_closing() then
-			self.sock:close()
-		end
-	end
-	return c
-end
-
-local function upgrade_request(token, extra)
-	local lines = {
-		"GET / HTTP/1.1",
-		"Host: 127.0.0.1",
-		"Upgrade: websocket",
-		"Connection: Upgrade",
-		"Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==",
-		"Sec-WebSocket-Version: 13",
-	}
-	if token then
-		lines[#lines + 1] = "x-claude-code-ide-authorization: " .. token
-	end
-	for _, l in ipairs(extra or {}) do
-		lines[#lines + 1] = l
-	end
-	return table.concat(lines, "\r\n") .. "\r\n\r\n"
-end
-
---- Connect and complete the handshake; returns client and the bytes after the 101.
 local function open(port)
-	local c = connect(port)
-	c:write(upgrade_request(TOKEN))
-	wait(function()
-		return c.data:find("\r\n\r\n", 1, true) ~= nil
-	end)
-	local head_end = c.data:find("\r\n\r\n", 1, true)
-	c.data = c.data:sub(head_end + 4)
-	return c
+	return ws.open(port, TOKEN)
 end
 
 local events = { open = 0, closed = 0, messages = {} }

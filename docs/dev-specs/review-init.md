@@ -55,7 +55,8 @@ A new `review` lib with its own config, highlights, health, and namespace, indep
 - New `lua/beast/libs/review/render.lua` - extmark painting per hunk and removal.
 - New `lua/beast/libs/review/session.lua` - one session per buffer: hunk states, accept/reject, completion (save, callback), queueing of a second proposal for the same buffer, cancel.
 - New `lua/beast/libs/review/keymaps.lua` - buffer-local keys installed on session start, removed on end.
-- New `lua/beast/libs/review/server/` - `init.lua` (lifecycle, client registry), `tcp.lua`, `handshake.lua`, `frame.lua`, `sha1.lua`, `jsonrpc.lua` (dispatch + deferred responses), `tools.lua` (tool table), `lockfile.lua`.
+- New `lua/beast/libs/review/server/` - `init.lua` (lifecycle, client registry), `tcp.lua`, `handshake.lua`, `frame.lua`, `sha1.lua`, `jsonrpc.lua` (dispatch + deferred responses), `mcp.lua` (MCP method table; added during Phase 4 so every protocol-facing name lives in one file), `tools.lua` (tool table), `lockfile.lua`.
+- New `tests/review_ws_client.lua` - shared fake WebSocket client used by the ws and protocol tests.
 - New `lua/beast/libs/review/health.lua`.
 - Modify `lua/beast/init.lua` - `packer.lazy("beast.libs.review", ...)` gated on config; `:Review` command trigger.
 - Modify `lua/beast/hl_reload.lua` - add `beast.libs.review.highlights`.

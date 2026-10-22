@@ -39,7 +39,12 @@ Session.__index = Session
 
 ---@type table<integer, Beast.Review.Session>
 local active = {}
----@type table<integer, {text: string, on_done: function}[]>
+---@class Beast.Review.Request
+---@field text string
+---@field on_done fun(outcome: Beast.Review.Outcome, stats: Beast.Review.Stats)
+---@field session? Beast.Review.Session  set once the request is being reviewed
+
+---@type table<integer, Beast.Review.Request[]>
 local queued = {}
 
 local function title()
@@ -178,7 +183,7 @@ local function drain(buf)
 		return
 	end
 	if api.nvim_buf_is_loaded(buf) then
-		M.submit(buf, nxt.text, nxt.on_done)
+		M._run(buf, nxt)
 	else
 		-- Buffer was closed: nothing to review against.
 		complete(nxt.on_done, "rejected", { accepted = 0, rejected = 0, user_edits = false })
@@ -231,7 +236,7 @@ local function finish(self, outcome, unloading)
 	elseif outcome == "rejected" then
 		notify("rejected " .. name)
 	elseif outcome == "cancelled" then
-		notify(("review of %s cancelled"):format(name), vim.log.levels.WARN)
+		notify(("review of %s cancelled by Claude Code"):format(name), vim.log.levels.WARN)
 	end
 
 	complete(self.on_done, outcome, stats)
@@ -303,9 +308,9 @@ function Session:cancel()
 end
 
 ---@param buf integer
----@param text string
----@param on_done fun(outcome: Beast.Review.Outcome, stats: Beast.Review.Stats)
-local function start(buf, text, on_done)
+---@param req Beast.Review.Request
+local function start(buf, req)
+	local text, on_done = req.text, req.on_done
 	local proposal = hunks.split(text)
 	local current = api.nvim_buf_get_lines(buf, 0, -1, false)
 	local was_empty = #current == 1 and current[1] == ""
@@ -333,6 +338,7 @@ local function start(buf, text, on_done)
 		finished = false,
 	}, Session)
 	active[buf] = self
+	req.session = self
 
 	show(buf)
 	for i, h in ipairs(list) do
@@ -380,18 +386,45 @@ local function start(buf, text, on_done)
 	goto_item(self, self.items[1])
 end
 
+---@param buf integer
+---@param req Beast.Review.Request
+function M._run(buf, req)
+	if active[buf] then
+		queued[buf] = queued[buf] or {}
+		table.insert(queued[buf], req)
+		return
+	end
+	start(buf, req)
+end
+
 --- Start reviewing `text` against `buf`, or queue it behind a review that is
---- already pending on the same buffer.
+--- already pending on the same buffer. Returns a function that abandons this
+--- request (pending or queued); a no-op once it has completed.
 ---@param buf integer
 ---@param text string
 ---@param on_done fun(outcome: Beast.Review.Outcome, stats: Beast.Review.Stats)
+---@return fun() cancel
 function M.submit(buf, text, on_done)
-	if active[buf] then
-		queued[buf] = queued[buf] or {}
-		table.insert(queued[buf], { text = text, on_done = on_done })
-		return
+	---@type Beast.Review.Request
+	local req = { text = text, on_done = on_done }
+	M._run(buf, req)
+	return function()
+		if req.session then
+			req.session:cancel() -- no-op if already finished
+			return
+		end
+		-- Identity match: vim.fn.index would round-trip the table through Vimscript.
+		for i, queued_req in ipairs(queued[buf] or {}) do
+			if queued_req == req then
+				table.remove(queued[buf], i)
+				if #queued[buf] == 0 then
+					queued[buf] = nil
+				end
+				complete(on_done, "cancelled", { accepted = 0, rejected = 0, user_edits = false })
+				return
+			end
+		end
 	end
-	start(buf, text, on_done)
 end
 
 ---@param buf integer

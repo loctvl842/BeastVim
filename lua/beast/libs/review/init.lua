@@ -1,10 +1,27 @@
 local config = require("beast.libs.review.config")
 local session = require("beast.libs.review.session")
 
+local uv = vim.uv or vim.loop
+
 local M = {}
 
 ---@type Beast.Lib.Meta
 M.meta = { name = "review", description = "Review proposed file changes inline, hunk by hunk." }
+
+---@class Beast.Review.Host
+---@field listener Beast.Review.Listener
+---@field lock_path string
+---@field clients integer           open WebSocket sessions
+---@field last_message_ns? integer  hrtime of the newest inbound message
+
+---@type Beast.Review.Host?
+local host
+
+---@param msg string
+---@param level? integer
+local function notify(msg, level)
+	vim.notify(msg, level or vim.log.levels.INFO, { title = M.meta.name })
+end
 
 --- Propose `contents` as the new text of `path`. The file opens in a window
 --- (or is created), the change shows as Current vs Incoming hunks, and
@@ -13,34 +30,173 @@ M.meta = { name = "review", description = "Review proposed file changes inline, 
 ---@param path string
 ---@param contents string
 ---@param on_done? fun(outcome: Beast.Review.Outcome, stats: Beast.Review.Stats)
+---@return fun() cancel  abandon this proposal without writing anything
 function M.propose(path, contents, on_done)
 	local buf = vim.fn.bufadd(vim.fn.fnamemodify(path, ":p"))
 	vim.fn.bufload(buf)
 	vim.bo[buf].buflisted = true
-	session.submit(buf, contents, on_done or function() end)
+	return session.submit(buf, contents, on_done or function() end)
 end
+
+--- Listen for Claude Code on loopback and advertise ourselves in its
+--- discovery directory. Returns false (after notifying) when it cannot.
+---@return boolean ok
+function M.start()
+	if host then
+		return true
+	end
+	local server = require("beast.libs.review.server")
+	local lockfile = require("beast.libs.review.server.lockfile")
+	local jsonrpc = require("beast.libs.review.server.jsonrpc")
+	local handlers = require("beast.libs.review.server.mcp").handlers
+
+	local token, terr = lockfile.token()
+	if not token then
+		notify("cannot start: " .. terr, vim.log.levels.ERROR)
+		return false
+	end
+
+	lockfile.cleanup_stale()
+
+	---@type Beast.Review.Host
+	local h = { clients = 0 }
+	local listener, err = server.start({
+		token = token,
+		on_open = function()
+			h.clients = h.clients + 1
+		end,
+		on_message = function(client, text)
+			h.last_message_ns = uv.hrtime()
+			jsonrpc.handle(client, text, handlers)
+		end,
+		on_close = function(client)
+			h.clients = h.clients - 1
+			jsonrpc.client_closed(client)
+		end,
+	})
+	if not listener then
+		notify("cannot start: " .. tostring(err), vim.log.levels.ERROR)
+		return false
+	end
+
+	local path, lerr = lockfile.write(listener.port, token, { vim.fn.getcwd() })
+	if not path then
+		listener:close()
+		notify("cannot write lock file: " .. tostring(lerr), vim.log.levels.ERROR)
+		return false
+	end
+
+	h.listener, h.lock_path = listener, path
+	host = h
+	return true
+end
+
+function M.stop()
+	if not host then
+		return
+	end
+	local h = host
+	host = nil
+	require("beast.libs.review.server.lockfile").remove(h.lock_path)
+	h.listener:close()
+end
+
+---@class Beast.Review.Status
+---@field running boolean
+---@field port? integer
+---@field clients integer
+---@field last_message_ago_s? number
+---@field lock_path? string
+
+---@return Beast.Review.Status
+function M.status()
+	if not host then
+		return { running = false, clients = 0 }
+	end
+	return {
+		running = true,
+		port = host.listener.port,
+		clients = host.clients,
+		last_message_ago_s = host.last_message_ns and (uv.hrtime() - host.last_message_ns) / 1e9 or nil,
+		lock_path = host.lock_path,
+	}
+end
+
+---@return string[]
+local function status_lines()
+	local s = M.status()
+	if not s.running then
+		return { "Review: stopped" }
+	end
+	local last = s.last_message_ago_s and ("%.0fs ago"):format(s.last_message_ago_s) or "never"
+	local sessions = ("connected (%d session%s)"):format(s.clients, s.clients == 1 and "" or "s")
+	return {
+		("Review: running on 127.0.0.1:%d"):format(s.port),
+		("Claude Code: %s"):format(s.clients > 0 and sessions or "not connected"),
+		("Last message: %s"):format(last),
+		("Lock file: %s"):format(s.lock_path),
+	}
+end
+
+local subcommands = {
+	start = function()
+		if M.start() then
+			notify(table.concat(status_lines(), "\n"))
+		end
+	end,
+	stop = function()
+		M.stop()
+		notify("Review: stopped")
+	end,
+	status = function()
+		notify(table.concat(status_lines(), "\n"))
+	end,
+	-- Manual driver: treat a local file as the proposal for the current buffer.
+	propose = function(arg)
+		if not arg then
+			return notify("usage: :Review propose <file with proposed contents>", vim.log.levels.ERROR)
+		end
+		local f, err = io.open(vim.fn.expand(arg), "rb")
+		if not f then
+			return notify(err, vim.log.levels.ERROR)
+		end
+		local text = f:read("*a")
+		f:close()
+		M.propose(vim.api.nvim_buf_get_name(0), text)
+	end,
+}
 
 ---@param opts? Beast.Review.Config
 function M.setup(opts)
 	require("beast").apply_highlights("beast.libs.review.highlights")
 	config.setup(opts)
 
-	-- Manual driver: treat a local file as the proposal for the current buffer.
 	vim.api.nvim_create_user_command("Review", function(o)
-		local sub, arg = o.fargs[1], o.fargs[2]
-		if sub ~= "propose" or not arg then
-			vim.notify("usage: :Review propose <file with proposed contents>", vim.log.levels.ERROR, { title = M.meta.name })
-			return
+		local run = subcommands[o.fargs[1]]
+		if not run then
+			return notify("usage: :Review start|stop|status|propose <file>", vim.log.levels.ERROR)
 		end
-		local f, err = io.open(vim.fn.expand(arg), "rb")
-		if not f then
-			vim.notify(err, vim.log.levels.ERROR, { title = M.meta.name })
-			return
-		end
-		local text = f:read("*a")
-		f:close()
-		M.propose(vim.api.nvim_buf_get_name(0), text)
-	end, { nargs = "+", complete = "file", desc = "Review proposed file contents" })
+		run(o.fargs[2])
+	end, {
+		nargs = "+",
+		complete = function(_, line)
+			if line:match("^%S+%s+propose%s") then
+				return vim.fn.getcompletion(line:match("propose%s+(.*)$") or "", "file")
+			end
+			return vim.tbl_keys(subcommands)
+		end,
+		desc = "Review proposed file changes",
+	})
+
+	-- Always remove our discovery file, even on :qa!.
+	vim.api.nvim_create_autocmd("VimLeavePre", {
+		group = vim.api.nvim_create_augroup("beast_review_host", { clear = true }),
+		callback = M.stop,
+	})
+
+	if config.enabled then
+		M.start()
+	end
 end
 
 return M

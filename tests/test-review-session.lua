@@ -199,6 +199,35 @@ do
 	assert_eq("both applied in order", read(path), "A\nB\n")
 end
 
+print("== cancel handles: queued requests ==")
+do
+	local path = make_file("a\nb\n")
+	local res = { a = {}, b = {}, c = {} }
+	local function sub(key, text)
+		return review.propose(path, text, function(o)
+			res[key].outcome = o
+		end)
+	end
+	local cancel_a = sub("a", "A\nb\n")
+	local buf = vim.fn.bufnr(vim.fn.fnamemodify(path, ":p"))
+	local cancel_b = sub("b", "A\nB\n")
+	local cancel_c = sub("c", "A\nb\nC\n")
+
+	cancel_c()
+	assert_eq("queued request cancelled", res.c.outcome, "cancelled")
+	cancel_b()
+	assert_eq("second queued request cancelled", res.b.outcome, "cancelled")
+	assert_test("active review undisturbed", session.get(buf) ~= nil and res.a.outcome == nil)
+
+	cancel_c() -- already completed: no-op, no second callback
+	cancel_a()
+	assert_eq("active request cancelled", res.a.outcome, "cancelled")
+	vim.wait(100)
+	assert_test("cancelled queue entries never start a session", session.get(buf) == nil)
+	assert_eq("file untouched", read(path), "a\nb\n")
+	cancel_a() -- after finish: no-op
+end
+
 print("== unsaved edits are the Current side and get saved ==")
 do
 	local path = make_file("a\nb\n")
