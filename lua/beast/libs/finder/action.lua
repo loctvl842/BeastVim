@@ -33,14 +33,26 @@ end
 ---@param win? integer window to focus before opening; falls back to the current window
 ---@param item Beast.Finder.Item
 function M.open_file(win, item)
-	-- stylua: ignore
-	if not item or not item.file then return end
+    -- stylua: ignore
+    if not item or not item.file then return end
 	if win and vim.api.nvim_win_is_valid(win) then
 		vim.api.nvim_set_current_win(win)
 	end
+
+	local same_file = vim.fn.fnamemodify(item.file, ":p") == vim.api.nvim_buf_get_name(0)
+
+	-- Record the pre-jump position in the jumplist so <C-o> returns here,
+	-- like vim.lsp.util.show_document does before an LSP jump. `:edit` on a
+	-- different file records it too (consecutive same-position entries are
+	-- deduped); a same-file jump moves the cursor directly, which would
+	-- otherwise leave the jumplist untouched and send <C-o> to a stale entry.
+	if item.pos or not same_file then
+		vim.cmd("normal! m'")
+	end
+
 	-- `:edit` on the buffer already shown means "reload from disk": with unsaved
 	-- changes that fails (E37) or, with 'confirm', pops the native save prompt.
-	if vim.fn.fnamemodify(item.file, ":p") ~= vim.api.nvim_buf_get_name(0) then
+	if not same_file then
 		vim.cmd("edit " .. vim.fn.fnameescape(item.file))
 	end
 

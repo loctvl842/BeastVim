@@ -23,7 +23,7 @@ local PreviewView = View:extend(
 ---@class Beast.Finder.UI.Preview
 local M = {}
 
-local MAX_PREVIEW_LINES = 500
+local MAX_PREVIEW_LINES = 3000
 
 --- Move the cursor to (line, col) in the preview window, centring vertically
 --- (`zz`) and horizontally (leftcol pan) so long lines remain visible. Vertical
