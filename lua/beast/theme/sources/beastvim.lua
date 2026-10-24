@@ -11,7 +11,7 @@ function M.matches(name)
 	return require("beast.theme.sources").colorscheme_exists(vim.fn.stdpath("config") .. "/colors", name)
 end
 
----@return Beast.Theme.Palette
+---@return Beast.Theme.BasePalette
 function M.extract()
 	local map = {}
 	for key in pairs(palette.defaults) do

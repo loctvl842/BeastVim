@@ -25,7 +25,7 @@ local function named(name, fallback)
 	return string.format("#%06x", rgb)
 end
 
----@return Beast.Theme.Palette
+---@return Beast.Theme.BasePalette
 function M.extract()
 	local d = palette.defaults
 	local background = palette.extract("Normal", "bg", d.background)

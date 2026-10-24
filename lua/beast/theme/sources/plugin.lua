@@ -10,7 +10,7 @@ function M.matches()
 	return true
 end
 
----@return Beast.Theme.Palette
+---@return Beast.Theme.BasePalette
 function M.extract()
 	return palette.from_groups({
 		dark2 = { "StatusLine", "bg" },

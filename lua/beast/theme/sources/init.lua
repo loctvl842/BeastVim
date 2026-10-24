@@ -1,7 +1,7 @@
 ---@class Beast.Theme.Source
 ---@field name "beastvim"|"nvim"|"plugin"
 ---@field matches? fun(colors_name: string): boolean
----@field extract? fun(): Beast.Theme.Palette
+---@field extract? fun(): Beast.Theme.BasePalette
 ---@field post_apply? fun(palette: Beast.Theme.Palette)
 
 local M = {}

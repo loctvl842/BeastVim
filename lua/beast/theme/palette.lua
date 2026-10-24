@@ -1,4 +1,4 @@
----@class Beast.Theme.Palette
+---@class Beast.Theme.BasePalette
 ---@field dark2 string
 ---@field dark1 string
 ---@field background string
@@ -14,6 +14,7 @@
 ---@field dimmed3 string
 ---@field dimmed4 string
 ---@field dimmed5 string
+---@class Beast.Theme.Palette: Beast.Theme.BasePalette
 ---@field red string Semantic: palette color closest in hue to red
 ---@field yellow string Semantic: palette color closest in hue to yellow
 ---@field green string Semantic: palette color closest in hue to green
@@ -33,7 +34,7 @@ local semantic_targets = {
 --- Palette colors with less chroma than this are treated as neutral (no hue).
 local MIN_CHROMA = 0.12
 
----@type Beast.Theme.Palette
+---@type Beast.Theme.BasePalette
 M.defaults = {
 	dark2 = "#33353a",
 	dark1 = "#282a30",
@@ -63,7 +64,7 @@ end
 
 --- Build a palette from a `{ key = { group, attr } }` map.
 ---@param map table<string, { [1]: string, [2]: "fg"|"bg" }>
----@return Beast.Theme.Palette
+---@return Beast.Theme.BasePalette
 function M.from_groups(map)
 	local palette = {}
 	for key, default in pairs(M.defaults) do
@@ -100,9 +101,10 @@ end
 --- hue is closest to the target, regardless of key names. Neutral colors are
 --- skipped and a color is never picked twice (closest pairs are assigned
 --- first). Falls back to the default when no chromatic color is left.
----@param p table<string, string> Palette with the base keys
+---@param base Beast.Theme.BasePalette
 ---@return Beast.Theme.Palette
-function M.with_semantic(p)
+function M.with_semantic(base)
+	local p = base --[[@as Beast.Theme.Palette]]
 	local pairs_ = {}
 	for key in pairs(M.defaults) do
 		local hue, chroma = hue_chroma(p[key])
