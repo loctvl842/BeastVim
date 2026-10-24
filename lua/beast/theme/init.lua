@@ -5,7 +5,7 @@ local sources = require("beast.theme.sources")
 local M = {}
 
 ---@type Beast.Theme.Palette
-local cache = vim.deepcopy(palette.defaults)
+local cache = palette.with_semantic(vim.deepcopy(palette.defaults))
 
 --- Kind of the active colorscheme (resolved live, so it is valid before the
 --- first `refresh()`).
@@ -20,7 +20,7 @@ end
 --- Re-extract all palette colors from the current colorscheme.
 function M.refresh()
 	local source = sources.detect()
-	cache = source.extract()
+	cache = palette.with_semantic(source.extract())
 	if source.post_apply then
 		source.post_apply(cache)
 	end

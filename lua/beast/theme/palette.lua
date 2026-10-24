@@ -14,8 +14,24 @@
 ---@field dimmed3 string
 ---@field dimmed4 string
 ---@field dimmed5 string
+---@field red string Semantic: palette color closest in hue to red
+---@field yellow string Semantic: palette color closest in hue to yellow
+---@field green string Semantic: palette color closest in hue to green
 
 local M = {}
+
+---@alias Beast.Theme.Semantic "red"|"yellow"|"green"
+
+--- Target hue (degrees) and fallback per semantic color.
+---@type table<Beast.Theme.Semantic, { hue: number, fallback: string }>
+local semantic_targets = {
+	red = { hue = 355, fallback = "#ffc0b9" },
+	yellow = { hue = 48, fallback = "#fce094" },
+	green = { hue = 130, fallback = "#b3f6c0" },
+}
+
+--- Palette colors with less chroma than this are treated as neutral (no hue).
+local MIN_CHROMA = 0.12
 
 ---@type Beast.Theme.Palette
 M.defaults = {
@@ -55,6 +71,66 @@ function M.from_groups(map)
 		palette[key] = M.extract(spec[1], spec[2], default)
 	end
 	return palette
+end
+
+--- Hue (degrees, 0-360) and chroma (0-1) of a hex color.
+---@param hex string
+---@return number hue
+---@return number chroma
+local function hue_chroma(hex)
+	local c = Util.colors.hex_to_rgb(hex)
+	local r, g, b = c.r / 255, c.g / 255, c.b / 255
+	local max, min = math.max(r, g, b), math.min(r, g, b)
+	local chroma = max - min
+	if chroma == 0 then
+		return 0, 0
+	end
+	local hue
+	if max == r then
+		hue = ((g - b) / chroma) % 6
+	elseif max == g then
+		hue = (b - r) / chroma + 2
+	else
+		hue = (r - g) / chroma + 4
+	end
+	return hue * 60, chroma
+end
+
+--- Add `red`, `yellow` and `green` to `p`: for each, the palette color whose
+--- hue is closest to the target, regardless of key names. Neutral colors are
+--- skipped and a color is never picked twice (closest pairs are assigned
+--- first). Falls back to the default when no chromatic color is left.
+---@param p table<string, string> Palette with the base keys
+---@return Beast.Theme.Palette
+function M.with_semantic(p)
+	local pairs_ = {}
+	for key in pairs(M.defaults) do
+		local hue, chroma = hue_chroma(p[key])
+		if chroma >= MIN_CHROMA then
+			for name, target in pairs(semantic_targets) do
+				local d = math.abs(hue - target.hue) % 360
+				table.insert(pairs_, { name = name, key = key, dist = math.min(d, 360 - d) })
+			end
+		end
+	end
+	table.sort(pairs_, function(a, b)
+		if a.dist ~= b.dist then
+			return a.dist < b.dist
+		end
+		return a.key < b.key
+	end)
+
+	local used = {}
+	for _, c in ipairs(pairs_) do
+		if p[c.name] == nil and not used[c.key] then
+			p[c.name] = p[c.key]
+			used[c.key] = true
+		end
+	end
+	for name, target in pairs(semantic_targets) do
+		p[name] = p[name] or target.fallback
+	end
+	return p
 end
 
 --- Nvim/beastvim themes often define StatusLine with reverse or a light bg
