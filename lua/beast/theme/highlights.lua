@@ -114,9 +114,9 @@ function M.get()
 
 		-- Diff — tinted backgrounds blended against Normal bg so colored fg
 		-- (gitsigns, @diff.*) still reads on top.
-		DiffAdd = { bg = blend(p.accent3, 0.18, p.background) },
+		DiffAdd = { bg = blend(p.green, 0.18, p.background) },
 		DiffChange = { bg = blend(p.accent5, 0.18, p.background) },
-		DiffDelete = { bg = blend(p.accent1, 0.18, p.background) },
+		DiffDelete = { bg = blend(p.red, 0.18, p.background) },
 		DiffText = { bg = blend(p.accent5, 0.32, p.background) },
 
 		Folded = { bg = blend(p.accent2, 0.10, p.background) },
@@ -154,9 +154,9 @@ function M.get()
 		FloatTitle = { fg = p.dark1, bg = p.accent3 },
 
 		-- Vim diff / health (`:checkhealth`, fugitive-style diff buffers)
-		diffAdded = { fg = p.accent4 },
-		diffChanged = { fg = p.accent3 },
-		diffRemoved = { fg = p.accent1 },
+		diffAdded = { fg = p.green },
+		diffChanged = { fg = p.yellow },
+		diffRemoved = { fg = p.red },
 		diffFile = { fg = p.accent3 },
 		diffNewFile = { fg = p.accent3 },
 		diffLine = { fg = p.accent5 },
