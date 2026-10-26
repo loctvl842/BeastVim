@@ -1,0 +1,104 @@
+-- Search match counter: "current/total" for the active search, shown at the end
+-- of the cursor line and in the statusline.
+--
+-- State lives in Neovim (v:hlsearch, @/, cursor); `get()` only reads it, so
+-- every consumer is always consistent with what the search highlight shows.
+
+local api = vim.api
+
+local M = {}
+
+---@type Beast.Lib.Meta
+M.meta = { name = "searchcount", description = "Search match counter (end of line + statusline)" }
+
+local MAX = 999
+local TIMEOUT_MS = 100
+local ESC = "\27"
+
+---@class Beast.SearchCount.Result
+---@field current integer
+---@field total integer
+---@field text string
+
+-- One memo entry per window: the float and the statusline both ask once per
+-- redraw, and `searchcount()` rescans the buffer.
+---@type table<integer, { key: string, value: Beast.SearchCount.Result|false }>
+local memo = {}
+
+---@param n integer
+---@return string
+local function cap(n)
+	return n > MAX and (MAX .. "+") or tostring(n)
+end
+
+---@param current integer
+---@param total integer
+---@return string
+function M.format(current, total)
+	return cap(current) .. "/" .. cap(total)
+end
+
+---Count for the match under the cursor of `winid`, or nil when no count should
+---be shown (no active highlight, cursor not on a match, no matches).
+---@param winid? integer
+---@return Beast.SearchCount.Result?
+function M.get(winid)
+	winid = (winid == nil or winid == 0) and api.nvim_get_current_win() or winid
+	-- stylua: ignore
+	if vim.v.hlsearch ~= 1 or not api.nvim_win_is_valid(winid) then return nil end
+
+	local buf = api.nvim_win_get_buf(winid)
+	local cursor = api.nvim_win_get_cursor(winid)
+	local pat = vim.fn.getreg("/")
+	local key = table.concat({ buf, vim.b[buf].changedtick, pat, cursor[1], cursor[2] }, ":")
+
+	local hit = memo[winid]
+	if hit and hit.key == key then
+		return hit.value or nil
+	end
+
+	local sc = api.nvim_win_call(winid, function()
+		return vim.fn.searchcount({ maxcount = MAX, timeout = TIMEOUT_MS })
+	end)
+
+	---@type Beast.SearchCount.Result|false
+	local value = false
+	if sc.total and sc.total > 0 and sc.exact_match == 1 then
+		-- `incomplete` (timeout or maxcount hit) means the real total is larger.
+		local total = sc.incomplete ~= 0 and MAX + 1 or sc.total
+		value = { current = sc.current, total = total, text = M.format(sc.current, total) }
+	end
+	memo[winid] = { key = key, value = value }
+	return value or nil
+end
+
+function M.setup()
+	local group = api.nvim_create_augroup("BeastSearchCount", { clear = true })
+
+	api.nvim_create_autocmd("WinClosed", {
+		group = group,
+		callback = function(ev)
+			memo[tonumber(ev.match) or -1] = nil
+		end,
+	})
+
+	-- `:noh` and <Esc> clear the highlight without moving the cursor, so the
+	-- statusline would keep showing a stale count.
+	api.nvim_create_autocmd("CmdlineLeave", {
+		group = group,
+		callback = function()
+			vim.schedule(function()
+				vim.cmd.redrawstatus()
+			end)
+		end,
+	})
+	vim.on_key(function(key)
+		if key == ESC then
+			vim.schedule(function()
+				vim.cmd.redrawstatus()
+			end)
+		end
+	end, api.nvim_create_namespace("BeastSearchCountOnKey"))
+end
+
+return M

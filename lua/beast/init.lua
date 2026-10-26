@@ -104,8 +104,17 @@ function M.setup(opts)
 			local cpn = require("beast.libs.statusline.components")
 			stl.setup({
 				left = { cpn.git_branch, cpn.diagnostics, cpn.finder_lsp },
-				right = { cpn.macro, cpn.blink({ "supermaven" }), cpn.git_commit, cpn.position, cpn.filetype, cpn.shiftwidth, cpn.encoding, cpn.mode },
+				right = { cpn.macro, cpn.blink({ "supermaven" }), cpn.search_count, cpn.git_commit, cpn.position, cpn.filetype, cpn.shiftwidth, cpn.encoding, cpn.mode },
 			})
+		end,
+	})
+
+	-- Search match counter (statusline component reads it directly; setup only
+	-- wires the redraw hooks, so it can wait until after the first screen)
+	packer.lazy("beast.libs.searchcount", {
+		event = { name = "VimEnter", defer = true },
+		setup = function(searchcount)
+			searchcount.setup()
 		end,
 	})
 

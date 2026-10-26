@@ -65,6 +65,7 @@ M.git_commit = require("beast.libs.statusline.components.git_commit")
 M.macro = require("beast.libs.statusline.components.macro")
 M.mode = require("beast.libs.statusline.components.mode")
 M.position = require("beast.libs.statusline.components.position")
+M.search_count = require("beast.libs.statusline.components.search_count")
 M.shiftwidth = require("beast.libs.statusline.components.shiftwidth")
 
 return M
