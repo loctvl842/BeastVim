@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792832257197,
+  "lastUpdate": 1793036376762,
   "repoUrl": "https://github.com/loctvl842/BeastVim",
   "entries": {
     "BeastVim Startup": [
@@ -2769,6 +2769,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "BeastVim startup (warm) max",
             "value": 541.810028,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "committer": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "distinct": true,
+          "id": "01e8ecef10ed0aad465cc3fd05b9114f3298bd12",
+          "message": "docs(toast): add repeat-count specs, mockup, codemap and manual harness series",
+          "timestamp": "2026-10-27T00:37:31+07:00",
+          "tree_id": "76e49a24967355895139e40b7bcf03963c2b9268",
+          "url": "https://github.com/loctvl842/BeastVim/commit/01e8ecef10ed0aad465cc3fd05b9114f3298bd12"
+        },
+        "date": 1793036375802,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "BeastVim startup (warm) mean",
+            "value": 365.0647274500001,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) stddev",
+            "value": 43.00109826650667,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) min",
+            "value": 333.39311200000003,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) max",
+            "value": 476.60669000000007,
             "unit": "ms"
           }
         ]
