@@ -70,6 +70,21 @@ function M.loader()
 	end
 end
 
+---Same warning every 400 ms: one toast whose "xN" count climbs and which stays
+---until the repeats stop; then two other messages interleaved with a repeated one.
+function M.repeats()
+	for i = 1, 8 do
+		vim.defer_fn(function()
+			toast("Pattern not found: foo", "WARN", { title = "Search" })
+		end, i * 400)
+	end
+	vim.defer_fn(function()
+		toast("file saved", "INFO")
+		toast("Format failed", "ERROR", { title = "Conform" })
+		toast("file saved", "INFO")
+	end, 4200)
+end
+
 function M.series_fast()
 	run_series(50, 40, 1200)
 end

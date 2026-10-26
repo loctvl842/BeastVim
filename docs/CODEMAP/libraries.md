@@ -282,7 +282,7 @@ notify/
 ├── config.lua   ← level, timeout, width, position
 ├── state.lua    ← State class (views[], next_id)
 ├── stack.lua    ← push/dismiss, layout management
-├── record.lua   ← Record factory (id, message, level, timeout)
+├── record.lua   ← Record factory (count/key/mergeable, count_label "x2".."x99+") (id, message, level, timeout)
 └── ui.lua       ← create/render/close/fade views
 ```
 
@@ -303,7 +303,9 @@ toast/
 └── ui.lua       ← create/render/close views
 ```
 
-API: `Toast(message, level, opts)`
+API: `Toast(message, level, opts)` — identical auto-dismissing toasts (text+level+title, incl. queued/in-flight)
+merge into the open one: `xN` badge (`BeastToastCount`), per-view restartable timer; `opts.merge = false`
+opts out; sticky (`timeout = false`) and `segments` (progress) toasts never merge.
 
 ---
 

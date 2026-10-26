@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Toast Repeat Count</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600&display=swap">
+<style>
+/* Layout: intro, one interactive editor window with bottom-right toast stack, static state strip, questions.
+   Single dark look on purpose: it mimics the editor (monokai-pro palette). */
+:root {
+  --page: #221f24;
+  --ed-bg: #2d2a2e;
+  --ed-bg2: #3a373c;
+  --ed-fg: #fcfcfa;
+  --ed-dim: #727072;
+  --line: #4a474c;
+  --yellow: #ffd866;
+  --orange: #fc9867;
+  --red: #ff6188;
+  --green: #a9dc76;
+  --cyan: #78dce8;
+  --purple: #ab9df2;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  --sans: "IBM Plex Sans", system-ui, sans-serif;
+  color-scheme: dark;
+}
+body { background: var(--page); color: var(--ed-fg); font-family: var(--sans); font-size: 15px; line-height: 1.55; margin: 0; padding-block: 32px 64px; padding-inline: 16px; }
+.wrap { max-width: 860px; margin: 0 auto; display: flex; flex-direction: column; gap: 28px; }
+h1 { font-size: 26px; margin: 0; text-wrap: balance; }
+h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .09em; color: var(--ed-dim); margin: 0 0 10px; font-weight: 600; }
+p { margin: 0; color: #c9c7ca; max-width: 65ch; }
+kbd, code { font-family: var(--mono); font-size: 12.5px; background: var(--ed-bg2); padding: 1px 6px; border-radius: 4px; color: var(--ed-fg); }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.controls button { font: 600 13px var(--sans); background: var(--ed-bg2); color: var(--ed-fg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 12px; cursor: pointer; }
+.controls button:hover { border-color: var(--yellow); }
+.controls .sep { width: 1px; height: 22px; background: var(--line); margin: 0 6px; }
+:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+
+/* editor window */
+.scroller { overflow-x: auto; }
+.nvim { position: relative; width: 760px; height: 320px; font-family: var(--mono); font-size: 13.5px; line-height: 1.5; background: var(--ed-bg); border-radius: 8px; border: 1px solid var(--line); overflow: hidden; }
+.code { padding: 10px 0; white-space: pre; color: var(--ed-fg); }
+.code .n { display: inline-block; width: 4ch; text-align: right; color: var(--ed-dim); padding-right: 1.5ch; }
+.kw { color: var(--red); } .str { color: var(--yellow); } .cm { color: var(--ed-dim); } .fn { color: var(--green); }
+.status { position: absolute; left: 0; right: 0; bottom: 0; height: 1.9em; display: flex; gap: 2ch; align-items: center; padding: 0 1.5ch; border-top: 1px solid var(--green); background: var(--ed-bg); color: var(--ed-dim); white-space: nowrap; }
+.status .git { color: var(--green); } .status .mode { color: var(--red); font-weight: 600; margin-left: auto; }
+
+/* toast stack: bottom-right, right aligned, one line each, transparent background (as in the editor) */
+.stack { position: absolute; right: 1ch; bottom: calc(1.9em + 6px); display: flex; flex-direction: column; align-items: flex-end; gap: 0; }
+.toast { display: flex; white-space: pre; padding: 0 1ch; background: var(--ed-bg2); border-radius: 3px; animation: in .18s ease-out; }
+.toast .body { color: #c9c7ca; }
+.toast .count { color: var(--yellow); font-weight: 600; }
+.toast .title { margin-left: 1.5ch; }
+.toast.INFO .title { color: var(--cyan); } .toast.WARN .title { color: var(--green); } .toast.ERROR .title { color: var(--red); }
+.toast.bump .count { animation: bump .25s ease-out; }
+.toast.out { animation: out .25s ease-in forwards; }
+@keyframes in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@keyframes out { to { opacity: 0; } }
+@keyframes bump { 0% { transform: scale(1.5); } 100% { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .toast, .toast.bump .count, .toast.out { animation: none; } }
+
+.hint { font-size: 13px; color: var(--ed-dim); max-width: 65ch; }
+
+/* static states */
+.strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+.mini { background: var(--ed-bg); border: 1px solid var(--line); border-radius: 8px; padding: 12px; font-family: var(--mono); font-size: 12.5px; min-width: 0; overflow-x: auto; }
+.mini .rows { display: flex; flex-direction: column; align-items: flex-end; }
+.mini .toast { animation: none; }
+.mini .cap { font-family: var(--sans); font-size: 12px; color: var(--ed-dim); margin-top: 10px; white-space: normal; text-align: left; }
+.mini .label { font-family: var(--sans); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--ed-dim); margin-bottom: 8px; }
+ul.q { margin: 0; padding-left: 1.1em; display: flex; flex-direction: column; gap: 10px; max-width: 70ch; color: #c9c7ca; }
+ul.q b { color: var(--ed-fg); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div>
+    <h1>Toast repeat count</h1>
+    <p style="margin-top:8px">When the same toast fires again while it is still on screen, it does not stack another line. The existing one gains a count: <code>x2</code>, <code>x3</code> ... <code>xN</code>. Try the buttons below.</p>
+  </div>
+
+  <section>
+    <h2>Try it</h2>
+    <div class="controls">
+      <button id="fSaved">"Pattern not found" (warn)</button>
+      <button id="fErr">"Format failed" (error)</button>
+      <button id="fOther">Different message</button>
+      <span class="sep"></span>
+      <button id="fBurst">Fire "Pattern not found" x5 fast</button>
+      <button id="fClear">Clear</button>
+    </div>
+    <div class="scroller" style="margin-top:12px">
+      <div class="nvim">
+        <div class="code"><span class="n">1</span><span class="kw">local</span> M = {}
+<span class="n">2</span>
+<span class="n">3</span><span class="kw">function</span> M.setup(opts)
+<span class="n">4</span>  opts = opts <span class="kw">or</span> {}
+<span class="n">5</span>  <span class="kw">return</span> opts
+<span class="n">6</span><span class="kw">end</span>
+<span class="n">7</span>
+<span class="n">8</span><span class="kw">return</span> M</div>
+        <div class="stack" id="stack" aria-live="polite"></div>
+        <div class="status"><span class="git"> main</span><span class="mode">NORMAL</span></div>
+      </div>
+    </div>
+    <p class="hint" style="margin-top:10px">Each toast stays 2.2 s, like today. A repeat restarts that timer, so a message that keeps repeating stays visible and keeps counting. After it disappears, the next occurrence starts again at no count.</p>
+  </section>
+
+  <section>
+    <h2>States</h2>
+    <div class="strip">
+      <div class="mini"><div class="label">First time</div><div class="rows">
+        <div class="toast WARN"><span class="body">Pattern not found: foo</span><span class="title">Search 󰍉</span></div></div>
+        <div class="cap">No badge on the first occurrence, same as today.</div></div>
+      <div class="mini"><div class="label">Repeated 2 times</div><div class="rows">
+        <div class="toast WARN"><span class="body">Pattern not found: foo </span><span class="count">x2</span><span class="title">Search 󰍉</span></div></div>
+        <div class="cap">The line stays the same height. Only the count is added after the message.</div></div>
+      <div class="mini"><div class="label">Repeated 14 times</div><div class="rows">
+        <div class="toast WARN"><span class="body">Pattern not found: foo </span><span class="count">x14</span><span class="title">Search 󰍉</span></div></div>
+        <div class="cap">The toast widens by the extra characters. Very large counts stop at x99+.</div></div>
+      <div class="mini"><div class="label">Different messages stay separate</div><div class="rows">
+        <div class="toast ERROR"><span class="body">Format failed </span><span class="count">x3</span><span class="title">Conform </span></div>
+        <div class="toast WARN"><span class="body">Pattern not found: foo </span><span class="count">x2</span><span class="title">Search 󰍉</span></div>
+        <div class="toast INFO"><span class="body">file saved</span><span class="title">BeastVim </span></div></div>
+        <div class="cap">Only identical messages with the same title and level are merged.</div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Questions for you</h2>
+    <ul class="q">
+      <li><b>Which messages count as the same?</b> I assumed the same text, same level and same title. "Pattern not found: foo" and "Pattern not found: bar" stay separate.</li>
+      <li><b>Not only consecutive.</b> If "A", then "B", then "A" arrive while all are visible, should the second "A" go to the first "A" (x2) or become a new line? The demo merges it into the first.</li>
+      <li><b>Timer.</b> A repeat restarts the 2.2 s timer. OK, or should the first appearance time still decide when it goes away?</li>
+      <li><b>Wording.</b> <code>x2</code> after the message, in the accent color, as in the mockup. The existing progress toasts use <code>(2)</code>. Align them to <code>x2</code> too, or leave progress alone?</li>
+      <li><b>Cap.</b> Show <code>x99+</code> from 100 onward?</li>
+      <li><b>Sticky toasts.</b> Toasts with no timeout (progress, loading) are not merged, to keep their in-place updates. OK?</li>
+    </ul>
+  </section>
+</div>
+
+<script>
+var stack = document.getElementById("stack");
+var TIMEOUT = 2200;
+var toasts = [];
+
+function label(c) { return c > 99 ? "x99+" : "x" + c; }
+
+function fire(msg, level, title) {
+  var t = null;
+  for (var i = 0; i < toasts.length; i++) {
+    var x = toasts[i];
+    if (x.msg === msg && x.level === level && x.title === title) { t = x; break; }
+  }
+  if (t) {
+    t.count++;
+    clearTimeout(t.timer);
+    render(t, true);
+  } else {
+    t = { msg: msg, level: level, title: title, count: 1, el: document.createElement("div") };
+    toasts.push(t);
+    stack.appendChild(t.el);
+    render(t, false);
+  }
+  t.timer = setTimeout(function () { dismiss(t); }, TIMEOUT);
+}
+
+function render(t, bump) {
+  t.el.className = "toast " + t.level;
+  var count = t.count > 1 ? '<span class="count">' + label(t.count) + "</span>" : "";
+  t.el.innerHTML = '<span class="body">' + t.msg + (t.count > 1 ? " " : "") + "</span>" + count +
+    '<span class="title">' + t.title + "</span>";
+  if (bump) {
+    void t.el.offsetWidth;
+    t.el.classList.add("bump");
+  }
+}
+
+function dismiss(t) {
+  var i = toasts.indexOf(t);
+  if (i < 0) return;
+  toasts.splice(i, 1);
+  t.el.classList.add("out");
+  setTimeout(function () { if (t.el.parentNode) t.el.parentNode.removeChild(t.el); }, 250);
+}
+
+var others = ["file saved", "Copied 3 lines", "Session restored"];
+var oi = 0;
+document.getElementById("fSaved").onclick = function () { fire("Pattern not found: foo", "WARN", "Search 󰍉"); };
+document.getElementById("fErr").onclick = function () { fire("Format failed", "ERROR", "Conform "); };
+document.getElementById("fOther").onclick = function () { fire(others[oi++ % others.length], "INFO", "BeastVim "); };
+document.getElementById("fBurst").onclick = function () {
+  for (var i = 0; i < 5; i++) setTimeout(function () { fire("Pattern not found: foo", "WARN", "Search 󰍉"); }, i * 180);
+};
+document.getElementById("fClear").onclick = function () {
+  toasts.slice().forEach(function (t) { clearTimeout(t.timer); dismiss(t); });
+};
+fire("file saved", "INFO", "BeastVim ");
+fire("Pattern not found: foo", "WARN", "Search 󰍉");
+fire("Pattern not found: foo", "WARN", "Search 󰍉");
+</script>
+</body>
+</html>
