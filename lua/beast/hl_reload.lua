@@ -41,6 +41,7 @@ M.highlight_modules = {
 	"beast.libs.lsp.highlights",
 	"beast.libs.review.highlights",
 	"beast.libs.searchcount.highlights",
+	"beast.libs.messages.highlights",
 }
 
 --- Highlight modules that are skipped for plugin colorschemes

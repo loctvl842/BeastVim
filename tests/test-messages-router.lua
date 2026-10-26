@@ -62,6 +62,7 @@ call(
 	vim.opt.runtimepath:prepend(...)
 	package.path = (...) .. "/lua/?.lua;" .. (...) .. "/lua/?/init.lua;" .. package.path
 	vim.o.cmdheight = 0
+	package.loaded["beast"] = { apply_highlights = function() end } -- theme globals are not loaded under --clean
 	_G.toasts = {}
 	_G.Toast = function(msg, level, opts) _G.toasts[#_G.toasts + 1] = { msg, level, opts and opts.title } end
 	require("beast.libs.messages").setup()

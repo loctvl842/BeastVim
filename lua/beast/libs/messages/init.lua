@@ -65,6 +65,8 @@ function M.setup(opts)
 	-- stylua: ignore
 	if not M.available() then return end
 
+	require("beast").apply_highlights("beast.libs.messages.highlights")
+
 	require("vim._core.ui2").enable(vim.deepcopy(config.ui2))
 
 	local messages = require("vim._core.ui2.messages")
