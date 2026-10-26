@@ -1,0 +1,275 @@
+<title>Search Match Counter</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600&display=swap">
+<style>
+/* Layout: page intro, one interactive editor window, then side-by-side state strip and feedback questions.
+   Single dark look on purpose: it mimics the editor (monokai-pro palette). */
+:root {
+  --page: #221f24;
+  --ed-bg: #2d2a2e;
+  --ed-bg2: #3a373c;
+  --ed-fg: #fcfcfa;
+  --ed-dim: #727072;
+  --ed-line: #19181a;
+  --yellow: #ffd866;
+  --orange: #fc9867;
+  --red: #ff6188;
+  --green: #a9dc76;
+  --cyan: #78dce8;
+  --purple: #ab9df2;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  --sans: "IBM Plex Sans", system-ui, sans-serif;
+  color-scheme: dark;
+}
+body { background: var(--page); color: var(--ed-fg); font-family: var(--sans); font-size: 15px; line-height: 1.55; padding-block: 32px 64px; padding-inline: 16px; }
+.wrap { max-width: 860px; margin: 0 auto; display: flex; flex-direction: column; gap: 28px; }
+h1 { font-size: 26px; margin: 0; text-wrap: balance; }
+h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .09em; color: var(--ed-dim); margin: 0 0 10px; font-weight: 600; }
+p { margin: 0; color: #c9c7ca; max-width: 65ch; }
+kbd, code { font-family: var(--mono); font-size: 12.5px; background: var(--ed-bg2); padding: 1px 6px; border-radius: 4px; color: var(--ed-fg); }
+
+.controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.controls button { font: 600 13px var(--sans); background: var(--ed-bg2); color: var(--ed-fg); border: 1px solid #4a474c; border-radius: 6px; padding: 6px 12px; cursor: pointer; }
+.controls button:hover { border-color: var(--yellow); }
+.controls button[aria-pressed="true"] { background: var(--yellow); color: #1c1a1d; border-color: var(--yellow); }
+.controls .sep { width: 1px; height: 22px; background: #4a474c; margin: 0 6px; }
+:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+
+/* editor */
+.scroller { overflow-x: auto; }
+.nvim { position: relative; --cols: 66ch; width: calc(var(--cols) + 7ch); font-family: var(--mono); font-size: 13.5px; line-height: 1.5; background: var(--ed-bg); border-radius: 8px; border: 1px solid #4a474c; overflow: hidden; }
+.buf { padding-top: 8px; min-height: 17.5em; }
+.row { display: flex; }
+.num { width: 4ch; text-align: right; color: var(--ed-dim); padding-right: 1ch; flex: none; }
+.row.cur .num { color: var(--yellow); }
+.text { position: relative; width: var(--cols); overflow: hidden; white-space: pre; flex: none; }
+.row.cur .text { background: #373439; }
+.hit { background: rgba(255,216,102,.22); color: var(--yellow); border-radius: 2px; }
+.hit.now { background: var(--yellow); color: #1c1a1d; }
+.badge { position: absolute; top: 0; white-space: pre; background: var(--ed-bg2); color: var(--yellow); padding: 0 1ch; border-radius: 3px; font-weight: 600; box-shadow: 0 0 0 1px #4a474c; }
+.kw { color: var(--red); } .str { color: var(--yellow); } .cm { color: var(--ed-dim); } .fn { color: var(--green); }
+.status { display: flex; gap: 2ch; align-items: center; background: var(--ed-bg); border-top: 1px solid var(--green); padding: 0 1.5ch; height: 1.9em; white-space: nowrap; }
+.status .mode { color: var(--red); font-weight: 600; }
+.status .git { color: var(--green); }
+.status .warn { color: var(--orange); }
+.status .blame, .status .ft { color: var(--ed-dim); }
+.status .pos { color: var(--cyan); }
+.status .grow { flex: 1; }
+.status .count { background: var(--yellow); color: #1c1a1d; font-weight: 600; padding: 0 1ch; border-radius: 3px; }
+.status .pos { color: var(--ed-dim); }
+.cmd { background: var(--ed-bg); height: 1.9em; display: flex; align-items: center; padding-inline: 1ch; border-top: 1px solid var(--ed-line); }
+.cmd .prefix { color: var(--ed-fg); }
+.cmd input { flex: 1; min-width: 0; background: transparent; border: 0; color: var(--ed-fg); font: inherit; outline: none; }
+.cmd .msg { color: var(--ed-dim); } .cmd .err { color: var(--red); }
+.toast { position: absolute; bottom: calc(3.8em + 10px); right: 10px; max-width: 34ch; background: var(--ed-bg2); border: 1px solid #4a474c; border-left: 3px solid var(--cyan); border-radius: 6px; padding: 6px 12px; font-size: 12.5px; box-shadow: 0 6px 18px rgba(0,0,0,.4); z-index: 2; white-space: normal; }
+.toast.err { border-left-color: var(--red); }
+.toast .t { font-weight: 600; display: block; }
+.toast.err .t { color: var(--red); }
+.toast.info .t { color: var(--cyan); }
+.toast .b { color: #c9c7ca; }
+.hint { font-size: 13px; color: var(--ed-dim); max-width: 65ch; }
+
+/* state strip */
+.strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.mini { background: var(--ed-bg); border: 1px solid #4a474c; border-radius: 8px; padding: 12px; font-family: var(--mono); font-size: 12.5px; min-width: 0; overflow-x: auto; }
+.mini .cap { font-family: var(--sans); font-size: 12px; color: var(--ed-dim); margin-top: 10px; white-space: normal; }
+.mini pre { margin: 0; white-space: pre; }
+ul.q { margin: 0; padding-left: 1.1em; display: flex; flex-direction: column; gap: 10px; max-width: 70ch; color: #c9c7ca; }
+ul.q b { color: var(--ed-fg); }
+</style>
+
+<div class="wrap">
+  <div>
+    <h1>Search match counter</h1>
+    <p style="margin-top:8px">Mockup for feedback. Press <kbd>Enter</kbd> in the search line below, then <kbd>n</kbd> / <kbd>N</kbd> to move between matches. A count like <code>2/3</code> floats at the end of the matched line and also shows in the statusline.</p>
+  </div>
+
+  <section>
+    <h2>Try it</h2>
+    <div class="controls" id="controls">
+      <button data-fix="short" aria-pressed="true">Normal file</button>
+      <button data-fix="long" aria-pressed="false">Match on a very long line</button>
+      <span class="sep"></span>
+      <button id="bn">n</button><button id="bN">N</button><button id="bEsc">Esc (clear)</button><button id="bReset">Reset</button>
+    </div>
+    <div class="scroller" style="margin-top:12px">
+      <div class="nvim" id="nvim">
+        <div class="buf" id="buf"></div>
+        <div class="status"><span class="git"> main</span><span class="warn">▲ 28</span><span class="grow"></span><span class="count" id="sCount" hidden></span><span class="blame">󰓎 loctvl842 (4 days ago)</span><span class="pos" id="pos"></span><span class="ft">Lua</span><span class="ft">Spaces: 2</span><span class="ft">UTF-8</span><span class="mode">NORMAL</span></div>
+        <div class="cmd" id="cmd"></div>
+        <div class="toast" id="toast" role="status" hidden></div>
+      </div>
+    </div>
+    <p class="hint" style="margin-top:10px">Click the bottom line to type. The default pattern <code>local</code> starts from line 1, so the first <kbd>Enter</kbd> lands on the nearest match after the cursor: <code>2/3</code>. Try a pattern with no matches too: it shows a toast.</p>
+  </section>
+
+  <section>
+    <h2>States</h2>
+    <div class="strip">
+      <div class="mini"><pre><span class="cm">-- cursor on match 1</span>
+<span class="kw">local</span> M = {}  <span class="badge" style="position:static;padding:0 1ch;background:#3a373c;color:#ffd866;border-radius:3px">1/3</span></pre><div class="cap">Floating count sits two columns after the end of the line, dimmer than the match itself.</div></div>
+      <div class="mini"><pre>  <span class="kw">local</span> cfg = ...  <span class="badge" style="position:static;padding:0 1ch;background:#3a373c;color:#ffd866;border-radius:3px">2/3</span>
+  <span class="cm">(n)</span>  moves to next, count updates</pre><div class="cap">Only the line holding the current match shows a count. Other lines stay clean.</div></div>
+      <div class="mini"><pre>/zzz
+<span style="color:#ff6188">Search</span>  Pattern not found: zzz   <span class="cm">(toast, bottom-right)</span></pre><div class="cap">No match shows a toast, with no floating count and no statusline count. The command line stays quiet.</div></div>
+      <div class="mini"><pre><span class="cm">wrap:</span> 3/3 <span class="cm">--n--&gt;</span> 1/3
+<span style="color:#78dce8">Search wrapped</span>  Hit BOTTOM, continuing at TOP</pre><div class="cap">Wrapping around keeps the count moving; a short toast says it wrapped.</div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Questions for you</h2>
+    <ul class="q">
+      <li><b>Wording.</b> <code>2/3</code> alone, or with brackets <code>[2/3]</code>, or with an icon <code>󰍉 2/3</code>?</li>
+      <li><b>Long lines.</b> When the match is scrolled out of view horizontally the floating count is hidden (see the second toggle). Is the statusline count enough there, or should the float pin to the right edge of the window instead?</li>
+      <li><b>When to clear.</b> I assumed the count disappears on <kbd>Esc</kbd> / <code>:noh</code> and when you start editing. Do you want it to stay until the next search instead?</li>
+      <li><b>Before you press Enter.</b> Show a live count while typing (incsearch), or only after <kbd>Enter</kbd> as you described?</li>
+      <li><b>Large files.</b> Cap at <code>999+</code> for very big result sets so it stays fast. OK?</li>
+      <li><b>Statusline position.</b> Right side, left of the git blame and cursor position, matching your statusline. Better elsewhere?</li>
+    </ul>
+  </section>
+</div>
+
+<script>
+var FIX = {
+  short: {
+    file: "init.lua",
+    lines: [
+      "local M = {}",
+      "",
+      "function M.setup(opts)",
+      "  opts = opts or {}",
+      "  local cfg = vim.tbl_extend(\"force\", defaults, opts)",
+      "  return cfg",
+      "end",
+      "",
+      "-- keep the table private to this module",
+      "function M.get()",
+      "  local ok, mod = pcall(require, \"beast.config\")",
+      "  return ok and mod or {}",
+      "end",
+      "",
+      "return M"
+    ]
+  },
+  long: {
+    file: "init.lua",
+    lines: [
+      "local M = {}",
+      "",
+      "function M.setup(opts)",
+      "  opts = opts or {}",
+      "  return opts",
+      "end",
+      "",
+      "-- this generated mapping table is intentionally one huge line so it runs far past the right edge of the window and then we have local",
+      "M.map = { a = 1, b = 2, c = 3, d = 4, e = 5, f = 6, g = 7, h = 8, i = 9, j = 10, k = 11, l = 12, m = 13, n = 14, o = 15, p = 16, q = 17, local_x = 99 }",
+      "",
+      "return M"
+    ]
+  }
+};
+var COLS = 66;
+var toastTimer;
+var s = { fix: "short", cur: [0, 0], pat: "", matches: [], idx: -1, typing: false, msg: "", err: false };
+var $ = function (id) { return document.getElementById(id); };
+function esc(t) { return t.replace(/&/g, "&amp;").replace(/</g, "&lt;"); }
+function lines() { return FIX[s.fix].lines; }
+
+function findAll(pat) {
+  var out = [];
+  if (!pat) return out;
+  lines().forEach(function (l, r) {
+    var i = 0;
+    while ((i = l.indexOf(pat, i)) !== -1) { out.push([r, i]); i += pat.length; }
+  });
+  return out;
+}
+function search(pat, dir) {
+  s.pat = pat; s.matches = findAll(pat); s.err = false; s.msg = ""; s.toast = null;
+  if (!s.matches.length) { s.idx = -1; s.toast = { kind: "err", title: "Search", body: "Pattern not found: " + pat }; return; }
+  var c = s.cur, pick = -1, i;
+  if (dir > 0) {
+    for (i = 0; i < s.matches.length; i++) { var m = s.matches[i]; if (m[0] > c[0] || (m[0] === c[0] && m[1] > c[1])) { pick = i; break; } }
+    if (pick < 0) { pick = 0; s.toast = { kind: "info", title: "Search wrapped", body: "Hit BOTTOM, continuing at TOP" }; }
+  } else {
+    for (i = s.matches.length - 1; i >= 0; i--) { var m2 = s.matches[i]; if (m2[0] < c[0] || (m2[0] === c[0] && m2[1] < c[1])) { pick = i; break; } }
+    if (pick < 0) { pick = s.matches.length - 1; s.toast = { kind: "info", title: "Search wrapped", body: "Hit TOP, continuing at BOTTOM" }; }
+  }
+  s.idx = pick; s.cur = s.matches[pick].slice();
+}
+function step(dir) {
+  if (!s.pat || !s.matches.length) return;
+  search(s.pat, dir);
+}
+function clear() { s.toast = null; s.pat = ""; s.matches = []; s.idx = -1; s.msg = ""; s.err = false; }
+
+function render() {
+  var L = lines(), html = "";
+  L.forEach(function (l, r) {
+    var out = "", i = 0, cm = l.indexOf("--") === 0, curRow = s.cur[0] === r;
+    var hits = s.matches.map(function (m, k) { return [m, k]; }).filter(function (x) { return x[0][0] === r; });
+    var pos = 0;
+    hits.forEach(function (h) {
+      var col = h[0][1];
+      out += esc(l.slice(pos, col));
+      out += '<span class="hit' + (h[1] === s.idx ? " now" : "") + '">' + esc(s.pat) + "</span>";
+      pos = col + s.pat.length;
+    });
+    out += esc(l.slice(pos));
+    if (!hits.length) {
+      out = esc(l).replace(/\b(function|return|end|local)\b/g, '<span class="kw">$1</span>');
+    }
+    if (cm && !hits.length) out = '<span class="cm">' + esc(l) + "</span>";
+    var badge = "";
+    if (s.idx >= 0 && s.matches[s.idx][0] === r) {
+      var label = (s.idx + 1) + "/" + s.matches.length, start = l.length + 2;
+      badge = '<span class="badge" style="left:' + start + 'ch">' + label + "</span>";
+    }
+    html += '<div class="row' + (curRow ? " cur" : "") + '"><span class="num">' + (r + 1) + '</span><span class="text">' + out + badge + "</span></div>";
+  });
+  $("buf").innerHTML = html;
+  var sc = $("sCount");
+  if (s.idx >= 0) { sc.hidden = false; sc.textContent = " " + (s.idx + 1) + "/" + s.matches.length; } else sc.hidden = true;
+  $("pos").textContent = "Ln " + (s.cur[0] + 1) + ", Col " + (s.cur[1] + 1);
+    var tt = $("toast");
+  clearTimeout(toastTimer);
+  if (s.toast) {
+    tt.hidden = false; tt.className = "toast " + s.toast.kind;
+    tt.innerHTML = '<span class="t">' + esc(s.toast.title) + '</span><span class="b">' + esc(s.toast.body) + "</span>";
+    var shown = s.toast;
+    toastTimer = setTimeout(function () { if (s.toast === shown) { s.toast = null; tt.hidden = true; } }, 3000);
+  } else tt.hidden = true;
+  var cmd = $("cmd");
+  if (s.typing) {
+    cmd.innerHTML = '<span class="prefix">/</span><input id="q" value="' + esc(s.pat || "local") + '" spellcheck="false" autocomplete="off" aria-label="Search pattern">';
+    var q = $("q"); q.focus(); q.setSelectionRange(q.value.length, q.value.length);
+    q.addEventListener("keydown", function (e) {
+      if (e.key === "Enter") { e.preventDefault(); var v = q.value; s.typing = false; search(v, 1); render(); }
+      if (e.key === "Escape") { s.typing = false; render(); }
+    });
+  } else if (s.err) cmd.innerHTML = '<span class="err">' + esc(s.msg) + "</span>";
+  else if (s.pat) cmd.innerHTML = '<span class="prefix">/' + esc(s.pat) + '</span>&nbsp;&nbsp;<span class="msg">' + esc(s.msg) + "</span>";
+  else cmd.innerHTML = '<span class="msg">Click here (or press /) to search</span>';
+}
+
+$("cmd").addEventListener("click", function () { if (!s.typing) { s.typing = true; render(); } });
+$("bn").onclick = function () { step(1); render(); };
+$("bN").onclick = function () { step(-1); render(); };
+$("bEsc").onclick = function () { clear(); render(); };
+$("bReset").onclick = function () { s.cur = [0, 0]; clear(); s.typing = false; render(); };
+document.querySelectorAll("[data-fix]").forEach(function (b) {
+  b.onclick = function () {
+    document.querySelectorAll("[data-fix]").forEach(function (x) { x.setAttribute("aria-pressed", "false"); });
+    b.setAttribute("aria-pressed", "true");
+    s.fix = b.dataset.fix; s.cur = [0, 0]; clear(); s.typing = false; render();
+  };
+});
+document.addEventListener("keydown", function (e) {
+  if (s.typing || /INPUT|BUTTON/.test(document.activeElement.tagName) && e.key.length > 1) return;
+  if (e.key === "n") { step(1); render(); }
+  else if (e.key === "N") { step(-1); render(); }
+  else if (e.key === "/") { e.preventDefault(); s.typing = true; render(); }
+  else if (e.key === "Escape") { clear(); render(); }
+});
+render();
+</script>

@@ -59,6 +59,7 @@ lua/beast/
 │   ├── packer/           ← plugin loader + packer.lazy() (event/keys/
 │   │                       filetype/module/cmd/path triggers)
 │   ├── scroll/           ← smooth viewport scrolling
+│   ├── searchcount/      ← search match counter (eol label + statusline pill + toasts)
 │   ├── select/           ← vim.ui.select replacement (themed search-filter picker)
 │   ├── session/          ← save/restore session per project dir + git branch
 │   ├── starter/          ← native intro screen extensions (key hint rows)

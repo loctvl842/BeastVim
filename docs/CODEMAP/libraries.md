@@ -611,12 +611,33 @@ statusline/
     ├── mode.lua, git_branch.lua, git_commit.lua, macro.lua
     ├── diagnostics.lua, position.lua, filetype.lua
     ├── shiftwidth.lua, encoding.lua
+    ├── search_count.lua  ← "2/3" pill; reads beast.libs.searchcount.get
     └── finder_lsp.lua    ← finder pre-flight "checking" spinner, reads
                             beast.libs.finder.status (User BeastFinderStatusChanged)
 ```
 
 API: `stl.setup({ left = {...}, right = {...} })` — components are tables.
 `util.file_bound(compute)` — caches per real-file buffer, persists on transient UI buffers.
+
+---
+
+## searchcount — Search Match Counter (`2/3`)
+
+```
+searchcount/
+├── init.lua       ← get(win) memoized searchcount(), format() (999+ cap), is_wrap(),
+│                    setup(): decoration provider + redraw/toast hooks
+├── highlights.lua ← BeastSearchCountFloat
+└── health.lua     ← :checkhealth beast.libs.searchcount
+```
+
+API: `get(winid) → { current, total, text }?` (nil unless `v:hlsearch` and cursor on a match),
+`format(cur, total)`, `is_wrap(forward, old, new)`, `setup()`
+Shown in: ephemeral eol virt_text on the cursor line (current window) + statusline `search_count`
+Toasts (`Toast`): "Pattern not found" (after `/` `?` `n` `N`), "Search wrapped" (`n N * #`);
+`on_key` ignores insert/cmdline mode and `n` as a char argument (`fn`, `"n`, `gn`)
+`shortmess` carries `S` and `s` (native count/wrap messages silenced) — set in `option.lua`
+Loaded via: `packer.lazy()` on VimEnter (deferred)
 
 ---
 
