@@ -621,6 +621,26 @@ API: `stl.setup({ left = {...}, right = {...} })` — components are tables.
 
 ---
 
+## messages — ui2 Message UI + Toast Routing
+
+```
+messages/
+├── init.lua       ← setup(): gate (nvim 0.12 + vim._core.ui2), ui2.enable(), wraps
+│                    ui2.messages.msg_show → router → Toast (scheduled; pending toasts can be cancelled)
+├── config.lua     ← ui2 opts (target "msg", list_cmd → pager) + ordered `routes`
+├── router.lua     ← pure resolve(routes, kind, text), flatten(content), first-line spill "[+n]"
+├── highlights.lua ← MsgArea → Normal (ui2 windows follow the colorscheme)
+└── health.lua     ← :checkhealth beast.libs.messages
+```
+
+API: `setup(opts)`, `available()`, `is_routing()`
+Default routes: E486 → "Pattern not found" (warn); `search hit BOTTOM/TOP` → "Search wrapped"
+(cancelled when E486 follows); `search_count` dropped; other `emsg/echoerr/lua_error/rpc_error` → error toast,
+other `wmsg` → warn toast. Everything else (echo, `:ls`, …) stays in ui2 (msg window / pager). No hit-enter prompt.
+Loaded: eagerly in `beast.setup()` after toast. Experimental API: version-gated, falls back to native UI.
+
+---
+
 ## searchcount — Search Match Counter (`2/3`)
 
 ```
@@ -632,11 +652,9 @@ searchcount/
 ```
 
 API: `get(winid) → { current, total, text }?` (nil unless `v:hlsearch` and cursor on a match),
-`format(cur, total)`, `is_wrap(forward, old, new)`, `setup()`
+`format(cur, total)`, `setup()` (also redraws the statusline after `Esc` / `:noh`)
 Shown in: ephemeral eol virt_text on the cursor line (current window) + statusline `search_count`
-Toasts (`Toast`): "Pattern not found" (after `/` `?` `n` `N`), "Search wrapped" (`n N * #`);
-`on_key` ignores insert/cmdline mode and `n` as a char argument (`fn`, `"n`, `gn`)
-`shortmess` carries `S` and `s` (native count/wrap messages silenced) — set in `option.lua`
+Not-found / wrap toasts come from `messages` (router); `shortmess` carries `S` (native `[n/m]` silenced)
 Loaded via: `packer.lazy()` on VimEnter (deferred)
 
 ---

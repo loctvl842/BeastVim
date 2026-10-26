@@ -12,8 +12,8 @@ Quick-reference architecture documentation. Regenerate with `/update-codemap`.
 - Language: Lua
 - Platform: Neovim plugin (config-as-plugin)
 - Lines of code: ~46,122 across 303 lua files
-- Libraries: 26 — autopairs, breadcrumb, confirm, explorer, finder, git, image, indent, input, key, lsp, mason, notify, packer, scroll, searchcount, select, session, starter, statuscolumn, statusline, tabline, toast, treesitter, view, window
+- Libraries: 27 — autopairs, breadcrumb, confirm, explorer, finder, git, image, indent, input, key, lsp, mason, messages, notify, packer, scroll, searchcount, select, session, starter, statuscolumn, statusline, tabline, toast, treesitter, view, window
 - Colorschemes: repo-root colors/ (monokai-pro + classic/light/machine/octagon/ristretto/spectrum)
 - Shared modules: view/ (instance + .buf + .win submodules), animate.lua, async.lua, util/, theme/, visibility.lua (global hidden/gitignored state)
 - Profiler: lua/beast/profile.lua (per-fn count/total/self stats)
-- Last updated: 2026-10-26 (searchcount lib: `2/3` match count at end of line + statusline, toasts for not-found/wrap; previously: theme split into per-kind palette sources + `colors/` filters; indent scope handles python/wrapped headers and comments; statuscolumn no longer overrides expr folds; finder colorschemes grouped beastvim > builtin > plugin)
+- Last updated: 2026-10-26 (messages lib: ui2 + toast routing, no hit-enter prompt; searchcount lib: `2/3` match count at end of line + statusline, toasts for not-found/wrap; previously: theme split into per-kind palette sources + `colors/` filters; indent scope handles python/wrapped headers and comments; statuscolumn no longer overrides expr folds; finder colorschemes grouped beastvim > builtin > plugin)
