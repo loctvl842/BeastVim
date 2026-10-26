@@ -72,6 +72,27 @@ do
 	assert_eq("nil when off a match past the cap", sc.get(win), nil)
 end
 
+io.write("\n--- search keys only toast for real searches ---\n")
+do
+	local toasts = {}
+	_G.Toast = function(msg)
+		toasts[#toasts + 1] = msg
+	end
+	package.loaded["beast"] = { apply_highlights = function() end } -- theme globals are not loaded under --clean
+	sc.setup()
+	vim.api.nvim_buf_set_lines(0, 0, -1, false, { "abc", "abc" })
+	vim.fn.setreg("/", "zzz")
+	vim.api.nvim_feedkeys("in\27", "tx", false)
+	vim.wait(50)
+	assert_eq("n typed in insert mode", #toasts, 0)
+	vim.api.nvim_feedkeys("fn", "tx", false)
+	vim.wait(50)
+	assert_eq("n as the target of f", #toasts, 0)
+	vim.api.nvim_feedkeys("n", "tx", false)
+	vim.wait(50)
+	assert_eq("n in normal mode with no match", #toasts, 1)
+end
+
 io.write("\n--- is_wrap ---\n")
 assert_eq("forward wraps to earlier pos", sc.is_wrap(true, { 5, 0 }, { 1, 0 }), true)
 assert_eq("forward same-line earlier col wraps", sc.is_wrap(true, { 2, 8 }, { 2, 1 }), true)

@@ -25,7 +25,7 @@ function M.check()
 		health.warn("shortmess lacks S and/or s: native `[n/m]` / wrap messages will duplicate the count and toast")
 	end
 
-	if package.loaded["beast.libs.toast"] then
+	if _G.Toast then
 		health.ok("Toast available")
 	else
 		health.warn("Toast not loaded: not-found and wrap messages will not show")

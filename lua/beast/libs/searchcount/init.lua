@@ -17,6 +17,10 @@ local TIMEOUT_MS = 100
 local ESC = "\27"
 -- Keys that run a search, mapped to "is the jump forward?". `*` and `#` set the
 -- direction themselves, so v:searchforward is not up to date when on_key runs.
+-- Keys that consume the next key as a plain character/argument (`fn`, `"n`, `@n`, `gn`, ...),
+-- so an `n` right after them is not a search.
+local CHAR_ARG_KEYS =
+	{ f = true, F = true, t = true, T = true, r = true, ['"'] = true, ["@"] = true, q = true, ["'"] = true, ["`"] = true, m = true, g = true }
 local SEARCH_KEYS = {
 	n = function()
 		return vim.v.searchforward == 1
@@ -186,10 +190,13 @@ function M.setup()
 	})
 
 	-- on_key runs before the key is executed, so the cursor here is the "before" position.
+	local prev_key
 	vim.on_key(function(key)
+		local prev = prev_key
+		prev_key = key
 		if key == ESC then
 			vim.schedule(vim.cmd.redrawstatus)
-		elseif SEARCH_KEYS[key] then
+		elseif SEARCH_KEYS[key] and vim.fn.mode() == "n" and not (CHAR_ARG_KEYS[prev] and not (prev == "g" and (key == "*" or key == "#"))) then
 			local forward = SEARCH_KEYS[key]()
 			local old = api.nvim_win_get_cursor(0)
 			vim.schedule(function()
