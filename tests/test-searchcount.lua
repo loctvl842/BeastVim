@@ -56,5 +56,12 @@ vim.v.hlsearch = 1
 vim.fn.setreg("/", "zzz")
 assert_eq("nil when no matches", sc.get(win), nil)
 
+io.write("\n--- is_wrap ---\n")
+assert_eq("forward wraps to earlier pos", sc.is_wrap(true, { 5, 0 }, { 1, 0 }), true)
+assert_eq("forward same-line earlier col wraps", sc.is_wrap(true, { 2, 8 }, { 2, 1 }), true)
+assert_eq("forward normal jump", sc.is_wrap(true, { 1, 0 }, { 5, 0 }), false)
+assert_eq("backward wraps to later pos", sc.is_wrap(false, { 1, 0 }, { 5, 0 }), true)
+assert_eq("backward normal jump", sc.is_wrap(false, { 5, 0 }, { 1, 0 }), false)
+
 io.write(string.format("\n%d passed, %d failed\n", passed, failed))
 os.exit(failed == 0 and 0 or 1)

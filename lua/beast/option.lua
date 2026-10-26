@@ -129,7 +129,7 @@ o.grepformat = "%f:%l:%c:%m"
 -- session
 o.sessionoptions = { "buffers", "curdir", "tabpages", "winsize", "help", "globals", "skiprtp", "folds" }
 
-o.shortmess:append("cS")
+o.shortmess:append("cSs") -- search count / wrap messages are shown by beast.libs.searchcount
 o.viewoptions:remove("curdir") -- disable saving current directory with views
 
 -- vim.opt.listchars:append "space:⋅"
