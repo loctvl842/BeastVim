@@ -803,6 +803,6 @@ function M.open_for_range(range_start, range_end, opts)
 end
 
 -- Test-only seam — exposes pure helpers for unit tests.
-M._test = { build_rows = build_rows, render_rows = render_rows, expand_adjacent = expand_adjacent }
+M._test = { build_rows = build_rows, render_rows = render_rows, expand_adjacent = expand_adjacent, buffer_source = buffer_source }
 
 return M

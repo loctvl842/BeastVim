@@ -237,6 +237,13 @@ do
 		end
 	end
 
+	-- Duplicate basenames (init.lua) get a parent-dir label, so the cell width
+	-- depends on the cwd name: pin it to keep the scenario independent of where
+	-- the repo is checked out ("nvim" matches the user report this reproduces).
+	local scenario_dir = vim.fn.tempname() .. "/nvim"
+	vim.fn.mkdir(scenario_dir, "p")
+	vim.cmd.cd(scenario_dir)
+
 	-- Open the exact buffers from the user's report
 	local user_files = {
 		"lua/beast/libs/animate.lua",
