@@ -15,26 +15,6 @@ local NS = api.nvim_create_namespace("BeastSearchCount")
 local MAX = 999
 local TIMEOUT_MS = 100
 local ESC = "\27"
--- Keys that run a search, mapped to "is the jump forward?". `*` and `#` set the
--- direction themselves, so v:searchforward is not up to date when on_key runs.
--- Keys that consume the next key as a plain character/argument (`fn`, `"n`, `@n`, `gn`, ...),
--- so an `n` right after them is not a search.
-local CHAR_ARG_KEYS =
-	{ f = true, F = true, t = true, T = true, r = true, ['"'] = true, ["@"] = true, q = true, ["'"] = true, ["`"] = true, m = true, g = true }
-local SEARCH_KEYS = {
-	n = function()
-		return vim.v.searchforward == 1
-	end,
-	N = function()
-		return vim.v.searchforward == 0
-	end,
-	["*"] = function()
-		return true
-	end,
-	["#"] = function()
-		return false
-	end,
-}
 
 ---@class Beast.SearchCount.Result
 ---@field current integer
@@ -100,37 +80,6 @@ function M.get(winid)
 	return value or nil
 end
 
----True when a search jump from `old` to `new` went past the end (forward) or
----start (backward) of the buffer. Positions are `{ row, col }`.
----@param forward boolean
----@param old integer[]
----@param new integer[]
----@return boolean
-function M.is_wrap(forward, old, new)
-	local before = new[1] < old[1] or (new[1] == old[1] and new[2] < old[2])
-	local after = new[1] > old[1] or (new[1] == old[1] and new[2] > old[2])
-	return forward and before or (not forward and after)
-end
-
----Runs after a search command executed: reports a failed search and a wrap.
----`old` is the cursor before the jump; nil when it is unknown (`/`, `?`).
----@param forward boolean
----@param old? integer[]
-local function after_search(forward, old)
-	local pat = vim.fn.getreg("/")
-	local sc = vim.fn.searchcount({ maxcount = 2 })
-	-- stylua: ignore
-	if pat == "" or not sc.total then return end
-
-	if sc.total == 0 then
-		Toast("Pattern not found: " .. pat, vim.log.levels.WARN, { title = "Search" })
-		vim.cmd("echo ''") -- native E486 is redundant with the toast
-	elseif old and sc.total > 1 and M.is_wrap(forward, old, api.nvim_win_get_cursor(0)) then
-		local msg = forward and "Hit BOTTOM, continuing at TOP" or "Hit TOP, continuing at BOTTOM"
-		Toast(msg, vim.log.levels.INFO, { title = "Search wrapped" })
-	end
-end
-
 -- Row (0-indexed) to label for the redraw in progress; set by `on_win`, read by `on_line`.
 local label_row ---@type integer?
 local label_text ---@type string?
@@ -177,31 +126,13 @@ function M.setup()
 	-- statusline would keep showing a stale count.
 	api.nvim_create_autocmd("CmdlineLeave", {
 		group = group,
-		callback = function(ev)
-			local cmdtype = ev.match
-			local searched = (cmdtype == "/" or cmdtype == "?") and not vim.v.event.abort
-			vim.schedule(function()
-				vim.cmd.redrawstatus()
-				if searched then
-					after_search(cmdtype == "/")
-				end
-			end)
+		callback = function()
+			vim.schedule(vim.cmd.redrawstatus)
 		end,
 	})
-
-	-- on_key runs before the key is executed, so the cursor here is the "before" position.
-	local prev_key
 	vim.on_key(function(key)
-		local prev = prev_key
-		prev_key = key
 		if key == ESC then
 			vim.schedule(vim.cmd.redrawstatus)
-		elseif SEARCH_KEYS[key] and vim.fn.mode() == "n" and not (CHAR_ARG_KEYS[prev] and not (prev == "g" and (key == "*" or key == "#"))) then
-			local forward = SEARCH_KEYS[key]()
-			local old = api.nvim_win_get_cursor(0)
-			vim.schedule(function()
-				after_search(forward, old)
-			end)
 		end
 	end, api.nvim_create_namespace("BeastSearchCountOnKey"))
 end
