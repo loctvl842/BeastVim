@@ -45,6 +45,22 @@ function M.reflow(state)
 	end
 end
 
+---(Re)start the auto-dismiss timer of a view; a merged repeat calls this again.
+---@param state Beast.Toast.State
+---@param view Beast.Toast.View
+local function arm_timer(state, view)
+	local record = view.record
+	if view.timer and not view.timer:is_closing() then
+		view.timer:stop()
+		view.timer:close()
+	end
+	if record.timeout ~= false and record.timeout > 0 then
+		view.timer = vim.defer_fn(function()
+			M.remove(state, record.id)
+		end, record.timeout)
+	end
+end
+
 ---@param state Beast.Toast.State
 ---@param record Beast.Toast.Record
 local function show(state, record)
@@ -53,11 +69,27 @@ local function show(state, record)
 	ui.render(view)
 	M.reflow(state) -- shift existing toasts upward, place new one at bottom
 	ui.fade_in(view)
+	arm_timer(state, view)
+end
 
-	if record.timeout ~= false and record.timeout > 0 then
-		vim.defer_fn(function()
-			M.remove(state, record.id)
-		end, record.timeout)
+---Open view or still-queued record that `record` repeats, if any.
+---@param state Beast.Toast.State
+---@param record Beast.Toast.Record
+---@return Beast.Toast.View|Beast.Toast.Record|nil
+local function find_match(state, record)
+	for _, view in ipairs(state.views) do
+		if not view.closing and view.record.mergeable and view.record.key == record.key then
+			return view
+		end
+	end
+	-- Queued, or already taken off the queue but not yet shown (see `drain`).
+	if state.inflight and state.inflight.mergeable and state.inflight.key == record.key then
+		return state.inflight
+	end
+	for _, queued in ipairs(state.queue) do
+		if queued.mergeable and queued.key == record.key then
+			return queued
+		end
 	end
 end
 
@@ -73,10 +105,12 @@ function M.drain(state)
 	end
 
 	state.draining = true
+	state.inflight = record
 	-- Always schedule: nvim_open_win is forbidden in fast events AND in
 	-- textlock contexts (BufRead, CmdwinEnter, etc.). vim.in_fast_event()
 	-- doesn't detect textlock, so guarding only there leaks E565.
 	vim.schedule(function()
+		state.inflight = nil
 		show(state, record)
 		vim.defer_fn(function()
 			state.draining = false
@@ -89,6 +123,17 @@ end
 ---@param state Beast.Toast.State
 ---@param record Beast.Toast.Record
 function M.push(state, record)
+	local match = record.mergeable and find_match(state, record)
+	if match then
+		local target = match.record or match
+		target.count = target.count + 1
+		if match.record then -- an open view: show the new count, keep it alive
+			arm_timer(state, match)
+			ui.render(match)
+			M.reflow(state)
+		end
+		return
+	end
 	table.insert(state.queue, record)
 	M.drain(state)
 end
@@ -112,7 +157,12 @@ end
 function M.remove(state, id)
 	local idx, view = state:find(id)
 	-- stylua: ignore
-	if not idx or not view then return end
+	if not idx or not view or view.closing then return end
+	view.closing = true
+	if view.timer and not view.timer:is_closing() then
+		view.timer:stop()
+		view.timer:close()
+	end
 
 	ui.fade_out(view, function()
 		local cur_idx = state:find(id)

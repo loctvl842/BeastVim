@@ -17,6 +17,7 @@ function M.get()
 		ProgressBarTodo = { fg = p.dimmed4 },
 		ProgressBracket = { fg = p.dimmed3 },
 		ProgressPercent = { fg = p.accent2 },
+		Count = { fg = p.accent2, bold = true },
 		ProgressCount = { fg = p.accent2, bold = true },
 		ProgressMessage = { fg = p.dimmed1 },
 		ProgressDone = { fg = p.accent3, bold = true },

@@ -15,6 +15,9 @@ local config = require("beast.libs.toast.config")
 ---@field dim boolean
 ---@field time integer        vim.fn.localtime()
 ---@field timeout number|false
+---@field count integer      occurrences merged into this toast (1 = shown once)
+---@field key string         identity for merging: message + level + title
+---@field mergeable boolean  false for sticky / custom-segment / merge=false toasts
 local M = setmetatable({}, {
 	__call = function(t, ...)
 		return t:new(...)
@@ -29,6 +32,14 @@ M.__index = M
 ---@field dim? boolean
 ---@field timeout? number|false
 ---@field segments? Beast.Toast.Fragment[]
+---@field merge? boolean     set false to never merge this toast into an identical visible one
+
+---Text of the repeat badge: "x2" ... "x99", then "x99+".
+---@param count integer
+---@return string
+function M.count_label(count)
+	return count > 99 and "x99+" or ("x" .. count)
+end
 
 ---@param id integer
 ---@param message string|string[]
@@ -39,7 +50,7 @@ function M:new(id, message, level, opts)
 	opts = opts or {}
 	level = config.normalize_level(level or "INFO")
 
-	return setmetatable({
+	local record = setmetatable({
 		id = id,
 		message = config.normalize_message(message),
 		segments = opts.segments,
@@ -48,8 +59,14 @@ function M:new(id, message, level, opts)
 		icon = opts.icon or config.icons[level] or "",
 		dim = opts.dim == true,
 		time = vim.fn.localtime(),
-		timeout = opts.timeout ~= nil and opts.timeout or config.timeout,
+		timeout = opts.timeout == nil and config.timeout or opts.timeout, -- `false` means sticky
+		count = 1,
 	}, self)
+	-- Identical toasts that auto-dismiss merge into one line with a count;
+	-- sticky and custom-segment toasts (progress) manage their own content.
+	record.key = table.concat({ record.message, record.level, record.title }, "\0")
+	record.mergeable = opts.merge ~= false and record.timeout ~= false and record.segments == nil
+	return record
 end
 
 function M:dimensions()
@@ -66,6 +83,10 @@ function M:dimensions()
 		end
 	else
 		msg_w = vim.fn.strdisplaywidth(config.normalize_message(self.message))
+	end
+
+	if self.count > 1 and not self.segments then
+		msg_w = msg_w + 1 + #M.count_label(self.count)
 	end
 
 	local max_w = type(config.max_width) == "function" and config.max_width() or config.max_width

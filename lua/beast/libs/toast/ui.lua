@@ -1,3 +1,4 @@
+local Record = require("beast.libs.toast.record")
 local View = require("beast.libs.view")
 local animate = require("beast.libs.animate")
 local config = require("beast.libs.toast.config")
@@ -5,6 +6,8 @@ local config = require("beast.libs.toast.config")
 ---@class Beast.Toast.View : Beast.View.Instance
 ---@field ns integer
 ---@field record Beast.Toast.Record
+---@field timer? uv.uv_timer_t  auto-dismiss timer (restarted when an identical toast merges in)
+---@field closing? boolean     fading out; repeats open a new toast instead of merging
 ---@overload fun(buf?: integer, win?: integer, ns: integer, record: Beast.Toast.Record): Beast.Toast.View
 local ToastView = View:extend(
 	---@param obj Beast.Toast.View
@@ -82,6 +85,7 @@ function M.render(view)
 	-- Build the body (fitted text + per-segment paint list).
 	-- segs_painted: { { hl, start_byte, end_byte } } applied after the line is set.
 	local body_text, segs_painted = "", {}
+	local count_text = (r.count > 1 and not r.segments) and (" " .. Record.count_label(r.count)) or ""
 	if r.segments then
 		local remaining = inner_w
 		for _, seg in ipairs(r.segments) do
@@ -97,7 +101,8 @@ function M.render(view)
 			end
 		end
 	else
-		body_text = trim_to_width(config.normalize_message(r.message), inner_w)
+		-- Trim the message first so the count is never the part that gets cut.
+		body_text = trim_to_width(config.normalize_message(r.message), inner_w - #count_text) .. count_text
 	end
 
 	-- Float width may need to grow/shrink for in-place updates (e.g. progress toasts).
@@ -137,6 +142,10 @@ function M.render(view)
 		if body_bytes > 0 then
 			local body_hl = r.dim and "Comment" or "BeastToastBody"
 			vim.api.nvim_buf_set_extmark(view.buf, ns, 0, 0, { end_row = 0, end_col = body_bytes, hl_group = body_hl })
+		end
+		if count_text ~= "" then
+			local count_start = #body_text - #count_text + 1 -- skip the separating space
+			vim.api.nvim_buf_set_extmark(view.buf, ns, 0, count_start, { end_row = 0, end_col = #body_text, hl_group = "BeastToastCount", priority = 200 })
 		end
 	end
 

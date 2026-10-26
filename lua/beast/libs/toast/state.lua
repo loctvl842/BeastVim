@@ -3,6 +3,7 @@
 ---@field queue Beast.Toast.Record[]
 ---@field next_id integer
 ---@field draining boolean
+---@field inflight? Beast.Toast.Record  taken off the queue, not yet shown
 local State = setmetatable({}, {
 	__call = function(t, ...)
 		return t:new(...)
