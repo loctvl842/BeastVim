@@ -27,14 +27,19 @@ _G.Icon = setmetatable({}, {
 		})
 	end,
 })
-_G.Util = { colors = {
-	build = function()
-		return {}
-	end,
-	blend = function(fg, pct, bg)
-		return bg
-	end,
-} }
+_G.Util = {
+	colors = {
+		build = function()
+			return {}
+		end,
+		blend = function(fg, pct, bg)
+			return bg
+		end,
+		lighten = function(hex)
+			return hex
+		end,
+	},
+}
 _G.View = { win = { find_normal = function() end, wo = function() end } }
 _G.Key = { safe_set = function() end, managed = {} }
 
