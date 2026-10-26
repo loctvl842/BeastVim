@@ -75,6 +75,9 @@ function M.setup(opts)
 	_G.Toast = toast
 	toast.setup(cfg.toast or {})
 
+	-- Message UI (ui2 + toast routing). Eager: messages must never prompt, even at startup.
+	require("beast.libs.messages").setup(cfg.messages or {})
+
 	packer.lazy("beast.libs.confirm", {
 		module = "beast.libs.confirm",
 		setup = function(confirm)
