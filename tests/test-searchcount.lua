@@ -56,6 +56,22 @@ vim.v.hlsearch = 1
 vim.fn.setreg("/", "zzz")
 assert_eq("nil when no matches", sc.get(win), nil)
 
+io.write("\n--- get past the cap ---\n")
+do
+	local many = {}
+	for i = 1, 1500 do
+		many[i] = "local x"
+	end
+	vim.api.nvim_buf_set_lines(0, 0, -1, false, many)
+	vim.fn.setreg("/", "local")
+	vim.v.hlsearch = 1
+	vim.api.nvim_win_set_cursor(win, { 1200, 0 })
+	r = sc.get(win)
+	assert_eq("index and total capped", r and r.text, "999+/999+")
+	vim.api.nvim_win_set_cursor(win, { 1200, 3 })
+	assert_eq("nil when off a match past the cap", sc.get(win), nil)
+end
+
 io.write("\n--- is_wrap ---\n")
 assert_eq("forward wraps to earlier pos", sc.is_wrap(true, { 5, 0 }, { 1, 0 }), true)
 assert_eq("forward same-line earlier col wraps", sc.is_wrap(true, { 2, 8 }, { 2, 1 }), true)

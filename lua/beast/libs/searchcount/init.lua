@@ -74,13 +74,20 @@ function M.get(winid)
 		return hit.value or nil
 	end
 
-	local sc = api.nvim_win_call(winid, function()
-		return vim.fn.searchcount({ maxcount = MAX, timeout = TIMEOUT_MS })
+	local sc, on_match
+	api.nvim_win_call(winid, function()
+		sc = vim.fn.searchcount({ maxcount = MAX, timeout = TIMEOUT_MS })
+		on_match = sc.exact_match == 1
+		-- Past `maxcount` matches, searchcount() no longer reports exact_match.
+		if not on_match and sc.incomplete == 2 and sc.current > MAX then
+			local pos = vim.fn.searchpos(pat, "cnW", cursor[1])
+			on_match = pos[1] == cursor[1] and pos[2] == cursor[2] + 1
+		end
 	end)
 
 	---@type Beast.SearchCount.Result|false
 	local value = false
-	if sc.total and sc.total > 0 and sc.exact_match == 1 then
+	if sc.total and sc.total > 0 and on_match then
 		-- `incomplete` (timeout or maxcount hit) means the real total is larger.
 		local total = sc.incomplete ~= 0 and MAX + 1 or sc.total
 		value = { current = sc.current, total = total, text = M.format(sc.current, total) }
