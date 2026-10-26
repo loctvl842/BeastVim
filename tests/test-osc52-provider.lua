@@ -58,32 +58,32 @@ end
 
 io.write("\n--- copy/paste round-trip through the provider ---\n")
 do
-    vim.fn.setreg("+", { "hello" }, "v")
-    assert_test("charwise round-trip: text", vim.fn.getreg("+") == "hello", "got <" .. vim.fn.getreg("+") .. ">")
-    assert_test("charwise round-trip: regtype", vim.fn.getregtype("+") == "v", "got <" .. vim.fn.getregtype("+") .. ">")
+	vim.fn.setreg("+", { "hello" }, "v")
+	assert_test("charwise round-trip: text", vim.fn.getreg("+") == "hello", "got <" .. vim.fn.getreg("+") .. ">")
+	assert_test("charwise round-trip: regtype", vim.fn.getregtype("+") == "v", "got <" .. vim.fn.getregtype("+") .. ">")
 
-    vim.fn.setreg("+", { "line one", "line two" }, "V")
-    local linewise = vim.fn.getreg("+")
-    assert_test("linewise round-trip: text", linewise == "line one\nline two\n", "got <" .. linewise .. ">")
-    assert_test("linewise round-trip: regtype", vim.fn.getregtype("+") == "V", "got <" .. vim.fn.getregtype("+") .. ">")
+	vim.fn.setreg("+", { "line one", "line two" }, "V")
+	local linewise = vim.fn.getreg("+")
+	assert_test("linewise round-trip: text", linewise == "line one\nline two\n", "got <" .. linewise .. ">")
+	assert_test("linewise round-trip: regtype", vim.fn.getregtype("+") == "V", "got <" .. vim.fn.getregtype("+") .. ">")
 
-    vim.fn.setreg("+", { "ab", "cd" }, "b")
-    assert_test("blockwise round-trip: text", vim.fn.getreg("+") == "ab\ncd", "got <" .. vim.fn.getreg("+") .. ">")
-    assert_test("blockwise round-trip: regtype", vim.fn.getregtype("+") == "\22" .. "2", "got <" .. vim.fn.getregtype("+") .. ">")
+	vim.fn.setreg("+", { "ab", "cd" }, "b")
+	assert_test("blockwise round-trip: text", vim.fn.getreg("+") == "ab\ncd", "got <" .. vim.fn.getreg("+") .. ">")
+	assert_test("blockwise round-trip: regtype", vim.fn.getregtype("+") == "\22" .. "2", "got <" .. vim.fn.getregtype("+") .. ">")
 end
 
 io.write("\n--- reads stay quiet once something has been copied ---\n")
 do
-    local notify_count = 0
-    local saved_notify = vim.notify
-    vim.notify = function(...)
-        notify_count = notify_count + 1
-        return saved_notify(...)
-    end
+	local notify_count = 0
+	local saved_notify = vim.notify
+	vim.notify = function(...)
+		notify_count = notify_count + 1
+		return saved_notify(...)
+	end
 
-    vim.fn.setreg("+", { "quiet" }, "v")
-    assert_test("cached reads do not fire the warning notify", notify_count == 0, "notify_count=" .. notify_count)
-    vim.notify = saved_notify
+	vim.fn.setreg("+", { "quiet" }, "v")
+	assert_test("cached reads do not fire the warning notify", notify_count == 0, "notify_count=" .. notify_count)
+	vim.notify = saved_notify
 end
 
 io.write(string.format("\n== %d passed, %d failed ==\n", passed, failed))

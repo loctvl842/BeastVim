@@ -219,9 +219,9 @@ if hl_ok then
 				end,
 			})
 		end,
-    kind = function()
-      return "nvim"
-    end
+		kind = function()
+			return "nvim"
+		end,
 	}
 	local groups = hl_mod.get()
 	assert_true("defines LspReferenceText", groups.LspReferenceText ~= nil)
