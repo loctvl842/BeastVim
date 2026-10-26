@@ -40,6 +40,7 @@ M.highlight_modules = {
 	"beast.libs.treesitter.context.highlights",
 	"beast.libs.lsp.highlights",
 	"beast.libs.review.highlights",
+	"beast.libs.searchcount.highlights",
 }
 
 --- Highlight modules that are skipped for plugin colorschemes

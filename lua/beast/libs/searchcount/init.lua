@@ -11,6 +11,7 @@ local M = {}
 ---@type Beast.Lib.Meta
 M.meta = { name = "searchcount", description = "Search match counter (end of line + statusline)" }
 
+local NS = api.nvim_create_namespace("BeastSearchCount")
 local MAX = 999
 local TIMEOUT_MS = 100
 local ESC = "\27"
@@ -72,7 +73,39 @@ function M.get(winid)
 	return value or nil
 end
 
+-- Row (0-indexed) to label for the redraw in progress; set by `on_win`, read by `on_line`.
+local label_row ---@type integer?
+local label_text ---@type string?
+
+---@param win integer
+---@param buf integer
+local function on_win(_, win, buf)
+	label_row = nil
+	-- stylua: ignore
+	if win ~= api.nvim_get_current_win() or vim.bo[buf].buftype ~= "" then return false end
+	local result = M.get(win)
+	-- stylua: ignore
+	if not result then return false end
+	label_row = api.nvim_win_get_cursor(win)[1] - 1
+	label_text = result.text
+end
+
+---@param buf integer
+---@param row integer
+local function on_line(_, _, buf, row)
+	-- stylua: ignore
+	if row ~= label_row then return end
+	api.nvim_buf_set_extmark(buf, NS, row, 0, {
+		virt_text = { { "  " }, { " " .. label_text .. " ", "BeastSearchCountFloat" } },
+		virt_text_pos = "eol",
+		ephemeral = true,
+	})
+end
+
 function M.setup()
+	require("beast").apply_highlights("beast.libs.searchcount.highlights")
+	api.nvim_set_decoration_provider(NS, { on_win = on_win, on_line = on_line })
+
 	local group = api.nvim_create_augroup("BeastSearchCount", { clear = true })
 
 	api.nvim_create_autocmd("WinClosed", {
