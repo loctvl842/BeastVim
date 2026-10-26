@@ -77,10 +77,20 @@ local toasts = call("nvim_exec_lua", "return _G.toasts", {})
 assert_eq("not found becomes a toast", toasts[1] and toasts[1][1], "Pattern not found: zzz")
 assert_eq("no hit-enter prompt", call("nvim_get_mode").blocking, false)
 
+-- a failed search that wraps first emits "search hit BOTTOM" and then E486: only the error toast is shown
+call("nvim_exec_lua", "_G.toasts = {}", {})
+call("nvim_buf_set_lines", 0, 0, -1, false, { "abc", "abd" })
+call("nvim_win_set_cursor", 0, { 2, 0 })
+call("nvim_input", "/qqq<CR>")
+vim.wait(300)
+toasts = call("nvim_exec_lua", "return _G.toasts", {})
+assert_eq("failed search shows one toast", #toasts, 1)
+assert_eq("and it is the not-found one", toasts[1] and toasts[1][3], "Search")
+
 call("nvim_input", ":nosuchcmd<CR>")
 vim.wait(300)
 toasts = call("nvim_exec_lua", "return _G.toasts", {})
-assert_eq("unknown command becomes an error toast", toasts[2] and toasts[2][2], vim.log.levels.ERROR)
+assert_eq("unknown command becomes an error toast", toasts[#toasts] and toasts[#toasts][2], vim.log.levels.ERROR)
 assert_eq("still not blocking", call("nvim_get_mode").blocking, false)
 
 vim.fn.jobstop(chan)

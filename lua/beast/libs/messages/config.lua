@@ -4,6 +4,7 @@
 ---@field level? integer                vim.log.levels value for the toast
 ---@field title? string                 Toast title
 ---@field format? fun(...: string): string  Builds the toast text from the pattern captures (default: the message text)
+---@field cancels? string[]             Titles of not-yet-shown toasts this message supersedes (a failed search also emits "search hit BOTTOM")
 ---@field drop? boolean                 Swallow the message without any output
 
 ---@class Beast.Messages.Config
@@ -26,6 +27,7 @@ local defaults = {
 			match = "^E486: Pattern not found: (.*)",
 			level = vim.log.levels.WARN,
 			title = "Search",
+			cancels = { "Search wrapped" },
 			format = function(pat)
 				return "Pattern not found: " .. pat
 			end,

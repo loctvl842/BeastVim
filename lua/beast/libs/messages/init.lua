@@ -27,6 +27,11 @@ function M.is_routing()
 	return routed
 end
 
+-- Toasts scheduled but not shown yet, by title, so a later message in the same
+-- command can supersede them.
+---@type table<string, { cancelled?: boolean }>
+local pending = {}
+
 ---@param kind string
 ---@param content table[]
 ---@return boolean handled
@@ -34,10 +39,22 @@ local function route(kind, content)
 	local resolved = router.resolve(config.routes, kind, router.flatten(content))
 	-- stylua: ignore
 	if not resolved then return false end
+	for _, title in ipairs(resolved.cancels or {}) do
+		if pending[title] then
+			pending[title].cancelled = true
+		end
+	end
 	if resolved.text then
+		local entry = {}
+		pending[resolved.title or ""] = entry
 		-- msg_show for internal messages runs in api-fast context.
 		vim.schedule(function()
-			Toast(resolved.text, resolved.level or vim.log.levels.INFO, { title = resolved.title })
+			if pending[resolved.title or ""] == entry then
+				pending[resolved.title or ""] = nil
+			end
+			if not entry.cancelled then
+				Toast(resolved.text, resolved.level or vim.log.levels.INFO, { title = resolved.title })
+			end
 		end)
 	end
 	return true

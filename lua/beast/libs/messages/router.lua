@@ -10,6 +10,7 @@ local MAX_LINES = 1
 ---@field text? string
 ---@field level? integer
 ---@field title? string
+---@field cancels? string[]
 
 ---Flatten ui-messages `content` chunks (`{ attr_id, text, hl_id }`) into text.
 ---@param content table[]
@@ -46,7 +47,7 @@ function M.resolve(routes, kind, text)
 					return { drop = true }
 				end
 				local out = route.format and route.format(unpack(caps)) or spill(text)
-				return { text = out, level = route.level, title = route.title }
+				return { text = out, level = route.level, title = route.title, cancels = route.cancels }
 			end
 		end
 	end
