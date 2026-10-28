@@ -69,6 +69,16 @@ function M.setup(opts)
 
 	require("vim._core.ui2").enable(vim.deepcopy(config.ui2))
 
+	-- ui2 fires FileType (with the window current) whenever it creates the message
+	-- window; by default it gets the grey NormalFloat background.
+	vim.api.nvim_create_autocmd("FileType", {
+		group = vim.api.nvim_create_augroup("BeastMessages", { clear = true }),
+		pattern = "msg",
+		callback = function()
+			vim.wo.winhighlight = vim.wo.winhighlight .. ",Normal:BeastMessagesMsg"
+		end,
+	})
+
 	local messages = require("vim._core.ui2.messages")
 	local original = messages.msg_show
 	messages.msg_show = function(kind, content, ...)

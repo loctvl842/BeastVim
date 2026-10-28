@@ -94,6 +94,21 @@ toasts = call("nvim_exec_lua", "return _G.toasts", {})
 assert_eq("unknown command becomes an error toast", toasts[#toasts] and toasts[#toasts][2], vim.log.levels.ERROR)
 assert_eq("still not blocking", call("nvim_get_mode").blocking, false)
 
+call("nvim_input", ":echo 'hello'<CR>")
+vim.wait(300)
+local winhl = call(
+	"nvim_exec_lua",
+	[[
+	for _, w in ipairs(vim.api.nvim_list_wins()) do
+		if vim.bo[vim.api.nvim_win_get_buf(w)].filetype == "msg" then
+			return vim.wo[w].winhighlight
+		end
+	end
+]],
+	{}
+)
+assert_eq("message window uses the toast-like highlight", winhl and winhl:find("Normal:BeastMessagesMsg", 1, true) ~= nil, true)
+
 vim.fn.jobstop(chan)
 
 io.write(string.format("\n%d passed, %d failed\n", passed, failed))

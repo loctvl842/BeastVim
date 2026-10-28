@@ -631,7 +631,8 @@ messages/
 │                    ui2.messages.msg_show → router → Toast (scheduled; pending toasts can be cancelled)
 ├── config.lua     ← ui2 opts (target "msg", list_cmd → pager) + ordered `routes`
 ├── router.lua     ← pure resolve(routes, kind, text), flatten(content), first-line spill "[+n]"
-├── highlights.lua ← MsgArea → Normal (ui2 windows follow the colorscheme)
+├── highlights.lua ← MsgArea → Normal (ui2 windows follow the colorscheme); BeastMessagesMsg =
+│                    toast-body look (dimmed fg, no float bg) applied to the ui2 msg window on FileType msg
 └── health.lua     ← :checkhealth beast.libs.messages
 ```
 
