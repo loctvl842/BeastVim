@@ -70,6 +70,12 @@ local function explorer_sidecar_path(vim_path)
 	return (vim_path:gsub("%.vim$", ".explorer.json"))
 end
 
+---@param vim_path string
+---@return string
+local function visibility_sidecar_path(vim_path)
+	return (vim_path:gsub("%.vim$", ".visibility.json"))
+end
+
 --- Snapshot the explorer's root, expanded folders, and focus, then close its
 --- window so `:mksession` never has to capture the synthetic explorer buffer.
 --- Returns nil when the explorer wasn't open.
@@ -103,6 +109,11 @@ local function save()
 	local target = branch_path() or plain_path()
 	local explorer_snapshot = capture_explorer_state()
 	vim.cmd("mksession! " .. vim.fn.fnameescape(target))
+	local visibility = require("beast.visibility")
+	vim.fn.writefile(
+		{ vim.json.encode({ hidden = visibility.hidden, gitignored = visibility.gitignored }) },
+		visibility_sidecar_path(target)
+	)
 	local sidecar = explorer_sidecar_path(target)
 	if explorer_snapshot then
 		vim.fn.writefile({ vim.json.encode(explorer_snapshot) }, sidecar)
@@ -121,6 +132,26 @@ function M.setup(opts)
 		group = vim.api.nvim_create_augroup("BeastSession", { clear = true }),
 		callback = save,
 	})
+end
+
+--- Restore the hidden/gitignored visibility flags saved by a prior save().
+--- Silently does nothing when there's no sidecar or it fails to decode.
+---@param vim_path string  the `.vim` session file that was just sourced
+local function restore_visibility_state(vim_path)
+	local sidecar = visibility_sidecar_path(vim_path)
+	if vim.fn.filereadable(sidecar) ~= 1 then
+		return
+	end
+	local ok, snapshot = pcall(vim.json.decode, vim.fn.readfile(sidecar)[1])
+	if not ok or type(snapshot) ~= "table" then
+		return
+	end
+	local visibility = require("beast.visibility")
+	for _, key in ipairs({ "hidden", "gitignored" }) do
+		if type(snapshot[key]) == "boolean" then
+			visibility.set(key, snapshot[key])
+		end
+	end
 end
 
 --- Reopen the explorer from a `.explorer.json` sidecar (if any) written by a
@@ -167,6 +198,7 @@ function M.load()
 	local file = (bp and vim.fn.filereadable(bp) == 1) and bp or plain_path()
 	if vim.fn.filereadable(file) == 1 then
 		vim.cmd("silent! source " .. vim.fn.fnameescape(file))
+		restore_visibility_state(file)
 		restore_explorer_state(file)
 	end
 end

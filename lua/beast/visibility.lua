@@ -36,6 +36,18 @@ function methods.toggle_gitignored()
 	emit_changed("gitignored")
 end
 
+--- Set a flag to an explicit value (e.g. when restoring a session). Emits
+--- `BeastVisibilityChanged` only if the value actually changed.
+---@param key "hidden"|"gitignored"
+---@param value boolean
+function methods.set(key, value)
+	if cfg[key] == value then
+		return
+	end
+	cfg[key] = value
+	emit_changed(key)
+end
+
 ---@param opts? Beast.Visibility.Config
 function methods.setup(opts)
 	cfg = vim.tbl_deep_extend("force", vim.deepcopy(defaults), opts or {})
