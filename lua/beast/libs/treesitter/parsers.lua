@@ -9,6 +9,7 @@
 ---@field url string GitHub repo URL
 ---@field revision? string Git tag/branch/SHA (default: "HEAD")
 ---@field location? string Subdirectory within the repo containing the grammar
+---@field generate? boolean Run `tree-sitter generate` first (the repo ships no generated parser.c)
 
 ---@type table<string, Beast.Treesitter.ParserInfo>
 local M = {

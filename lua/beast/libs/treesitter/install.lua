@@ -328,32 +328,48 @@ function M.install(lang, url, revision, opts, on_done)
 					compile_dir = fs.joinpath(source_dir, opts.location)
 				end
 
-				-- Step 3: Compile with tree-sitter build
+				-- Step 3: Compile with tree-sitter build (after `generate` for grammars
+				-- that do not ship a generated parser.c)
 				local parser_output = fs.joinpath(compile_dir, "parser.so")
-				async_cmd({ "tree-sitter", "build", "-o", parser_output }, { cwd = compile_dir }, function(ok3, output3)
-					if not ok3 then
-						pcall(vim.fn.delete, source_dir, "rf")
-						on_done(false, "Compilation failed: " .. output3)
-						return
-					end
+				local function build()
+					async_cmd({ "tree-sitter", "build", "-o", parser_output }, { cwd = compile_dir }, function(ok3, output3)
+						if not ok3 then
+							pcall(vim.fn.delete, source_dir, "rf")
+							on_done(false, "Compilation failed: " .. output3)
+							return
+						end
 
-					-- Step 4: Copy parser.so to install dir
-					local target = fs.joinpath(parser_dir, lang .. ".so")
-					local copy_ok, copy_err = uv.fs_copyfile(parser_output, target)
+						-- Step 4: Copy parser.so to install dir
+						local target = fs.joinpath(parser_dir, lang .. ".so")
+						local copy_ok, copy_err = uv.fs_copyfile(parser_output, target)
 
-					if not copy_ok then
-						pcall(vim.fn.delete, source_dir, "rf")
-						on_done(false, "Copy failed: " .. tostring(copy_err))
-						return
-					end
+						if not copy_ok then
+							pcall(vim.fn.delete, source_dir, "rf")
+							on_done(false, "Copy failed: " .. tostring(copy_err))
+							return
+						end
 
-					-- Step 5: Install query files then finish
-					install_queries(lang, compile_dir, function()
-						pcall(vim.fn.delete, source_dir, "rf")
-						vim.notify(string.format("[beast.treesitter] Parser installed: %s", lang), vim.log.levels.INFO)
-						on_done(true)
+						-- Step 5: Install query files then finish
+						install_queries(lang, compile_dir, function()
+							pcall(vim.fn.delete, source_dir, "rf")
+							vim.notify(string.format("[beast.treesitter] Parser installed: %s", lang), vim.log.levels.INFO)
+							on_done(true)
+						end)
 					end)
-				end)
+				end
+
+				if opts.generate then
+					async_cmd({ "tree-sitter", "generate" }, { cwd = compile_dir }, function(okg, outg)
+						if not okg then
+							pcall(vim.fn.delete, source_dir, "rf")
+							on_done(false, "Generate failed: " .. outg)
+							return
+						end
+						build()
+					end)
+				else
+					build()
+				end
 			end)
 		end
 	)

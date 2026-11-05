@@ -67,7 +67,7 @@ function M.ensure_parser(lang)
 	local parser_info = require("beast.libs.treesitter.parsers").get(lang)
 	local install = require("beast.libs.treesitter.install")
 
-	install.install(lang, parser_info.url, parser_info.revision, { location = parser_info.location }, function(ok, err)
+	install.install(lang, parser_info.url, parser_info.revision, { location = parser_info.location, generate = parser_info.generate }, function(ok, err)
 		if not ok then
 			installing[lang] = nil -- allow retry on transient failures
 			vim.notify(string.format("[beast.treesitter] Failed to install parser for '%s': %s", lang, tostring(err)), vim.log.levels.WARN)
