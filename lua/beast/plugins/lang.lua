@@ -26,7 +26,7 @@ return {
   },
   {
     name = "markdown",
-    src = "BeastVim/markdown",
+    src = gh("BeastVim/markdown"),
     lazy = { filetype = "markdown" },
     config = function() require("markdown").setup() end,
   },

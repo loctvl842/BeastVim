@@ -38,8 +38,8 @@
       "src": "https://github.com/BeastVim/lua_ls"
     },
     "markdown": {
-      "rev": "2921b6362a217ab2e45f41db8c1fcfac5bee507d",
-      "src": "/Users/loctvl842/Documents/Beast/Developments/neovim_plugins/markdown"
+      "rev": "5cb1902d352b1e4fa93a6afea4d51a931794862f",
+      "src": "https://github.com/BeastVim/markdown"
     },
     "markview.nvim": {
       "rev": "aadb6d817577d553bbef61e8b9073f1bf4b87e08",
