@@ -25,6 +25,13 @@ return {
     config = function() require("cpp").setup() end,
   },
   {
+    name = "markdown",
+    -- Local clone while the plugin is unpublished; switch to gh("BeastVim/markdown") once pushed.
+    src = "/Users/loctvl842/Documents/Beast/Developments/neovim_plugins/markdown",
+    lazy = { filetype = "markdown" },
+    config = function() require("markdown").setup() end,
+  },
+  {
     name = "json",
     src = gh("BeastVim/json"),
     lazy = { filetype = { "json", "jsonc" } },
