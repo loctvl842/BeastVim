@@ -7,7 +7,7 @@ function M.get()
 		Normal = { fg = p.dimmed2, bg = Util.colors.darken(p.dark1, 5) },
 		WinBar = { bg = Util.colors.darken(p.dark1, 1), sp = Util.colors.darken(p.dimmed5, 10), underline = true },
 		EndOfBuffer = { fg = p.dark1, bg = Util.colors.darken(p.dark1, 5) },
-		CursorLine = { bg = Util.colors.lighten(p.dark1, 15) },
+		CursorLine = { bg = Util.colors.lighten(p.dark1, 25) },
 		WinSeparator = { fg = p.background, bg = p.background },
 
 		Prompt = { bg = Util.colors.lighten(p.dark1, 20), fg = Util.colors.darken(p.text, 20) },
