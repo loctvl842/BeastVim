@@ -98,6 +98,15 @@ local M = {
 		revision = "f969cd3ae3f9fbd4e43205431d0ae286014c05b5",
 		location = "tree-sitter-markdown-inline",
 	},
+	latex = {
+		url = "https://github.com/latex-lsp/tree-sitter-latex",
+		revision = "fa8df448fc2c0192a8c2f8cfc97de53cb2b4ecb9",
+		generate = true,
+	},
+	typst = {
+		url = "https://github.com/uben0/tree-sitter-typst",
+		revision = "46cf4ded12ee974a70bf8457263b67ad7ee0379d",
+	},
 	vim = {
 		url = "https://github.com/tree-sitter-grammars/tree-sitter-vim",
 		revision = "3092fcd99eb87bbd0fc434aa03650ba58bd5b43b",
