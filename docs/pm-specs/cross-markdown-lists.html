@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spec: Markdown lists</title>
+<style>
+  :root {
+    --bg:#fbfaf7; --fg:#1c1b19; --muted:#6b675f; --line:#dcd8cf; --card:#fff;
+    --accent:#b4540a; --code-bg:#f3f0e8; --before:#8a6d3b; --after:#2f7d4f; --cursor:#b4540a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:#161513; --fg:#ece8df; --muted:#a29d92; --line:#3a3732; --card:#1f1d1a;
+      --accent:#e08a3c; --code-bg:#272420; --before:#d2b36a; --after:#6cc48c; --cursor:#e08a3c;
+    }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, sans-serif; }
+  main { max-width:880px; margin:0 auto; padding:24px 16px 80px; }
+  h1 { font-size:1.9rem; margin:0 0 6px; }
+  h2 { font-size:1.25rem; margin:0 0 12px; border-bottom:1px solid var(--line); padding-bottom:6px; }
+  h3 { font-size:1rem; margin:0 0 8px; }
+  section { margin:36px 0; }
+  p { margin:8px 0; }
+  .muted { color:var(--muted); }
+  .tag { display:inline-block; font-size:.75rem; padding:1px 8px; border:1px solid var(--line);
+         border-radius:99px; color:var(--muted); margin-right:6px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin:12px 0; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:12px; }
+  .panel { background:var(--code-bg); border:1px solid var(--line); border-radius:8px; padding:10px 12px; }
+  .panel .lbl { font:600 .7rem system-ui, sans-serif; text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px; }
+  .panel.before .lbl { color:var(--before); }
+  .panel.after .lbl { color:var(--after); }
+  pre, code { font:13.5px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
+  pre { margin:0; white-space:pre; overflow-x:auto; }
+  code { background:var(--code-bg); padding:1px 5px; border-radius:4px; }
+  .cur { background:var(--cursor); color:var(--bg); border-radius:2px; padding:0 1px; }
+  .key { display:inline-block; font:600 12px ui-monospace, Menlo, monospace; border:1px solid var(--line);
+         border-bottom-width:2px; border-radius:5px; padding:0 6px; background:var(--card); }
+  .arrow { text-align:center; color:var(--muted); font-size:.85rem; align-self:center; }
+  .step { display:grid; grid-template-columns:auto 1fr; gap:4px 12px; margin:10px 0; }
+  .step .n { font-weight:700; color:var(--accent); }
+  ul { padding-left:20px; margin:8px 0; }
+  li { margin:5px 0; }
+  .checks { list-style:none; padding-left:0; }
+  .checks li::before { content:"\2610"; margin-right:8px; color:var(--accent); }
+  details { border:1px solid var(--line); border-radius:10px; background:var(--card); margin:10px 0; }
+  summary { cursor:pointer; padding:10px 14px; font-weight:600; }
+  details > .body { padding:0 14px 12px; }
+  .flow { width:100%; height:auto; color:var(--fg); }
+  .flow rect { fill:var(--card); stroke:var(--line); }
+  .flow .hot { stroke:var(--accent); stroke-width:1.5; }
+  .flow text { fill:currentColor; font:12px system-ui, sans-serif; }
+  .flow .sm { fill:var(--muted); font-size:10.5px; }
+  .flow path { stroke:var(--muted); fill:none; stroke-width:1.2; }
+</style>
+</head>
+<body>
+<main>
+
+<header data-spec="summary">
+  <span class="tag">markdown plugin</span><span class="tag">next to python, cpp, json</span>
+  <h1>Markdown lists</h1>
+  <p>When you write markdown, pressing <span class="key">Enter</span> inside a list starts the next item for you:
+     same bullet, next number, empty checkbox. <span class="key">Tab</span> / <span class="key">Shift-Tab</span> nest and un-nest items and keep numbers right.</p>
+  <p class="muted">Markdown is a daily format now (notes, READMEs, AI prompts, plans), so it gets its own language plugin like the code languages.</p>
+</header>
+
+<section data-spec="problem">
+  <h2>Problem</h2>
+  <p>Today <span class="key">Enter</span> at the end of a list item gives a blank line. On every line you retype <code>- </code> or <code>3. </code>,
+     match the indent by hand, fix numbers after inserting or moving an item, and delete the marker to leave the list.</p>
+  <div data-spec="why-now" class="card">
+    <h3>Why now</h3>
+    <p>Language support exists for code languages; markdown is the missing one, and it is the format AI tooling writes and reads the most.
+       The same plugin also makes sure the markdown parser is installed for consistent highlighting.</p>
+  </div>
+</section>
+
+<section data-spec="target-behavior">
+  <h2>Target behavior</h2>
+  <p class="muted">The cursor is shown highlighted.</p>
+
+  <div class="grid">
+    <div class="card" data-spec="state-1">
+      <h3>1 - Bullet continues</h3>
+      <div class="panel before"><div class="lbl">Before <span class="key">Enter</span></div><pre>- buy milk<span class="cur"> </span></pre></div>
+      <div class="panel after" style="margin-top:8px"><div class="lbl">After</div><pre>- buy milk
+- <span class="cur"> </span></pre></div>
+    </div>
+
+    <div class="card" data-spec="state-2">
+      <h3>2 - Ordered list counts up</h3>
+      <div class="panel before"><div class="lbl">Before <span class="key">Enter</span></div><pre>1. first<span class="cur"> </span></pre></div>
+      <div class="panel after" style="margin-top:8px"><div class="lbl">After</div><pre>1. first
+2. <span class="cur"> </span></pre></div>
+    </div>
+
+    <div class="card" data-spec="state-3">
+      <h3>3 - Task list, empty box</h3>
+      <div class="panel before"><div class="lbl">Before <span class="key">Enter</span></div><pre>- [x] write spec<span class="cur"> </span></pre></div>
+      <div class="panel after" style="margin-top:8px"><div class="lbl">After</div><pre>- [x] write spec
+- [ ] <span class="cur"> </span></pre></div>
+    </div>
+
+    <div class="card" data-spec="state-4">
+      <h3>4 - Empty item exits the list</h3>
+      <div class="panel before"><div class="lbl">Before <span class="key">Enter</span></div><pre>- buy milk
+- <span class="cur"> </span></pre></div>
+      <div class="panel after" style="margin-top:8px"><div class="lbl">After</div><pre>- buy milk
+<span class="cur"> </span></pre></div>
+    </div>
+
+    <div class="card" data-spec="state-5" style="grid-column:1/-1">
+      <h3>5 - <span class="key">Tab</span> nests, <span class="key">Shift-Tab</span> un-nests</h3>
+      <div class="grid">
+        <div class="panel before"><div class="lbl">Before <span class="key">Tab</span></div><pre>1. first
+2. <span class="cur"> </span></pre></div>
+        <div class="panel after"><div class="lbl">After (<span class="key">Shift-Tab</span> goes back to "2. ")</div><pre>1. first
+    1. <span class="cur"> </span></pre></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" data-spec="decision-flow">
+    <h3>What <span class="key">Enter</span> decides</h3>
+    <svg class="flow" viewBox="0 0 760 150" role="img" aria-label="Enter decision flow">
+      <title>Enter decision flow</title>
+      <rect x="10" y="50" width="130" height="50" rx="8"/><text x="75" y="72" text-anchor="middle">Enter pressed</text><text class="sm" x="75" y="88" text-anchor="middle">markdown buffer</text>
+      <path d="M140 75 H180"/>
+      <rect x="180" y="50" width="150" height="50" rx="8"/><text x="255" y="72" text-anchor="middle">On a list item?</text><text class="sm" x="255" y="88" text-anchor="middle">not in code fence</text>
+      <path d="M330 75 H370"/>
+      <rect x="370" y="50" width="150" height="50" rx="8"/><text x="445" y="72" text-anchor="middle">Item empty?</text><text class="sm" x="445" y="88" text-anchor="middle">marker only</text>
+      <path d="M520 62 H560"/><path d="M520 88 H560"/>
+      <rect class="hot" x="560" y="30" width="190" height="40" rx="8"/><text x="655" y="54" text-anchor="middle">No: new item + marker</text>
+      <rect class="hot" x="560" y="80" width="190" height="40" rx="8"/><text x="655" y="104" text-anchor="middle">Yes: un-nest or exit list</text>
+      <path d="M255 100 V135 H75" /><text class="sm" x="165" y="132" text-anchor="middle">No: plain newline</text>
+    </svg>
+  </div>
+</section>
+
+<section data-spec="scenarios">
+  <h2>Scenarios</h2>
+
+  <details open data-spec="scenario-1"><summary>1 - Continue a bullet list (happy path)</summary><div class="body">
+    <div class="step"><span class="n">1</span><span>Type <code>- apples</code>, press <span class="key">Enter</span>: new line starts with <code>- </code>, cursor after it.</span></div>
+    <div class="step"><span class="n">2</span><span>Type <code>oranges</code>.</span></div>
+    <div class="panel after"><pre>- apples
+- oranges<span class="cur"> </span></pre></div>
+    <p class="muted">The marker style is kept: <code>-</code>, <code>*</code> and <code>+</code> each continue as themselves.</p>
+  </div></details>
+
+  <details data-spec="scenario-2"><summary>2 - Ordered list numbering</summary><div class="body">
+    <div class="step"><span class="n">1</span><span>Type <code>1. one</code>, Enter, <code>two</code>, Enter.</span></div>
+    <div class="panel after"><pre>1. one
+2. two
+3. <span class="cur"> </span></pre></div>
+    <div class="step"><span class="n">2</span><span>Cursor at end of <code>1. one</code>, Enter, type <code>inserted</code>. Items below are renumbered.</span></div>
+    <div class="grid">
+      <div class="panel before"><div class="lbl">Before</div><pre>1. one
+2. two
+3. three</pre></div>
+      <div class="panel after"><div class="lbl">After</div><pre>1. one
+2. inserted<span class="cur"> </span>
+3. two
+4. three</pre></div>
+    </div>
+    <p class="muted">Both <code>1.</code> and <code>1)</code> styles are kept.</p>
+  </div></details>
+
+  <details data-spec="scenario-3"><summary>3 - Nested lists keep their indent</summary><div class="body">
+    <div class="step"><span class="n">1</span><span>On <code>  - child</code> press Enter.</span></div>
+    <div class="panel after"><pre>- parent
+  - child
+  - <span class="cur"> </span></pre></div>
+  </div></details>
+
+  <details data-spec="scenario-4"><summary>4 - Task lists</summary><div class="body">
+    <div class="grid">
+      <div class="panel after"><div class="lbl">On "- [ ] todo" + Enter</div><pre>- [ ] todo
+- [ ] <span class="cur"> </span></pre></div>
+      <div class="panel after"><div class="lbl">On "- [x] done" + Enter</div><pre>- [x] done
+- [ ] <span class="cur"> </span></pre></div>
+    </div>
+    <p class="muted">New task items always start unchecked.</p>
+  </div></details>
+
+  <details data-spec="scenario-5"><summary>5 - Leaving a list (edge case)</summary><div class="body">
+    <div class="step"><span class="n">1</span><span>On an item with only a marker, <code>- </code>, press Enter: the marker is removed, the line is empty.</span></div>
+    <div class="panel after"><pre>- last item
+<span class="cur"> </span></pre></div>
+    <div class="step"><span class="n">2</span><span>On an indented empty item, Enter moves up one level instead of leaving the list.</span></div>
+    <div class="grid">
+      <div class="panel before"><div class="lbl">Before</div><pre>- parent
+    - <span class="cur"> </span></pre></div>
+      <div class="panel after"><div class="lbl">After</div><pre>- parent
+- <span class="cur"> </span></pre></div>
+    </div>
+  </div></details>
+
+  <details data-spec="scenario-6"><summary>6 - Enter in the middle of an item</summary><div class="body">
+    <div class="grid">
+      <div class="panel before"><div class="lbl">Before</div><pre>- buy <span class="cur">m</span>ilk and eggs</pre></div>
+      <div class="panel after"><div class="lbl">After Enter</div><pre>- buy
+- <span class="cur">m</span>ilk and eggs</pre></div>
+    </div>
+    <p class="muted">The text after the cursor moves to the new item together with the marker.</p>
+  </div></details>
+
+  <details data-spec="scenario-7"><summary>7 - Not in a list (no surprises)</summary><div class="body">
+    <div class="step"><span class="n">1</span><span>Plain paragraph line + Enter: normal new line, nothing inserted.</span></div>
+    <div class="step"><span class="n">2</span><span>Inside a fenced code block, a line that looks like <code>- x</code> + Enter: normal new line. Code is never treated as a list.</span></div>
+  </div></details>
+
+  <details data-spec="scenario-8"><summary>8 - Nest and un-nest with numbers fixed</summary><div class="body">
+    <div class="step"><span class="n">1</span><span>On an empty <code>3. </code> press <span class="key">Tab</span>: nested items restart at 1.</span></div>
+    <div class="panel after"><pre>1. a
+2. b
+    1. <span class="cur"> </span></pre></div>
+    <div class="step"><span class="n">2</span><span>Press <span class="key">Shift-Tab</span>: back to the outer list at the right number.</span></div>
+    <div class="panel after"><pre>1. a
+2. b
+3. <span class="cur"> </span></pre></div>
+  </div></details>
+
+  <details data-spec="scenario-9"><summary>9 - <code>o</code> / <code>O</code> in normal mode</summary><div class="body">
+    <div class="step"><span class="n">1</span><span>On <code>- item</code> press <span class="key">o</span>: opens a new item below and enters insert mode, like Enter at the end of the line.</span></div>
+    <div class="panel after"><pre>- item
+- <span class="cur"> </span></pre></div>
+  </div></details>
+</section>
+
+<section data-spec="behavior-rules">
+  <h2>Behavior rules</h2>
+  <ul>
+    <li>Only active in markdown buffers; every other filetype keeps its normal Enter and Tab.</li>
+    <li>Enter continues the list only when the cursor is after the marker. Cursor inside the marker or indent keeps a plain newline.</li>
+    <li>Markers recognised: <code>-</code>, <code>*</code>, <code>+</code>, <code>1.</code>, <code>1)</code>, each optionally followed by <code>[ ]</code> / <code>[x]</code>.</li>
+    <li>Ordered lists continue with the next number. Following items in the same list are renumbered; unrelated lists are untouched.</li>
+    <li>Enter on an empty item un-nests one level if nested, otherwise removes the marker.</li>
+    <li>Tab / Shift-Tab only change nesting on a list item; elsewhere they behave as usual (completion menu and snippet jumps keep priority).</li>
+    <li>Lines inside fenced code blocks are never treated as list items.</li>
+    <li>A block quote prefix (<code>&gt; - item</code>) is continued as well.</li>
+    <li>One undo step reverts the whole Enter (new line and marker together).</li>
+    <li>Existing behavior is untouched: render-markdown, autopairs fence expansion, and the completion menu (Enter while open accepts the item as before).</li>
+    <li>The markdown tree-sitter parser is installed and enabled automatically.</li>
+    <li>Any message for the user is shown as a toast, never a command-line prompt.</li>
+  </ul>
+</section>
+
+<section data-spec="success-criteria">
+  <h2>Success criteria</h2>
+  <ul class="checks">
+    <li>Enter at the end of <code>-</code>, <code>*</code>, <code>+</code> items starts a new item with the same marker and indent</li>
+    <li>Enter on <code>1.</code> / <code>1)</code> items gives the next number, and following items are renumbered</li>
+    <li>Enter on a task item gives an unchecked box</li>
+    <li>Enter on an empty item exits the list (or un-nests one level)</li>
+    <li>Enter mid-item splits the text and moves the rest to the new item</li>
+    <li>Tab / Shift-Tab nest and un-nest with correct numbering</li>
+    <li><code>o</code> / <code>O</code> continue the list</li>
+    <li>No change in code blocks, plain paragraphs, or non-markdown files</li>
+    <li>Completion menu and autopairs keep working with Enter</li>
+    <li>Opening a markdown file loads the plugin lazily with no startup cost elsewhere</li>
+  </ul>
+</section>
+
+<section data-spec="out-of-scope">
+  <h2>Out of scope</h2>
+  <ul>
+    <li>Formatting / reflowing markdown (a formatter such as prettier can be a later addition)</li>
+    <li>Language server, link checking, table editing - deferred, separate features</li>
+    <li>Toggling checkboxes or converting lines to lists via a command - deferred</li>
+    <li>Rendering and preview - already handled by the render-markdown plugin</li>
+    <li>Smart continuation in other text-like filetypes (<code>text</code>, <code>gitcommit</code>) - deferred</li>
+  </ul>
+</section>
+
+</main>
+</body>
+</html>

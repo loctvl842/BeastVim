@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dev spec: Markdown lists</title>
+<style>
+  :root { --bg:#fbfaf7; --fg:#1c1b19; --muted:#6b675f; --line:#dcd8cf; --card:#fff; --accent:#b4540a; --code:#f3f0e8; --ok:#2f7d4f; --warn:#a15c00; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#161513; --fg:#ece8df; --muted:#a29d92; --line:#3a3732; --card:#1f1d1a; --accent:#e08a3c; --code:#272420; --ok:#6cc48c; --warn:#e0a85a; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, sans-serif; }
+  main { max-width:900px; margin:0 auto; padding:24px 16px 80px; }
+  h1 { font-size:1.8rem; margin:0 0 6px; }
+  h2 { font-size:1.25rem; margin:0 0 12px; border-bottom:1px solid var(--line); padding-bottom:6px; }
+  h3 { font-size:1rem; margin:0 0 6px; }
+  section { margin:34px 0; }
+  p { margin:8px 0; }
+  .muted { color:var(--muted); }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px 16px; margin:12px 0; }
+  code { font:13.5px ui-monospace, Menlo, monospace; background:var(--code); padding:1px 5px; border-radius:4px; }
+  ul { padding-left:20px; margin:6px 0; } li { margin:4px 0; }
+  .risk { font-size:.75rem; border-radius:99px; padding:1px 8px; border:1px solid var(--line); margin-left:6px; }
+  .risk.low { color:var(--ok); } .risk.med { color:var(--warn); }
+  .tbl { width:100%; border-collapse:collapse; font-size:.92rem; display:block; overflow-x:auto; }
+  .tbl th, .tbl td { text-align:left; border-bottom:1px solid var(--line); padding:6px 8px; vertical-align:top; }
+  .tbl th { color:var(--muted); font-weight:600; }
+  .rec { border-color:var(--accent); }
+  .rec h3::after { content:" - recommended"; color:var(--accent); font-weight:400; font-size:.85rem; }
+  .opt { margin:6px 0; padding:8px 12px; border:1px solid var(--line); border-radius:8px; }
+  .opt.rec { border-color:var(--accent); }
+  .checks { list-style:none; padding-left:0; } .checks li::before { content:"\2610"; margin-right:8px; color:var(--accent); }
+  .flow { width:100%; height:auto; color:var(--fg); }
+  .flow rect { fill:var(--card); stroke:var(--line); } .flow .hot { stroke:var(--accent); stroke-width:1.5; }
+  .flow text { fill:currentColor; font:12px system-ui, sans-serif; } .flow .sm { fill:var(--muted); font-size:10.5px; }
+  .flow path { stroke:var(--muted); fill:none; stroke-width:1.2; }
+  details { border:1px solid var(--line); border-radius:10px; background:var(--card); margin:10px 0; }
+  summary { cursor:pointer; padding:10px 14px; font-weight:600; } details > div { padding:0 14px 10px; }
+</style>
+</head>
+<body>
+<main>
+
+<header data-spec="summary">
+  <h1>Markdown lists - dev spec</h1>
+  <p>A new standalone <code>BeastVim/markdown</code> plugin (same shape as <code>json</code>, <code>python</code>, <code>cpp</code>) that continues, numbers, nests and exits markdown lists. Enter and Tab are <code>expr</code> mappings that return a constant <code>&lt;Cmd&gt;</code>; the decision runs when it is consumed (works with queued keys and behind blink.cmp) and feeds keystrokes, so splitting, autoindent and undo behave like normal typing; outside a list they fall back to the previous mapping (autopairs, blink).</p>
+  <p class="muted">PM spec: <code>docs/pm-specs/cross-markdown-lists.md</code> (approved). Plugin repo: <code>neovim_plugins/markdown</code>.</p>
+</header>
+
+<section data-spec="context">
+  <h2>Context</h2>
+  <p><strong>Problem.</strong> BeastVim has language plugins for code only. Markdown has highlighting (render-markdown) and fence expansion (autopairs), but nothing understands list structure.</p>
+  <p><strong>Solution.</strong> A <code>markdown</code> plugin whose buffer-local mappings parse the current line and either return the keys that make the next item or hand off to the previous mapping.</p>
+</section>
+
+<section data-spec="flow">
+  <h2>How Enter flows</h2>
+  <svg class="flow" viewBox="0 0 780 190" role="img" aria-label="Enter flow">
+    <title>Enter flow</title>
+    <rect x="8" y="60" width="120" height="48" rx="8"/><text x="68" y="82" text-anchor="middle">Enter</text><text class="sm" x="68" y="97" text-anchor="middle">buffer-local callback</text>
+    <path d="M128 84 H160"/>
+    <rect x="160" y="60" width="150" height="48" rx="8"/><text x="235" y="82" text-anchor="middle">blink menu open?</text><text class="sm" x="235" y="97" text-anchor="middle">blink "enter" preset first</text>
+    <path d="M310 84 H342"/>
+    <rect x="342" y="60" width="170" height="48" rx="8"/><text x="427" y="82" text-anchor="middle">list.parse(line)</text><text class="sm" x="427" y="97" text-anchor="middle">item? in fence? after marker?</text>
+    <path d="M512 72 H548"/><path d="M512 96 H548"/>
+    <rect class="hot" x="548" y="40" width="224" height="40" rx="8"/><text x="660" y="64" text-anchor="middle">C-g u, CR, typed marker, renumber</text>
+    <rect x="548" y="88" width="224" height="40" rx="8"/><text x="660" y="112" text-anchor="middle">empty: clear marker / un-nest</text>
+    <path d="M427 108 V160 H660 V150"/><rect x="548" y="140" width="224" height="40" rx="8"/><text x="660" y="164" text-anchor="middle">not a list: previous mapping</text><text class="sm" x="500" y="176" text-anchor="middle">autopairs CR</text>
+  </svg>
+</section>
+
+<section data-spec="research">
+  <h2>Research</h2>
+  <div class="card"><h3>Repo search</h3>
+    <ul>
+      <li>Searched: <code>markdown</code>, <code>&lt;CR&gt;</code>, <code>&lt;Tab&gt;</code>, <code>lang.lua</code>, sibling plugins, <code>Key.safe_set</code>, blink and autopairs keymaps.</li>
+      <li>Found: language plugins are standalone repos loaded on filetype; autopairs owns a global insert <code>&lt;CR&gt;</code> (fence expansion); blink uses preset "enter" and falls back when the menu is closed; <code>Key</code>, <code>Treesitter</code>, <code>Toast</code> globals exist; no list code anywhere.</li>
+    </ul></div>
+  <div class="card"><h3>Built-ins</h3>
+    <ul><li><code>formatoptions</code> r/o only continues comment leaders: no numbering, no un-nest, no checkbox reset.</li>
+        <li>Decision: <strong>Build</strong> a small pure-Lua module on <strong>Used</strong> Neovim APIs and <strong>Reused</strong> <code>Key</code>, <code>Treesitter</code>, scaffold pattern.</li></ul></div>
+</section>
+
+<section data-spec="architecture-changes">
+  <h2>Files</h2>
+  <table class="tbl">
+    <tr><th>Path</th><th>New / modified</th><th>What</th></tr>
+    <tr><td><code>neovim_plugins/markdown/lua/markdown/init.lua</code></td><td>new</td><td>setup, guard, ensure parsers, FileType mappings</td></tr>
+    <tr><td><code>.../lua/markdown/list.lua</code></td><td>new</td><td>pure line parser, next marker, child indent</td></tr>
+    <tr><td><code>.../lua/markdown/actions.lua</code></td><td>new</td><td>enter, tab, shift_tab, open_below/above, renumber, in_fence</td></tr>
+    <tr><td><code>.../tests/test-lists.lua</code></td><td>new</td><td>parse, action and E2E mapping tests</td></tr>
+    <tr><td><code>.../README.md, stylua.toml, .luarc.json</code></td><td>new</td><td>per the new-lang scaffold</td></tr>
+    <tr><td><code>lua/beast/plugins/lang.lua</code></td><td>modified</td><td>add the markdown entry (lazy on filetype)</td></tr>
+  </table>
+</section>
+
+<section data-spec="phases">
+  <h2>Implementation phases</h2>
+
+  <div class="card" data-spec="phase-1">
+    <h3>Phase 1 - Plugin + Enter continuation <span class="risk med">medium</span></h3>
+    <p class="muted">Goal: bullets, ordered (next number), tasks, empty-item exit, mid-item split, fence guard. Mergeable alone.</p>
+    <ul>
+      <li data-spec="phase-1-step-1">Scaffold the repo (README, stylua, luarc), <code>git init</code>, no commit.</li>
+      <li data-spec="phase-1-step-2"><code>list.lua</code>: parse quote prefix, indent, marker, checkbox, offset, empty flag; <code>next_marker</code>.</li>
+      <li data-spec="phase-1-step-3"><code>actions.enter()</code> + <code>in_fence</code>: returns <code>&lt;C-g&gt;u&lt;CR&gt;</code> + typed marker; one undo step, autoindent-safe. <span class="risk med">autoindent doubling</span></li>
+      <li data-spec="phase-1-step-4">Fallback: capture the global <code>&lt;CR&gt;</code> (autopairs) at install and call it when not in a list. <span class="risk med">ordering with blink</span></li>
+      <li data-spec="phase-1-step-5"><code>setup()</code>: guard, ensure_parser x2, FileType mapping via <code>Key.safe_set</code>, add the lang.lua entry (local path while developing).</li>
+      <li data-spec="phase-1-step-6">Tests for scenarios 1, 3, 4, 5 (step 1), 6, 7.</li>
+    </ul>
+  </div>
+
+  <div class="card" data-spec="phase-2">
+    <h3>Phase 2 - Numbering and nesting <span class="risk med">medium</span></h3>
+    <p class="muted">Goal: renumber, Tab, Shift-Tab, un-nest on empty item. Depends on phase 1.</p>
+    <ul>
+      <li data-spec="phase-2-step-1"><code>renumber(row)</code>: same indent + ordered kind, skips deeper lines, stops at shallower item; runs via <code>&lt;Cmd&gt;</code> in the same undo block.</li>
+      <li data-spec="phase-2-step-2">Tab / Shift-Tab on list items; restart at 1 when nesting; fall back for pum, snippets, non-list lines.</li>
+      <li data-spec="phase-2-step-3">Enter on an indented empty item acts as Shift-Tab; unindented clears the marker.</li>
+      <li data-spec="phase-2-step-4">Tests for scenarios 2, 5 (step 2), 8 and the one-undo rule.</li>
+    </ul>
+  </div>
+
+  <div class="card" data-spec="phase-3">
+    <h3>Phase 3 - o / O and integration <span class="risk med">medium</span></h3>
+    <p class="muted">Goal: normal-mode continuation and real-UI checks. Depends on phase 2.</p>
+    <ul>
+      <li data-spec="phase-3-step-1"><code>o</code> / <code>O</code> buffer-local; off a list they return the plain key.</li>
+      <li data-spec="phase-3-step-2">Block quote prefix E2E tests (<code>&gt; - item</code>).</li>
+      <li data-spec="phase-3-step-3">Manual: blink menu + Enter, fence expansion, snippet Tab, render-markdown, non-markdown startup unchanged.</li>
+    </ul>
+  </div>
+</section>
+
+<section data-spec="decisions">
+  <h2>Decisions for you</h2>
+
+  <div class="card" data-spec="decision-nested-indent">
+    <h3>1 - Nested indent width</h3>
+    <p class="muted">The PM spec examples show 4 spaces for a nested ordered item; CommonMark needs the parent's content offset (2 for <code>- </code>, 3 for <code>1. </code>), and shiftwidth is 2.</p>
+    <div class="opt rec"><strong>Parent content offset (recommended).</strong> Always renders as nested. PM examples (scenario 8, state 5) would show 3 spaces.</div>
+    <div class="opt"><strong>Fixed 4 spaces.</strong> Matches the PM examples literally; bullets under bullets would be 4 deep.</div>
+  </div>
+
+  <div class="card" data-spec="decision-keymaps">
+    <h3>2 - Keymap registration</h3>
+    <div class="opt rec"><strong><code>Key.safe_set</code> with <code>buffer</code> from a FileType autocmd (recommended).</strong> The plugin is external and the keys are filetype-local.</div>
+    <div class="opt"><strong><code>packer.lazy</code> keys with a filetype condition.</strong> Only if the packer supports it; needs checking.</div>
+  </div>
+
+  <div class="card" data-spec="decision-tests">
+    <h3>3 - Tests location</h3>
+    <div class="opt rec"><strong>Inside the plugin repo (recommended).</strong> Self-contained.</div>
+    <div class="opt"><strong><code>BeastVim/tests/</code>.</strong> Follows the repo test convention; needs the plugin path on the runtimepath.</div>
+  </div>
+
+  <div class="card" data-spec="decision-fence">
+    <h3>4 - Fence detection</h3>
+    <div class="opt rec"><strong>Line scan for fence openers (recommended).</strong> No parser dependency, works while typing.</div>
+    <div class="opt"><strong>Tree-sitter <code>fenced_code_block</code>.</strong> More exact, depends on a fresh parse.</div>
+  </div>
+</section>
+
+<section data-spec="testing-strategy">
+  <h2>Testing strategy</h2>
+  <ul>
+    <li><strong>Headless:</strong> <code>tests/test-lists.lua</code> in the plugin repo via <code>NVIM_APPNAME=BeastVim nvim --clean --headless -l</code>; buffer cases drive the real mappings with <code>nvim_feedkeys</code>.</li>
+    <li><strong>Bench:</strong> none needed (markdown buffers only); run the component benches loop and <code>bench-startup.sh</code> once to confirm no regression.</li>
+    <li><strong>Manual:</strong> PM scenarios 1-9 in a real markdown file under <code>NVIM_APPNAME=BeastVim</code>, plus the Phase 3 integration checks.</li>
+  </ul>
+</section>
+
+<section data-spec="success-criteria">
+  <h2>Success criteria</h2>
+  <ul class="checks">
+    <li>Enter on <code>-</code>, <code>*</code>, <code>+</code> items continues with same marker and indent</li>
+    <li>Enter on <code>1.</code> / <code>1)</code> gives the next number; following items renumbered</li>
+    <li>Task items continue with an unchecked box</li>
+    <li>Empty item exits the list (or un-nests one level)</li>
+    <li>Enter mid-item splits text into the new item</li>
+    <li>Tab / Shift-Tab nest and un-nest with correct numbering</li>
+    <li><code>o</code> / <code>O</code> continue the list</li>
+    <li>No change in code blocks, paragraphs, or non-markdown files</li>
+    <li>Completion menu and autopairs keep working with Enter</li>
+    <li>Lazy load with no startup cost elsewhere</li>
+    <li>One <code>u</code> reverts a whole Enter (line, marker, renumbering)</li>
+    <li><code>stylua --check</code> and <code>tests/test-lists.lua</code> pass</li>
+  </ul>
+</section>
+
+</main>
+</body>
+</html>
