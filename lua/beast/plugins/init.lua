@@ -29,14 +29,16 @@ return {
 	},
 
 	{
-		name = "render-markdown",
-		src = gh("MeanderingProgrammer/markdown.nvim"),
+		name = "markview.nvim",
+		src = gh("OXY2DEV/markview.nvim"),
 		lazy = {
 			filetype = { "markdown" },
 			dependencies = { "nvim-tree/nvim-web-devicons" },
 		},
 		config = function()
-			require("render-markdown").setup({})
+			require("markview").setup({
+				preview = { icon_provider = "mini" },
+			})
 		end,
 	},
 }
