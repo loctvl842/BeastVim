@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793890666693,
+  "lastUpdate": 1793943499304,
   "repoUrl": "https://github.com/loctvl842/BeastVim",
   "entries": {
     "BeastVim Startup": [
@@ -2901,6 +2901,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "BeastVim startup (warm) max",
             "value": 327.47448900000006,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "committer": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "distinct": true,
+          "id": "82dee150bbde3983c4410e0057c20599ac1abe1c",
+          "message": "fix(lang): install markdown plugin from its github url",
+          "timestamp": "2026-11-05T22:06:29+07:00",
+          "tree_id": "e38890d084d904df894e81568a6c80583fcd6955",
+          "url": "https://github.com/loctvl842/BeastVim/commit/82dee150bbde3983c4410e0057c20599ac1abe1c"
+        },
+        "date": 1793943498837,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "BeastVim startup (warm) mean",
+            "value": 298.1810762,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) stddev",
+            "value": 10.632952490348126,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) min",
+            "value": 285.188147,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) max",
+            "value": 321.020264,
             "unit": "ms"
           }
         ]
