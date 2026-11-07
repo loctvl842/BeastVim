@@ -72,6 +72,7 @@ local M = {
 		copilot = " ",
 		supermaven = " ",
 	},
+  claude = "✺ ",
 }
 
 M.colors = {
