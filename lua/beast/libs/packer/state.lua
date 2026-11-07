@@ -13,7 +13,7 @@
 ---@field cond? fun(): boolean Condition function for conditional imports
 ---@field enabled? boolean Whether to process this import (default: true)
 ---@field cond? fun(): boolean Condition function for conditional imports
----@field dependencies? string[] List of dependency plugin names that must be loaded before this plugin
+---@field dependencies? string[] Plugins or Beast lib names that must be loaded before this plugin. Resolution and ordering notes: see M.load_dependencies
 ---@field lazy? Beast.Packer.Lazy|false Packer loading configuration (if false, loads eagerly; if nil, loads manually)
 ---@field init? fun() Initialization function (runs during setup, before loading)
 ---@field config? fun() Configuration function (runs after plugin loads)
@@ -44,6 +44,7 @@ local M = {
 ---@class Beast.Packer.LibEntry
 ---@field name string Lua module path (also used as registry key)
 ---@field lazy Beast.Packer.LazyLibOpts Trigger spec passed to packer.lazy()
+---@field dependencies? string[] Plugins or Beast Libs to load before this lib
 ---@field load fun(reason?: Beast.Packer.LoadReason) Closure that performs require(mod) + setup(lib); idempotent via internal flag. `reason` is forwarded to profile.set_reason so the UI shows what triggered the load.
 
 -- Track plugins currently being loaded (for circular dependency detection)
@@ -57,6 +58,40 @@ function M.check_circular_dependency(plugin_name)
 			local msg = "Circular dependency detected: " .. table.concat(loading_stack, " -> ")
 			vim.notify(msg, vim.log.levels.ERROR, { title = "BeastVim" })
 			error(msg)
+		end
+	end
+end
+
+--- Load every dependency declared by `spec`, resolving each name against both
+--- registries: plugins (`state.plugins`) and Beast libs registered through
+--- `packer.lazy()` (`state.libs`).
+---
+--- Lib dependencies are load-bearing where a plugin samples ambient highlight
+--- state once at init and never refreshes it. markview derives every
+--- `MarkviewPalette*` group from `@markup.heading` at setup time and
+--- `markview/highlights.lua` refuses to overwrite a group that already
+--- exists, so `beast.theme` must have refreshed the palette before markview
+--- loads; otherwise the frozen palette is whatever the colorscheme left
+--- behind, which varies with startup ordering.
+---
+--- An unknown name is reported rather than silently ignored: `packadd` on a
+--- lib name used to fail with an opaque error, and a typo'd dependency would
+--- otherwise look like it was honoured.
+---@param spec Beast.Packer.PluginSpec
+function M.load_dependencies(spec)
+  -- stylua: ignore
+  if not spec.dependencies then return end
+	for _, dep_name in ipairs(spec.dependencies) do
+		if M.libs[dep_name] then
+			M.load_lib(dep_name, { type = "dependency", detail = spec.name })
+		elseif M.plugins[dep_name] then
+			M.load(dep_name, { type = "dependency", detail = spec.name })
+		else
+			vim.notify(
+				string.format("packer: '%s' declares unknown dependency '%s' (not a registered plugin or lib)", tostring(spec.name), dep_name),
+				vim.log.levels.WARN,
+				{ title = "BeastVim" }
+			)
 		end
 	end
 end
@@ -91,11 +126,8 @@ function M.load(plugin_name, reason) -- Already loaded
 	local spec = M.plugins[plugin_name]
 
 	-- Load dependencies first (recursively)
-	if spec and spec.dependencies then
-		for _, dep_name in ipairs(spec.dependencies) do
-			M.load(dep_name, { type = "dependency", detail = plugin_name })
-		end
-	end
+	-- Beast libs; see load_dependencies
+	M.load_dependencies(spec or { name = plugin_name })
 
 	-- Measure packadd time using wrapper
 	local ok_packadd, err_packadd = profile.measure(plugin_name, "packadd_ms", function()

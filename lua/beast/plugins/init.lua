@@ -31,6 +31,7 @@ return {
 	{
 		name = "markview.nvim",
 		src = gh("OXY2DEV/markview.nvim"),
+		dependencies = { "beast.theme" },
 		lazy = {
 			filetype = { "markdown" },
 			dependencies = { "nvim-tree/nvim-web-devicons" },

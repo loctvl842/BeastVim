@@ -468,6 +468,7 @@ end
 ---@field keys? Beast.KeymapSpec|Beast.KeymapSpec[]|string|string[] Key trigger(s). Always sync — user is actively waiting.
 ---@field filetype? string|string[] Filetype trigger(s). Always sync — render-critical.
 ---@field module? string|string[] Module trigger(s). When any listed modname is `require()`d, `setup(lib)` runs first via the module-loader hook. Common case: the lib's own module path, so direct `require("beast.libs.X")` calls from keymap bodies still trigger `setup`.
+---@field dependencies? string[] Plugin or Beast lib names loaded (recursively) before this lib's `require` + `setup`. Same resolution rules as plugin specs: see `state.load_dependencies`.
 ---@field setup fun(lib: table) Called after require(mod), receives the module
 
 --- Lazy-load a Beast library using the same trigger infrastructure as plugins.
@@ -503,6 +504,15 @@ function M.lazy(mod, opts)
 		-- (e.g. opts.module = "beast.libs.X"). Mirrors state.load for plugins,
 		-- which sets loaded_plugins[name] = true before vim.cmd.packadd.
 		state.loaded_libs[mod] = true
+
+    -- Load declared dependencies before require(mod). This runs here, at
+    -- the single choke point every trigger funnels through, rather than in
+    -- state.load_lib: the event/keys/filetype/path triggers below call
+    -- do_load directly and would otherwise skip dependencies entirely.
+    --
+    -- Ordering matters when a lib reads ambient highlight state once at
+    -- setup() and never refreshes it; see state.load_dependencies.
+    state.load_dependencies({ name = mod, dependencies = opts.dependencies })
 
 		local lib
 		local ok_req, err_req = profile.measure(mod, "packadd_ms", function()
