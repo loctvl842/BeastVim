@@ -5,7 +5,7 @@ local uv = vim.uv or vim.loop
 
 local M = {}
 
-local IDE_NAME = "Neovim"
+local IDE_NAME = "BeastVim"
 
 --- The name `/ide` shows. Several instances can share a folder, so each one
 --- carries its start time and pid; `:Review status` prints the same string.
