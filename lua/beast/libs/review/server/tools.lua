@@ -158,6 +158,19 @@ M.tools = {
 	},
 }
 
+--- How many proposed diffs are waiting on the user right now. This is the
+--- lib's only durable "Claude is mid-task" signal: each openDiff blocks a
+--- Claude Code request until the user decides, so a non-zero count means work
+--- is genuinely in flight rather than just a connected socket.
+---@return integer
+function M.pending_count()
+  local n = 0
+  for _ in pairs(open_diffs) do
+    n = n + 1
+  end
+  return n
+end
+
 --- Tools advertised through tools/list.
 ---@return table[]
 function M.list()
