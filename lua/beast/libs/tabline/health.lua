@@ -233,6 +233,7 @@ function M.check()
 	health.info(string.format("show_close_button = %s", tostring(config.show_close_button)))
 	health.info(string.format("show_modified = %s", tostring(config.show_modified)))
 	health.info(string.format("show_diagnostics = %s", tostring(config.show_diagnostics)))
+  health.info(string.format("show_pid = %s", tostring(config.show_pid)))
 
 	-- Check showtabline
 	if vim.o.showtabline == 2 then

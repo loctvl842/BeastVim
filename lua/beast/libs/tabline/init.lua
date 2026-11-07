@@ -4,6 +4,7 @@ local config = require("beast.libs.tabline.config")
 local context = require("beast.libs.tabline.context")
 local icons_mod = require("beast.libs.tabline.icons")
 local offset = require("beast.libs.tabline.sections.offset")
+local pid_section = require("beast.libs.tabline.sections.pid")
 local tabpages = require("beast.libs.tabline.sections.tabpages")
 local toggle_button = require("beast.libs.tabline.sections.toggle_button")
 local visibility_section = require("beast.libs.tabline.sections.visibility")
@@ -177,6 +178,13 @@ function M.render()
 	-- buffer list would otherwise overflow (see context.lua's buttons_compact).
 	parts[#parts + 1] = visibility_section.render(ctx.buttons_compact)
 	parts[#parts + 1] = toggle_button.render(ctx.buttons_compact)
+
+  -- PID badge, far right of everything. Not part of buttons_compact: the PID
+  -- is fixed-width metadata rather than a legible icon+label pair, so it
+  -- renders the same in both layouts.
+  if config.show_pid then
+    parts[#parts + 1] = pid_section.render()
+  end
 
 	local output = table.concat(parts)
 

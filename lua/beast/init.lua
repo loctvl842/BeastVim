@@ -226,6 +226,7 @@ function M.setup(opts)
 				show_close_button = true,
 				show_modified = true,
 				show_diagnostics = true,
+        show_pid = true,
 			})
 		end,
 	})

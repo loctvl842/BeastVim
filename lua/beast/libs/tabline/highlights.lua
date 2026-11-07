@@ -65,6 +65,8 @@ local function APPEARANCE(p)
 
 		toggle_button = { fg = p.text },
 
+		pid = { fg = p.dimmed2 },
+
 		visibility = { on = p.text, off = p.dimmed3, label = p.dimmed3 },
 
 		diagnostics = {
@@ -134,6 +136,7 @@ local function compute()
 		VisibilityOn = { fg = a.visibility.on, bg = fill.bg, underline = fill.underline, sp = fill.sp },
 		VisibilityOff = { fg = a.visibility.off, bg = fill.bg, underline = fill.underline, sp = fill.sp },
 		VisibilityLabel = { fg = a.visibility.label, bg = fill.bg, underline = fill.underline, sp = fill.sp },
+		Pid = { fg = a.pid.fg, bg = fill.bg, underline = fill.underline, sp = fill.sp },
 	}
 
 	for sev_name, sev_color in pairs(a.diagnostics) do

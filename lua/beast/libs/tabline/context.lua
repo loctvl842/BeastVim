@@ -1,4 +1,5 @@
 local buffers_mod = require("beast.libs.tabline.buffers")
+local config = require("beast.libs.tabline.config")
 local name_mod = require("beast.libs.tabline.name")
 
 local ok_devicons, devicons = pcall(require, "nvim-web-devicons")
@@ -78,6 +79,7 @@ end
 ---@field tabpages_width integer
 ---@field toggle_button_width integer
 ---@field visibility_width integer
+---@field pid_width integer Display width reserved for PID badge (0 when show_pid is off)
 ---@field buttons_compact boolean Icon-only right-side buttons (no label) when the buffer list would overflow
 ---@field edge_trim_bufs? table<integer, boolean> Buffers rendered with edge trimming (skip min_cell_width)
 ---@field edge_trim_compact? table<integer, string> Map of buffer → pull side ("left"|"right") for compact edge trim
@@ -212,9 +214,12 @@ function M.build(state)
 	-- list always wins the space fight over button legibility.
 	local toggle_button = require("beast.libs.tabline.sections.toggle_button")
 	local visibility = require("beast.libs.tabline.sections.visibility")
+  local pid_section = require("beast.libs.tabline.sections.pid")
 	local truncate = require("beast.libs.tabline.truncate")
 
-	local full_buttons_width = toggle_button.width(false) + visibility.width(false)
+  local pid_width = config.show_pid and pid_section.width() or 0
+
+	local full_buttons_width = toggle_button.width(false) + visibility.width(false) + pid_width
 	local available_full = ctx.columns - (sidebar_width or 0) - tabpages_width - full_buttons_width
 
 	local natural_width = 0
@@ -226,6 +231,7 @@ function M.build(state)
 	ctx.buttons_compact = compact
 	ctx.toggle_button_width = toggle_button.width(compact)
 	ctx.visibility_width = visibility.width(compact)
+  ctx.pid_width = pid_width
 
 	return ctx
 end
