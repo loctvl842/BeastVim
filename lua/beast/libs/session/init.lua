@@ -97,7 +97,14 @@ local function capture_explorer_state()
 
 	local focus = (vim.api.nvim_get_current_win() == explorer_state.view.win) and "explorer" or "main"
 
-	require("beast.libs.explorer").close()
+	-- The explorer can be the last window (it quits nvim once the final file
+	-- window closes); closing it then raises E444 and leaves a hit-enter prompt.
+	local others = vim.tbl_filter(function(w)
+		return w ~= explorer_state.view.win and vim.api.nvim_win_get_config(w).relative == ""
+	end, vim.api.nvim_tabpage_list_wins(0))
+	if #others > 0 then
+		require("beast.libs.explorer").close()
+	end
 
 	return { root = root, open_dirs = open_dirs, focus = focus }
 end
