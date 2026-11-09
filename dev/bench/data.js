@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794013114099,
+  "lastUpdate": 1794188693336,
   "repoUrl": "https://github.com/loctvl842/BeastVim",
   "entries": {
     "BeastVim Startup": [
@@ -2989,6 +2989,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "BeastVim startup (warm) max",
             "value": 582.4184700000001,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "committer": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "distinct": true,
+          "id": "6e43b0634dc89cfe1708fe9b1cdccfbd2bacaa73",
+          "message": "fix(session): skip closing explorer when it is the last window\n\nClosing the last window raised E444 in VimLeavePre, which left a\nhit-enter prompt when quitting a file with the explorer open.",
+          "timestamp": "2026-11-08T20:01:32+07:00",
+          "tree_id": "14e92c43c45f6c0fa958b07901a3ea3d913bf407",
+          "url": "https://github.com/loctvl842/BeastVim/commit/6e43b0634dc89cfe1708fe9b1cdccfbd2bacaa73"
+        },
+        "date": 1794188692680,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "BeastVim startup (warm) mean",
+            "value": 332.12951699999996,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) stddev",
+            "value": 7.6669533558859255,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) min",
+            "value": 319.80478,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) max",
+            "value": 349.70205100000004,
             "unit": "ms"
           }
         ]
