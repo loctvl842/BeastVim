@@ -64,6 +64,49 @@ local function add_extmark(bufnr, row, col, opts, ns0)
 	pcall(api.nvim_buf_set_extmark, bufnr, ns0 or ns, row, col, opts)
 end
 
+--- Float rows (0-based) that are the first row of a closed fold in `winid`.
+--- The source window renders those rows as fold lines highlighted with `Folded`,
+--- so the overlay marks them to match.
+---@param winid integer
+---@param contexts Range4[]
+---@return table<integer, true>
+local function folded_rows(winid, contexts)
+	local rows = {} ---@type table<integer, true>
+
+	api.nvim_win_call(winid, function()
+		local offset = 0
+		for _, context in ipairs(contexts) do
+			local height = range_height(context)
+			for i = 0, height - 1 do
+				local lnum = context[1] + i + 1
+				if fn.foldclosed(lnum) == lnum then
+					rows[offset + i] = true
+				end
+			end
+			offset = offset + height
+		end
+	end)
+
+	return rows
+end
+
+--- Paint folded rows with the `Folded` group. The source window keeps the fold
+--- line's syntax colors and applies `Folded` underneath. The extmark must stay
+--- below the replayed captures (priority 4096 is the default, which would
+--- replace them) so their foreground survives and `Folded` supplies the rest.
+---@param bufnr integer
+---@param folded table<integer, true>
+local function highlight_folded(bufnr, folded)
+	for row in pairs(folded) do
+		add_extmark(bufnr, row, 0, {
+			end_row = row + 1,
+			hl_group = "Folded",
+			hl_eol = true,
+			priority = 0,
+		})
+	end
+end
+
 ---@param arow integer
 ---@param acol integer
 ---@param brow integer
@@ -438,9 +481,11 @@ function M.open(winid, ranges, lines, force_hl)
 	local changed = set_lines(ctx_bufnr, lines)
 
 	if changed or force_hl then
+		local folded = folded_rows(winid, ranges)
 		api.nvim_buf_clear_namespace(ctx_bufnr, ns, 0, -1)
 		highlight_contexts(bufnr, ctx_bufnr, ranges)
 		copy_extmarks(bufnr, ctx_bufnr, ranges)
+		highlight_folded(ctx_bufnr, folded)
 		highlight_bottom(ctx_bufnr, height - 1, "BeastTreesitterContextBottom")
 		sync_horizontal_scroll(winid, st.content.win)
 	end

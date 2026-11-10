@@ -189,6 +189,45 @@ local function get_text_for_range(range, bufnr)
 	return { start_row, 0, end_row, end_col }, lines
 end
 
+--- Split a context header into the parts that are visible in `winid` when folds
+--- are closed. A closed fold displays only its first row, so hidden rows are
+--- dropped and the header is broken into contiguous segments.
+---
+--- Each segment keeps `range_height(range) == #text`, so the linear row mapping
+--- used by the renderer (line `i` is row `range[1] + i - 1`) stays valid.
+---@param winid integer
+---@param range Range4
+---@param lines string[]
+---@return { range: Range4, text: string[] }[]
+local function visible_segments(winid, range, lines)
+	local segments = {}
+
+	api.nvim_win_call(winid, function()
+		local open = false
+		for i = 1, #lines do
+			local row = range[1] + i - 1
+			local lnum = row + 1
+			local fold_start = fn.foldclosed(lnum)
+
+			-- Rows inside a closed fold are hidden; the fold's first row still
+			-- renders (as its fold text), so it stays.
+			if fold_start == -1 or fold_start == lnum then
+				if not open then
+					segments[#segments + 1] = { range = { row, 0, row + 1, 0 }, text = {} }
+					open = true
+				end
+				local segment = segments[#segments]
+				segment.text[#segment.text + 1] = lines[i]
+				segment.range[3] = row + 1
+			else
+				open = false
+			end
+		end
+	end)
+
+	return segments
+end
+
 --- Chain of language trees (root + injected) that contain `range`.
 ---@param bufnr integer
 ---@param range Range4
@@ -287,6 +326,7 @@ function M.get(winid)
 	local ranges = {} ---@type Range4[]
 	local lines = {} ---@type string[][]
 	local height = 0
+	local last_ctx_start, last_ctx_count = nil, 0
 
 	for offset = 0, max_lines do
 		local node_row = row + offset
@@ -296,6 +336,7 @@ function M.get(winid)
 		ranges = {}
 		lines = {}
 		height = 0
+		last_ctx_start, last_ctx_count = nil, 0
 
 		for parents, query in iter_context_parents(bufnr, line_range) do
 			for _, parent in ipairs(parents) do
@@ -309,17 +350,25 @@ function M.get(winid)
 					if range0 and range_is_valid(range0) then
 						local range, text = get_text_for_range(range0, bufnr)
 						if range_is_valid(range) then
-							local last = ranges[#ranges]
-							if last and parent_start_row == last[1] then
-								-- Multiple contexts share a row: keep the inner one.
-								height = height - range_height(last)
-								ranges[#ranges] = nil
-								lines[#lines] = nil
-							end
+							local segments = visible_segments(winid, range, text)
+							if #segments > 0 then
+								if parent_start_row == last_ctx_start then
+									-- Multiple contexts share a row: keep the inner one.
+									for _ = 1, last_ctx_count do
+										height = height - range_height(ranges[#ranges])
+										ranges[#ranges] = nil
+										lines[#lines] = nil
+									end
+									last_ctx_start, last_ctx_count = nil, 0
+								end
 
-							height = height + range_height(range)
-							ranges[#ranges + 1] = range
-							lines[#lines + 1] = text
+								for _, segment in ipairs(segments) do
+									height = height + range_height(segment.range)
+									ranges[#ranges + 1] = segment.range
+									lines[#lines + 1] = segment.text
+								end
+								last_ctx_start, last_ctx_count = parent_start_row, #segments
+							end
 						end
 					end
 				end
