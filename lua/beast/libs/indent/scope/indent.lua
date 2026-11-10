@@ -88,11 +88,21 @@ function M.find(buf, pos)
 	-- stylua: ignore
 	if not indent or indent <= 0 then return nil end
 
+	local from = expand(resolved_line, indent, true)
+	local to = expand(resolved_line, indent, false)
+
+	-- Anchor the vertical line to the opener above the block. The body's own
+	-- first line indent can be off grid (or otherwise unreliable), while the
+	-- opener is what the block visually nested under
+	local header_line = vim.fn.prevnonblank(from - 1)
+	local col = header_line > 0 and vim.fn.indent(header_line) or 0
+
 	local scope = {
 		buf = buf,
-		from = expand(resolved_line, indent, true),
-		to = expand(resolved_line, indent, false),
+		from = from,
+		to = to,
 		indent = indent,
+		col = col,
 	}
 
 	-- stylua: ignore

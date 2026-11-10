@@ -68,9 +68,10 @@ end
 ---@param lines string[] 1-indexed body lines (lines[1] = body_from)
 ---@param body_from integer 1-indexed first body line
 ---@param body_indent integer minimum indent for body lines
+---@param col integer column of the scope vertical line (opener indent)
 ---@param sw integer shiftwidth for tab expansion
 ---@return Beast.Indent.Scope[]
-local function collect_segments(buf, lines, body_from, body_indent, sw)
+local function collect_segments(buf, lines, body_from, body_indent, col, sw)
 	local segments = {}
 	local seg_from = nil
 
@@ -85,14 +86,14 @@ local function collect_segments(buf, lines, body_from, body_indent, sw)
 			end
 		else
 			if seg_from then
-				segments[#segments + 1] = { buf = buf, from = seg_from, to = body_from + i - 2, indent = body_indent }
+				segments[#segments + 1] = { buf = buf, from = seg_from, to = body_from + i - 2, indent = body_indent, col = col }
 				seg_from = nil
 			end
 		end
 	end
 
 	if seg_from then
-		segments[#segments + 1] = { buf = buf, from = seg_from, to = body_from + #lines - 1, indent = body_indent }
+		segments[#segments + 1] = { buf = buf, from = seg_from, to = body_from + #lines - 1, indent = body_indent, col = col }
 	end
 
 	return segments
@@ -179,13 +180,20 @@ function M.find(buf, pos)
 	-- stylua: ignore
 	if body_from > body_to then return nil end
 
-	-- Batch-fetch only body lines (single API call)
-	local body_lines = vim.api.nvim_buf_get_lines(buf, body_from - 1, body_to, false)
-
 	local sw = vim.bo[buf].shiftwidth
 	if sw == 0 then
 		sw = vim.bo[buf].tabstop
 	end
+
+	-- The vertical line is anchored to the opener (the first line of the scope
+	-- node), not to the first body line. A body line whose indent is off grid
+	-- must not move the line, and with a wrapped header the line directly above
+	-- the body is a continuation line whose indent is deeper than the opener's.
+	local header_text = vim.api.nvim_buf_get_lines(buf, node_from, node_from + 1, false)[1]
+	local col = header_text and str_indent(header_text, sw) or 0
+
+	-- Batch-fetch only body lines (single API call)
+	local body_lines = vim.api.nvim_buf_get_lines(buf, body_from - 1, body_to, false)
 
 	-- Find first non-blank body line indent (pure Lua)
 	local first_body_indent = nil
@@ -198,7 +206,13 @@ function M.find(buf, pos)
 	-- stylua: ignore
 	if not first_body_indent or first_body_indent <= 0 then return nil end
 
-	local segments = collect_segments(buf, body_lines, body_from, first_body_indent, sw)
+	-- Malformed indentation (opener at or below the body): fall back to one
+	-- level left of the body so the scope stays drawable.
+	if col >= first_body_indent then
+		col = math.max(0, first_body_indent - sw)
+	end
+
+	local segments = collect_segments(buf, body_lines, body_from, first_body_indent, col, sw)
 	-- stylua: ignore
 	if #segments == 0 then return nil end
 

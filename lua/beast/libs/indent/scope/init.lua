@@ -7,7 +7,8 @@ local find_by_treesitter = require("beast.libs.indent.scope.treesitter").find
 ---@field buf integer
 ---@field from integer 1-indexed top line
 ---@field to integer 1-indexed bottom line
----@field indent integer body indent column (0-based), used for drawing
+---@field indent integer body indent column (0-based)
+---@field col integer column of the vertical line (0-based)
 
 ---Per-window cached scopes (array of contiguous segments).
 ---@type table<integer, Beast.Indent.Scope[]?>
@@ -65,7 +66,7 @@ local function scopes_eq(a, b)
 		return false
 	end
 	for i = 1, #a do
-		if a[i].from ~= b[i].from or a[i].to ~= b[i].to or a[i].indent ~= b[i].indent then
+		if a[i].buf ~= b[i].buf or a[i].from ~= b[i].from or a[i].to ~= b[i].to or a[i].indent ~= b[i].indent or a[i].col ~= b[i].col then
 			return false
 		end
 	end
@@ -143,7 +144,10 @@ function M.draw(buf, ns, win, top, bottom, leftcol, sw)
 		-- stylua: ignore
 		if scope.buf ~= buf then goto continue end
 
-		local col = scope.indent - sw - leftcol
+		-- Fall back to one level left of the body for scopes cached before
+		-- `col` was introduced
+		local scope_col = scope.col or math.max(0, scope.indent - sw)
+		local col = scope_col - leftcol
 		-- stylua: ignore
 		if col < 0 then goto continue end
 
@@ -163,7 +167,7 @@ function M.draw(buf, ns, win, top, bottom, leftcol, sw)
 						-- Start at the vertical line's column (not the text) so a wrapped
 						-- header's continuation line stays connected to it
 						local start, width = 0, 0
-						while start < #text and width < scope.indent - sw do
+						while start < #text and width < scope_col do
 							width = width + (text:byte(start + 1) == 9 and sw - (width % sw) or 1)
 							start = start + 1
 						end
@@ -182,7 +186,7 @@ function M.draw(buf, ns, win, top, bottom, leftcol, sw)
 
 		for line = from, to do
 			local line_indent = guide.get_indent(buf, line, sw)
-			if line_indent > col + leftcol then
+			if line_indent > scope_col then
 				vim.api.nvim_buf_set_extmark(buf, ns, line - 1, 0, {
 					virt_text = virt_text,
 					virt_text_pos = "overlay",
