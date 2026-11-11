@@ -389,6 +389,7 @@ function M.setup(opts)
 						separators = true,
 						backdrop = false,
 						freeze_colors = true,
+						initial_text = original,
 						on_preview = function(item)
 							-- Skip the theme that is already active (the picker previews its first row on open).
 							if item.text ~= vim.g.colors_name then
@@ -396,7 +397,7 @@ function M.setup(opts)
 							end
 						end,
 						on_close = function(confirmed)
-							if not confirmed then
+							if not confirmed and vim.g.colors_name ~= original then
 								pcall(vim.cmd.colorscheme, original)
 							end
 						end,
