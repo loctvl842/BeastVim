@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spec: Stable theme menu</title>
+<style>
+  :root { --bg:#fbfaf7; --fg:#1c1b19; --muted:#6b675f; --line:#dcd8cf; --card:#fff; --accent:#b4540a; --term:#1e1f26; --termfg:#d8dae5; --termsel:#34374a; --termline:#3b3e50; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#161513; --fg:#ece8df; --muted:#a29d92; --line:#3a3732; --card:#1f1d1a; --accent:#e08a3c; }
+  }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, sans-serif; }
+  main { max-width:880px; margin:0 auto; padding:24px 16px 80px; }
+  section { margin:32px 0; }
+  h1 { margin:0 0 8px; } h2 { margin:0 0 10px; } h3 { margin:18px 0 6px; font-size:1rem; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; }
+  .muted { color:var(--muted); }
+  .mock { background:var(--term); color:var(--termfg); border-radius:10px; padding:16px; font:14px/1.4 ui-monospace,Menlo,monospace; max-width:420px; margin:8px 0; }
+  .box { border:0; padding:6px 14px; }
+  .prompt { min-height:2.4em; padding-top:12px; padding-bottom:12px; background:#24262d; }
+  .prompt::before { content:"\1F50D  "; opacity:.7; }
+  .list { background:#0b0c10; padding:10px 14px; }
+  .row { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:2px 6px; border-left:3px solid transparent; }
+  .row.sel { color:#4a9ede; font-weight:600; }
+  .row.sel .nm::after { content:"  \25C0"; }
+  .list > .row.sel:first-child { border-top:1px solid #4a9ede; }
+  .list > .row.sel:last-child { border-bottom:1px solid #4a9ede; }
+  .nm { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .sw { display:flex; gap:4px; flex:none; }
+  .sw i { width:10px; height:10px; border-radius:3px; display:block; }
+  hr { border:0; border-top:1px dashed #3b3e50; margin:4px 0; }
+  hr:has(+ .row.sel), .row.sel + hr { border-top:1px solid #4a9ede; }
+  .states { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:16px; }
+  ol.steps { margin:0; padding-left:22px; } ol.steps li { margin:6px 0; } ol.steps span { color:var(--muted); }
+  ul { padding-left:20px; }
+  details { margin:10px 0; } summary { cursor:pointer; font-weight:600; }
+  .rec { border-left:3px solid var(--accent); padding-left:10px; margin:10px 0; }
+  .tag { color:var(--accent); font-weight:600; font-size:.85em; }
+</style>
+</head>
+<body>
+<main>
+<header data-spec="summary">
+  <h1>Stable theme menu</h1>
+  <p>While you browse themes, the picker menu keeps the colors of the theme you started with. Only the editor behind it previews the highlighted theme, and it is no longer dimmed.</p>
+</header>
+<section data-spec="problem"><h2>Problem</h2>
+  <p>Every step down the list repaints the whole screen, menu included: panel colors, text, selection color and lines all change per theme. It is hard to tell what the menu normally looks like, and judging a theme while the menu keeps changing is confusing. The dimming overlay also darkens the editor you are trying to preview.</p></section>
+<section data-spec="target-behavior"><h2>Target behavior</h2>
+  <div class="states">
+    <div data-spec="state-1"><h3>STATE 1 - Opened in monokai-pro</h3><div class="mock" style="background:#2d2a2e"><div class="box prompt">&nbsp;</div><div class="box list"><div class="row sel"><span class="nm">monokai-pro</span><span class="sw"><i style="background:#2d2a2e"></i><i style="background:#fcfcfa"></i><i style="background:#ff6188"></i><i style="background:#fc9867"></i><i style="background:#ffd866"></i><i style="background:#a9dc76"></i><i style="background:#78dce8"></i><i style="background:#78dce8"></i><i style="background:#ab9df2"></i><i style="background:#939293"></i></span></div><hr><div class="row"><span class="nm">ayu_light</span><span class="sw"><i style="background:#2d2a2e"></i><i style="background:#fcfcfa"></i><i style="background:#ff6188"></i><i style="background:#fc9867"></i><i style="background:#ffd866"></i><i style="background:#a9dc76"></i><i style="background:#78dce8"></i><i style="background:#78dce8"></i><i style="background:#ab9df2"></i><i style="background:#939293"></i></span></div><hr><div class="row"><span class="nm">bearded-arc</span><span class="sw"><i style="background:#2d2a2e"></i><i style="background:#fcfcfa"></i><i style="background:#ff6188"></i><i style="background:#fc9867"></i><i style="background:#ffd866"></i><i style="background:#a9dc76"></i><i style="background:#78dce8"></i><i style="background:#78dce8"></i><i style="background:#ab9df2"></i><i style="background:#939293"></i></span></div></div></div><p class="muted">Editor at full brightness, no dimming. Menu in monokai-pro colors.</p></div>
+    <div data-spec="state-2"><h3>STATE 2 - Navigated to ayu_light</h3><div class="mock" style="background:#fafafa"><div class="box prompt">&nbsp;</div><div class="box list"><div class="row"><span class="nm">monokai-pro</span><span class="sw"><i style="background:#2d2a2e"></i><i style="background:#fcfcfa"></i><i style="background:#ff6188"></i><i style="background:#fc9867"></i><i style="background:#ffd866"></i><i style="background:#a9dc76"></i><i style="background:#78dce8"></i><i style="background:#78dce8"></i><i style="background:#ab9df2"></i><i style="background:#939293"></i></span></div><hr><div class="row sel"><span class="nm">ayu_light</span><span class="sw"><i style="background:#2d2a2e"></i><i style="background:#fcfcfa"></i><i style="background:#ff6188"></i><i style="background:#fc9867"></i><i style="background:#ffd866"></i><i style="background:#a9dc76"></i><i style="background:#78dce8"></i><i style="background:#78dce8"></i><i style="background:#ab9df2"></i><i style="background:#939293"></i></span></div><hr><div class="row"><span class="nm">bearded-arc</span><span class="sw"><i style="background:#2d2a2e"></i><i style="background:#fcfcfa"></i><i style="background:#ff6188"></i><i style="background:#fc9867"></i><i style="background:#ffd866"></i><i style="background:#a9dc76"></i><i style="background:#78dce8"></i><i style="background:#78dce8"></i><i style="background:#ab9df2"></i><i style="background:#939293"></i></span></div></div></div><p class="muted">Editor behind is fully ayu_light (light). The menu panels, text, lines and selection color are STILL monokai-pro. Swatches keep each theme's own colors.</p></div>
+    <div data-spec="state-3"><h3>STATE 3 - After Enter, reopened</h3><p class="muted">The menu now uses ayu_light's colors: it takes on the new theme the next time it opens.</p></div>
+  </div></section>
+<section data-spec="scenarios"><h2>Scenarios</h2>
+  <details open data-spec="scenario-1"><summary>1 - Browse themes, menu stays put</summary><ol class="steps"><li><b>Press &lt;leader&gt;c in monokai-pro</b><br><span>Menu in monokai-pro colors, no dimming overlay.</span></li><li><b>Press Down through light and dark themes</b><br><span>Editor repaints each time; the menu keeps its monokai-pro colors.</span></li></ol></details>
+  <details data-spec="scenario-2"><summary>2 - Confirm a theme</summary><ol class="steps"><li><b>Enter on ayu_dark</b><br><span>Menu closes, editor is ayu_dark.</span></li><li><b>Open the picker again</b><br><span>Menu now in ayu_dark colors.</span></li></ol></details>
+  <details data-spec="scenario-3"><summary>3 - Cancel restores the original theme</summary><ol class="steps"><li><b>Navigate, then Esc</b><br><span>Menu closes; the editor returns to the theme from when it opened.</span></li></ol></details>
+  <details data-spec="scenario-4"><summary>4 - Filtering and scrolling (edge)</summary><ol class="steps"><li><b>Type "mono", scroll a long list</b><br><span>Match highlights, selection, separators and swatches keep the menu's colors.</span></li></ol></details>
+  <details data-spec="scenario-5"><summary>5 - Resizing while open (edge)</summary><ol class="steps"><li><b>Resize the terminal while previewing another theme</b><br><span>Menu re-lays out and keeps the original theme's colors.</span></li></ol></details>
+</section>
+<section data-spec="behavior-rules"><h2>Behavior rules</h2><ul>
+  <li>Menu colors are fixed when the picker opens, until it is closed and reopened.</li>
+  <li>Everything outside the menu (editor, statusline, tabline) previews as today.</li>
+  <li>Swatches always show their row's own theme colors.</li>
+  <li>Fuzzy-match highlights keep the menu's colors.</li>
+  <li>Preview, Esc restore and Enter apply behave as today.</li>
+  <li>Theme picker opens without the dimming overlay; other pickers keep theirs, colors unchanged.</li></ul></section>
+<section data-spec="success-criteria"><h2>Success criteria</h2><ul style="list-style:none;padding-left:0">
+  <li>&#9744; Menu does not change colors between a dark and a light theme</li>
+  <li>&#9744; Editor still previews at full brightness (no overlay)</li>
+  <li>&#9744; After Enter, reopening shows the menu in the new theme</li>
+  <li>&#9744; Esc restores the original theme</li>
+  <li>&#9744; Filter highlights, selection and swatches correct while previewing</li>
+  <li>&#9744; Other pickers unchanged, including their overlay</li></ul></section>
+<section data-spec="out-of-scope"><h2>Out of scope</h2><ul>
+  <li>Making other pickers immune to theme changes (they never change the theme)</li>
+  <li>A sample-code preview pane</li>
+  <li>Changing the menu design itself</li></ul></section>
+</main></body></html>
