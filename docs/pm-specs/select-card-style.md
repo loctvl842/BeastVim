@@ -180,3 +180,9 @@ Step 1: Open a menu with a label longer than the panel, or in a narrow terminal.
 - Changing the confirm dialog, input box or other menus (can follow once this look is approved).
 - New features (groups, multi-select, previews).
 - Changing where the panel appears or how wide it is.
+
+---
+
+# Revision (2026-11-12): thick selection block
+
+The selected option is no longer framed by solid blue lines. Instead it is drawn as a thick block: a tinted background behind the option, with a half-height tinted strip above it (`▄`) and below it (`▀`). The blue bold text and the `◀` pointer stay. Dashed lines between the other options are unchanged. This supersedes the "solid blue lines" and "no background tint" rules above for the select menu.
