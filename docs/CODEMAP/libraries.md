@@ -94,7 +94,7 @@ finder/
 │                     open_split/open_vsplit(win,item), copy_path(item)
 ├── keymaps.lua    ← input/list/preview pane keymaps + printable-char redirect
 ├── autocmds.lua   ← picker lifetime autocmds (BufEnter, WinClosed)
-├── highlights.lua ← BeastFinder* groups; swatch(hex)/reset_swatches() per-color groups (wiped by :colorscheme)
+├── highlights.lua ← BeastFinder* groups; freeze() snapshots them into per-window namespaces (opts.freeze_colors, survives :colorscheme); swatch(hex) per-color groups
 ├── layout.lua     ← window layout calculations; calc(has_preview, "cards") = two separate narrow boxes
 ├── fzf.lua        ← external fzf integration
 ├── pipeline/
@@ -127,6 +127,7 @@ finder/
 API: `finder.open("files", opts)`, `finder.open("live_grep")`, `finder.open("help_tags")`
 View subclasses: `Beast.Finder.InputView`, `Beast.Finder.ListView`, `Beast.Finder.PreviewView`
 Loaded via: `packer.lazy()` on keys (`<leader>f/b/g/c/h`)
+Opts: `layout="cards"`, `separators`, `backdrop=false`, `freeze_colors` (colorscheme picker)
 
 ### Query lifecycle
 

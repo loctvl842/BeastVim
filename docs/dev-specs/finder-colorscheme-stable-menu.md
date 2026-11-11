@@ -89,9 +89,20 @@ Picker colors are global groups rebuilt by `hl_reload` on every `ColorScheme`, s
 - Manual (`NVIM_APPNAME=BeastVim`, tmux): PM scenarios 1-5. Compare numeric panel colors before/after navigating dark -> light themes (prompt, list, selection line, pointer, dashes, match highlight, end-of-buffer cells), then Enter and reopen, then Esc restore.
 
 # Success Criteria
-- [ ] Menu colors do not change between dark and light previews (prompt, list, lines, pointer, selection, match highlights).
-- [ ] Editor previews at full brightness (no overlay) for the theme picker.
-- [ ] After Enter, reopening shows the menu in the new theme.
-- [ ] Esc restores the original theme.
-- [ ] Other pickers keep their overlay and unchanged colors.
-- [ ] All `tests/test-finder-*.lua` pass, stylua clean.
+- [x] Menu colors do not change between dark and light previews (prompt, list, lines, pointer, selection, match highlights).
+- [x] Editor previews at full brightness (no overlay) for the theme picker.
+- [x] After Enter, reopening shows the menu in the new theme.
+- [x] Esc restores the original theme.
+- [x] Other pickers keep their overlay and unchanged colors.
+- [x] All `tests/test-finder-*.lua` pass, stylua clean.
+
+---
+
+## Completed
+
+2026-11-11 - Phase 1: optional backdrop. Phase 2: frozen per-window highlight namespaces for the picker panels.
+
+- `30512e5` feat(finder): keep the colorscheme picker menu colors fixed while previewing (both phases in one commit)
+- (also) style(finder): apply stylua formatting to lsp source (pre-existing lint drift)
+
+Verification: all `tests/test-finder-*.lua` pass (new frozen-colors test 11/11); stylua clean on `lua/`; tmux E2E: dark to light preview leaves prompt, list, selection, dash and match colors constant, Enter then reopen takes the new theme, Esc restores, no dimming overlay.
