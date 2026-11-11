@@ -19,6 +19,8 @@ local ui = require("beast.libs.finder.ui")
 ---@field on_close? fun(confirmed: boolean)
 ---@field confirmed? boolean the picker is closing because the user confirmed an item (Enter)
 ---@field layout? "cards"
+---@field initial_text? string
+---@field initial_done? boolean the initial selection has been applied
 ---@field frozen? boolean panels use frozen highlight namespaces
 ---@field main_win? integer
 ---@field augroup? integer
@@ -39,6 +41,7 @@ local instance
 ---@field layout? "cards" separate prompt/list boxes
 ---@field separators? boolean separator rows between list items
 ---@field backdrop? boolean false skips the dimming overlay (default true)
+---@field initial_text? string start with the item whose text matches selected (instead of the first one)
 ---@field freeze_colors? boolean keep the panels in the colors they had at open, ignoring `:colorscheme`
 
 ---@param source_name Beast.Finder.Source
@@ -60,6 +63,7 @@ function M:new(source_name, opts)
 		on_preview = opts.on_preview,
 		on_close = opts.on_close,
 		layout = opts.layout,
+		initial_text = opts.initial_text,
 		frozen = opts.freeze_colors,
 		query = query,
 		pipeline = pipeline,

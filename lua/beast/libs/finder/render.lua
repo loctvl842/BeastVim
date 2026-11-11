@@ -80,6 +80,16 @@ function M.render(state)
 	local header_fn = raw_header and function(item)
 		return raw_header(item, list_width)
 	end or nil
+	-- First render with items: start on the requested item instead of the top one.
+	if state.initial_text and not state.initial_done and #state.query.matched > 0 then
+		state.initial_done = true
+		for i, item in ipairs(state.query.matched) do
+			if item.text == state.initial_text then
+				state.view.list.cursor = i
+				break
+			end
+		end
+	end
 	ui.list.render(state.view.list, state.query.matched, format_fn, header_fn)
 	-- Apply fuzzy match highlights to list (match pipeline only, visible rows)
 	if not state.query.highlight_preview and state.view.list:is_valid() then
