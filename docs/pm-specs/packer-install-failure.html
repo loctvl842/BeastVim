@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spec: packer-install-failure</title>
+<style>
+  :root { --bg:#fbfaf7; --fg:#1c1b19; --muted:#6b675f; --line:#dcd8cf; --card:#fff; --accent:#b4540a; --ok:#2f7d4f; --bad:#b3261e; --mock:#f1eee6; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#161513; --fg:#ece8df; --muted:#a29d92; --line:#3a3732; --card:#1f1d1a; --accent:#e08a3c; --ok:#5fc08a; --bad:#f2837b; --mock:#252320; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, sans-serif; }
+  main { max-width:880px; margin:0 auto; padding:24px 16px 80px; }
+  h1 { margin:0 0 4px; font-size:1.7rem; }
+  h2 { margin:0 0 10px; font-size:1.2rem; }
+  section { margin:32px 0; }
+  .muted { color:var(--muted); }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin:10px 0; }
+  pre.mock { background:var(--mock); border:1px solid var(--line); border-radius:8px; padding:12px 14px; margin:8px 0; overflow-x:auto; font:13px/1.45 ui-monospace, Menlo, monospace; }
+  .label { display:inline-block; font-size:.75rem; letter-spacing:.04em; text-transform:uppercase; color:var(--accent); margin-bottom:2px; }
+  .tag { font-size:.72rem; border:1px solid var(--line); border-radius:999px; padding:1px 8px; color:var(--muted); }
+  ul { padding-left:1.2rem; } li { margin:4px 0; }
+  .check { list-style:none; padding-left:0; } .check li::before { content:"\2610  "; color:var(--muted); }
+  .bad { color:var(--bad); } .ok { color:var(--ok); }
+  table { width:100%; border-collapse:collapse; font-size:.92rem; }
+  th, td { text-align:left; border-bottom:1px solid var(--line); padding:6px 8px; vertical-align:top; }
+  svg { width:100%; height:auto; color:var(--fg); }
+  .choice { border-left:3px solid var(--accent); }
+</style>
+</head>
+<body>
+<main>
+
+<header data-spec="summary">
+  <span class="label">PM spec · 2026-11-11</span>
+  <h1>packer-install-failure</h1>
+  <p>When one plugin cannot be downloaded, the rest of BeastVim must still start fully, the user is told once, and later starts do not pay for retrying the download every time.</p>
+  <svg viewBox="0 0 720 150" role="img" aria-label="Today versus target flow">
+    <title>Today versus target</title>
+    <g font-family="system-ui,sans-serif" font-size="13" fill="currentColor" stroke="currentColor" stroke-width="1.3">
+      <text x="10" y="18" stroke="none" font-weight="600">Today</text>
+      <rect id="t-start" x="10" y="28" width="90" height="34" rx="6" fill="none"/><text x="22" y="50" stroke="none">start</text>
+      <rect id="t-clone" x="150" y="28" width="150" height="34" rx="6" fill="none"/><text x="160" y="50" stroke="none">clone broken (~300ms)</text>
+      <rect id="t-abort" x="350" y="28" width="170" height="34" rx="6" fill="none" stroke-dasharray="4 3"/><text x="360" y="50" stroke="none" class="bad">setup stops here</text>
+      <path d="M100 45H150M300 45H350" fill="none"/>
+      <text x="10" y="92" stroke="none" font-weight="600">Target</text>
+      <rect id="g-start" x="10" y="102" width="90" height="34" rx="6" fill="none"/><text x="22" y="124" stroke="none">start</text>
+      <rect id="g-skip" x="150" y="102" width="150" height="34" rx="6" fill="none"/><text x="160" y="124" stroke="none">skip known-broken</text>
+      <rect id="g-full" x="350" y="102" width="170" height="34" rx="6" fill="none"/><text x="360" y="124" stroke="none">full setup, one toast</text>
+      <path d="M100 119H150M300 119H350" fill="none"/>
+    </g>
+  </svg>
+</header>
+
+<section data-spec="problem">
+  <h2>Problem</h2>
+  <ul>
+    <li><b>Setup stops half-way.</b> Plugins that did download are present, but the remaining startup work is skipped. Settings, keymaps and features silently go missing.</li>
+    <li><b>Every start is slow.</b> The broken download is retried on every launch and blocks the editor, about 300ms per broken plugin.</li>
+    <li><b>The error is a raw message</b> instead of the usual BeastVim toast, and is easy to lose.</li>
+  </ul>
+  <p class="muted" data-spec="why-now">Seen for real: three language plugins were private, CI could not download them, and startup read ~330ms instead of ~40ms for weeks, on a partly set-up config.</p>
+</section>
+
+<section data-spec="target-behavior">
+  <h2>Target behavior</h2>
+  <div class="card" data-spec="state-1">
+    <span class="label">State 1 · first start, plugin unreachable</span>
+<pre class="mock">editor opens normally, everything else works
+
+                 ┌─────────────────────────────────────┐
+                 │  ⚠ Could not install "json"         │
+                 │    repository not found or no       │
+                 │    access. Skipped for now.         │
+                 └─────────────────────────────────────┘</pre>
+    <p class="muted">One toast, once. All other plugins load and are configured as usual.</p>
+  </div>
+  <div class="card" data-spec="state-2">
+    <span class="label">State 2 · later starts, inside retry window</span>
+<pre class="mock">(no toast, no delay)  Packer window:
+
+  <span class="bad">✗ json    install failed 2h ago - repository not found</span>
+  <span class="ok">✓ python</span>
+  <span class="ok">✓ cpp</span></pre>
+    <p class="muted">Not downloaded again. Listed as failed so the user can see why a feature is missing.</p>
+  </div>
+  <div class="card" data-spec="state-3">
+    <span class="label">State 3 · retry succeeds</span>
+<pre class="mock">Packer window after install/sync:
+
+  <span class="ok">✓ json    installed</span></pre>
+    <p class="muted">Failure record cleared; plugin works from next start (immediately if lazy).</p>
+  </div>
+</section>
+
+<section data-spec="scenarios">
+  <h2>Scenarios</h2>
+  <details open data-spec="scenario-1" class="card"><summary><b>1 · One plugin unreachable</b> <span class="tag">happy path</span></summary>
+<pre class="mock">1. Start BeastVim; "json" cannot be downloaded.
+   Editor opens. One warning toast names "json", says skipped.
+2. Open a Lua file and a Python file.
+   Settings, keymaps, language support of other plugins all present.
+3. Open a JSON file.
+   Only JSON extras missing. Basic editing works.</pre></details>
+  <details data-spec="scenario-2" class="card"><summary><b>2 · Next start does not retry</b></summary>
+<pre class="mock">1. Quit and start again shortly after.
+   As fast as with no broken plugin. No toast.
+2. Open the Packer window.
+   "json" shown failed with reason and age.</pre></details>
+  <details data-spec="scenario-3" class="card"><summary><b>3 · User fixes the cause and retries</b></summary>
+<pre class="mock">1. Make the repo reachable, run install/sync in the Packer window.
+   Downloads. Failed marker disappears.
+2. Start BeastVim again.
+   "json" loads like any other plugin.</pre></details>
+  <details data-spec="scenario-4" class="card"><summary><b>4 · Retry window expires</b></summary>
+<pre class="mock">1. Enough time has passed.
+   Next start tries the download once more.
+2a. Succeeds -> normal "installed" notice, marker cleared.
+2b. Fails   -> recorded again, toast once, window restarts.</pre></details>
+  <details data-spec="scenario-5" class="card"><summary><b>5 · Several plugins fail</b></summary>
+<pre class="mock">Two plugins cannot be downloaded.
+One toast lists both names. Everything else loads normally.</pre></details>
+  <details data-spec="scenario-6" class="card"><summary><b>6 · Offline start</b> <span class="tag">edge</span></summary>
+<pre class="mock">1. Start with no network, plugins already installed.
+   Nothing attempted. No toast, no delay.
+2. A brand-new plugin was added to config, never downloaded.
+   Reported failed once; the rest of the config loads.</pre></details>
+</section>
+
+<section data-spec="behavior-rules">
+  <h2>Behavior rules</h2>
+  <ul>
+    <li>A failed download never stops other plugins from loading and being configured.</li>
+    <li>Reported with the usual BeastVim toast, once per failure; several failures in one start are combined into one toast.</li>
+    <li>A failed plugin is not downloaded again until the retry window ends or the user explicitly retries.</li>
+    <li>The failure record survives restarts.</li>
+    <li>Install/sync/update in the Packer window always retries and clears the record on success.</li>
+    <li>Removing the plugin from config, or changing its source, clears its record.</li>
+    <li>The Packer window shows failed plugins distinctly from not-yet-installed, with reason and age.</li>
+    <li>Already-installed plugins are never affected by another plugin's failure.</li>
+  </ul>
+</section>
+
+<section data-spec="success-criteria">
+  <h2>Success criteria</h2>
+  <ul class="check">
+    <li>With one unreachable plugin, every other plugin still loads, settings and keymaps present.</li>
+    <li>A single toast names the failed plugin on first start; none later inside the window.</li>
+    <li>Startup with a known-broken plugin is as fast as without it.</li>
+    <li>The Packer window lists the failed plugin with its reason.</li>
+    <li>Install/sync in the Packer window retries and clears the failure on success.</li>
+    <li>Several failures in one start produce one combined toast.</li>
+    <li>No raw error message for a download failure.</li>
+  </ul>
+</section>
+
+<section data-spec="out-of-scope">
+  <h2>Out of scope</h2>
+  <ul>
+    <li>Automatically fixing the cause (access, mirrors, credentials).</li>
+    <li>Background retry while the editor is open - the explicit action covers it.</li>
+    <li>Plugins that download fine but crash while loading.</li>
+    <li>CI install changes - fixed separately.</li>
+  </ul>
+</section>
+
+<section data-spec="open-decisions">
+  <h2>Decisions for you</h2>
+  <div class="card choice" data-spec="decision-retry-window">
+    <b>Retry window length</b>
+    <table>
+      <tr><th></th><th>Option</th><th>Trade-off</th></tr>
+      <tr><td>★</td><td>24 hours (recommended)</td><td>Saves most startups; recovers next day</td></tr>
+      <tr><td></td><td>1 hour</td><td>Recovers sooner after outage; more retried starts</td></tr>
+      <tr><td></td><td>Until explicit retry</td><td>Zero retries, but never self-heals</td></tr>
+    </table>
+  </div>
+  <div class="card choice" data-spec="decision-repeat-toast">
+    <b>Repeat the toast when a retry fails again?</b>
+    <p>★ Yes, once per window (recommended) - a persistent problem is not forgotten. Alternative: only on the very first failure.</p>
+  </div>
+</section>
+
+</main>
+</body>
+</html>
