@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dev spec: packer-install-failure</title>
+<style>
+  :root { --bg:#fbfaf7; --fg:#1c1b19; --muted:#6b675f; --line:#dcd8cf; --card:#fff; --accent:#b4540a; --mock:#f1eee6; --warn:#a15c00; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#161513; --fg:#ece8df; --muted:#a29d92; --line:#3a3732; --card:#1f1d1a; --accent:#e08a3c; --mock:#252320; --warn:#e0a24c; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, sans-serif; }
+  main { max-width:900px; margin:0 auto; padding:24px 16px 80px; }
+  h1 { margin:0 0 4px; font-size:1.7rem; } h2 { margin:0 0 10px; font-size:1.2rem; }
+  section { margin:32px 0; }
+  .muted { color:var(--muted); }
+  .label { display:inline-block; font-size:.75rem; letter-spacing:.04em; text-transform:uppercase; color:var(--accent); }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px 16px; margin:10px 0; }
+  .gap { border-left:3px solid var(--warn); }
+  table { width:100%; border-collapse:collapse; font-size:.9rem; display:block; overflow-x:auto; }
+  th, td { text-align:left; border-bottom:1px solid var(--line); padding:6px 8px; vertical-align:top; }
+  code { font:13px ui-monospace, Menlo, monospace; background:var(--mock); padding:1px 5px; border-radius:4px; }
+  ul { padding-left:1.2rem; } li { margin:4px 0; }
+  .check { list-style:none; padding-left:0; } .check li::before { content:"\2610  "; color:var(--muted); }
+  .tag { font-size:.72rem; border:1px solid var(--line); border-radius:999px; padding:1px 8px; color:var(--muted); }
+  svg { width:100%; height:auto; color:var(--fg); }
+</style>
+</head>
+<body>
+<main>
+
+<header data-spec="summary">
+  <span class="label">Dev spec · 2026-11-11 · PM: packer-install-failure</span>
+  <h1>packer-install-failure</h1>
+  <p>Wrap <code>vim.pack.add</code> so a failed clone no longer aborts setup. Record failures in a small JSON file, skip known-broken plugins until a retry window expires, and show/retry them in the Packer window.</p>
+</header>
+
+<section data-spec="context">
+  <h2>How setup changes</h2>
+  <svg viewBox="0 0 760 250" role="img" aria-label="packer.setup flow with failure handling">
+    <title>packer.setup flow</title>
+    <g font-family="system-ui,sans-serif" font-size="12.5" fill="none" stroke="currentColor" stroke-width="1.3">
+      <rect id="n-filter" x="10" y="20" width="150" height="46" rx="6"/><text x="20" y="40" fill="currentColor" stroke="none">filter specs:</text><text x="20" y="57" fill="currentColor" stroke="none">missing + recorded + in window</text>
+      <rect id="n-add" x="200" y="20" width="150" height="46" rx="6"/><text x="210" y="40" fill="currentColor" stroke="none">pcall vim.pack.add</text><text x="210" y="57" fill="currentColor" stroke="none">(remaining specs)</text>
+      <rect id="n-fail" x="390" y="20" width="170" height="46" rx="6" stroke-dasharray="4 3"/><text x="400" y="40" fill="currentColor" stroke="none">threw? record specs</text><text x="400" y="57" fill="currentColor" stroke="none">still missing on disk</text>
+      <rect id="n-toast" x="590" y="20" width="160" height="46" rx="6"/><text x="600" y="40" fill="currentColor" stroke="none">one combined</text><text x="600" y="57" fill="currentColor" stroke="none">Toast</text>
+      <path d="M160 43H200M350 43H390M560 43H590"/>
+      <rect id="n-cont" x="200" y="120" width="260" height="46" rx="6"/><text x="210" y="140" fill="currentColor" stroke="none">continue: load eager + run config</text><text x="210" y="157" fill="currentColor" stroke="none">(was: early return = setup aborted)</text>
+      <path d="M670 66V93H330V120"/>
+      <rect id="n-ui" x="500" y="120" width="250" height="46" rx="6"/><text x="510" y="140" fill="currentColor" stroke="none">Packer UI: Failed section</text><text x="510" y="157" fill="currentColor" stroke="none">+ r = retry (clears record)</text>
+      <rect id="n-file" x="10" y="190" width="740" height="40" rx="6" stroke-dasharray="3 3"/><text x="20" y="214" fill="currentColor" stroke="none">stdpath("state")/beast/packer-failures.json   { name: { src, reason, at } }</text>
+    </g>
+  </svg>
+  <p class="muted">Problem: <code>vim.pack.add</code> throws after installing the others and the failure branch <code>return</code>s (<code>init.lua:383-396</code>), skipping Step 5. Nothing is remembered, so each start re-clones (~300ms/plugin, 824ms measured for one bogus repo).</p>
+</section>
+
+<section data-spec="research">
+  <h2>Research</h2>
+  <ul>
+    <li><b>Searched:</b> <code>vim.pack.add</code>, <code>installed_plugins</code>, <code>stdpath("state"/"cache")</code>, <code>Toast(</code>, <code>operation.</code>, <code>PackChanged</code>.</li>
+    <li><b>Found:</b> single <code>vim.pack.add</code> call; state data goes under <code>stdpath("state")</code> (session lib); UI lists only installed plugins; no existing failure persistence; no packer test file.</li>
+    <li><b>Measured:</b> good plugin installs, then the call throws (Neovim 0.12.6). No "skip failures" option, so filter specs first. Use <code>fs_stat</code> on the opt dir, not <code>vim.pack.get()</code> (git per plugin).</li>
+    <li><b>Decision:</b> <b>Reuse</b> Toast / operation / UI action patterns; <b>Build</b> one small module.</li>
+  </ul>
+  <div class="card gap" data-spec="research-open-question">
+    <b>Verify first:</b> when <code>vim.pack.add</code> throws, does it still call the <code>load</code> callback for the plugins that installed? If not, <code>setup</code> must load the eager ones itself. Phase 1 step 1 is a headless probe.
+  </div>
+</section>
+
+<section data-spec="pm-spec-gaps">
+  <h2>PM spec gap</h2>
+  <div class="card gap">
+    The PM spec says "install/sync action in the Packer window". <b>No such action exists</b> today (only Load, Sort, Delete, Update, Filter, Group, Profile, Help, Close), and <code>update</code> does not install a never-installed plugin. This plan adds a dedicated <b>Retry</b> key (<code>r</code>). Recommended: change the PM spec wording from "install/sync" to "retry".
+  </div>
+</section>
+
+<section data-spec="architecture-changes">
+  <h2>Files</h2>
+  <table>
+    <tr><th>Path</th><th></th><th>What</th></tr>
+    <tr><td><code>lua/beast/libs/packer/failures.lua</code></td><td>new</td><td>JSON record, <code>record/clear/is_blocked/list</code>, age formatting</td></tr>
+    <tr><td><code>lua/beast/libs/packer/config.lua</code></td><td>mod</td><td><code>install_retry_hours = 24</code>, <code>r</code> action</td></tr>
+    <tr><td><code>lua/beast/libs/packer/init.lua</code></td><td>mod</td><td>filter specs, pcall add, record, combined Toast, continue setup</td></tr>
+    <tr><td><code>lua/beast/libs/packer/state.lua</code></td><td>mod</td><td><code>failed_plugins</code>; <code>load</code> skips them</td></tr>
+    <tr><td><code>lua/beast/libs/packer/ui.lua</code></td><td>mod</td><td>Failed section, <code>retry_install</code>, help/action bar</td></tr>
+    <tr><td><code>lua/beast/libs/packer/health.lua</code></td><td>mod</td><td>warn per recorded failure</td></tr>
+    <tr><td><code>tests/test-packer-failures.lua</code></td><td>new</td><td>unit tests for record + window</td></tr>
+  </table>
+</section>
+
+<section data-spec="phases">
+  <h2>Phases</h2>
+  <div class="card" data-spec="phase-1">
+    <b>Phase 1 · Setup survives a failure</b> <span class="tag">smallest slice</span>
+    <ol>
+      <li data-spec="phase-1-step-1">Probe <code>vim.pack.add</code> failure behavior (scratch). <i>Risk low.</i></li>
+      <li data-spec="phase-1-step-2">Add <code>failures.lua</code>, in-memory API. <i>Low.</i></li>
+      <li data-spec="phase-1-step-3">Stop aborting on throw in <code>init.lua</code>: record missing specs, load installed eager plugins if needed, one combined Toast, fall through to Step 5. <i>Medium: load vs config ordering.</i></li>
+      <li data-spec="phase-1-step-4"><code>state.load</code> skips failed plugins so lazy triggers do not raise. <i>Low.</i></li>
+    </ol>
+  </div>
+  <div class="card" data-spec="phase-2">
+    <b>Phase 2 · Remember across starts</b> <span class="tag">depends on 1</span>
+    <ol>
+      <li data-spec="phase-2-step-1">Persist JSON under <code>stdpath("state")</code>; corrupt or missing file = empty. <i>Low.</i></li>
+      <li data-spec="phase-2-step-2">Filter before <code>vim.pack.add</code>: drop only if missing on disk + same <code>src</code> + age &lt; window. Prune stale records. <i>Medium: never skip an installed spec.</i></li>
+      <li data-spec="phase-2-step-3"><code>install_retry_hours = 24</code> option. <i>Low.</i></li>
+      <li data-spec="phase-2-step-4">Retry that fails again: re-record, Toast once. <i>Low.</i></li>
+    </ol>
+  </div>
+  <div class="card" data-spec="phase-3">
+    <b>Phase 3 · Show and retry in the Packer window</b> <span class="tag">depends on 2</span>
+    <ol>
+      <li data-spec="phase-3-step-1">"Failed" section with reason and age. <i>Low.</i></li>
+      <li data-spec="phase-3-step-2"><code>r</code> retry action: clear record, <code>vim.pack.add({spec})</code> in pcall, Toast result. <i>Medium.</i></li>
+      <li data-spec="phase-3-step-3">Health check warns per recorded failure. <i>Low.</i></li>
+      <li data-spec="phase-3-step-4">Failure notices via Toast; other <code>vim.notify</code> calls untouched. <i>Low.</i></li>
+    </ol>
+  </div>
+</section>
+
+<section data-spec="testing-strategy">
+  <h2>Testing</h2>
+  <ul>
+    <li><b>Headless:</b> new <code>tests/test-packer-failures.lua</code> (round trip, corrupt file, window expiry, changed <code>src</code>, installed never blocked, combined names).</li>
+    <li><b>Bench:</b> <code>./scripts/bench-startup.sh</code> with a recorded failure must not be slower than baseline.</li>
+    <li><b>Manual:</b> PM scenarios 1-6 in a scratch <code>NVIM_APPNAME</code> with one bogus GitHub spec; scenario 3 via <code>r</code>.</li>
+    <li><b>E2E first:</b> reproduce the abort with a nonexistent repo, then confirm the fix.</li>
+  </ul>
+</section>
+
+<section data-spec="success-criteria">
+  <h2>Success criteria</h2>
+  <ul class="check">
+    <li>Other plugins still load and configure with one unreachable plugin.</li>
+    <li>One toast on first start; none inside the window.</li>
+    <li>No startup slowdown from a known-broken plugin.</li>
+    <li>Packer window lists it with reason and age; <code>r</code> retries and clears on success.</li>
+    <li>Several failures give one combined toast; no raw error message.</li>
+    <li>Corrupt or missing failures file never breaks startup.</li>
+    <li>Unit tests pass; startup bench shows no regression.</li>
+  </ul>
+</section>
+
+</main>
+</body>
+</html>
