@@ -16,7 +16,8 @@ local ui = require("beast.libs.finder.ui")
 ---@field pipeline Beast.Finder.Pipeline.Match|Beast.Finder.Pipeline.Stream
 ---@field view? Beast.Finder.View
 ---@field on_preview? fun(item: Beast.Finder.Item)
----@field on_close? fun()
+---@field on_close? fun(confirmed: boolean)
+---@field confirmed? boolean the picker is closing because the user confirmed an item (Enter)
 ---@field layout? "cards"
 ---@field frozen? boolean panels use frozen highlight namespaces
 ---@field main_win? integer
@@ -33,7 +34,7 @@ local instance
 
 ---@class Beast.Finder.Opts: Beast.Finder.QueryOpts
 ---@field on_preview? fun(item: Beast.Finder.Item)
----@field on_close? fun()
+---@field on_close? fun(confirmed: boolean) called as the picker closes; `confirmed` is true after Enter
 ---@field preview? boolean preview window enabled
 ---@field layout? "cards" separate prompt/list boxes
 ---@field separators? boolean separator rows between list items
@@ -106,7 +107,7 @@ function M:reset()
 	-- turns those re-entrant calls into no-ops so M.view is not nilled mid-cleanup.
 	self.closed = true
 	if self.on_close then
-		self.on_close()
+		self.on_close(self.confirmed == true)
 	end
 	if self.view then
 		require("beast.libs.finder.ui.input").stop_spinner(self.view.input)

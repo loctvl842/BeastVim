@@ -6,7 +6,10 @@ function M.open(state, item)
 	if state.query.source.name == "help_tags" then
 		return M.open_help(state.main_win, item)
 	elseif state.query.source.name == "colorschemes" then
-		pcall(vim.cmd.colorscheme, item.text)
+		-- Live preview has usually applied it already; re-applying would repaint the editor again.
+		if vim.g.colors_name ~= item.text then
+			pcall(vim.cmd.colorscheme, item.text)
+		end
 		return
 	end
 	M.open_file(state.main_win, item)

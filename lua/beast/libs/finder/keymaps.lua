@@ -71,6 +71,7 @@ local function mount_list_keymaps(state)
 	lmap("n", "<CR>", function()
 		local item = ui.list.selected(state.view.list)
 		if item then
+			state.confirmed = true
 			state:reset()
 			vim.schedule(function()
 				action.open(state, item)
@@ -213,6 +214,7 @@ function M.mount(state)
 	map({ "i", "n" }, "<CR>", function()
 		local item = ui.list.selected(state.view.list)
 		if item then
+			state.confirmed = true
 			state:reset()
 			vim.schedule(function()
 				action.open(state, item)
