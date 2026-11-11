@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spec: Select card spacing</title>
+<style>
+  :root { --bg:#fbfaf7; --fg:#1c1b19; --muted:#6b675f; --line:#dcd8cf; --card:#fff; --accent:#b4540a; --term:#1e1f26; --termfg:#d8dae5; --termsel:#34374a; --termline:#3b3e50; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#161513; --fg:#ece8df; --muted:#a29d92; --line:#3a3732; --card:#1f1d1a; --accent:#e08a3c; }
+  }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, sans-serif; }
+  main { max-width:880px; margin:0 auto; padding:24px 16px 80px; }
+  section { margin:32px 0; }
+  h1 { margin:0 0 8px; } h2 { margin:0 0 10px; } h3 { margin:18px 0 6px; font-size:1rem; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; }
+  .muted { color:var(--muted); }
+  .mock { background:var(--term); color:var(--termfg); border-radius:10px; padding:16px; font:14px/1.4 ui-monospace,Menlo,monospace; max-width:420px; margin:8px 0; }
+  .box { border:0; padding:6px 14px; }
+  .prompt { min-height:2.4em; padding-top:12px; padding-bottom:12px; background:#24262d; }
+  .prompt::before { content:"\1F50D  "; opacity:.7; }
+  .list { background:#0b0c10; padding:10px 14px; }
+  .row { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:2px 6px; border-left:3px solid transparent; }
+  .row.sel { color:#4a9ede; font-weight:600; }
+  .row.sel .nm::after { content:"  \25C0"; }
+  .list > .row.sel:first-child { border-top:1px solid #4a9ede; }
+  .list > .row.sel:last-child { border-bottom:1px solid #4a9ede; }
+  .nm { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .sw { display:flex; gap:4px; flex:none; }
+  .sw i { width:10px; height:10px; border-radius:3px; display:block; }
+  hr { border:0; border-top:1px dashed #3b3e50; margin:4px 0; }
+  hr:has(+ .row.sel), .row.sel + hr { border-top:1px solid #4a9ede; }
+  .states { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:16px; }
+  ol.steps { margin:0; padding-left:22px; } ol.steps li { margin:6px 0; } ol.steps span { color:var(--muted); }
+  ul { padding-left:20px; }
+  details { margin:10px 0; } summary { cursor:pointer; font-weight:600; }
+  .rec { border-left:3px solid var(--accent); padding-left:10px; margin:10px 0; }
+  .tag { color:var(--accent); font-weight:600; font-size:.85em; }
+
+  .panel { background:#0b0c10; color:#e8e6ea; border-radius:8px; overflow:hidden; font:14px/1.6 ui-monospace,Menlo,monospace; max-width:520px; margin:8px 0; }
+  .panel .top { background:#24262d; padding:16px 22px; } .panel .hd { color:#ffd866; } .panel .q { min-height:1.6em; } .panel .q::after { content:"|"; opacity:.8; }
+  .panel .lst { padding:12px 22px 8px; } .panel .pad { height:1.6em; }
+  .panel .it { display:flex; justify-content:space-between; padding:2px 0; border-top:1px dashed #3b3e50; }
+  .panel .it:first-child { border-top-color:transparent; } .panel .it.sel { color:#4a9ede; font-weight:600; border-top:1px solid #4a9ede; border-bottom:1px solid #4a9ede; }
+  .panel .it.sel + .it { border-top-color:transparent; } .panel .it.sel .nm::after { content:"  \25C0"; }
+  .panel .tag { color:#7d7b80; font-weight:400; } .panel .ft { color:#7d7b80; text-align:right; margin-top:10px; } .panel .empty { text-align:center; color:#7d7b80; padding:6px 0; }
+</style>
+</head>
+<body>
+<main>
+<header data-spec="summary"><h1>Select menu: balanced spacing</h1>
+<p>Same card look, better proportions: a clear gap between the heading and the filter line, equal padding above and below the prompt panel's content, and the footer hints floating evenly with one blank row above and below.</p></header>
+<section data-spec="problem"><h2>Problem</h2><ul><li>Heading sits right on top of the filter line (glued together).</li><li>Empty band above the heading (and below the filter): the panel looks empty while its content is cramped.</li><li>Footer hints sit on the very last line of the card with no padding below, under a tall empty strip: bottom-heavy, footer feels lost.</li></ul></section>
+<section data-spec="target-behavior"><h2>Target behavior</h2>
+<div data-spec="state-1"><h3>STATE 1 - Opened</h3><div class="panel"><div class="top"><div class="hd">Code actions</div><div class="pad"></div><div class="q"></div></div><div class="lst"><div class="it sel"><span class="nm">Disable diagnostics in the workspace</span><span class="tag"></span></div><div class="it"><span class="nm">Disable diagnostics on this line</span><span class="tag"></span></div><div class="it"><span class="nm">Disable diagnostics in this file</span><span class="tag"></span></div><div class="pad"></div><div class="ft" style="margin-top:0">Confirm enter &nbsp; Cancel esc</div><div class="pad"></div></div></div><p class="muted">Prompt panel: heading / blank / filter (no empty band above or below). Footer: one blank row above and one below.</p></div>
+<div data-spec="state-2"><h3>STATE 2 - One option</h3><div class="panel"><div class="top"><div class="hd">Code actions</div><div class="pad"></div><div class="q"></div></div><div class="lst"><div class="it sel"><span class="nm">Disable diagnostics in this file</span><span class="tag"></span></div><div class="pad"></div><div class="ft" style="margin-top:0">Confirm enter &nbsp; Cancel esc</div><div class="pad"></div></div></div></div>
+<div data-spec="state-3"><h3>STATE 3 - No matches</h3><div class="panel"><div class="top"><div class="hd">Select colorscheme</div><div class="pad"></div><div class="q">zzz</div></div><div class="lst"><div class="empty">No matching items</div><div class="pad"></div><div class="ft" style="margin-top:0">Confirm enter &nbsp; Cancel esc</div><div class="pad"></div></div></div><p class="muted">Footer keeps its padding here too.</p></div></section>
+<section data-spec="scenarios"><h2>Scenarios</h2>
+<details open data-spec="scenario-1"><summary>1 - Opening any select menu</summary><ol class="steps"><li><b>Trigger a code action</b><br><span>Heading, a blank row, then the filter line - clearly separate, with no empty band above or below.</span></li><li><b>Look at the bottom</b><br><span>Footer hints have one blank row above and one below.</span></li></ol></details>
+<details data-spec="scenario-2"><summary>2 - Filtering down to few results</summary><ol class="steps"><li><b>Type a query leaving one option</b><br><span>Footer keeps the same padding.</span></li></ol></details>
+<details data-spec="scenario-3"><summary>3 - Many options (edge)</summary><ol class="steps"><li><b>Open a long menu</b><br><span>Scrolls as before; footer padding unchanged; whole card stays on screen.</span></li></ol></details>
+<details data-spec="scenario-4"><summary>4 - Short terminal (edge)</summary><ol class="steps"><li><b>Open in a short window</b><br><span>Fewer options if needed; heading, filter and footer keep their padding; nothing cut off.</span></li></ol></details></section>
+<section data-spec="behavior-rules"><h2>Behavior rules</h2><ul><li>Prompt panel is exactly: heading, blank, filter line.</li><li>Footer: one blank row above and one below, always (also in the empty state).</li><li>Only vertical spacing changes.</li><li>The card never extends past the bottom of the screen.</li></ul></section>
+<section data-spec="success-criteria"><h2>Success criteria</h2><ul style="list-style:none;padding-left:0"><li>&#9744; Blank row between heading and filter line</li><li>&#9744; No empty band above the heading or below the filter line</li><li>&#9744; Footer has one blank row above and below</li><li>&#9744; Empty state and single option keep the padding</li><li>&#9744; Tall lists and short terminals still fit</li><li>&#9744; Behavior unchanged</li></ul></section>
+<section data-spec="out-of-scope"><h2>Out of scope</h2><ul><li>Colours, widths, separators, pointer, footer wording</li><li>Restyling other menus</li></ul></section>
+</main></body></html>
