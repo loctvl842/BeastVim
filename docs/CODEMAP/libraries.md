@@ -1,4 +1,4 @@
-<!-- Generated: 2026-10-08 | Files scanned: 30 | Token estimate: ~11589 -->
+<!-- Generated: 2026-11-11 | Files scanned: 30 | Token estimate: ~11589 -->
 
 # Libraries
 
@@ -452,6 +452,7 @@ packer/
 ├── state.lua        ← plugins registry, loaded status
 ├── import.lua       ← spec importer (handles { import = "..." })
 ├── operation.lua    ← git clone, pull, install operations
+├── failures.lua     ← persisted install failures (stdpath state/beast/packer-failures.json), retry window
 ├── ui.lua           ← floating dashboard (loaded/not loaded/ops)
 ├── highlights.lua   ← BeastPacker* groups
 ├── profile.lua      ← per-plugin + per-phase timing
@@ -466,6 +467,17 @@ and `defer` (vim.schedule). The `module` trigger registers a `package.searchers`
 hook so a direct `require("beast.libs.X")` from a keymap body triggers
 `setup(lib)` before returning — closes the half-init hole when keys aren't
 the only entry point.
+
+### Install failures (unreachable plugins)
+
+`setup()` prunes stale records, drops specs whose last install failed within
+`install_retry_hours` (default 24) from the `vim.pack.add` call, and wraps the
+call so a throw no longer aborts setup (Step 6 lazy triggers still register).
+Specs still missing on disk afterwards are recorded in `failures.lua`, flagged
+in `state.failed_plugins` (`state.load` skips them) and reported in one Toast.
+`ui.lua` lists them in a "Failed" section and `r` retries the plugin under
+the cursor (`vim.pack.add` for that spec); `health.lua` warns per record.
+See `docs/pm-specs/packer-install-failure.md`.
 
 ### UI: delete a plugin (`x` in the dashboard)
 

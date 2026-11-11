@@ -39,6 +39,8 @@ A new `lua/beast/libs/packer/failures.lua` owns the persisted record (`name -> {
 ### Open question to verify first (Phase 1, step 1)
 When `vim.pack.add` throws, does it still invoke the `load` callback for the plugins that installed fine? If not, `setup` must `state.load` the installed eager plugins itself. A headless probe settles this before any code is written.
 
+**Resolved:** it does. With one bogus and one good spec, the `load` callback fired for the good plugin before the call threw (Neovim 0.12.6). `setup` needs no manual eager loading.
+
 ---
 
 # PM Spec Gaps
@@ -127,12 +129,27 @@ When `vim.pack.add` throws, does it still invoke the `load` callback for the plu
 
 # Success Criteria
 
-- [ ] With one unreachable plugin, every other plugin still loads and its settings and keymaps are present.
-- [ ] A single toast names the failed plugin on the first start; none on later starts inside the window.
-- [ ] Startup with a known-broken plugin is as fast as without it (no clone attempt).
-- [ ] The Packer window lists the failed plugin with reason and age.
-- [ ] The `r` retry action retries, and on success clears the failure.
-- [ ] Several failures in one start produce one combined toast.
-- [ ] No raw error message for a download failure.
-- [ ] A corrupt or missing failures file never breaks startup.
-- [ ] `tests/test-packer-failures.lua` passes and startup bench shows no regression.
+- [x] With one unreachable plugin, every other plugin still loads and its settings and keymaps are present.
+- [x] A single toast names the failed plugin on the first start; none on later starts inside the window.
+- [x] Startup with a known-broken plugin is as fast as without it (no clone attempt).
+- [x] The Packer window lists the failed plugin with reason and age.
+- [x] The `r` retry action retries, and on success clears the failure.
+- [x] Several failures in one start produce one combined toast.
+- [x] No raw error message for a download failure.
+- [x] A corrupt or missing failures file never breaks startup.
+- [x] `tests/test-packer-failures.lua` passes and startup bench shows no regression.
+
+---
+
+# Completed
+
+2026-11-11 - all three phases: setup survives a failed install, failures persist across starts with a 24h retry window, and the Packer window lists and retries them.
+
+- `698959a` fix(packer): keep setup running when a plugin fails to install
+- `663dfc0` feat(packer): remember failed installs and skip them until the retry window ends
+- `b95ebd1` style(packer): apply stylua formatting (pre-existing lint in `init.lua` and `highlights.lua`, found while verifying)
+- `6248b04` feat(packer): list failed installs in the packer window with a retry key
+
+Verification: `tests/test-packer-failures.lua` 21 passed, 0 failed. End to end with a throwaway config containing an unreachable plugin: old code left `lua_ls` never loading after a failed clone (Step 6 triggers skipped), new code loads it; start 1 attempts the clone (1.29s), starts 2 and 3 do not (0.43s), an expired window retries once; UI retry verified for both failure (toast, stays listed) and success (row removed, record cleared, toast); `:checkhealth` warns per record. Startup bench (20 runs, warm, no failures recorded): 33.8ms with the changes vs 34.2ms before; wall-clock 49.2ms vs 52.6ms.
+
+Deviations: the Packer window has no install action, so the PM spec's "install/sync" is delivered as the dedicated Retry key `r`. A stuck "install" operation row after a failed retry was fixed by clearing that operation (vim.pack never fires PackChanged on a failed clone).
