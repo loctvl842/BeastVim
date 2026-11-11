@@ -28,8 +28,15 @@ jobs:
 
       - name: Install hyperfine + jq
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq hyperfine jq
+          # hyperfine comes from its GitHub release (pinned to the version the
+          # Ubuntu package used) so the job does not depend on Ubuntu mirrors;
+          # jq already ships on the runner image.
+          curl -fsSL -o /tmp/hyperfine.tar.gz \
+            https://github.com/sharkdp/hyperfine/releases/download/v1.19.0/hyperfine-v1.19.0-x86_64-unknown-linux-musl.tar.gz
+          sudo tar -C /usr/local/bin --strip-components=1 -xzf /tmp/hyperfine.tar.gz \
+            hyperfine-v1.19.0-x86_64-unknown-linux-musl/hyperfine
+          hyperfine --version
+          jq --version
 
       - name: Stage config under NVIM_APPNAME
         env:
