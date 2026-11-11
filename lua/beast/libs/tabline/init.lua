@@ -209,6 +209,11 @@ function M.setup(opts)
 				pcall(View.buf.delete, { buf = bufnr })
 			end)
 		elseif button == "l" then
+			-- Sidebars (explorer, etc.) are winfixbuf; switch buffers in a normal window
+			local win = View.win.find_normal()
+			if win then
+				vim.api.nvim_set_current_win(win)
+			end
 			vim.api.nvim_set_current_buf(bufnr)
 		end
 	end
