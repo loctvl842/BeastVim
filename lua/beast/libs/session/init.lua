@@ -117,10 +117,7 @@ local function save()
 	local explorer_snapshot = capture_explorer_state()
 	vim.cmd("mksession! " .. vim.fn.fnameescape(target))
 	local visibility = require("beast.visibility")
-	vim.fn.writefile(
-		{ vim.json.encode({ hidden = visibility.hidden, gitignored = visibility.gitignored }) },
-		visibility_sidecar_path(target)
-	)
+	vim.fn.writefile({ vim.json.encode({ hidden = visibility.hidden, gitignored = visibility.gitignored }) }, visibility_sidecar_path(target))
 	local sidecar = explorer_sidecar_path(target)
 	if explorer_snapshot then
 		vim.fn.writefile({ vim.json.encode(explorer_snapshot) }, sidecar)

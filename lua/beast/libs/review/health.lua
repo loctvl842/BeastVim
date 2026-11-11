@@ -35,9 +35,9 @@ function M.check()
 	local status = require("beast.libs.review").status()
 	if status.running then
 		health.ok(("Listening on 127.0.0.1:%d (%d client%s)"):format(status.port, status.clients, status.clients == 1 and "" or "s"))
-    if (status.pending or 0) > 0 then
-      health.info(("%d proposed diff%s awaiting review"):format(status.pending, status.pending == 1 and "" or "s"))
-    end
+		if (status.pending or 0) > 0 then
+			health.info(("%d proposed diff%s awaiting review"):format(status.pending, status.pending == 1 and "" or "s"))
+		end
 	else
 		health.info("Server not running (`:Review start`, or set `enabled = true`)")
 	end

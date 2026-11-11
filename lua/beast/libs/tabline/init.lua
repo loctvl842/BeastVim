@@ -179,12 +179,12 @@ function M.render()
 	parts[#parts + 1] = visibility_section.render(ctx.buttons_compact)
 	parts[#parts + 1] = toggle_button.render(ctx.buttons_compact)
 
-  -- PID badge, far right of everything. Not part of buttons_compact: the PID
-  -- is fixed-width metadata rather than a legible icon+label pair, so it
-  -- renders the same in both layouts.
-  if config.show_pid then
-    parts[#parts + 1] = pid_section.render()
-  end
+	-- PID badge, far right of everything. Not part of buttons_compact: the PID
+	-- is fixed-width metadata rather than a legible icon+label pair, so it
+	-- renders the same in both layouts.
+	if config.show_pid then
+		parts[#parts + 1] = pid_section.render()
+	end
 
 	local output = table.concat(parts)
 

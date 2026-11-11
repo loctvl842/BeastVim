@@ -164,11 +164,11 @@ M.tools = {
 --- is genuinely in flight rather than just a connected socket.
 ---@return integer
 function M.pending_count()
-  local n = 0
-  for _ in pairs(open_diffs) do
-    n = n + 1
-  end
-  return n
+	local n = 0
+	for _ in pairs(open_diffs) do
+		n = n + 1
+	end
+	return n
 end
 
 --- Tools advertised through tools/list.

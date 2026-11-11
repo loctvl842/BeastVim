@@ -214,10 +214,10 @@ function M.build(state)
 	-- list always wins the space fight over button legibility.
 	local toggle_button = require("beast.libs.tabline.sections.toggle_button")
 	local visibility = require("beast.libs.tabline.sections.visibility")
-  local pid_section = require("beast.libs.tabline.sections.pid")
+	local pid_section = require("beast.libs.tabline.sections.pid")
 	local truncate = require("beast.libs.tabline.truncate")
 
-  local pid_width = config.show_pid and pid_section.width() or 0
+	local pid_width = config.show_pid and pid_section.width() or 0
 
 	local full_buttons_width = toggle_button.width(false) + visibility.width(false) + pid_width
 	local available_full = ctx.columns - (sidebar_width or 0) - tabpages_width - full_buttons_width
@@ -231,7 +231,7 @@ function M.build(state)
 	ctx.buttons_compact = compact
 	ctx.toggle_button_width = toggle_button.width(compact)
 	ctx.visibility_width = visibility.width(compact)
-  ctx.pid_width = pid_width
+	ctx.pid_width = pid_width
 
 	return ctx
 end

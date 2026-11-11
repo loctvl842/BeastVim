@@ -203,10 +203,10 @@ function M:expand(node)
 			break
 		end
 
-    if ftype == nil then
-      local lstat = vim.uv.fs_lstat(node.path .. "/" .. name)
-      ftype = lstat and lstat.type or "unknown"
-    end
+		if ftype == nil then
+			local lstat = vim.uv.fs_lstat(node.path .. "/" .. name)
+			ftype = lstat and lstat.type or "unknown"
+		end
 		found[name] = true
 
 		if not node.children[name] then

@@ -97,10 +97,7 @@ function M.ensure_package(names, callback)
 						local waiters = installing[name]
 						installing[name] = nil
 						if not success then
-							vim.notify(
-								string.format("[beast.mason] Failed to install '%s': %s", name, tostring(err)),
-								vim.log.levels.WARN
-							)
+							vim.notify(string.format("[beast.mason] Failed to install '%s': %s", name, tostring(err)), vim.log.levels.WARN)
 						end
 						for _, waiter in ipairs(waiters) do
 							waiter()

@@ -107,7 +107,18 @@ function M.setup(opts)
 			local cpn = require("beast.libs.statusline.components")
 			stl.setup({
 				left = { cpn.git_branch, cpn.diagnostics, cpn.finder_lsp },
-				right = { cpn.macro, cpn.claude, cpn.blink({ "supermaven" }), cpn.search_count, cpn.git_commit, cpn.position, cpn.filetype, cpn.shiftwidth, cpn.encoding, cpn.mode },
+				right = {
+					cpn.macro,
+					cpn.claude,
+					cpn.blink({ "supermaven" }),
+					cpn.search_count,
+					cpn.git_commit,
+					cpn.position,
+					cpn.filetype,
+					cpn.shiftwidth,
+					cpn.encoding,
+					cpn.mode,
+				},
 			})
 		end,
 	})
@@ -226,7 +237,7 @@ function M.setup(opts)
 				show_close_button = true,
 				show_modified = true,
 				show_diagnostics = true,
-        show_pid = true,
+				show_pid = true,
 			})
 		end,
 	})

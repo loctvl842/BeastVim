@@ -31,12 +31,12 @@ local defaults = {
 	visibility_gitignored_icon = " ", -- nf-md-file_cancel
 	visibility_gitignored_label = "toggle gitignore",
 
-  -- Neovim process id, rendered at the far right (right of the toggle
-  -- buttons). Useful when several nvim instances share one screen and you
-  -- need to tell them apart, e.g. to match a `:restart` child or an OS-level
-  -- process. The PID is resolved once - it cannot change in-process.
-  show_pid = false,
-  show_pid_prefix = "PID ", -- text before the number; "" renders the bare pid
+	-- Neovim process id, rendered at the far right (right of the toggle
+	-- buttons). Useful when several nvim instances share one screen and you
+	-- need to tell them apart, e.g. to match a `:restart` child or an OS-level
+	-- process. The PID is resolved once - it cannot change in-process.
+	show_pid = false,
+	show_pid_prefix = "PID ", -- text before the number; "" renders the bare pid
 
 	-- Icons shown inside truncation markers
 	-- Left: " N <icon> " (e.g. " 3 … ")   Right: " <icon> N " (e.g. " … 2 ")

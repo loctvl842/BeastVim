@@ -53,7 +53,7 @@ end
 ---@return TSNode?
 local function find_scope_node(node, root)
 	local types = get_scope_set()
-  ---@type TSNode?
+	---@type TSNode?
 	local current = node
 	while current and current ~= root do
 		if types[current:type()] then

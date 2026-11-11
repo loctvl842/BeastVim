@@ -24,7 +24,7 @@ local host
 --- component) can invalidate cached values. Review does not know or care who
 --- listens; same pattern as `BeastFinderStatusChanged`.
 local function emit_status_changed()
-  vim.api.nvim_exec_autocmds("User", { pattern = "BeastReviewStatusChanged" })
+	vim.api.nvim_exec_autocmds("User", { pattern = "BeastReviewStatusChanged" })
 end
 
 --- Propose `contents` as the new text of `path`. The file opens in a window
@@ -69,23 +69,23 @@ function M.start()
 		token = token,
 		on_open = function()
 			h.clients = h.clients + 1
-      emit_status_changed()
+			emit_status_changed()
 		end,
 		on_message = function(client, text)
 			h.last_message_ns = uv.hrtime()
 			jsonrpc.handle(client, text, handlers)
-      -- A tools/call may have opened or resolved a diff; emit after the
-      -- handler so an openDiff that blocks is visible immediately.
-      emit_status_changed()
+			-- A tools/call may have opened or resolved a diff; emit after the
+			-- handler so an openDiff that blocks is visible immediately.
+			emit_status_changed()
 		end,
 		on_close = function(client)
 			h.clients = h.clients - 1
 			jsonrpc.client_closed(client)
-      emit_status_changed()
+			emit_status_changed()
 		end,
 		on_reject = function(reason)
 			h.last_refused = { reason = reason, at_ns = uv.hrtime() }
-      emit_status_changed()
+			emit_status_changed()
 		end,
 	})
 	if not listener then
@@ -103,7 +103,7 @@ function M.start()
 
 	h.listener, h.lock_path, h.name = listener, path, name
 	host = h
-  emit_status_changed()
+	emit_status_changed()
 	return true
 end
 
@@ -115,7 +115,7 @@ function M.stop()
 	host = nil
 	require("beast.libs.review.server.lockfile").remove(h.lock_path)
 	h.listener:close()
-  emit_status_changed()
+	emit_status_changed()
 end
 
 ---@class Beast.Review.Status
@@ -134,7 +134,7 @@ function M.status()
 		return { running = false, clients = 0, pending = 0 }
 	end
 	return {
-    pending = require("beast.libs.review.server.tools").pending_count(),
+		pending = require("beast.libs.review.server.tools").pending_count(),
 		running = true,
 		name = host.name,
 		port = host.listener.port,
