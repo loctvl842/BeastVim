@@ -65,7 +65,7 @@ end
 ---@param format_fn fun(item: Beast.Finder.Item): Beast.Finder.Highlight[]
 ---@param from integer 1-based first visible item
 ---@param to integer 1-based last visible item
----@param stride integer buffer rows per item (2 when separator rows sit between items)
+---@param stride integer buffer rows per item (2 when a separator slot sits above each item)
 ---@return table<integer, {[1]: integer, [2]: integer}[]>
 local function compute_list_ranges(items, format_fn, from, to, stride)
 	local ranges_by_row = {}
@@ -104,7 +104,8 @@ local function compute_list_ranges(items, format_fn, from, to, stride)
 		table.sort(sorted_pos)
 		local ranges = positions_to_ranges(sorted_pos)
 
-		local buf_row = (i - from) * stride
+		-- With stride 2 each item has a separator slot above it, so its row is the second of the pair.
+		local buf_row = (i - from) * stride + (stride - 1)
 		local rendered_len = #rendered
 		local row_ranges = {}
 		for _, range in ipairs(ranges) do
