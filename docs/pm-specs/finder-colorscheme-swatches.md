@@ -159,3 +159,9 @@ This is a visual change only. All picker behavior stays exactly as it is today (
 - Editing or creating themes from the picker.
 - Sorting or grouping themes (dark/light) in the list.
 - Marking the currently active theme with a badge (can be added later).
+
+---
+
+# Revision (2026-11-12): thick selection block
+
+The selected theme is no longer framed by solid blue lines. It is drawn as a thick block: a tinted background behind the row, with a half-height tinted strip above it (`▄`) and below it (`▀`). The blue bold text and the `◀` pointer stay, and dashed lines between the other themes are unchanged. This supersedes the "solid lines" and "no background tint" rules above.
