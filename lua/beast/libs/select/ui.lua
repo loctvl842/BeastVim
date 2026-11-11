@@ -53,9 +53,10 @@ end
 function M.open(items, opts, on_choice)
 	local total_w = math.min(math.max(math.floor(vim.o.columns * WIDTH_RATIO), MIN_WIDTH), MAX_WIDTH)
 	local content_w = total_w - 2
-	local list_h = 2 * math.max(1, math.min(#items, MAX_VISIBLE_ITEMS)) + 1
-	-- header panel (4 rows) + list rows + the footer row below the list
-	local total_h = list_h + 5
+	-- slot rows around the options plus the footer row and its padding row
+	local list_h = 2 * math.max(1, math.min(#items, MAX_VISIBLE_ITEMS)) + 3
+	-- header panel (pad, heading, filter line, pad) + list rows
+	local total_h = list_h + 4
 	-- Upper-middle, not dead-center (matches input's centered-fallback
 	-- placement) — but never let a tall list run off the bottom of a small
 	-- terminal.
@@ -76,15 +77,20 @@ function M.open(items, opts, on_choice)
 	View.win.wo(backdrop_win, "winhighlight", "Normal:BeastSelectBackdrop,EndOfBuffer:BeastSelectBackdrop")
 	View.win.wo(backdrop_win, "winblend", config.ui.backdrop)
 
-	-- Prompt panel: a backing window (blank, heading, filter row, blank) with the
+	-- Prompt panel: a backing window (half-row top edge, heading, filter row, pad) with the
 	-- input window overlaid on its filter row, so the panel is one lighter block.
 	local text_col = 3 -- aligns with the list text (1 border cell + 2 pad)
 	local heading = format_title(opts.prompt)
+	-- Heading is centered across the panel width.
+	local heading_col = math.max(text_col, math.floor((total_w - vim.fn.strdisplaywidth(heading)) / 2))
 	local header_buf = View.buf.new("beast-select-header")
-	vim.api.nvim_buf_set_lines(header_buf, 0, -1, false, { "", string.rep(" ", text_col) .. heading, "", "" })
+	local top_edge = string.rep("▄", total_w)
+	vim.api.nvim_buf_set_lines(header_buf, 0, -1, false, { top_edge, string.rep(" ", heading_col) .. heading, "", "" })
 	vim.bo[header_buf].modifiable = false
-	vim.api.nvim_buf_set_extmark(header_buf, vim.api.nvim_create_namespace("beast-select-header"), 1, text_col, {
-		end_col = text_col + #heading,
+	local header_ns = vim.api.nvim_create_namespace("beast-select-header")
+	vim.api.nvim_buf_set_extmark(header_buf, header_ns, 0, 0, { end_col = #top_edge, hl_group = "BeastSelectInputTopEdge" })
+	vim.api.nvim_buf_set_extmark(header_buf, header_ns, 1, heading_col, {
+		end_col = heading_col + #heading,
 		hl_group = "BeastSelectInputTitle",
 	})
 	local header_win = vim.api.nvim_open_win(header_buf, false, {

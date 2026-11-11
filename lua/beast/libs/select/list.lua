@@ -12,6 +12,7 @@ local EMPTY_TEXT = "No matching items"
 ---@field _offset integer 0-based index of the first visible item
 ---@field _win_height integer current window height in rows (viewport size)
 ---@field _max_height integer row cap the window never grows past
+---@field _footer? string key hints shown on the row below the options
 ---@overload fun(buf?: integer, win?: integer, ns: integer, max_height: integer): Beast.Select.ListView
 local ListView = View:extend(
 	---@param obj Beast.Select.ListView
@@ -30,17 +31,21 @@ local ListView = View:extend(
 ---@class Beast.Select.UI.List
 local M = {}
 
---- Rows needed for `count` options: a slot row above each option plus one below the last.
+--- Rows below the options: the footer row and one blank row of padding under it.
+local FOOTER_ROWS = 2
+
+--- Rows needed for `count` options: a slot row above each option plus one below the last,
+--- then the footer block. The empty state is the message, a gap and the footer block.
 ---@param count integer
 ---@return integer
 local function rows_for(count)
-	return count == 0 and 1 or 2 * count + 1
+	return (count == 0 and 2 or 2 * count + 1) + FOOTER_ROWS
 end
 
 ---@param view Beast.Select.ListView
 ---@return integer options that fit in the current window
 local function capacity(view)
-	return math.max(1, math.floor((view._win_height - 1) / 2))
+	return math.max(1, math.floor((view._win_height - 1 - FOOTER_ROWS) / 2))
 end
 
 ---@param win_row integer
@@ -60,19 +65,19 @@ function M.create(win_row, win_col, win_w, max_rows, footer)
 		row = win_row,
 		col = win_col,
 		style = "minimal",
-		-- Blank side pads; the blank bottom row carries the footer.
-		border = { "", "", "", " ", " ", " ", " ", " " },
-		footer = footer,
-		footer_pos = footer and "right" or nil,
+		-- Blank side pads only; the footer is a buffer row so it can be padded on both sides.
+		border = { "", "", "", " ", "", "", "", " " },
 		zindex = 101,
 	})
 
 	View.win.wo(win, "cursorline", false)
 	View.win.wo(win, "scrolloff", 0)
 	View.win.wo(win, "wrap", false)
-	View.win.wo(win, "winhl", "Normal:BeastSelectNormal,FloatBorder:BeastSelectBorder,FloatFooter:BeastSelectFooter")
+	View.win.wo(win, "winhl", "Normal:BeastSelectNormal,FloatBorder:BeastSelectBorder")
 
-	return ListView(buf, win, ns, max_rows)
+	local view = ListView(buf, win, ns, max_rows)
+	view._footer = footer
+	return view
 end
 
 --- Clamp the viewport offset so `cursor` stays visible.
@@ -128,6 +133,28 @@ local function slot(view, idx, first, last, width)
 	return string.rep("-", width), "BeastSelectListSeparator"
 end
 
+--- The window is always exactly as tall as its rows, so it must show from the first line;
+--- a stale scroll position (left over from a taller list) would hide the top rows.
+---@param view Beast.Select.ListView
+local function reset_scroll(view)
+	vim.api.nvim_win_call(view.win, function()
+		vim.fn.winrestview({ topline = 1, lnum = 1 })
+	end)
+end
+
+--- Right-aligned key hints on buffer row `row0`.
+---@param view Beast.Select.ListView
+---@param row0 integer
+local function draw_footer(view, row0)
+	if view._footer then
+		vim.api.nvim_buf_set_extmark(view.buf, view.ns, row0, 0, {
+			virt_text = { { vim.trim(view._footer) .. PAD, "BeastSelectFooter" } },
+			virt_text_pos = "right_align",
+			hl_mode = "combine",
+		})
+	end
+end
+
 --- Write the visible slice of options with their slot rows to the buffer.
 ---@param view Beast.Select.ListView
 local function render_visible(view)
@@ -137,13 +164,16 @@ local function render_visible(view)
 	vim.api.nvim_buf_clear_namespace(view.buf, view.ns, 0, -1)
 
 	if #view.items == 0 then
+		-- message row, a gap, then the footer block
 		vim.bo[view.buf].modifiable = true
-		vim.api.nvim_buf_set_lines(view.buf, 0, -1, false, { "" })
+		vim.api.nvim_buf_set_lines(view.buf, 0, -1, false, { "", "", "", "" })
 		vim.bo[view.buf].modifiable = false
 		vim.api.nvim_buf_set_extmark(view.buf, view.ns, 0, 0, {
 			virt_text = { { PAD .. EMPTY_TEXT, "BeastSelectListEmpty" } },
 			virt_text_pos = "inline",
 		})
+		draw_footer(view, 2)
+		reset_scroll(view)
 		return
 	end
 
@@ -186,10 +216,17 @@ local function render_visible(view)
 		marks[#marks + 1] = { row0 = #lines - 1, col_end = #text, hl = hl }
 	end
 
+	-- footer row and its padding row sit right under the trailing slot
+	local footer_row0 = #lines
+	lines[#lines + 1] = ""
+	lines[#lines + 1] = ""
+
 	vim.bo[view.buf].modifiable = true
 	vim.api.nvim_buf_set_lines(view.buf, 0, -1, false, lines)
 	vim.bo[view.buf].modifiable = false
 
+	draw_footer(view, footer_row0)
+	reset_scroll(view)
 	for row0 = 0, #lines - 1 do
 		vim.api.nvim_buf_set_extmark(view.buf, view.ns, row0, 0, { virt_text = { { PAD } }, virt_text_pos = "inline" })
 	end

@@ -83,6 +83,7 @@ function M.check()
 		"BeastSelectBackdrop",
 		"BeastSelectInputNormal",
 		"BeastSelectInputTitle",
+		"BeastSelectInputTopEdge",
 		"BeastSelectListSelected",
 		"BeastSelectListSelectedLine",
 		"BeastSelectListPointer",

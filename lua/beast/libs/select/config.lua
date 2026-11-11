@@ -2,7 +2,7 @@
 local defaults = {
 	disabled = false,
 	ui = {
-		backdrop = 60,
+		backdrop = 20,
 	},
 }
 
