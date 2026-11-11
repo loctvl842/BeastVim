@@ -525,14 +525,14 @@ function M.lazy(mod, opts)
 		-- which sets loaded_plugins[name] = true before vim.cmd.packadd.
 		state.loaded_libs[mod] = true
 
-    -- Load declared dependencies before require(mod). This runs here, at
-    -- the single choke point every trigger funnels through, rather than in
-    -- state.load_lib: the event/keys/filetype/path triggers below call
-    -- do_load directly and would otherwise skip dependencies entirely.
-    --
-    -- Ordering matters when a lib reads ambient highlight state once at
-    -- setup() and never refreshes it; see state.load_dependencies.
-    state.load_dependencies({ name = mod, dependencies = opts.dependencies })
+		-- Load declared dependencies before require(mod). This runs here, at
+		-- the single choke point every trigger funnels through, rather than in
+		-- state.load_lib: the event/keys/filetype/path triggers below call
+		-- do_load directly and would otherwise skip dependencies entirely.
+		--
+		-- Ordering matters when a lib reads ambient highlight state once at
+		-- setup() and never refreshes it; see state.load_dependencies.
+		state.load_dependencies({ name = mod, dependencies = opts.dependencies })
 
 		local lib
 		local ok_req, err_req = profile.measure(mod, "packadd_ms", function()
