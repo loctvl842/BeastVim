@@ -6,6 +6,8 @@
 
 local M = {}
 
+local SWATCH_COUNT = 10
+
 local devicons ---@type table|false|nil nil=not loaded yet, false=unavailable
 
 local function get_icon(filename)
@@ -137,9 +139,24 @@ end
 
 ---@param item Beast.Finder.Item
 ---@return Beast.Finder.Highlight[]
-function M.colorschemes(item)
+function M.colorschemes(item, width)
+	local chunks = {}
+	for i = 1, SWATCH_COUNT do
+		local color = item.swatches and item.swatches[i]
+		chunks[#chunks + 1] = { "■", color and require("beast.libs.finder.highlights").swatch(color) or "BeastFinderSwatchEmpty" }
+		chunks[#chunks + 1] = { " ", "BeastFinderNormal" }
+	end
+
+	-- Leave room for the selection prefix (2), the strip (10 squares, each followed by a space) and a gap (1).
+	local name = item.text
+	local room = (width or 80) - 2 - (SWATCH_COUNT * 2) - 1
+	if vim.fn.strdisplaywidth(name) > room then
+		name = vim.fn.strcharpart(name, 0, math.max(0, room - 3)) .. "..."
+	end
+
 	return {
-		{ text = item.text, hl = "BeastFinderListFile" },
+		{ text = name, hl = "BeastFinderListFile" },
+		{ text = "", right_align = true, chunks = chunks },
 	}
 end
 

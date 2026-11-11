@@ -217,7 +217,8 @@ local function render_visible(view)
 
 	local sel_prefix = config.selection_prefix .. " "
 	local pad = string.rep(" ", vim.fn.strdisplaywidth(sel_prefix))
-	local sep_width = vim.api.nvim_win_get_width(view.win) - vim.fn.strdisplaywidth(sel_prefix)
+	-- Same margin on both sides: the inline prefix pad on the left, an equal gap on the right.
+	local sep_width = vim.api.nvim_win_get_width(view.win) - 2 * vim.fn.strdisplaywidth(sel_prefix)
 
 	local lines = {} ---@type string[]
 	local row_hl = {} ---@type table<integer, Beast.Finder.Highlight[]> 1-based row -> highlights

@@ -17,6 +17,7 @@ local ui = require("beast.libs.finder.ui")
 ---@field view? Beast.Finder.View
 ---@field on_preview? fun(item: Beast.Finder.Item)
 ---@field on_close? fun()
+---@field layout? "cards"
 ---@field main_win? integer
 ---@field augroup? integer
 local M = setmetatable({}, {
@@ -33,6 +34,8 @@ local instance
 ---@field on_preview? fun(item: Beast.Finder.Item)
 ---@field on_close? fun()
 ---@field preview? boolean preview window enabled
+---@field layout? "cards" separate prompt/list boxes
+---@field separators? boolean separator rows between list items
 
 ---@param source_name Beast.Finder.Source
 ---@param opts? Beast.Finder.Opts
@@ -52,15 +55,16 @@ function M:new(source_name, opts)
 		main_win = View.win.find_normal(),
 		on_preview = opts.on_preview,
 		on_close = opts.on_close,
+		layout = opts.layout,
 		query = query,
 		pipeline = pipeline,
 	}, self)
 
 	-- View
 	local has_preview = opts.preview ~= false
-	local geo = require("beast.libs.finder.layout").calc(has_preview)
+	local geo = require("beast.libs.finder.layout").calc(has_preview, opts.layout)
 	local title_name = source_name:gsub("_", " ")
-	local title = title_name:sub(1, 1):upper() .. title_name:sub(2)
+	local title = opts.layout == "cards" and "" or title_name:sub(1, 1):upper() .. title_name:sub(2)
 	local input_debounce = is_live and config.debounce.live_ms or nil
 
 	instance.view = {
@@ -68,7 +72,7 @@ function M:new(source_name, opts)
 			query.filter:update(text)
 			pipeline.run(instance)
 		end, geo.input.w, geo.input.h, geo.input.row, geo.input.col, title, input_debounce, geo.input.border),
-		list = ui.list.create(geo.list.row, geo.list.col, geo.list.w, geo.list.h, geo.list.border),
+		list = ui.list.create(geo.list.row, geo.list.col, geo.list.w, geo.list.h, geo.list.border, opts.separators),
 		backdrop = ui.backdrop.create(config.backdrop),
 	}
 	if has_preview then
@@ -135,7 +139,7 @@ function M:relayout()
   -- stylua: ignore
   if not self.view then return end
 
-	local geo = require("beast.libs.finder.layout").calc(self.view.preview ~= nil)
+	local geo = require("beast.libs.finder.layout").calc(self.view.preview ~= nil, self.layout)
 
 	-- Reposition backdrop
 	if self.view.backdrop:is_valid() then
@@ -182,6 +186,11 @@ function M:relayout()
 		-- Re-draw the inline image (if any) at the new geometry; VimResized
 		-- triggers a full repaint that would otherwise erase it.
 		require("beast.libs.finder.ui.preview").refresh(self.view.preview)
+	end
+
+	-- Separator rows are as wide as the list window, so redraw them at the new width
+	if self.view.list._separators then
+		require("beast.libs.finder.render").render(self)
 	end
 end
 

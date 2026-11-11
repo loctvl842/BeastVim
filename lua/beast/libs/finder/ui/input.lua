@@ -44,7 +44,7 @@ function M.create(on_change, total_w, total_h, win_row, win_col, title, debounce
 
 	local ns = vim.api.nvim_create_namespace("beast-finder-input")
 
-	local display_title = " " .. (title or "Find") .. " "
+	local display_title = title ~= "" and (" " .. (title or "Find") .. " ") or nil
 
 	-- Input: top-left panel with full border. Right side junctions connect to preview.
 	-- Bottom border ├─┤ is the visual separator between input and list.
@@ -57,7 +57,7 @@ function M.create(on_change, total_w, total_h, win_row, win_col, title, debounce
 		style = "minimal",
 		border = border or { "╭", "─", "┬", "│", "┤", "─", "├", "│" },
 		title = display_title,
-		title_pos = "left",
+		title_pos = display_title and "left" or nil,
 		zindex = 103,
 	})
 

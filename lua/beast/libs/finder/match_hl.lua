@@ -65,8 +65,9 @@ end
 ---@param format_fn fun(item: Beast.Finder.Item): Beast.Finder.Highlight[]
 ---@param from integer 1-based first visible item
 ---@param to integer 1-based last visible item
+---@param stride integer buffer rows per item (2 when separator rows sit between items)
 ---@return table<integer, {[1]: integer, [2]: integer}[]>
-local function compute_list_ranges(items, format_fn, from, to)
+local function compute_list_ranges(items, format_fn, from, to, stride)
 	local ranges_by_row = {}
 	for i = from, to do
 		local item = items[i]
@@ -103,7 +104,7 @@ local function compute_list_ranges(items, format_fn, from, to)
 		table.sort(sorted_pos)
 		local ranges = positions_to_ranges(sorted_pos)
 
-		local buf_row = i - from
+		local buf_row = (i - from) * stride
 		local rendered_len = #rendered
 		local row_ranges = {}
 		for _, range in ipairs(ranges) do
@@ -206,11 +207,12 @@ end
 ---@param format_fn fun(item: Beast.Finder.Item): Beast.Finder.Highlight[]
 ---@param from integer 1-based first visible item index
 ---@param to integer 1-based last visible item index
-function M.apply_list(buf, items, format_fn, from, to)
+---@param stride? integer buffer rows per item (default 1)
+function M.apply_list(buf, items, format_fn, from, to, stride)
 	install_provider()
 	from = from or 1
 	to = to or #items
-	list_state[buf] = { ranges_by_row = compute_list_ranges(items, format_fn, from, to) }
+	list_state[buf] = { ranges_by_row = compute_list_ranges(items, format_fn, from, to, stride or 1) }
 end
 
 --- Apply substring match highlights to the preview buffer.

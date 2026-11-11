@@ -78,15 +78,36 @@ function M.mount(state)
 	-- or the global keymaps. Match-pipeline sources (files, buffers, ...) reload
 	-- from source; the stream pipeline (live_grep) re-runs against the current
 	-- pattern — same calls `state.lua:new()` already makes on initial load.
+	local function reload()
+		if state.pipeline.load then
+			state.pipeline.load(state)
+		else
+			state.pipeline.run(state)
+		end
+	end
 	vim.api.nvim_create_autocmd("User", {
 		group = state.augroup,
 		pattern = "BeastVisibilityChanged",
+		callback = reload,
+	})
+
+	-- Swatch colors finished computing in the background: reload the theme list.
+	vim.api.nvim_create_autocmd("User", {
+		group = state.augroup,
+		pattern = "BeastFinderSwatchesReady",
 		callback = function()
-			if state.pipeline.load then
-				state.pipeline.load(state)
-			else
-				state.pipeline.run(state)
+			if state.query.source.name == "colorschemes" then
+				reload()
 			end
+		end,
+	})
+
+	-- `:colorscheme` (live theme preview) clears every highlight group, including
+	-- the per-color swatch groups; define them again so the squares keep their colors.
+	vim.api.nvim_create_autocmd("ColorScheme", {
+		group = state.augroup,
+		callback = function()
+			require("beast.libs.finder.highlights").reset_swatches()
 		end,
 	})
 

@@ -30,27 +30,23 @@ function M.get()
 	})
 end
 
-local swatch_defined = {} ---@type table<string, true>
+local swatch_hex = {} ---@type table<string, string> group name -> hex, for every swatch drawn so far
 
---- Highlight group painting a swatch square in `hex`. Defined lazily; `:colorscheme`
---- clears it, so call `reset_swatches()` after a colorscheme change.
+--- Highlight group painting a swatch square in `hex`. Always (re)defined: a `:colorscheme`
+--- between two opens wipes it, so a "defined once" cache would leave squares uncolored.
 ---@param hex string "#rrggbb"
 ---@return string group
 function M.swatch(hex)
 	local name = "BeastFinderSwatch" .. hex:sub(2)
-	if not swatch_defined[name] then
-		vim.api.nvim_set_hl(0, name, { fg = hex })
-		swatch_defined[name] = true
-	end
+	vim.api.nvim_set_hl(0, name, { fg = hex })
+	swatch_hex[name] = hex
 	return name
 end
 
---- Re-create every swatch group defined so far (they are wiped by `:colorscheme`).
+--- Re-create every swatch group drawn so far (live theme preview wipes them while rows are on screen).
 function M.reset_swatches()
-	local names = vim.tbl_keys(swatch_defined)
-	swatch_defined = {}
-	for _, name in ipairs(names) do
-		M.swatch("#" .. name:sub(#"BeastFinderSwatch" + 1))
+	for name, hex in pairs(swatch_hex) do
+		vim.api.nvim_set_hl(0, name, { fg = hex })
 	end
 end
 

@@ -375,6 +375,8 @@ function M.setup(opts)
 					local confirmed = false
 					require("beast.libs.finder").open("colorschemes", {
 						preview = false,
+						layout = "cards",
+						separators = true,
 						on_preview = function(item)
 							pcall(vim.cmd.colorscheme, item.text)
 						end,

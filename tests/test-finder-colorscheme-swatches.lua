@@ -86,5 +86,28 @@ do
 	assert_eq("changed mtime is a miss", swatches.get("monokai-pro", copy), nil)
 end
 
+io.write("\n--- row format: ten squares, truncation, missing colors ---\n")
+do
+	local format = require("beast.libs.finder.format")
+	local colors = {}
+	for i = 1, 10 do
+		colors[i] = "#aabbcc"
+	end
+	colors[3] = false
+	local row = format.colorschemes({ text = "monokai-pro-classic", swatches = colors }, 46)
+	local strip = row[2].chunks
+	assert_eq("name chunk first", row[1].text, "monokai-pro-classic")
+	assert_eq("ten squares plus ten gaps", #strip, 20)
+	assert_eq("unset role uses the empty group", strip[5][2], "BeastFinderSwatchEmpty")
+	assert_test("set role gets its own group", strip[1][2]:find("^BeastFinderSwatch%x+$") ~= nil)
+
+	local long = format.colorschemes({ text = "a-very-long-colorscheme-name-indeed", swatches = colors }, 46)
+	assert_test("long name is shortened with ...", long[1].text:sub(-3) == "..." and #long[1].text < 35)
+
+	local pending = format.colorschemes({ text = "x" }, 46)
+	assert_eq("pending theme still has ten squares", #pending[2].chunks, 20)
+	assert_eq("pending squares are dim", pending[2].chunks[1][2], "BeastFinderSwatchEmpty")
+end
+
 io.write(string.format("\n=== %d passed, %d failed ===\n", passed, failed))
 os.exit(failed > 0 and 1 or 0)

@@ -14,7 +14,7 @@ local function move_cursor(state, delta)
 	if state.view.list._offset ~= old_offset and not state.query.highlight_preview and state.view.list:is_valid() then
 		local format_fn = require("beast.libs.finder.format")[state.query.source.name] or require("beast.libs.finder.format").filename
 		local from, to = ui.list.visible_range(state.view.list)
-		match_hl.apply_list(state.view.list.buf, state.query.matched, format_fn, from, to)
+		match_hl.apply_list(state.view.list.buf, state.query.matched, format_fn, from, to, state.view.list._separators and 2 or 1)
 	end
 	vim.cmd("redraw")
 	render.schedule_preview(state)

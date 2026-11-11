@@ -84,7 +84,7 @@ function M.render(state)
 	-- Apply fuzzy match highlights to list (match pipeline only, visible rows)
 	if not state.query.highlight_preview and state.view.list:is_valid() then
 		local from, to = ui.list.visible_range(state.view.list)
-		match_hl.apply_list(state.view.list.buf, state.query.matched, format_fn, from, to)
+		match_hl.apply_list(state.view.list.buf, state.query.matched, format_fn, from, to, state.view.list._separators and 2 or 1)
 	end
 	M.schedule_preview(state)
 	vim.cmd("redraw")

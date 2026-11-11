@@ -60,7 +60,7 @@ After the change: opening `<leader>c` reads a JSON cache (name -> mtime + 10 hex
 
 ## Phase 1: Swatch data - cached palette extraction, no visible change
 1. **Worker script** (File: `lua/beast/libs/finder/source/colorscheme_swatches_worker.lua`)
-   - Action: for each theme name argument, `vim.o.eventignore = "ColorScheme"`, `pcall(vim.cmd.colorscheme, name)`, read ten colors: bg `Normal.bg`, fg `Normal.fg`, red `DiagnosticError.fg`, orange `Number.fg`, yellow `DiagnosticWarn.fg`, green `String.fg`, cyan `Special.fg`, blue `Function.fg`, purple `Keyword.fg`, grey `Comment.fg`. Unset or failed -> `false`. Print one JSON object.
+   - Action: for each theme name argument, `vim.o.eventignore = "ColorScheme"`, `pcall(vim.cmd.colorscheme, name)`, read ten colors: bg `Normal.bg`, fg `Normal.fg`, red `ErrorMsg.fg` (falls back to `DiagnosticError`), orange `Number.fg`, yellow `WarningMsg.fg` (falls back to `DiagnosticWarn`), green `String.fg`, cyan `Special.fg`, blue `Function.fg`, purple `Keyword.fg`, grey `Comment.fg`. Unset or failed -> `false`. Print one JSON object.
    - Why: PM rule - read a theme's own colors without touching the user's editor.
    - Depends on: None
    - Risk: Medium - themes that need `setup()` or `background` may produce odd colors; they degrade to grey or slightly off colors, never errors (`pcall`).
@@ -122,7 +122,7 @@ After the change: opening `<leader>c` reads a JSON cache (name -> mtime + 10 hex
 # Decisions for the reviewer
 - **Where swatch colors come from** - recommended: headless child + JSON cache (no editor flash, instant when warm). Alternative: apply each theme in-process (flashes, blocks UI, fires `ColorScheme` hooks).
 - **Role-to-group mapping** - recommended: fixed syntax groups (Number=orange, String=green, Function=blue, Keyword=purple, ...). Alternative: hue-pick from a theme's colors like `theme/palette.lua` (more accurate hues, more code).
-- **Card width** - recommended: fixed ~42 columns, centered. Alternative: keep 80% of the editor width.
+- **Card width** - recommended: fixed ~46 columns, centered (42 truncated real theme names such as `monokai-pro-classic`). Alternative: keep 80% of the editor width.
 
 # Testing Strategy
 - Headless tests: `nvim --clean --headless -l tests/test-finder-colorscheme-swatches.lua`, `... tests/test-finder-list-separators.lua`; rerun the existing `tests/test-finder-*.lua` to prove other pickers are unchanged.

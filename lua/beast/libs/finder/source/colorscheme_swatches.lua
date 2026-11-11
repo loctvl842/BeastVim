@@ -5,7 +5,8 @@ local M = {}
 ---@alias Beast.Finder.Swatches (string|false)[] ten hex colors in role order, false when unset
 
 ---@class Beast.Finder.SwatchCache
----@field mtime integer
+---@field mtime integer theme file mtime
+---@field worker integer worker script mtime when computed (worker changes invalidate)
 ---@field colors Beast.Finder.Swatches
 
 local COUNT = 10
@@ -52,7 +53,7 @@ end
 ---@return Beast.Finder.Swatches|nil
 function M.get(name, path)
 	local entry = load()[name]
-	if entry and entry.mtime == mtime_of(path) then
+	if entry and entry.mtime == mtime_of(path) and entry.worker == mtime_of(worker_path()) then
 		return entry.colors
 	end
 	return nil
@@ -90,7 +91,7 @@ function M.ensure(themes, on_done)
 			local entries = load()
 			for name, colors in pairs(decoded) do
 				if #colors == COUNT then
-					entries[name] = { mtime = mtimes[name] or 0, colors = colors }
+					entries[name] = { mtime = mtimes[name] or 0, worker = mtime_of(worker_path()), colors = colors }
 				end
 			end
 			pcall(function()

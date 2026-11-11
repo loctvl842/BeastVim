@@ -13,9 +13,9 @@ vim.o.eventignore = "ColorScheme"
 local roles = {
 	{ attr = "bg", groups = { "Normal" } },
 	{ attr = "fg", groups = { "Normal" } },
-	{ attr = "fg", groups = { "DiagnosticError", "Error" } },
+	{ attr = "fg", groups = { "ErrorMsg", "DiagnosticError" } },
 	{ attr = "fg", groups = { "Number", "Constant" } },
-	{ attr = "fg", groups = { "DiagnosticWarn", "WarningMsg" } },
+	{ attr = "fg", groups = { "WarningMsg", "DiagnosticWarn" } },
 	{ attr = "fg", groups = { "String" } },
 	{ attr = "fg", groups = { "Special", "Type" } },
 	{ attr = "fg", groups = { "Function" } },
