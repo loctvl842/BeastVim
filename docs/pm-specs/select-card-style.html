@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spec: Select card style</title>
+<style>
+  :root { --bg:#fbfaf7; --fg:#1c1b19; --muted:#6b675f; --line:#dcd8cf; --card:#fff; --accent:#b4540a; --term:#1e1f26; --termfg:#d8dae5; --termsel:#34374a; --termline:#3b3e50; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#161513; --fg:#ece8df; --muted:#a29d92; --line:#3a3732; --card:#1f1d1a; --accent:#e08a3c; }
+  }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, sans-serif; }
+  main { max-width:880px; margin:0 auto; padding:24px 16px 80px; }
+  section { margin:32px 0; }
+  h1 { margin:0 0 8px; } h2 { margin:0 0 10px; } h3 { margin:18px 0 6px; font-size:1rem; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; }
+  .muted { color:var(--muted); }
+  .mock { background:var(--term); color:var(--termfg); border-radius:10px; padding:16px; font:14px/1.4 ui-monospace,Menlo,monospace; max-width:420px; margin:8px 0; }
+  .box { border:0; padding:6px 14px; }
+  .prompt { min-height:2.4em; padding-top:12px; padding-bottom:12px; background:#24262d; }
+  .prompt::before { content:"\1F50D  "; opacity:.7; }
+  .list { background:#0b0c10; padding:10px 14px; }
+  .row { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:2px 6px; border-left:3px solid transparent; }
+  .row.sel { color:#4a9ede; font-weight:600; }
+  .row.sel .nm::after { content:"  \25C0"; }
+  .list > .row.sel:first-child { border-top:1px solid #4a9ede; }
+  .list > .row.sel:last-child { border-bottom:1px solid #4a9ede; }
+  .nm { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .sw { display:flex; gap:4px; flex:none; }
+  .sw i { width:10px; height:10px; border-radius:3px; display:block; }
+  hr { border:0; border-top:1px dashed #3b3e50; margin:4px 0; }
+  hr:has(+ .row.sel), .row.sel + hr { border-top:1px solid #4a9ede; }
+  .states { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:16px; }
+  ol.steps { margin:0; padding-left:22px; } ol.steps li { margin:6px 0; } ol.steps span { color:var(--muted); }
+  ul { padding-left:20px; }
+  details { margin:10px 0; } summary { cursor:pointer; font-weight:600; }
+  .rec { border-left:3px solid var(--accent); padding-left:10px; margin:10px 0; }
+  .tag { color:var(--accent); font-weight:600; font-size:.85em; }
+
+  .panel { background:#0b0c10; color:#e8e6ea; border-radius:8px; overflow:hidden; font:14px/1.6 ui-monospace,Menlo,monospace; max-width:520px; margin:8px 0; }
+  .panel .top { background:#24262d; padding:16px 22px; } .panel .hd { color:#ffd866; } .panel .q { min-height:1.6em; } .panel .q::after { content:"|"; opacity:.8; }
+  .panel .lst { padding:12px 22px 8px; } .panel .it { display:flex; justify-content:space-between; padding:2px 0; border-top:1px dashed #3b3e50; }
+  .panel .it:first-child { border-top-color:transparent; } .panel .it.sel { color:#4a9ede; font-weight:600; border-top:1px solid #4a9ede; border-bottom:1px solid #4a9ede; }
+  .panel .it.sel + .it { border-top-color:transparent; } .panel .it.sel .nm::after { content:"  \25C0"; }
+  .panel .tag { color:#7d7b80; font-weight:400; } .panel .ft { color:#7d7b80; text-align:right; margin-top:10px; } .panel .empty { text-align:center; color:#7d7b80; padding:6px 0; }
+</style>
+</head>
+<body>
+<main>
+<header data-spec="summary"><h1>Select menu: theme-picker look</h1>
+<p>The select menu (code actions and every other pick-from-a-list prompt) takes on the theme picker's look: a roomy prompt panel (heading + filter line) over a darker list panel, dashed lines between options, and the selected option framed by solid blue lines. Behavior is unchanged.</p></header>
+<section data-spec="problem"><h2>Problem</h2><p>Today it is a bordered box: title cut into the border, a "Search" label, a divider before the footer and a bullet marker. It reads heavy and busy, and does not match the theme picker's calmer, more spacious design.</p>
+<p class="muted" data-spec="why-now">Why now: it is the most frequently seen list menu (every code action), so it should match the new quality bar.</p></section>
+<section data-spec="target-behavior"><h2>Target behavior</h2>
+<div data-spec="state-1"><h3>STATE 1 - Opened</h3><div class="panel"><div class="top"><div class="hd">Code actions</div><div class="q"></div></div><div class="lst"><div class="it sel"><span class="nm">Disable diagnostics in the workspace</span><span class="tag"></span></div><div class="it"><span class="nm">Disable diagnostics on this line</span><span class="tag"></span></div><div class="it"><span class="nm">Disable diagnostics in this file</span><span class="tag"></span></div><div class="ft">Confirm enter &nbsp; Cancel esc</div></div></div><p class="muted">Lighter padded prompt panel on top, darker list panel below. Dashed lines between options; the selected one has solid blue lines above and below, blue bold text and a pointer, no background tint. Footer dim, right-aligned.</p></div>
+<div data-spec="state-2"><h3>STATE 2 - Filtering</h3><div class="panel"><div class="top"><div class="hd">Select colorscheme</div><div class="q">drac</div></div><div class="lst"><div class="it sel"><span class="nm">dracula</span><span class="tag"></span></div><div class="it"><span class="nm">dracula-soft</span><span class="tag"></span></div><div class="ft">Confirm enter &nbsp; Cancel esc</div></div></div></div>
+<div data-spec="state-3"><h3>STATE 3 - Tags</h3><div class="panel"><div class="top"><div class="hd">Select branch</div><div class="q"></div></div><div class="lst"><div class="it sel"><span class="nm">main</span><span class="tag">current</span></div><div class="it"><span class="nm">feature/login-redesign</span><span class="tag">ahead 2</span></div><div class="it"><span class="nm">feature/payment-retry</span><span class="tag">behind 1</span></div><div class="ft">Confirm enter &nbsp; Cancel esc</div></div></div></div>
+<div data-spec="state-4"><h3>STATE 4 - Extra footer hints</h3><div class="panel"><div class="top"><div class="hd">Select branch</div><div class="q"></div></div><div class="lst"><div class="it sel"><span class="nm">main</span><span class="tag">current</span></div><div class="ft">Confirm enter &nbsp; Cancel esc &nbsp; Delete ctrl+d</div></div></div></div>
+<div data-spec="state-5"><h3>STATE 5 - No matches</h3><div class="panel"><div class="top"><div class="hd">Select colorscheme</div><div class="q">zzz</div></div><div class="lst"><div class="empty">No matching items</div><div class="ft">Confirm enter &nbsp; Cancel esc</div></div></div></div></section>
+<section data-spec="scenarios"><h2>Scenarios</h2>
+<details open data-spec="scenario-1"><summary>1 - Choosing a code action</summary><ol class="steps"><li><b>Trigger a code action</b><br><span>Prompt panel with the heading and empty filter line; list panel with the first action framed by solid lines.</span></li><li><b>Press Down</b><br><span>Frame, blue text and pointer move to the next option.</span></li><li><b>Press Enter</b><br><span>Panels close, action runs as before.</span></li></ol></details>
+<details data-spec="scenario-2"><summary>2 - Filtering a long list</summary><ol class="steps"><li><b>Type "drac"</b><br><span>List narrows; frame and pointer on the first match.</span></li><li><b>Delete the letters</b><br><span>Full list returns.</span></li></ol></details>
+<details data-spec="scenario-3"><summary>3 - Tags and extra footer hints</summary><ol class="steps"><li><b>Open a branch-style menu</b><br><span>Dim right-aligned tags; extra hint listed after Confirm and Cancel.</span></li></ol></details>
+<details data-spec="scenario-4"><summary>4 - No matches (edge)</summary><ol class="steps"><li><b>Type a query matching nothing</b><br><span>"No matching items" centered; Enter does nothing.</span></li></ol></details>
+<details data-spec="scenario-5"><summary>5 - Cancel</summary><ol class="steps"><li><b>Press Esc</b><br><span>Panels close; caller gets no selection.</span></li></ol></details>
+<details data-spec="scenario-6"><summary>6 - Long labels, narrow terminals (edge)</summary><ol class="steps"><li><b>Label longer than the panel</b><br><span>Shortened with "..."; pointer and footer never overlap text.</span></li></ol></details></section>
+<section data-spec="behavior-rules"><h2>Behavior rules</h2><ul>
+<li>Only the look changes; all behavior and every existing caller stay as today.</li>
+<li>Same visual language as the theme picker: borderless panels, prompt lighter than list, dashed separators, solid blue frame lines, blue bold text plus pointer on the selected option, no tint.</li>
+<li>Heading in a warm accent colour, only when the caller gave a prompt; filter line shows only a cursor when empty.</li>
+<li>Footer hints dim and right-aligned on the list panel's last line.</li>
+<li>Position, width and the dimmed backdrop are unchanged.</li></ul></section>
+<section data-spec="success-criteria"><h2>Success criteria</h2><ul style="list-style:none;padding-left:0">
+<li>&#9744; Lighter padded prompt panel over a darker list panel; no borders or divider</li><li>&#9744; Dashed lines between options</li><li>&#9744; Selected option: solid blue frame, blue bold text, pointer, no tint</li><li>&#9744; Footer dim, right-aligned, including caller hints</li><li>&#9744; Tags right-aligned; long labels shortened, no overlap</li><li>&#9744; Empty state shown when nothing matches</li><li>&#9744; Behavior unchanged, headless fallback intact</li></ul></section>
+<section data-spec="out-of-scope"><h2>Out of scope</h2><ul><li>Restyling confirm, input or other menus (possible follow-up)</li><li>New features: groups, multi-select, previews</li><li>Changing position or width</li></ul></section>
+</main></body></html>
