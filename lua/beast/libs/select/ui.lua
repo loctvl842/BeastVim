@@ -23,7 +23,7 @@ local DEBOUNCE_MS = 30
 ---@return string
 local function format_title(prompt)
 	local trimmed = vim.trim(prompt):gsub(":$", "")
-	return " " .. trimmed .. " "
+	return trimmed
 end
 
 ---@param footer_hints? { key: string, label: string }[]
@@ -54,7 +54,8 @@ function M.open(items, opts, on_choice)
 	local total_w = math.min(math.max(math.floor(vim.o.columns * WIDTH_RATIO), MIN_WIDTH), MAX_WIDTH)
 	local content_w = total_w - 2
 	local list_h = 2 * math.max(1, math.min(#items, MAX_VISIBLE_ITEMS)) + 1
-	local total_h = list_h + 4
+	-- header panel (4 rows) + list rows + the footer row below the list
+	local total_h = list_h + 5
 	-- Upper-middle, not dead-center (matches input's centered-fallback
 	-- placement) — but never let a tall list run off the bottom of a small
 	-- terminal.
@@ -75,30 +76,50 @@ function M.open(items, opts, on_choice)
 	View.win.wo(backdrop_win, "winhighlight", "Normal:BeastSelectBackdrop,EndOfBuffer:BeastSelectBackdrop")
 	View.win.wo(backdrop_win, "winblend", config.ui.backdrop)
 
+	-- Prompt panel: a backing window (blank, heading, filter row, blank) with the
+	-- input window overlaid on its filter row, so the panel is one lighter block.
+	local text_col = 3 -- aligns with the list text (1 border cell + 2 pad)
+	local heading = format_title(opts.prompt)
+	local header_buf = View.buf.new("beast-select-header")
+	vim.api.nvim_buf_set_lines(header_buf, 0, -1, false, { "", string.rep(" ", text_col) .. heading, "", "" })
+	vim.bo[header_buf].modifiable = false
+	vim.api.nvim_buf_set_extmark(header_buf, vim.api.nvim_create_namespace("beast-select-header"), 1, text_col, {
+		end_col = text_col + #heading,
+		hl_group = "BeastSelectInputTitle",
+	})
+	local header_win = vim.api.nvim_open_win(header_buf, false, {
+		relative = "editor",
+		row = top,
+		col = left,
+		width = total_w,
+		height = 4,
+		style = "minimal",
+		focusable = false,
+		zindex = 101,
+	})
+	View.win.wo(header_win, "winhl", "Normal:BeastSelectInputNormal")
+
 	local input_buf = View.buf.new("beast-select-input")
 	vim.bo[input_buf].buftype = "prompt"
 	vim.fn.prompt_setprompt(input_buf, "")
 
 	local input_win = vim.api.nvim_open_win(input_buf, true, {
 		relative = "editor",
-		row = top,
-		col = left,
-		width = content_w,
+		row = top + 2,
+		col = left + text_col,
+		width = total_w - 2 * text_col,
 		height = 1,
 		style = "minimal",
-		border = { "╭", "─", "╮", "│", "┤", "─", "├", "│" },
-		title = format_title(opts.prompt),
-		title_pos = "left",
-		zindex = 101,
+		zindex = 102,
 	})
-	View.win.wo(input_win, "winhl", "Normal:BeastSelectInputNormal,FloatBorder:BeastSelectBorder,FloatTitle:BeastSelectInputTitle")
+	View.win.wo(input_win, "winhl", "Normal:BeastSelectInputNormal")
 	vim.wo[input_win].cursorline = false
 	vim.wo[input_win].number = false
 	vim.wo[input_win].relativenumber = false
 	vim.wo[input_win].signcolumn = "no"
 	vim.wo[input_win].wrap = false
 
-	local list_view = list.create(top + 3, left, content_w, list_h, format_footer(opts.footer_hints))
+	local list_view = list.create(top + 4, left, content_w, list_h, format_footer(opts.footer_hints))
 
 	---@type Beast.Select.Wrapped[]
 	local wrapped = {}
@@ -146,6 +167,9 @@ function M.open(items, opts, on_choice)
 		end
 		if list_view:is_valid() then
 			list_view:close()
+		end
+		if vim.api.nvim_win_is_valid(header_win) then
+			vim.api.nvim_win_close(header_win, true)
 		end
 		if vim.api.nvim_win_is_valid(backdrop_win) then
 			vim.api.nvim_win_close(backdrop_win, true)
