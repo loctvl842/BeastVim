@@ -22,69 +22,35 @@ The picker already applies a theme live as the cursor moves. Showing the palette
 
 # Target Behavior
 
-STATE 1 — Picker just opened (top row highlighted, as today):
+STATE 1 - Picker just opened (top row selected, as today). Two borderless panels, the prompt panel slightly lighter than the list panel; `ayu_dark` is shown selected for illustration:
 
 ```
-┌────────────────────────────────────────┐
-│                                        │
-└────────────────────────────────────────┘
-┌────────────────────────────────────────┐
-│ aquarium          ■ ■ ■ ■ ■ ■ ■ ■ ■ ■  │
-│ ────────────────────────────────────── │
-│ ashes             ■ ■ ■ ■ ■ ■ ■ ■ ■ ■  │
-│ ────────────────────────────────────── │
-│ aylin             ■ ■ ■ ■ ■ ■ ■ ■ ■ ■  │
-│ ────────────────────────────────────── │
-│ ayu_dark          ■ ■ ■ ■ ■ ■ ■ ■ ■ ■  │
-│ ────────────────────────────────────── │
-│ ayu_light         ■ ■ ■ ■ ■ ■ ■ ■ ■ ■  │
-│ ────────────────────────────────────── │
-│ bearded-arc       ■ ■ ■ ■ ■ ■ ■ ■ ■ ■  │
-│ ────────────────────────────────────── │
-│ blossom_light     ■ ■ ■ ■ ■ ■ ■ ■ ■ ■  │
-└────────────────────────────────────────┘
+   🔍 |                                       <- prompt panel (lighter)
+
+   aquarium           󱓻 󱓻 󱓻 󱓻 󱓻 󱓻 󱓻 󱓻 󱓻 󱓻   <- list panel (darker)
+   - - - - - - - - - - - - - - - - - - - - -
+   ashes              󱓻 󱓻 󱓻 󱓻 󱓻 󱓻 󱓻 󱓻 󱓻 󱓻
+   - - - - - - - - - - - - - - - - - - - - -
+   aylin              󱓻 󱓻 󱓻 󱓻 󱓻 󱓻 󱓻 󱓻 󱓻 󱓻
+   ─────────────────────────────────────────
+   ayu_dark ◀         󱓻 󱓻 󱓻 󱓻 󱓻 󱓻 󱓻 󱓻 󱓻 󱓻
+   ─────────────────────────────────────────
+   ayu_light          󱓻 󱓻 󱓻 󱓻 󱓻 󱓻 󱓻 󱓻 󱓻 󱓻
+   - - - - - - - - - - - - - - - - - - - - -
+   bearded-arc        󱓻 󱓻 󱓻 󱓻 󱓻 󱓻 󱓻 󱓻 󱓻 󱓻
 ```
 
-- Two stacked boxes: an empty prompt box on top, the theme list below.
-- Each row: theme name on the left, ten colored squares on the right edge.
-- A thin horizontal line separates every pair of rows.
-- Each square is painted in a real color from that theme (see Behavior Rules).
+- No box borders. The prompt is a lighter panel with a search icon; the list is a darker panel directly below it.
+- Each row: theme name on the left, ten rounded color squares on the right edge.
+- Between two rows: a dashed line (`-----`) in a dim color, inset the same amount on both sides.
+- The selected row has no background tint. Its name turns blue (bold) with a `◀` after it, and the lines directly above and below it are solid (`─────`) and blue instead of dashed. At the very top or bottom of the list the solid line is still drawn on the open side of the selected row.
+- Every other row keeps its normal text color; squares always keep their own colors.
 
 ─────────────────────────────────────────
-STATE 2 — Moving down the list:
-
-```
-┌────────────────────────────────────────┐
-│                                        │
-└────────────────────────────────────────┘
-┌────────────────────────────────────────┐
-│ aquarium          ■ ■ ■ ■ ■ ■ ■ ■ ■ ■  │
-│ ────────────────────────────────────── │
-│▌ashes             ■ ■ ■ ■ ■ ■ ■ ■ ■ ■  │  <- highlighted row
-│ ────────────────────────────────────── │
-│ aylin             ■ ■ ■ ■ ■ ■ ■ ■ ■ ■  │
-└────────────────────────────────────────┘
-```
-
-The highlighted row is tinted. The whole editor behind the picker is repainted in that theme right away.
+STATE 2 - Moving down the list: the blue text, pointer and solid lines move with the selection; the editor behind repaints in that theme right away.
 
 ─────────────────────────────────────────
-STATE 3 — Typing to filter:
-
-```
-┌────────────────────────────────────────┐
-│ ay                                     │
-└────────────────────────────────────────┘
-┌────────────────────────────────────────┐
-│ aylin             ■ ■ ■ ■ ■ ■ ■ ■ ■ ■  │
-│ ────────────────────────────────────── │
-│ ayu_dark          ■ ■ ■ ■ ■ ■ ■ ■ ■ ■  │
-│ ────────────────────────────────────── │
-│ ayu_light         ■ ■ ■ ■ ■ ■ ■ ■ ■ ■  │
-└────────────────────────────────────────┘
-```
-
-The last visible row has no separator line under it.
+STATE 3 - Typing to filter: only matching themes remain, each with its swatches; the selected one keeps the same styling. Outside the first and last remaining rows there is blank space, not dashes.
 
 ---
 
@@ -157,8 +123,8 @@ Step 1: Type "zzzz".
 - Order, filtering, selection keys and the starting row (top of the list) behave exactly as today; only the look of the picker changes.
 - The look applies only to the theme picker. Other pickers (files, buffers, grep, help) keep their current look.
 - The preview pane stays off for the theme picker.
-- Separator lines appear between rows only, never above the first or below the last.
-- Swatch squares keep their own colors on the highlighted row (the highlight tint does not recolor them).
+- Dashed lines appear between rows only (never above the first or below the last); the only lines on the outer edges are the solid ones framing the selected row.
+- Swatch squares keep their own colors on the selected row. The selected row is not background-tinted.
 
 ---
 
@@ -167,15 +133,14 @@ Step 1: Type "zzzz".
 This is a visual change only. All picker behavior stays exactly as it is today (verified against the current picker: top row highlighted on open, live repaint while moving, Esc restores, Enter applies, no preview pane).
 
 - **Swatch roles** - recommended: background, foreground, red, orange, yellow, green, cyan, blue, purple, grey. Alternative: the ten most frequent accent colors of the theme (varies per theme, less comparable).
-- **Highlight style** - recommended: tinted row plus a left marker bar. Alternative: tint only.
 
 ---
 
 # Success Criteria
 
-- [ ] `<leader>c` shows a prompt box above a separate theme list box.
+- [ ] `<leader>c` shows a borderless prompt panel above a darker theme list panel.
 - [ ] Every row shows a name on the left and ten colored squares on the right.
-- [ ] A thin line separates consecutive rows, with none after the last row.
+- [ ] A dashed line separates consecutive rows; the selected row is framed by solid blue lines, blue text and a pointer, with no background tint.
 - [ ] Squares match the colors the theme actually uses.
 - [ ] All rows show their squares immediately on open, with no visible delay.
 - [ ] Moving the highlight still repaints the editor live in that theme.

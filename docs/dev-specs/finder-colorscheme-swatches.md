@@ -152,3 +152,6 @@ After the change: opening `<leader>c` reads a JSON cache (name -> mtime + 10 hex
 - `bb007e0` feat(finder): card layout with palette swatches for the colorscheme picker (also: filter-match rows follow the separator stride, empty-title input fix found in E2E, ErrorMsg/WarningMsg preferred over Diagnostic* for red/yellow, card width 46)
 
 Verification: all 5 `tests/test-finder-*.lua` pass (19 + 19 + 8 + 4 + 11); stylua clean on touched files; E2E in tmux (`NVIM_APPNAME=BeastVim`): layout, live preview, Esc restore, Enter apply, filter highlights, swatch colors after a `:colorscheme` between opens. `bench-ux.sh` not run.
+
+### Revision: restyle to the reference design
+Picker restyled after reviewing the target screenshot: borderless filled panels (prompt lighter, list darker), dashed `-` separators, selected row framed by solid blue lines with blue text and a `◀` pointer (no background tint), rounded-square swatch glyph, card width 52. The list's separator mode now reserves a slot row above every item and below the last (capacity `(h-1)//2`), so the selected row is framed even at the list edges.
