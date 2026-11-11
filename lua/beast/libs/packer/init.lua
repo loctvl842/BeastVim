@@ -366,8 +366,20 @@ function M.setup(opts)
 	-- error path. profile.measure can't be used here because its inner pcall
 	-- would swallow the error and break xpcall's traceback.
 	local t_pack_add = Util.hrtime()
+	-- Plugins whose last install failed recently are not cloned again; they stay
+	-- out of vim.pack.add (which would re-clone on every start) until the retry
+	-- window ends or the user retries from the Packer UI.
+	failures.prune(vim_pack_specs)
+	local attempted = {} ---@type { name: string, src: string }[]
+	for _, vspec in ipairs(vim_pack_specs) do
+		if failures.is_blocked(vspec.name, config.install_retry_hours) then
+			state.failed_plugins[vspec.name] = true
+		else
+			table.insert(attempted, vspec)
+		end
+	end
 	local packadd_ok, packadd_err = xpcall(function()
-		vim.pack.add(vim_pack_specs, {
+		vim.pack.add(attempted, {
 			confirm = false,
 			load = function(plugin)
 				local name = assert(plugin.spec.name, "vim.pack plugin.spec.name is missing")
@@ -386,7 +398,7 @@ function M.setup(opts)
 		-- so record the ones still missing and keep going with the rest.
 		local failed = {}
 		local op = operation()
-		for _, vspec in ipairs(vim_pack_specs) do
+		for _, vspec in ipairs(attempted) do
 			if not failures.is_installed(vspec.name) then
 				local reason = failures.reason_for(packadd_err, vspec.name)
 				failures.record(vspec.name, vspec.src, reason)

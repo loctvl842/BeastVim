@@ -13,10 +13,12 @@
 ---@class Beast.Packer.Config
 ---@field spec? Beast.Packer.PluginSpec[] List of plugin specs
 ---@field colorscheme? Beast.Packer.Colorscheme Eagerly load this colorscheme at start of setup() if its plugin is already installed
+---@field install_retry_hours? number Hours before a plugin that failed to install is cloned again on startup (default 24)
 ---@field ui table
 local defaults = {
 	spec = {},
 	colorscheme = nil,
+	install_retry_hours = 24,
 	ui = {
 		width = 0.7,
 		height = 0.7,
