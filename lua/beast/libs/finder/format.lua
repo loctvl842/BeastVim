@@ -143,13 +143,13 @@ function M.colorschemes(item, width)
 	local chunks = {}
 	for i = 1, SWATCH_COUNT do
 		local color = item.swatches and item.swatches[i]
-		chunks[#chunks + 1] = { "■", color and require("beast.libs.finder.highlights").swatch(color) or "BeastFinderSwatchEmpty" }
-		chunks[#chunks + 1] = { " ", "BeastFinderNormal" }
+		chunks[#chunks + 1] = { "󱓻", color and require("beast.libs.finder.highlights").swatch(color) or "BeastFinderSwatchEmpty" }
+		chunks[#chunks + 1] = { " " }
 	end
 
-	-- Leave room for the selection prefix (2), the strip (10 squares, each followed by a space) and a gap (1).
+	-- Leave room for the left pad (2), the strip (10 squares, each followed by a space), a gap (1) and the pointer (2).
 	local name = item.text
-	local room = (width or 80) - 2 - (SWATCH_COUNT * 2) - 1
+	local room = (width or 80) - 2 - (SWATCH_COUNT * 2) - 1 - 2
 	if vim.fn.strdisplaywidth(name) > room then
 		name = vim.fn.strcharpart(name, 0, math.max(0, room - 3)) .. "..."
 	end

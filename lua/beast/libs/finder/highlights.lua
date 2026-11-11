@@ -19,7 +19,13 @@ function M.get()
 		ListMatch = { bg = Util.colors.blend(p.text, 0.15, bg), bold = true },
 		ListFile = { fg = p.text },
 		ListDir = { fg = p.dimmed3 },
-		ListSeparator = { fg = p.dimmed4, bg = bg },
+		ListSeparator = { fg = p.dimmed4 },
+		ListSelected = { fg = p.accent5, bold = true },
+		ListSelectedLine = { fg = p.accent5 },
+		ListPointer = { fg = p.accent5 },
+		-- Card style (colorscheme picker): list panel is darker than the prompt panel
+		CardList = { bg = p.background, fg = p.text },
+		CardInput = { fg = bg, bg = bg },
 		SwatchEmpty = { fg = p.dimmed4 },
 		ListCursor = { blend = 100, nocombine = true },
 		-- Preview

@@ -16,21 +16,22 @@ local config = require("beast.libs.finder.config")
 
 local M = {}
 
-local CARDS_WIDTH = 46
+local CARDS_WIDTH = 52
 
----Two separate bordered boxes (prompt above list) in a narrow centered column.
+---Two borderless filled panels (prompt above list) in a narrow centered column.
+---The prompt's border is blank padding in its own background; the list only pads its sides.
 ---@return Beast.Finder.Layout
 local function calc_cards()
 	local total_w = math.min(CARDS_WIDTH, vim.o.columns - 2)
 	local total_h = math.floor(vim.o.lines * config.height)
 	local top = math.floor((vim.o.lines - total_h) / 2)
 	local left = math.floor((vim.o.columns - total_w) / 2)
-	local border = { "╭", "─", "╮", "│", "╯", "─", "╰", "│" }
+	local blank = { " ", " ", " ", " ", " ", " ", " ", " " }
 	local content_w = total_w - 2
 	return {
-		input = { row = top, col = left, w = content_w, h = 1, border = border },
-		-- input box is 3 rows tall (border + 1 line + border); the list box sits right below
-		list = { row = top + 3, col = left, w = content_w, h = math.max(1, total_h - 5), border = border },
+		input = { row = top, col = left, w = content_w, h = 1, border = blank },
+		-- input panel is 3 rows tall (pad + 1 line + pad); the list panel sits right below
+		list = { row = top + 3, col = left, w = content_w, h = math.max(1, total_h - 3), border = { "", "", "", " ", "", "", "", " " } },
 	}
 end
 

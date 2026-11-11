@@ -71,7 +71,7 @@ function M:new(source_name, opts)
 		input = ui.input.create(function(text)
 			query.filter:update(text)
 			pipeline.run(instance)
-		end, geo.input.w, geo.input.h, geo.input.row, geo.input.col, title, input_debounce, geo.input.border),
+		end, geo.input.w, geo.input.h, geo.input.row, geo.input.col, title, input_debounce, geo.input.border, opts.layout == "cards"),
 		list = ui.list.create(geo.list.row, geo.list.col, geo.list.w, geo.list.h, geo.list.border, opts.separators),
 		backdrop = ui.backdrop.create(config.backdrop),
 	}

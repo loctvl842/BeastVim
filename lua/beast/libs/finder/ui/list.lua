@@ -7,7 +7,7 @@ local config = require("beast.libs.finder.config")
 ---@field items Beast.Finder.Item[]
 ---@field cursor integer 1-based index into items
 ---@field _format_fn fun(item: Beast.Finder.Item): Beast.Finder.Highlight[]
----@field _separators boolean when true, a separator row is drawn between consecutive visible items
+---@field _separators boolean card style: a slot row above every item and below the last (dashed between items, solid around the selected one)
 ---@field _header_fn? fun(item: Beast.Finder.Item): Beast.Finder.Highlight[] optional group header (grouped sources)
 ---@field _offset integer 0-based index of the first visible item
 ---@field _win_height integer height of the window (viewport size)
@@ -58,10 +58,14 @@ function M.create(win_row, win_col, win_w, win_h, border, separators)
 		zindex = 101,
 	})
 
-	View.win.wo(win, "cursorline", true)
+	View.win.wo(win, "cursorline", not separators)
 	View.win.wo(win, "scrolloff", 0)
 	View.win.wo(win, "wrap", false)
-	View.win.wo(win, "winhl", "Normal:BeastFinderNormal,FloatBorder:BeastFinderBorder,CursorLine:BeastFinderListCursorLine")
+	if separators then
+		View.win.wo(win, "winhl", "Normal:BeastFinderCardList,FloatBorder:BeastFinderCardList")
+	else
+		View.win.wo(win, "winhl", "Normal:BeastFinderNormal,FloatBorder:BeastFinderBorder,CursorLine:BeastFinderListCursorLine")
+	end
 
 	local view = ListView(buf, win, ns)
 	view._separators = separators or false
@@ -72,12 +76,12 @@ end
 -- Virtual rendering internals
 -- ---------------------------------------------------------------------------
 
---- Items that fit when every pair of visible items is split by a separator row:
---- n items need 2n - 1 rows.
+--- Items that fit when a separator slot sits above every item and below the last:
+--- n items need 2n + 1 rows.
 ---@param view Beast.Finder.ListView
 ---@return integer
 local function separated_capacity(view)
-	return math.max(1, math.floor((view._win_height + 1) / 2))
+	return math.max(1, math.floor((view._win_height - 1) / 2))
 end
 
 --- How many buffer rows item `idx` occupies: 1 for the match line, plus 1 for a
@@ -220,6 +224,22 @@ local function render_visible(view)
 	-- Same margin on both sides: the inline prefix pad on the left, an equal gap on the right.
 	local sep_width = vim.api.nvim_win_get_width(view.win) - 2 * vim.fn.strdisplaywidth(sel_prefix)
 
+	--- Row above item `idx` (or below the last one when `idx` is past it) in card style:
+	--- solid line next to the selected item, dashes between items, blank at the edges.
+	---@param idx integer item the slot sits above
+	---@param first boolean slot is the top edge
+	---@param last boolean slot is the bottom edge
+	---@return Beast.Finder.Highlight[]
+	local function slot(idx, first, last)
+		if idx == view.cursor or idx - 1 == view.cursor then
+			return { { text = string.rep("─", sep_width), hl = "BeastFinderListSelectedLine" } }
+		end
+		if first or last then
+			return {}
+		end
+		return { { text = string.rep("-", sep_width), hl = "BeastFinderListSeparator" } }
+	end
+
 	local lines = {} ---@type string[]
 	local row_hl = {} ---@type table<integer, Beast.Finder.Highlight[]> 1-based row -> highlights
 	local row_is_match = {} ---@type table<integer, boolean>
@@ -230,14 +250,14 @@ local function render_visible(view)
 	local idx = offset + 1
 	while idx <= total and rows < win_height do
 		local needs_header = header_fn ~= nil and (idx == 1 or items[idx].file ~= items[idx - 1].file)
-		local needs_sep = separators and idx > offset + 1
-		local cost = (needs_header or needs_sep) and 2 or 1
-		if rows + cost > win_height and rows > 0 then
+		local cost = (needs_header or separators) and 2 or 1
+		-- Card style keeps one row free for the slot below the last item.
+		if rows + cost + (separators and 1 or 0) > win_height and rows > 0 then
 			break
 		end
-		if needs_sep then
+		if separators then
 			rows = rows + 1
-			local h = { { text = string.rep("─", sep_width), hl = "BeastFinderListSeparator" } }
+			local h = slot(idx, idx == offset + 1, false)
 			row_hl[rows] = h
 			row_is_match[rows] = false
 			lines[rows] = line_text(h)
@@ -251,12 +271,25 @@ local function render_visible(view)
 		end
 		rows = rows + 1
 		local hl = format_fn(items[idx])
+		if separators and idx == view.cursor then
+			hl = vim.tbl_map(function(h)
+				return h.right_align and h or vim.tbl_extend("force", h, { hl = "BeastFinderListSelected" })
+			end, hl)
+		end
 		row_hl[rows] = hl
 		row_is_match[rows] = true
 		item_to_row[idx] = rows
 		row_to_item[rows] = idx
 		lines[rows] = line_text(hl)
 		idx = idx + 1
+	end
+
+	if separators and rows > 0 then
+		rows = rows + 1
+		local h = slot(idx, false, true)
+		row_hl[rows] = h
+		row_is_match[rows] = false
+		lines[rows] = line_text(h)
 	end
 
 	view._item_to_row = item_to_row
@@ -276,7 +309,7 @@ local function render_visible(view)
 		-- Selection prefix on match rows (selected on the cursor's match line);
 		-- headers get the pad so their text aligns with the match column.
 		local prefix_text = pad
-		if row_is_match[r] and r == cursor_row then
+		if row_is_match[r] and r == cursor_row and not separators then
 			prefix_text = sel_prefix
 		end
 		vim.api.nvim_buf_set_extmark(view.buf, view.prefix_ns, r - 1, 0, {
@@ -284,6 +317,13 @@ local function render_visible(view)
 			virt_text_pos = "inline",
 		})
 		apply_row_highlights(view, r - 1, row_hl[r])
+	end
+
+	if separators and cursor_row then
+		vim.api.nvim_buf_set_extmark(view.buf, view.ns, cursor_row - 1, 0, {
+			virt_text = { { " ◀", "BeastFinderListPointer" } },
+			virt_text_pos = "eol",
+		})
 	end
 
 	if cursor_row then

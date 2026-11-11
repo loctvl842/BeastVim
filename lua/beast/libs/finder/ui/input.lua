@@ -38,7 +38,8 @@ local M = {}
 ---@param title? string title displayed in the input border
 ---@param debounce_ms? integer override debounce interval
 ---@param border? table border chars
-function M.create(on_change, total_w, total_h, win_row, win_col, title, debounce_ms, border)
+---@param card? boolean card style: filled panel, extra left padding before the prompt icon
+function M.create(on_change, total_w, total_h, win_row, win_col, title, debounce_ms, border, card)
 	local buf = View.buf.new("beast-finder-input")
 	vim.bo[buf].buftype = "prompt"
 
@@ -62,7 +63,11 @@ function M.create(on_change, total_w, total_h, win_row, win_col, title, debounce
 	})
 
 	View.win.wo(win, "cursorline", false)
-	View.win.wo(win, "winhl", "Normal:BeastFinderInputNormal,FloatBorder:BeastFinderBorder,FloatTitle:BeastFinderInputTitle")
+	if card then
+		View.win.wo(win, "winhl", "Normal:BeastFinderInputNormal,FloatBorder:BeastFinderCardInput")
+	else
+		View.win.wo(win, "winhl", "Normal:BeastFinderInputNormal,FloatBorder:BeastFinderBorder,FloatTitle:BeastFinderInputTitle")
+	end
 
 	local view = InputView(buf, win, ns)
 
@@ -79,6 +84,11 @@ function M.create(on_change, total_w, total_h, win_row, win_col, title, debounce
 			end_col = prefix_len,
 			hl_group = "BeastFinderInputPromptPrefix",
 		})
+	end
+
+	if card then
+		-- Virtual left padding: the buffer text (and the prefix stripped by get_text) stays untouched.
+		vim.api.nvim_buf_set_extmark(buf, ns, 0, 0, { virt_text = { { "  " } }, virt_text_pos = "inline" })
 	end
 
 	local db_ms = debounce_ms or config.debounce.normal_ms
