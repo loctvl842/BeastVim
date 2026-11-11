@@ -31,6 +31,7 @@ return {
 				module = "blink-cmp-supermaven",
 				async = true,
 			})
+      ---@diagnostic disable-next-line: param-type-mismatch
 			table.insert(require("blink.cmp.config").sources.default, "supermaven")
 		end,
 	},

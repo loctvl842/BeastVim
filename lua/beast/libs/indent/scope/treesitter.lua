@@ -53,6 +53,7 @@ end
 ---@return TSNode?
 local function find_scope_node(node, root)
 	local types = get_scope_set()
+  ---@type TSNode?
 	local current = node
 	while current and current ~= root do
 		if types[current:type()] then
@@ -99,14 +100,14 @@ local function collect_segments(buf, lines, body_from, body_indent, col, sw)
 	return segments
 end
 
+---@type table
+local parser_opts = { error = false }
+
 ---Find scope using treesitter at the given position.
 ---Must be called inside `nvim_buf_call` for the target buffer.
 ---@param buf integer
 ---@param pos {[1]: integer, [2]: integer} 1-indexed line, 0-indexed col
 ---@return Beast.Indent.Scope[]?
----@type table
-local parser_opts = { error = false }
-
 function M.find(buf, pos)
 	-- Fast parser check: avoid pcall overhead on repeat calls
 	local parser = vim.treesitter.get_parser(buf, nil, parser_opts)

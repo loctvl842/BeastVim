@@ -24,7 +24,9 @@
 local M = {}
 
 function M.get()
-  if Theme.kind() == "plugin" then return end
+	if Theme.kind() == "plugin" then
+		return
+	end
 	local p = Theme.get()
 	return {
 		-- Identifiers ---------------------------------------------------------
@@ -158,6 +160,7 @@ function M.get()
 		-- LSP semantic tokens -------------------------------------------------
 		["@lsp.type.comment"] = {},
 		["@lsp.type.enum"] = { link = "@type" },
+		["@lsp.type.type"] = { link = "@type" },
 		["@lsp.type.interface"] = { link = "@type" },
 		["@lsp.type.keyword"] = { link = "@keyword" },
 		["@lsp.type.namespace"] = { link = "@module" },
