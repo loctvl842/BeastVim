@@ -1,11 +1,11 @@
 ---
 name: select-card-spacing
-description: Balance the vertical spacing of the select menu - a clear gap between heading and filter line with no empty band around them, and a padded footer row
+description: Balance the vertical spacing of the select menu - one row of padding at the top and bottom of every panel, a centered heading directly above the filter line, and a padded footer row
 generated: 2026-11-12
 ---
 
 # Summary
-The select menu keeps its card look, but its vertical rhythm is rebalanced: the heading and the filter line get a clear gap between them, the empty bands above the heading and below the filter line go away, and the footer hints sit close under the options with the same padding above and below.
+The select menu keeps its card look, but its vertical rhythm is rebalanced: the prompt panel has one row of padding above and below its content (heading directly above the filter line), and the footer hints sit close under the options with the same padding above and below.
 
 ---
 
@@ -27,9 +27,10 @@ STATE 1 - Opened (first option selected). Blank rows shown as `·` for review on
 
 ```
  (prompt panel - lighter)
-     Code actions                                     <- heading, first row of the panel
-   ·                                                  <- clear gap
-     |                                                <- filter line, last row of the panel
+   ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄  <- half-height top edge
+                       Code actions                       <- heading, centered
+     |                                                <- filter line
+   ·                                                  <- one row of padding
 
  (list panel - darker)
      ───────────────────────────────────────────────
@@ -43,7 +44,9 @@ STATE 1 - Opened (first option selected). Blank rows shown as `·` for review on
    ·                                                  <- one blank row (matches the one above)
 ```
 
-- Prompt panel: exactly three rows - the heading, one blank row, the filter line. There is no empty band above the heading or below the filter line.
+- The heading is centered horizontally in the prompt panel (the filter line stays left-aligned).
+- Prompt panel: four rows - a half-height top edge (a thin strip, not a full blank row), the heading, the filter line, one blank row.
+- The top edge is drawn so the card's upper half-row blends into the dimmed backdrop; it keeps working if the backdrop strength is changed. Padding above and below is the same, matching the footer's one-row padding.
 - List panel: the footer hints have exactly one blank row above them (below the last option) and exactly one blank row below them, so they float evenly inside the card instead of sitting on its bottom edge.
 - Nothing else changes: separators, the framed selection, the pointer, colours and widths stay as they are.
 
@@ -51,9 +54,10 @@ STATE 1 - Opened (first option selected). Blank rows shown as `·` for review on
 STATE 2 - Few options (one option):
 
 ```
-     Code actions
    ·
+     Code actions
      |
+   ·
      ───────────────────────────────────────────────
      Disable diagnostics in this file  ◀
      ───────────────────────────────────────────────
@@ -66,9 +70,10 @@ STATE 2 - Few options (one option):
 STATE 3 - No matches:
 
 ```
-     Select colorscheme
    ·
+     Select colorscheme
      zzz|
+   ·
 
                     No matching items
    ·
@@ -86,9 +91,8 @@ The footer keeps its padding above and below here as well.
 
 ```
 Step 1: Trigger a code action.
-  The prompt panel shows the heading, a blank row, then the filter line.
-  The heading is clearly separate from the filter line, and there is no
-  empty band above or below them.
+  The prompt panel shows a blank row, the heading, the filter line and a
+  blank row: the padding above and below is equal.
 
 Step 2: Look at the bottom of the card.
   The footer hints have one blank row above and one below; they no longer
@@ -122,7 +126,7 @@ Step 1: Open a menu in a short terminal window.
 
 # Behavior Rules
 
-- The prompt panel is exactly: heading, blank, filter line. No extra empty rows above the heading or below the filter line.
+- The prompt panel is exactly: blank, heading, filter line, blank (no gap between heading and filter).
 - The footer has one blank row above it and one blank row below it, always (also in the empty state).
 - Only vertical spacing changes. Behavior, colours, widths, separators and selection styling stay exactly as they are.
 - The card never extends past the bottom of the screen.
@@ -131,8 +135,7 @@ Step 1: Open a menu in a short terminal window.
 
 # Success Criteria
 
-- [ ] A blank row separates the heading from the filter line.
-- [ ] No empty band above the heading or below the filter line.
+- [ ] Padding above the heading equals padding below the filter line (one row each).
 - [ ] The footer hints have one blank row above and one below them.
 - [ ] The empty state and single-option menus keep the same padding.
 - [ ] Tall lists and short terminals still fit on screen.
