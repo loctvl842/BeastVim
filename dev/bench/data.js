@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794188693336,
+  "lastUpdate": 1794409072891,
   "repoUrl": "https://github.com/loctvl842/BeastVim",
   "entries": {
     "BeastVim Startup": [
@@ -3033,6 +3033,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "BeastVim startup (warm) max",
             "value": 349.70205100000004,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "committer": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "distinct": true,
+          "id": "7cbfd137f62837e5bc22d9041bac22666a507447",
+          "message": "ci(bench): install hyperfine from its github release instead of apt",
+          "timestamp": "2026-11-11T21:57:27+07:00",
+          "tree_id": "b43f27456b6305a6b0374f812c50574653a5e310",
+          "url": "https://github.com/loctvl842/BeastVim/commit/7cbfd137f62837e5bc22d9041bac22666a507447"
+        },
+        "date": 1794409071911,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "BeastVim startup (warm) mean",
+            "value": 40.80684515000001,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) stddev",
+            "value": 3.0442182418703556,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) min",
+            "value": 39.127884,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) max",
+            "value": 53.221953,
             "unit": "ms"
           }
         ]
