@@ -161,6 +161,7 @@ function M.get()
 		["@lsp.type.comment"] = {},
 		["@lsp.type.enum"] = { link = "@type" },
 		["@lsp.type.type"] = { link = "@type" },
+		["@lsp.type.class"] = { link = "@type" },
 		["@lsp.type.interface"] = { link = "@type" },
 		["@lsp.type.keyword"] = { link = "@keyword" },
 		["@lsp.type.namespace"] = { link = "@module" },
