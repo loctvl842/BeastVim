@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794419912260,
+  "lastUpdate": 1794422220625,
   "repoUrl": "https://github.com/loctvl842/BeastVim",
   "entries": {
     "BeastVim Startup": [
@@ -3121,6 +3121,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "BeastVim startup (warm) max",
             "value": 38.792007000000005,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "committer": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "distinct": true,
+          "id": "b719d39944083cd4a9474b7eed7c6d50ad346b33",
+          "message": "fix(finder): open the colorscheme picker on the current theme and skip no-op restores",
+          "timestamp": "2026-11-12T01:36:17+07:00",
+          "tree_id": "8444fbb58fbb89f98aaf6d15a3570c8fb1ceb7f3",
+          "url": "https://github.com/loctvl842/BeastVim/commit/b719d39944083cd4a9474b7eed7c6d50ad346b33"
+        },
+        "date": 1794422220058,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "BeastVim startup (warm) mean",
+            "value": 37.62493955,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) stddev",
+            "value": 7.267935817370847,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) min",
+            "value": 33.161217,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) max",
+            "value": 62.837193,
             "unit": "ms"
           }
         ]
