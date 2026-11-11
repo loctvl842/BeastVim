@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spec: Theme picker swatches</title>
+<style>
+  :root { --bg:#fbfaf7; --fg:#1c1b19; --muted:#6b675f; --line:#dcd8cf; --card:#fff; --accent:#b4540a; --term:#1e1f26; --termfg:#d8dae5; --termsel:#34374a; --termline:#3b3e50; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#161513; --fg:#ece8df; --muted:#a29d92; --line:#3a3732; --card:#1f1d1a; --accent:#e08a3c; }
+  }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, sans-serif; }
+  main { max-width:880px; margin:0 auto; padding:24px 16px 80px; }
+  section { margin:32px 0; }
+  h1 { margin:0 0 8px; } h2 { margin:0 0 10px; } h3 { margin:18px 0 6px; font-size:1rem; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; }
+  .muted { color:var(--muted); }
+  .mock { background:var(--term); color:var(--termfg); border-radius:10px; padding:16px; font:14px/1.4 ui-monospace,Menlo,monospace; max-width:420px; margin:8px 0; }
+  .box { border:1px solid var(--termline); border-radius:6px; padding:6px 10px; }
+  .prompt { min-height:1.4em; margin-bottom:8px; }
+  .row { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:2px 6px; border-left:3px solid transparent; }
+  .row.sel { background:var(--termsel); border-left-color:#e5b17b; }
+  .nm { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .sw { display:flex; gap:4px; flex:none; }
+  .sw i { width:10px; height:10px; border-radius:2px; display:block; }
+  hr { border:0; border-top:1px solid var(--termline); margin:4px 0; }
+  .states { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:16px; }
+  ol.steps { margin:0; padding-left:22px; } ol.steps li { margin:6px 0; } ol.steps span { color:var(--muted); }
+  ul { padding-left:20px; }
+  details { margin:10px 0; } summary { cursor:pointer; font-weight:600; }
+  .rec { border-left:3px solid var(--accent); padding-left:10px; margin:10px 0; }
+  .tag { color:var(--accent); font-weight:600; font-size:.85em; }
+</style>
+</head>
+<body>
+<main>
+<header data-spec="summary">
+  <h1>Theme picker with color swatches</h1>
+  <p>The theme picker (<code>&lt;leader&gt;c</code>) shows each theme as a roomy row with ten color swatches on the right, so you can judge a palette at a glance. The prompt sits in its own box above the list.</p>
+  <p class="muted">Swatch colors in the mockups below are illustrative.</p>
+</header>
+
+<section data-spec="problem">
+  <h2>Problem</h2>
+  <p>Today the picker is a dense list of names. To see what a theme looks like you must step onto it and watch the editor repaint, one theme at a time. Comparing dozens of themes means a lot of key presses and remembering what you just saw.</p>
+  <p data-spec="why-now" class="muted">Why now: live preview already exists. Swatches let you skip clearly wrong themes without stepping through them, and make the picker feel like a gallery.</p>
+</section>
+
+<section data-spec="target-behavior">
+  <h2>Target behavior</h2>
+  <div class="states">
+    <div data-spec="state-1"><h3>STATE 1 - Just opened (top row highlighted, as today)</h3><div class="mock"><div class="box prompt"></div><div class="box list"><div class="row sel"><span class="nm">aquarium</span><span class="sw"><i style="background:#2c2e3e"></i><i style="background:#c6d0f5"></i><i style="background:#ee8d8d"></i><i style="background:#e5b17b"></i><i style="background:#e4d38f"></i><i style="background:#a5d6a7"></i><i style="background:#8fd6d6"></i><i style="background:#7aa2f7"></i><i style="background:#c3a6f0"></i><i style="background:#6c7086"></i></span></div><hr><div class="row"><span class="nm">ashes</span><span class="sw"><i style="background:#1c1b19"></i><i style="background:#c7c7c7"></i><i style="background:#c95954"></i><i style="background:#c7915b"></i><i style="background:#c7c755"></i><i style="background:#95c7ae"></i><i style="background:#5f8fa1"></i><i style="background:#7a9bc7"></i><i style="background:#b08fc7"></i><i style="background:#747c84"></i></span></div><hr><div class="row"><span class="nm">aylin</span><span class="sw"><i style="background:#1e1e2a"></i><i style="background:#d4d4e0"></i><i style="background:#f07178"></i><i style="background:#f78c6c"></i><i style="background:#ffcb6b"></i><i style="background:#c3e88d"></i><i style="background:#89ddff"></i><i style="background:#82aaff"></i><i style="background:#c792ea"></i><i style="background:#676e95"></i></span></div><hr><div class="row"><span class="nm">ayu_dark</span><span class="sw"><i style="background:#0b0e14"></i><i style="background:#bfbdb6"></i><i style="background:#f07178"></i><i style="background:#ffb454"></i><i style="background:#e6b450"></i><i style="background:#aad94c"></i><i style="background:#95e6cb"></i><i style="background:#59c2ff"></i><i style="background:#d2a6ff"></i><i style="background:#5c6773"></i></span></div><hr><div class="row"><span class="nm">ayu_light</span><span class="sw"><i style="background:#fafafa"></i><i style="background:#5c6166"></i><i style="background:#f07171"></i><i style="background:#fa8d3e"></i><i style="background:#f2ae49"></i><i style="background:#86b300"></i><i style="background:#4cbf99"></i><i style="background:#399ee6"></i><i style="background:#a37acc"></i><i style="background:#abb0b6"></i></span></div><hr><div class="row"><span class="nm">bearded-arc</span><span class="sw"><i style="background:#1c2433"></i><i style="background:#d0d6e0"></i><i style="background:#ea777d"></i><i style="background:#e3a06a"></i><i style="background:#e6c274"></i><i style="background:#7fd1a3"></i><i style="background:#6bcfd9"></i><i style="background:#6e9bf0"></i><i style="background:#b08ee8"></i><i style="background:#5b6577"></i></span></div></div></div>
+      <p class="muted">Empty prompt box above; list below. Thin line between rows, none after the last.</p></div>
+    <div data-spec="state-2"><h3>STATE 2 - Moving down</h3><div class="mock"><div class="box prompt"></div><div class="box list"><div class="row"><span class="nm">aquarium</span><span class="sw"><i style="background:#2c2e3e"></i><i style="background:#c6d0f5"></i><i style="background:#ee8d8d"></i><i style="background:#e5b17b"></i><i style="background:#e4d38f"></i><i style="background:#a5d6a7"></i><i style="background:#8fd6d6"></i><i style="background:#7aa2f7"></i><i style="background:#c3a6f0"></i><i style="background:#6c7086"></i></span></div><hr><div class="row sel"><span class="nm">ashes</span><span class="sw"><i style="background:#1c1b19"></i><i style="background:#c7c7c7"></i><i style="background:#c95954"></i><i style="background:#c7915b"></i><i style="background:#c7c755"></i><i style="background:#95c7ae"></i><i style="background:#5f8fa1"></i><i style="background:#7a9bc7"></i><i style="background:#b08fc7"></i><i style="background:#747c84"></i></span></div><hr><div class="row"><span class="nm">aylin</span><span class="sw"><i style="background:#1e1e2a"></i><i style="background:#d4d4e0"></i><i style="background:#f07178"></i><i style="background:#f78c6c"></i><i style="background:#ffcb6b"></i><i style="background:#c3e88d"></i><i style="background:#89ddff"></i><i style="background:#82aaff"></i><i style="background:#c792ea"></i><i style="background:#676e95"></i></span></div></div></div>
+      <p class="muted">Highlighted row is tinted with a left bar; swatches keep their own colors. The editor behind repaints in that theme.</p></div>
+    <div data-spec="state-3"><h3>STATE 3 - Typing to filter</h3><div class="mock"><div class="box prompt">ay</div><div class="box list"><div class="row"><span class="nm">aylin</span><span class="sw"><i style="background:#1e1e2a"></i><i style="background:#d4d4e0"></i><i style="background:#f07178"></i><i style="background:#f78c6c"></i><i style="background:#ffcb6b"></i><i style="background:#c3e88d"></i><i style="background:#89ddff"></i><i style="background:#82aaff"></i><i style="background:#c792ea"></i><i style="background:#676e95"></i></span></div><hr><div class="row"><span class="nm">ayu_dark</span><span class="sw"><i style="background:#0b0e14"></i><i style="background:#bfbdb6"></i><i style="background:#f07178"></i><i style="background:#ffb454"></i><i style="background:#e6b450"></i><i style="background:#aad94c"></i><i style="background:#95e6cb"></i><i style="background:#59c2ff"></i><i style="background:#d2a6ff"></i><i style="background:#5c6773"></i></span></div><hr><div class="row"><span class="nm">ayu_light</span><span class="sw"><i style="background:#fafafa"></i><i style="background:#5c6166"></i><i style="background:#f07171"></i><i style="background:#fa8d3e"></i><i style="background:#f2ae49"></i><i style="background:#86b300"></i><i style="background:#4cbf99"></i><i style="background:#399ee6"></i><i style="background:#a37acc"></i><i style="background:#abb0b6"></i></span></div></div></div>
+      <p class="muted">Matching themes remain, swatches intact.</p></div>
+  </div>
+</section>
+
+<section data-spec="scenarios">
+  <h2>Scenarios</h2>
+  <details open data-spec="scenario-1"><summary>1 - Browse and pick a theme</summary><ol class="steps">
+    <li><b>Press &lt;leader&gt;c</b><br><span>Prompt box and list appear; every row already shows its swatches.</span></li>
+    <li><b>Press Down a few times</b><br><span>Highlight moves; the editor repaints in each theme.</span></li>
+    <li><b>Press Enter on ayu_dark</b><br><span>Picker closes; editor stays in ayu_dark.</span></li>
+  </ol></details>
+  <details data-spec="scenario-2"><summary>2 - Cancel restores the original theme</summary><ol class="steps">
+    <li><b>Press &lt;leader&gt;c in monokai-pro</b><br><span></span></li>
+    <li><b>Move onto ayu_light</b><br><span>Editor turns light.</span></li>
+    <li><b>Press Esc</b><br><span>Picker closes; editor returns to monokai-pro.</span></li>
+  </ol></details>
+  <details data-spec="scenario-3"><summary>3 - Filter by name</summary><ol class="steps">
+    <li><b>Type ay</b><br><span>Only matching themes remain, each with swatches.</span></li>
+    <li><b>Press Enter on the top row</b><br><span>That theme is applied.</span></li>
+  </ol></details>
+  <details data-spec="scenario-4"><summary>4 - Theme with unreadable colors (edge)</summary><ol class="steps">
+    <li><b>A theme lacks some colors the strip needs</b><br><span>Missing squares are dim grey, so the strip is always ten wide and rows stay aligned.</span></li>
+  </ol></details>
+  <details data-spec="scenario-5"><summary>5 - Long name / narrow window (edge)</summary><ol class="steps">
+    <li><b>Open in a narrow terminal, or with a very long name</b><br><span>The name is shortened with ... so swatches are never pushed off or overlapped.</span></li>
+  </ol></details>
+  <details data-spec="scenario-6"><summary>6 - Empty filter result</summary><ol class="steps">
+    <li><b>Type zzzz</b><br><span>List box shows no rows; Enter does nothing.</span></li>
+  </ol></details>
+</section>
+
+<section data-spec="behavior-rules">
+  <h2>Behavior rules</h2>
+  <ul>
+    <li>Always ten squares in a fixed order, so a column means the same role across themes.</li>
+    <li>Proposed order: background, foreground, red, orange, yellow, green, cyan, blue, purple, grey.</li>
+    <li>Swatches show each theme's own colors; opening the picker never changes the theme by itself.</li>
+    <li>All rows show swatches at once, and opening is not slower than today.</li>
+    <li>Live preview and restore-on-cancel behave exactly as today.</li>
+    <li>Order, filtering, selection keys and the starting row (top) unchanged; only the look changes.</li>
+    <li>Only the theme picker changes; files, buffers, grep and help pickers keep their look.</li>
+    <li>Preview pane stays off for the theme picker.</li>
+    <li>Separators only between rows; swatches keep their colors on the highlighted row.</li>
+  </ul>
+</section>
+
+<section data-spec="open-decisions">
+  <h2>Decisions for you</h2>
+  <p class="muted">Visual change only. All behavior stays as today (checked against the current picker).</p>
+  <div class="rec"><span class="tag">Swatch roles - recommended</span><br>bg, fg, red, orange, yellow, green, cyan, blue, purple, grey. Comparable column by column.<br><span class="muted">Alternative: the theme's ten most frequent accent colors (varies per theme, less comparable).</span></div>
+  <div class="rec"><span class="tag">Highlight style - recommended</span><br>Tinted row plus a left marker bar.<br><span class="muted">Alternative: tint only.</span></div>
+  
+</section>
+
+<section data-spec="success-criteria">
+  <h2>Success criteria</h2>
+  <ul style="list-style:none;padding-left:0">
+    <li>&#9744; Prompt box above a separate theme list box</li>
+    <li>&#9744; Name left, ten colored squares right, on every row</li>
+    <li>&#9744; Thin line between rows, none after the last</li>
+    <li>&#9744; Squares match the colors the theme really uses</li>
+    <li>&#9744; Swatches visible immediately on open, no delay</li>
+    <li>&#9744; Live repaint, Enter keeps, Esc restores</li>
+    <li>&#9744; Filtering keeps swatches</li>
+    <li>&#9744; Missing colors show dim grey; always ten squares</li>
+    <li>&#9744; Long names shortened, never collide with swatches</li>
+    <li>&#9744; Other pickers look unchanged</li>
+  </ul>
+</section>
+
+<section data-spec="out-of-scope">
+  <h2>Out of scope</h2>
+  <ul>
+    <li>Same look for other pickers (possible follow-up)</li>
+    <li>Sample-code preview pane (live repaint covers it)</li>
+    <li>Editing or creating themes</li>
+    <li>Sorting or grouping dark/light</li>
+    <li>Active-theme badge (can be added later)</li>
+  </ul>
+</section>
+</main>
+</body>
+</html>
