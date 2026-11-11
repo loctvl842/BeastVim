@@ -392,11 +392,12 @@ select/
 ├── init.lua       ← run(items, opts, on_choice), setup() (assigns vim.ui.select)
 ├── config.lua     ← disabled flag, ui.backdrop blend
 ├── filter.lua     ← pure matches(text, query): case-insensitive literal substring
-├── list.lua       ← Beast.Select.ListView : virtualized rows, bullet-marker
-│                     extmark, right-aligned tag extmark, dynamic resize-to-fit,
-│                     empty state
-├── ui.lua         ← backdrop + input + list window orchestration, keymaps,
-│                     debounced filter wiring
+├── list.lua       ← Beast.Select.ListView : virtualized rows with a slot row above each
+│                     option and below the last (dashed between, solid blue around the
+│                     selection, blue text + ◀ pointer), right-aligned tag extmark,
+│                     dynamic resize-to-fit (2n+1 rows), label truncation, empty state
+├── ui.lua         ← backdrop + prompt panel (backing header window + overlaid input)
+│                     + list window orchestration, keymaps, debounced filter wiring
 └── health.lua     ← :checkhealth beast.libs.select
 ```
 
@@ -411,7 +412,7 @@ Search box (prompt buffer) filters live via `filter.matches` against
 `format_item(item)` output; list window height dynamically resizes to fit
 the current match count (capped at 15 rows) via `nvim_win_set_config`.
 Footer hint row uses Neovim's native floating-window `footer`/`footer_pos`
-option (no bespoke footer window). Filtering preserves each item's
+option on a blank bottom border row (no bespoke footer window). Filtering preserves each item's
 *original* array index for `on_choice(item, idx)`, independent of the
 filtered view's position.
 Loaded **eagerly** from `beast/init.lua` (same rationale as `input`:
@@ -419,7 +420,7 @@ nothing `require()`s it directly, since Neovim/LSP/plugins call the global
 `vim.ui.select` themselves). Headless/`disabled` fallback delegates to the
 real native `vim.ui.select`, captured at module-load time before `setup()`
 overwrites it.
-Tests: `tests/test-select-filter.lua` (10 assertions, filter matcher).
+Tests: `tests/test-select-filter.lua` (10 assertions, filter matcher), `tests/test-select-list.lua` (27, slot rows / frame / scroll / empty).
 
 ---
 

@@ -87,10 +87,21 @@ The select lib's list window renders a separator "slot" row above every option a
 - Manual (`NVIM_APPNAME=BeastVim`, tmux): trigger an LSP code action and a `vim.ui.select` with tags/footer hints (e.g. a Lua call); PM scenarios 1-6: navigation frame at top/bottom, filter, empty state, Esc, long labels, narrow terminal; compare exact panel colours (prompt lighter than list).
 
 # Success Criteria
-- [ ] Lighter padded prompt panel over a darker list panel; no borders or divider.
-- [ ] Dashed lines between options; selected option framed by solid blue lines, blue bold text, `◀`, no tint.
-- [ ] Footer dim, right-aligned, including caller hints.
-- [ ] Tags right-aligned; long labels shortened, no overlap.
-- [ ] Empty state shown; Enter does nothing.
-- [ ] Selecting, filtering, cancelling and headless fallback unchanged (original index still returned).
-- [ ] New and existing select tests pass; stylua clean.
+- [x] Lighter padded prompt panel over a darker list panel; no borders or divider.
+- [x] Dashed lines between options; selected option framed by solid blue lines, blue bold text, `◀`, no tint.
+- [x] Footer dim, right-aligned, including caller hints.
+- [x] Tags right-aligned; long labels shortened, no overlap.
+- [x] Empty state shown; Enter does nothing.
+- [x] Selecting, filtering, cancelling and headless fallback unchanged (original index still returned).
+- [x] New and existing select tests pass; stylua clean.
+
+---
+
+## Completed
+
+2026-11-12 - Phase 1: list panel (slot rows, framed selection, pointer, footer row, label truncation). Phase 2: prompt panel (header window + overlaid borderless input).
+
+- `d42ecf2` feat(select): dashed slots, framed selection and footer row in the list panel
+- `3a97c0b` feat(select): roomy prompt panel with heading over a borderless filter line
+
+Verification: `tests/test-select-list.lua` 27/27, `tests/test-select-filter.lua` 10/10; stylua clean; tmux E2E: prompt panel `34;31;34` lighter than list panel `25;24;26`, filtering, Enter returns the original index (2), Esc returns nil, window count unchanged after close, long label shortened so the pointer stays visible. `bench-ux.sh` not run (no hot-path lib touched).
