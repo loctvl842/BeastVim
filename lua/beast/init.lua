@@ -383,7 +383,6 @@ function M.setup(opts)
 				"<leader>c",
 				function()
 					local original = vim.g.colors_name or "default"
-					local confirmed = false
 					require("beast.libs.finder").open("colorschemes", {
 						preview = false,
 						layout = "cards",
@@ -391,9 +390,12 @@ function M.setup(opts)
 						backdrop = false,
 						freeze_colors = true,
 						on_preview = function(item)
-							pcall(vim.cmd.colorscheme, item.text)
+							-- Skip the theme that is already active (the picker previews its first row on open).
+							if item.text ~= vim.g.colors_name then
+								pcall(vim.cmd.colorscheme, item.text)
+							end
 						end,
-						on_close = function()
+						on_close = function(confirmed)
 							if not confirmed then
 								pcall(vim.cmd.colorscheme, original)
 							end
