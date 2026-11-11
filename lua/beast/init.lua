@@ -377,6 +377,8 @@ function M.setup(opts)
 						preview = false,
 						layout = "cards",
 						separators = true,
+						backdrop = false,
+						freeze_colors = true,
 						on_preview = function(item)
 							pcall(vim.cmd.colorscheme, item.text)
 						end,

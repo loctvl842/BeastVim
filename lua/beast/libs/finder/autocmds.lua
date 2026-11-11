@@ -102,15 +102,6 @@ function M.mount(state)
 		end,
 	})
 
-	-- `:colorscheme` (live theme preview) clears every highlight group, including
-	-- the per-color swatch groups; define them again so the squares keep their colors.
-	vim.api.nvim_create_autocmd("ColorScheme", {
-		group = state.augroup,
-		callback = function()
-			require("beast.libs.finder.highlights").reset_swatches()
-		end,
-	})
-
 	-- Close when focus moves to a window outside the finder
 	vim.api.nvim_create_autocmd("WinEnter", {
 		group = state.augroup,

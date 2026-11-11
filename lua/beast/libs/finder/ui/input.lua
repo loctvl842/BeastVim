@@ -63,9 +63,8 @@ function M.create(on_change, total_w, total_h, win_row, win_col, title, debounce
 	})
 
 	View.win.wo(win, "cursorline", false)
-	if card then
-		View.win.wo(win, "winhl", "Normal:BeastFinderCardInputNormal,FloatBorder:BeastFinderCardInputBorder")
-	else
+	-- Card style takes its colors from the picker's frozen highlight namespace (winhl would be ignored).
+	if not card then
 		View.win.wo(win, "winhl", "Normal:BeastFinderInputNormal,FloatBorder:BeastFinderBorder,FloatTitle:BeastFinderInputTitle")
 	end
 

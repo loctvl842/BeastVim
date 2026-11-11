@@ -38,24 +38,54 @@ function M.get()
 	})
 end
 
-local swatch_hex = {} ---@type table<string, string> group name -> hex, for every swatch drawn so far
+local frozen_list_ns ---@type integer|nil list-panel namespace while a picker has frozen colors
 
---- Highlight group painting a swatch square in `hex`. Always (re)defined: a `:colorscheme`
---- between two opens wipes it, so a "defined once" cache would leave squares uncolored.
+---@class Beast.Finder.FrozenColors
+---@field input integer namespace for the prompt panel window
+---@field list integer namespace for the list panel window
+
+--- Snapshot the picker's current colors into one window-local highlight namespace per panel.
+--- `:colorscheme` only rewrites global highlights, so windows attached to these namespaces
+--- (`nvim_win_set_hl_ns`) keep the colors they had at open time. `winhl` mappings do not
+--- resolve through a namespace, so each panel's base groups are defined directly in it.
+---@return Beast.Finder.FrozenColors
+function M.freeze()
+	local groups = M.get()
+	local frozen = {
+		input = vim.api.nvim_create_namespace("beast-finder-frozen-input"),
+		list = vim.api.nvim_create_namespace("beast-finder-frozen-list"),
+	}
+	---@param ns integer
+	---@param panel table highlight def of the panel background
+	---@param border table highlight def of the panel's border cells
+	local function define(ns, panel, border)
+		for name, def in pairs(groups) do
+			vim.api.nvim_set_hl(ns, name, def)
+		end
+		for _, name in ipairs({ "Normal", "NormalFloat", "EndOfBuffer" }) do
+			vim.api.nvim_set_hl(ns, name, { bg = panel.bg, fg = panel.fg })
+		end
+		vim.api.nvim_set_hl(ns, "FloatBorder", { bg = border.bg, fg = border.fg })
+	end
+	define(frozen.input, groups.BeastFinderCardInputNormal, groups.BeastFinderCardInputBorder)
+	define(frozen.list, groups.BeastFinderCardList, groups.BeastFinderCardList)
+	frozen_list_ns = frozen.list
+	return frozen
+end
+
+--- Stop routing swatch groups into the frozen list namespace (picker closed).
+function M.unfreeze()
+	frozen_list_ns = nil
+end
+
+--- Highlight group painting a swatch square in `hex`, defined in the frozen list namespace
+--- (global when the picker's colors are not frozen).
 ---@param hex string "#rrggbb"
 ---@return string group
 function M.swatch(hex)
 	local name = "BeastFinderSwatch" .. hex:sub(2)
-	vim.api.nvim_set_hl(0, name, { fg = hex })
-	swatch_hex[name] = hex
+	vim.api.nvim_set_hl(frozen_list_ns or 0, name, { fg = hex })
 	return name
-end
-
---- Re-create every swatch group drawn so far (live theme preview wipes them while rows are on screen).
-function M.reset_swatches()
-	for name, hex in pairs(swatch_hex) do
-		vim.api.nvim_set_hl(0, name, { fg = hex })
-	end
 end
 
 return M

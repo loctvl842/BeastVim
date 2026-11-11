@@ -61,9 +61,8 @@ function M.create(win_row, win_col, win_w, win_h, border, separators)
 	View.win.wo(win, "cursorline", not separators)
 	View.win.wo(win, "scrolloff", 0)
 	View.win.wo(win, "wrap", false)
-	if separators then
-		View.win.wo(win, "winhl", "Normal:BeastFinderCardList,FloatBorder:BeastFinderCardList")
-	else
+	-- Card style takes its colors from the picker's frozen highlight namespace (winhl would be ignored).
+	if not separators then
 		View.win.wo(win, "winhl", "Normal:BeastFinderNormal,FloatBorder:BeastFinderBorder,CursorLine:BeastFinderListCursorLine")
 	end
 

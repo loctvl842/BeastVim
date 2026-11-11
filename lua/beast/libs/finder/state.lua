@@ -18,6 +18,7 @@ local ui = require("beast.libs.finder.ui")
 ---@field on_preview? fun(item: Beast.Finder.Item)
 ---@field on_close? fun()
 ---@field layout? "cards"
+---@field frozen? boolean panels use frozen highlight namespaces
 ---@field main_win? integer
 ---@field augroup? integer
 local M = setmetatable({}, {
@@ -36,6 +37,8 @@ local instance
 ---@field preview? boolean preview window enabled
 ---@field layout? "cards" separate prompt/list boxes
 ---@field separators? boolean separator rows between list items
+---@field backdrop? boolean false skips the dimming overlay (default true)
+---@field freeze_colors? boolean keep the panels in the colors they had at open, ignoring `:colorscheme`
 
 ---@param source_name Beast.Finder.Source
 ---@param opts? Beast.Finder.Opts
@@ -56,6 +59,7 @@ function M:new(source_name, opts)
 		on_preview = opts.on_preview,
 		on_close = opts.on_close,
 		layout = opts.layout,
+		frozen = opts.freeze_colors,
 		query = query,
 		pipeline = pipeline,
 	}, self)
@@ -66,6 +70,7 @@ function M:new(source_name, opts)
 	local title_name = source_name:gsub("_", " ")
 	local title = opts.layout == "cards" and "" or title_name:sub(1, 1):upper() .. title_name:sub(2)
 	local input_debounce = is_live and config.debounce.live_ms or nil
+	local frozen = opts.freeze_colors and require("beast.libs.finder.highlights").freeze() or nil
 
 	instance.view = {
 		input = ui.input.create(function(text)
@@ -73,8 +78,12 @@ function M:new(source_name, opts)
 			pipeline.run(instance)
 		end, geo.input.w, geo.input.h, geo.input.row, geo.input.col, title, input_debounce, geo.input.border, opts.layout == "cards"),
 		list = ui.list.create(geo.list.row, geo.list.col, geo.list.w, geo.list.h, geo.list.border, opts.separators),
-		backdrop = ui.backdrop.create(config.backdrop),
+		backdrop = opts.backdrop ~= false and ui.backdrop.create(config.backdrop) or nil,
 	}
+	if frozen then
+		vim.api.nvim_win_set_hl_ns(instance.view.input.win, frozen.input)
+		vim.api.nvim_win_set_hl_ns(instance.view.list.win, frozen.list)
+	end
 	if has_preview then
 		instance.view.preview = ui.preview.create(geo.preview.row, geo.preview.col, geo.preview.w, geo.preview.h)
 	end
@@ -117,6 +126,9 @@ function M:reset()
 			self.view.backdrop:close()
 		end
 	end
+	if self.frozen then
+		require("beast.libs.finder.highlights").unfreeze()
+	end
 	self.pipeline.abort(self.query)
 	if self.query then
 		require("beast.libs.finder.render").cleanup(self.query)
@@ -142,7 +154,7 @@ function M:relayout()
 	local geo = require("beast.libs.finder.layout").calc(self.view.preview ~= nil, self.layout)
 
 	-- Reposition backdrop
-	if self.view.backdrop:is_valid() then
+	if self.view.backdrop and self.view.backdrop:is_valid() then
 		pcall(vim.api.nvim_win_set_config, self.view.backdrop.win, {
 			relative = "editor",
 			width = vim.o.columns,
