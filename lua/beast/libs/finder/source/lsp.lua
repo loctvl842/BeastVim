@@ -93,10 +93,7 @@ function M.create(method, label)
 								local end_pos = { it.end_lnum or it.lnum, math.max(0, (it.end_col or it.col) - 1) }
 								-- Skip the occurrence the cursor was already on when the
 								-- jump was triggered - it's not a place to jump to.
-								local is_cur_pos = it.filename == cur_file
-									and pos[1] == cur_pos[1]
-									and cur_pos[2] >= pos[2]
-									and cur_pos[2] < end_pos[2]
+								local is_cur_pos = it.filename == cur_file and pos[1] == cur_pos[1] and cur_pos[2] >= pos[2] and cur_pos[2] < end_pos[2]
 								if not is_cur_pos then
 									seen[key] = true
 									idx = idx + 1
