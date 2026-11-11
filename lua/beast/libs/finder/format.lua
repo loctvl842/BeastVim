@@ -2,6 +2,7 @@
 ---@field text string
 ---@field hl string?
 ---@field right_align boolean?
+---@field chunks? { [1]: string, [2]: string }[] right_align only: several highlighted chunks; `text` is ignored
 
 local M = {}
 

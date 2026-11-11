@@ -7,6 +7,7 @@ local config = require("beast.libs.finder.config")
 ---@field items Beast.Finder.Item[]
 ---@field cursor integer 1-based index into items
 ---@field _format_fn fun(item: Beast.Finder.Item): Beast.Finder.Highlight[]
+---@field _separators boolean when true, a separator row is drawn between consecutive visible items
 ---@field _header_fn? fun(item: Beast.Finder.Item): Beast.Finder.Highlight[] optional group header (grouped sources)
 ---@field _offset integer 0-based index of the first visible item
 ---@field _win_height integer height of the window (viewport size)
@@ -23,6 +24,7 @@ local ListView = View:extend(
 		obj.cursor = 1
 		obj._format_fn = nil
 		obj._header_fn = nil
+		obj._separators = false
 		obj._offset = 0
 		obj._win_height = 0
 		obj._item_to_row = {}
@@ -39,8 +41,9 @@ local M = {}
 ---@param win_w integer width available for list
 ---@param win_h integer height available for list
 ---@param border? table border chars
+---@param separators? boolean draw a separator row between items
 ---@return Beast.Finder.ListView
-function M.create(win_row, win_col, win_w, win_h, border)
+function M.create(win_row, win_col, win_w, win_h, border, separators)
 	local buf = View.buf.new("beast-finder-list")
 	local ns = vim.api.nvim_create_namespace("beast-finder-list")
 
@@ -60,12 +63,22 @@ function M.create(win_row, win_col, win_w, win_h, border)
 	View.win.wo(win, "wrap", false)
 	View.win.wo(win, "winhl", "Normal:BeastFinderNormal,FloatBorder:BeastFinderBorder,CursorLine:BeastFinderListCursorLine")
 
-	return ListView(buf, win, ns)
+	local view = ListView(buf, win, ns)
+	view._separators = separators or false
+	return view
 end
 
 -- ---------------------------------------------------------------------------
 -- Virtual rendering internals
 -- ---------------------------------------------------------------------------
+
+--- Items that fit when every pair of visible items is split by a separator row:
+--- n items need 2n - 1 rows.
+---@param view Beast.Finder.ListView
+---@return integer
+local function separated_capacity(view)
+	return math.max(1, math.floor((view._win_height + 1) / 2))
+end
 
 --- How many buffer rows item `idx` occupies: 1 for the match line, plus 1 for a
 --- group header when grouping is active and this item starts a new file group.
@@ -90,6 +103,9 @@ end
 ---@return integer
 local function last_visible(view, offset)
 	local total = #view.items
+	if view._separators then
+		return math.max(offset, math.min(total, offset + separated_capacity(view)))
+	end
 	local rows, idx = 0, offset + 1
 	while idx <= total do
 		local cost = item_cost(view, idx)
@@ -107,6 +123,9 @@ end
 ---@param cursor integer
 ---@return integer
 local function offset_for_cursor(view, cursor)
+	if view._separators then
+		return math.max(0, cursor - separated_capacity(view))
+	end
 	local rows, idx = 0, cursor
 	while idx >= 1 do
 		local cost = item_cost(view, idx)
@@ -160,7 +179,7 @@ local function apply_row_highlights(view, row0, highlights)
 	local right_virt = nil
 	for _, h in ipairs(highlights) do
 		if h.right_align then
-			right_virt = { h.text, h.hl or "BeastFinderNormal" }
+			right_virt = h.chunks or { { h.text, h.hl or "BeastFinderNormal" } }
 		elseif h.hl then
 			vim.api.nvim_buf_set_extmark(view.buf, view.ns, row0, col, {
 				end_col = col + #h.text,
@@ -173,7 +192,7 @@ local function apply_row_highlights(view, row0, highlights)
 	end
 	if right_virt then
 		vim.api.nvim_buf_set_extmark(view.buf, view.ns, row0, 0, {
-			virt_text = { right_virt },
+			virt_text = right_virt,
 			virt_text_pos = "right_align",
 			hl_mode = "combine",
 		})
@@ -194,6 +213,11 @@ local function render_visible(view)
 	local offset = view._offset
 	local format_fn = view._format_fn
 	local header_fn = view._header_fn
+	local separators = view._separators
+
+	local sel_prefix = config.selection_prefix .. " "
+	local pad = string.rep(" ", vim.fn.strdisplaywidth(sel_prefix))
+	local sep_width = vim.api.nvim_win_get_width(view.win) - vim.fn.strdisplaywidth(sel_prefix)
 
 	local lines = {} ---@type string[]
 	local row_hl = {} ---@type table<integer, Beast.Finder.Highlight[]> 1-based row -> highlights
@@ -205,9 +229,17 @@ local function render_visible(view)
 	local idx = offset + 1
 	while idx <= total and rows < win_height do
 		local needs_header = header_fn ~= nil and (idx == 1 or items[idx].file ~= items[idx - 1].file)
-		local cost = needs_header and 2 or 1
+		local needs_sep = separators and idx > offset + 1
+		local cost = (needs_header or needs_sep) and 2 or 1
 		if rows + cost > win_height and rows > 0 then
 			break
+		end
+		if needs_sep then
+			rows = rows + 1
+			local h = { { text = string.rep("─", sep_width), hl = "BeastFinderListSeparator" } }
+			row_hl[rows] = h
+			row_is_match[rows] = false
+			lines[rows] = line_text(h)
 		end
 		if needs_header and header_fn then
 			rows = rows + 1
@@ -237,8 +269,6 @@ local function render_visible(view)
 	vim.api.nvim_buf_clear_namespace(view.buf, view.ns, 0, -1)
 	vim.api.nvim_buf_clear_namespace(view.buf, view.prefix_ns, 0, -1)
 
-	local sel_prefix = config.selection_prefix .. " "
-	local pad = string.rep(" ", vim.fn.strdisplaywidth(sel_prefix))
 	local cursor_row = item_to_row[view.cursor]
 
 	for r = 1, rows do
@@ -289,7 +319,7 @@ function M.set_cursor(view, idx)
 	if not view:is_valid() or #view.items == 0 then return end
 	view.cursor = math.max(1, math.min(idx, #view.items))
 	local new_offset = clamp_offset(view, view.cursor, view._offset)
-	if new_offset ~= view._offset or view._header_fn then
+	if new_offset ~= view._offset or view._header_fn or view._separators then
 		-- Grouped lists have a variable item↔row mapping, so re-render to keep
 		-- headers and the cursor row correct. Flat lists can take the cheap path.
 		view._offset = new_offset
@@ -354,7 +384,7 @@ end
 ---@param buf_row integer 1-based buffer row
 ---@return integer|nil item_idx
 function M.item_at_row(view, buf_row)
-	if not view._header_fn then
+	if not view._header_fn and not view._separators then
 		local idx = view._offset + buf_row
 		if idx >= 1 and idx <= #view.items then
 			return idx
