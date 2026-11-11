@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dev spec: Stable theme menu</title>
+<style>
+  :root { --bg:#fbfaf7; --fg:#1c1b19; --muted:#6b675f; --line:#dcd8cf; --card:#fff; --accent:#b4540a; --term:#1e1f26; --termfg:#d8dae5; --termsel:#34374a; --termline:#3b3e50; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#161513; --fg:#ece8df; --muted:#a29d92; --line:#3a3732; --card:#1f1d1a; --accent:#e08a3c; }
+  }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, sans-serif; }
+  main { max-width:880px; margin:0 auto; padding:24px 16px 80px; }
+  section { margin:32px 0; }
+  h1 { margin:0 0 8px; } h2 { margin:0 0 10px; } h3 { margin:18px 0 6px; font-size:1rem; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; }
+  .muted { color:var(--muted); }
+  .mock { background:var(--term); color:var(--termfg); border-radius:10px; padding:16px; font:14px/1.4 ui-monospace,Menlo,monospace; max-width:420px; margin:8px 0; }
+  .box { border:0; padding:6px 14px; }
+  .prompt { min-height:2.4em; padding-top:12px; padding-bottom:12px; background:#24262d; }
+  .prompt::before { content:"\1F50D  "; opacity:.7; }
+  .list { background:#0b0c10; padding:10px 14px; }
+  .row { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:2px 6px; border-left:3px solid transparent; }
+  .row.sel { color:#4a9ede; font-weight:600; }
+  .row.sel .nm::after { content:"  \25C0"; }
+  .list > .row.sel:first-child { border-top:1px solid #4a9ede; }
+  .list > .row.sel:last-child { border-bottom:1px solid #4a9ede; }
+  .nm { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .sw { display:flex; gap:4px; flex:none; }
+  .sw i { width:10px; height:10px; border-radius:3px; display:block; }
+  hr { border:0; border-top:1px dashed #3b3e50; margin:4px 0; }
+  hr:has(+ .row.sel), .row.sel + hr { border-top:1px solid #4a9ede; }
+  .states { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:16px; }
+  ol.steps { margin:0; padding-left:22px; } ol.steps li { margin:6px 0; } ol.steps span { color:var(--muted); }
+  ul { padding-left:20px; }
+  details { margin:10px 0; } summary { cursor:pointer; font-weight:600; }
+  .rec { border-left:3px solid var(--accent); padding-left:10px; margin:10px 0; }
+  .tag { color:var(--accent); font-weight:600; font-size:.85em; }
+</style>
+</head>
+<body>
+<main>
+<header data-spec="summary"><h1>Stable theme menu - implementation</h1>
+<p>Copy every picker highlight into two window-local namespaces at open time (prompt panel, list panel) and attach them with <code>nvim_win_set_hl_ns</code>. Live preview rewrites only global highlights, so the menu keeps its colors. The backdrop becomes opt-out.</p>
+<p class="muted">PM spec: <code>docs/pm-specs/finder-colorscheme-stable-menu.md</code></p></header>
+<section data-spec="context"><h2>Why this works</h2>
+<div class="card"><b>Spike result (real nvim, tmux):</b> a float with <code>nvim_win_set_hl_ns</code> kept its ns-defined <code>Normal</code>, <code>FloatBorder</code> and extmark colors while <code>:colorscheme</code> flipped the editor from dark to light. <code>winhl</code> mappings do <b>not</b> resolve through the namespace, so base groups are defined directly in it.</div></section>
+<section data-spec="research"><h2>Research</h2><div class="card">Backdrop is created unconditionally and <code>relayout</code> calls it unguarded. Panel colors flow through <code>winhl</code> to groups built by <code>highlights.get()</code> and rebuilt by <code>hl_reload</code> on every <code>ColorScheme</code>. <b>Decision:</b> Reuse <code>highlights.get()</code> as the snapshot source; Build <code>freeze()</code> and opt-in plumbing.</div></section>
+<section data-spec="architecture-changes"><h2>Files</h2><table>
+<tr><th>Path</th><th></th><th>What</th></tr>
+<tr><td><code>libs/finder/highlights.lua</code></td><td>mod</td><td><code>freeze()</code>; swatches defined in the list namespace; drop <code>reset_swatches</code></td></tr>
+<tr><td><code>libs/finder/state.lua</code></td><td>mod</td><td>optional backdrop, guard in relayout, attach namespaces</td></tr>
+<tr><td><code>libs/finder/ui/list.lua</code>, <code>ui/input.lua</code></td><td>mod</td><td>no <code>winhl</code> in card style</td></tr>
+<tr><td><code>libs/finder/autocmds.lua</code></td><td>mod</td><td>remove swatch ColorScheme hook</td></tr>
+<tr><td><code>lua/beast/init.lua</code></td><td>mod</td><td><code>&lt;leader&gt;c</code>: <code>backdrop=false, freeze_colors=true</code></td></tr>
+<tr><td><code>tests/test-finder-frozen-colors.lua</code></td><td>new</td><td>namespace values survive a colorscheme change</td></tr></table></section>
+<section data-spec="phases"><h2>Phases</h2>
+<div class="card" data-spec="phase-1"><h3>Phase 1 - Optional backdrop</h3><ol><li>Skip the overlay when <code>backdrop == false</code>, guard relayout <span class="risk Low">Low</span></li><li>Pass it from the mapping <span class="risk Low">Low</span></li></ol></div>
+<div class="card" data-spec="phase-2"><h3>Phase 2 - Frozen colors</h3><ol><li><code>freeze()</code>: copy groups + Normal/NormalFloat/FloatBorder/EndOfBuffer per panel <span class="risk Medium">Medium</span> (any uncopied group falls back to the previewed theme)</li><li>Attach to input and list windows before first render <span class="risk Medium">Medium</span></li><li>Remove <code>winhl</code> and the swatch reset hook <span class="risk Low">Low</span></li><li>Pass <code>freeze_colors</code> from the mapping <span class="risk Low">Low</span></li><li>Test: values stable across <code>:colorscheme</code> <span class="risk Low">Low</span></li></ol></div></section>
+<section data-spec="testing-strategy"><h2>Testing</h2><ul><li>Headless: new test plus all <code>tests/test-finder-*.lua</code>.</li><li>Manual in tmux: compare numeric panel colors across dark to light previews (prompt, list, lines, pointer, match highlight, empty cells), Enter and reopen, Esc restore.</li></ul></section>
+<section data-spec="success-criteria"><h2>Success criteria</h2><ul style="list-style:none;padding-left:0"><li>&#9744; Menu colors constant across previews</li><li>&#9744; No overlay for the theme picker; others keep theirs</li><li>&#9744; Enter then reopen shows the new theme in the menu</li><li>&#9744; Esc restores</li><li>&#9744; Tests green, stylua clean</li></ul></section>
+</main></body></html>
