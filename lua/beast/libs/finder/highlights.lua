@@ -2,10 +2,10 @@ local M = {}
 
 function M.get()
 	local p = Theme.get()
-	local bg = Util.colors.lighten(p.dark1, 10)
+	local bg = p.dark1
 	return Util.colors.build("BeastFinder", {
 		-- Shared
-		Backdrop = { bg = "#000000" },
+		Backdrop = { bg = bg },
 		Border = { fg = p.dimmed3, bg = bg },
 		Normal = { bg = bg, fg = p.text },
 		-- Input

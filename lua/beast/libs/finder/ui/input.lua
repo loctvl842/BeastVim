@@ -58,7 +58,7 @@ function M.create(on_change, total_w, total_h, win_row, win_col, title, debounce
 		style = "minimal",
 		border = border or { "╭", "─", "┬", "│", "┤", "─", "├", "│" },
 		title = display_title,
-		title_pos = display_title and "left" or nil,
+		title_pos = display_title and "center" or nil,
 		zindex = 103,
 	})
 
