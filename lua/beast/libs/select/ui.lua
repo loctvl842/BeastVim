@@ -36,7 +36,8 @@ local function format_footer(footer_hints)
 	return " " .. table.concat(parts, "   ") .. " "
 end
 
----@class Beast.Select.Opts
+--- Options after `init.lua` has applied its defaults (`prompt` and `format_item` always set).
+---@class Beast.Select.UI.Opts
 ---@field prompt string
 ---@field format_item fun(item: any): string
 ---@field kind? string
@@ -48,7 +49,7 @@ end
 --- BeastVim-specific extensions (see PM spec Behavior Rules) — third-party
 --- plugins that only pass native opts fields simply don't get them.
 ---@param items any[]
----@param opts Beast.Select.Opts
+---@param opts Beast.Select.UI.Opts
 ---@param on_choice fun(item: any?, idx: integer?)
 function M.open(items, opts, on_choice)
 	local total_w = math.min(math.max(math.floor(vim.o.columns * WIDTH_RATIO), MIN_WIDTH), MAX_WIDTH)
