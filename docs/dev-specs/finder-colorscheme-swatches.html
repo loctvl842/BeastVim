@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dev spec: Theme picker swatches</title>
+<style>
+  :root { --bg:#fbfaf7; --fg:#1c1b19; --muted:#6b675f; --line:#dcd8cf; --card:#fff; --accent:#b4540a; --ok:#2f7d4f; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#161513; --fg:#ece8df; --muted:#a29d92; --line:#3a3732; --card:#1f1d1a; --accent:#e08a3c; --ok:#6cc08b; }
+  }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, sans-serif; }
+  main { max-width:880px; margin:0 auto; padding:24px 16px 80px; }
+  section { margin:32px 0; }
+  h1 { margin:0 0 8px; } h2 { margin:0 0 10px; } h3 { margin:0 0 6px; font-size:1.05rem; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin:12px 0; }
+  .muted { color:var(--muted); } code { font:13px ui-monospace,Menlo,monospace; }
+  table { width:100%; border-collapse:collapse; font-size:.92rem; }
+  th,td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
+  .risk { font-size:.8rem; font-weight:600; } .Low{color:var(--ok)} .Medium{color:var(--accent)}
+  .rec { border-left:3px solid var(--accent); padding-left:10px; margin:12px 0; }
+  .tag { color:var(--accent); font-weight:600; font-size:.85em; }
+  svg { width:100%; height:auto; color:var(--fg); }
+  svg .b { fill:var(--card); stroke:var(--line); stroke-width:1.5; }
+  svg .n { fill:var(--card); stroke:var(--accent); stroke-width:1.5; }
+  svg text { fill:currentColor; font:13px ui-monospace,Menlo,monospace; }
+  svg .a { stroke:currentColor; fill:none; stroke-width:1.5; marker-end:url(#h); }
+</style>
+</head>
+<body>
+<main>
+<header data-spec="summary">
+  <h1>Theme picker swatches - implementation</h1>
+  <p>Add a ten-color palette strip to every row of the <code>colorschemes</code> picker, with separator lines and a two-box card layout. Colors are read by a headless Neovim child and cached on disk, so opening the picker never repaints your editor. Picker behavior is untouched.</p>
+  <p class="muted">PM spec: <code>docs/pm-specs/finder-colorscheme-swatches.md</code></p>
+</header>
+
+<section data-spec="context">
+  <h2>How it fits together</h2>
+  <svg viewBox="0 0 860 250" role="img" aria-label="Data flow from theme files to picker rows">
+    <defs><marker id="h" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="currentColor"/></marker></defs>
+    <g id="n-cache"><title>JSON cache in stdpath cache</title><rect class="n" x="20" y="20" width="230" height="56" rx="8"/><text x="36" y="44">colorscheme_swatches.lua</text><text x="36" y="63">cache: name, mtime, 10 hex</text></g>
+    <g id="n-worker"><title>Headless child</title><rect class="n" x="320" y="20" width="250" height="56" rx="8"/><text x="336" y="44">nvim --headless -u NONE</text><text x="336" y="63">swatches_worker.lua</text></g>
+    <g id="n-source"><title>colorschemes source</title><rect class="b" x="20" y="120" width="230" height="56" rx="8"/><text x="36" y="144">source/colorschemes.lua</text><text x="36" y="163">item.swatches (or nil)</text></g>
+    <g id="n-format"><title>format</title><rect class="b" x="320" y="120" width="250" height="56" rx="8"/><text x="336" y="144">format.colorschemes</text><text x="336" y="163">name + 10 chunks</text></g>
+    <g id="n-list"><title>list view</title><rect class="b" x="640" y="120" width="200" height="56" rx="8"/><text x="656" y="144">ui/list.lua</text><text x="656" y="163">separators + virt_text</text></g>
+    <path id="e1" class="a" d="M135 120V78"/><text x="145" y="102">miss?</text>
+    <path id="e2" class="a" d="M250 40H318"/><text x="256" y="32">stale/missing</text>
+    <path id="e3" class="a" d="M320 60H252"/><text x="262" y="92">json</text>
+    <path id="e4" class="a" d="M250 148H318"/>
+    <path id="e5" class="a" d="M570 148H638"/>
+    <text x="20" y="225" class="muted">Warm cache: swatches on first paint. Cold: dim squares, then the list re-renders when the child finishes.</text>
+  </svg>
+</section>
+
+<section data-spec="research">
+  <h2>Research</h2>
+  <div class="card"><b>Found:</b> <code>ui/list.lua</code> already has non-match "header" rows with cursor snapping (reuse for separators); <code>theme/sources/plugin.lua</code> maps highlight groups to palette slots; <code>:colorscheme</code> clears all highlights and fires hooks, so in-process scanning would flash the editor.<br><b>Decision:</b> Reuse list row machinery; Build worker + cache; Use built-in extmark virt_text and <code>vim.system</code>.</div>
+</section>
+
+<section data-spec="architecture-changes">
+  <h2>Files</h2>
+  <table>
+    <tr><th>Path</th><th></th><th>What</th></tr>
+    <tr><td><code>libs/finder/source/colorscheme_swatches.lua</code></td><td>new</td><td>cache, staleness by mtime, spawns worker</td></tr>
+    <tr><td><code>libs/finder/source/colorscheme_swatches_worker.lua</code></td><td>new</td><td>headless: apply theme, read 10 groups, print JSON</td></tr>
+    <tr><td><code>libs/finder/source/colorschemes.lua</code></td><td>mod</td><td>attach <code>item.swatches</code></td></tr>
+    <tr><td><code>libs/finder/ui/list.lua</code></td><td>mod</td><td>multi-chunk right align, separator rows</td></tr>
+    <tr><td><code>libs/finder/format.lua</code>, <code>highlights.lua</code></td><td>mod</td><td>row format, separator and swatch groups</td></tr>
+    <tr><td><code>libs/finder/layout.lua</code>, <code>state.lua</code>, <code>init.lua</code></td><td>mod</td><td>"cards" layout kind, plumbed to relayout</td></tr>
+    <tr><td><code>libs/finder/autocmds.lua</code></td><td>mod</td><td>re-define swatch groups on ColorScheme</td></tr>
+    <tr><td><code>lua/beast/init.lua</code></td><td>mod</td><td><code>&lt;leader&gt;c</code> passes layout + separators</td></tr>
+    <tr><td><code>tests/test-finder-colorscheme-swatches.lua</code>, <code>tests/test-finder-list-separators.lua</code></td><td>new</td><td>headless tests</td></tr>
+  </table>
+</section>
+
+<section data-spec="phases">
+  <h2>Phases</h2>
+  <div class="card" data-spec="phase-1"><h3>Phase 1 - Swatch data (no visible change)</h3>
+    <ol><li>Worker reads Normal/Diagnostic/String/Function/Keyword/Comment... into 10 colors <span class="risk Medium">Medium</span></li>
+    <li>Cache + spawner, mtime invalidation <span class="risk Medium">Medium</span></li>
+    <li>Attach to items <span class="risk Low">Low</span></li>
+    <li>Test: worker output, cache hit/stale, broken theme <span class="risk Low">Low</span></li></ol></div>
+  <div class="card" data-spec="phase-2"><h3>Phase 2 - List rendering</h3>
+    <ol><li>Multi-chunk right-aligned virt_text <span class="risk Low">Low</span></li>
+    <li>Separator rows between items, none above first / below last <span class="risk Medium">Medium</span></li>
+    <li>Highlight groups: separator, empty swatch, lazy per-hex swatch <span class="risk Low">Low</span></li>
+    <li>Test: visible count, row to item mapping, scrolling <span class="risk Low">Low</span></li></ol></div>
+  <div class="card" data-spec="phase-3"><h3>Phase 3 - Card layout and wiring</h3>
+    <ol><li>"cards" layout: two bordered boxes, narrow, centered <span class="risk Low">Low</span></li>
+    <li>Plumb layout/separators through state, init, relayout <span class="risk Medium">Medium</span></li>
+    <li>Row format: truncate name, ten squares, dim grey for missing <span class="risk Medium">Medium</span></li>
+    <li>Swatches survive live preview (re-define on ColorScheme) <span class="risk Medium">Medium</span></li>
+    <li>Pass options from <code>&lt;leader&gt;c</code> <span class="risk Low">Low</span></li></ol></div>
+</section>
+
+<section data-spec="decisions">
+  <h2>Decisions for you</h2>
+  <div class="rec"><span class="tag">Color source - recommended</span><br>Headless child + JSON cache. Instant when warm, no editor flash.<br><span class="muted">Alternative: apply each theme in-process (flashes, blocks UI, fires hooks).</span></div>
+  <div class="rec"><span class="tag">Role mapping - recommended</span><br>Fixed syntax groups: Number=orange, String=green, Function=blue, Keyword=purple, Comment=grey, ...<br><span class="muted">Alternative: pick by hue like <code>theme/palette.lua</code> (more accurate, more code).</span></div>
+  <div class="rec"><span class="tag">Card width - recommended</span><br>Fixed ~42 columns, centered.<br><span class="muted">Alternative: keep today's 80% width.</span></div>
+</section>
+
+<section data-spec="testing-strategy">
+  <h2>Testing</h2>
+  <ul>
+    <li>Headless: the two new tests plus all existing <code>tests/test-finder-*.lua</code>.</li>
+    <li>Bench: finder benches and <code>bench-ux.sh all</code>; other pickers must not regress.</li>
+    <li>Manual: PM scenarios 1-6, cold vs warm cache, resize while open, swatches survive moving the cursor.</li>
+  </ul>
+</section>
+
+<section data-spec="success-criteria">
+  <h2>Success criteria</h2>
+  <ul style="list-style:none;padding-left:0">
+    <li>&#9744; Prompt box above a separate list box; separators between rows only</li>
+    <li>&#9744; Ten squares per row in each theme's own colors; editor never repainted by opening</li>
+    <li>&#9744; Warm open instant; cold open fills in without blocking</li>
+    <li>&#9744; Preview / Esc / Enter unchanged; swatches survive previews</li>
+    <li>&#9744; Other pickers unchanged (tests + bench green); stylua clean</li>
+  </ul>
+</section>
+</main>
+</body>
+</html>
