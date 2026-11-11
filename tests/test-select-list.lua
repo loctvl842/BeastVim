@@ -43,8 +43,9 @@ local function lines(view)
 	return vim.api.nvim_buf_get_lines(view.buf, 0, -1, false)
 end
 
+-- the half-block edge above ("▄") / below ("▀") the selected option
 local function is_solid(line)
-	return line ~= "" and line:gsub("─", "") == ""
+	return line ~= "" and (line:gsub("▄", "") == "" or line:gsub("▀", "") == "")
 end
 
 local function is_dashed(line)

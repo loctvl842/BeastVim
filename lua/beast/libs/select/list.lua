@@ -116,16 +116,19 @@ local function resize_to_fit(view)
 end
 
 --- Text and highlight of the slot row above option `idx` (or below the last one):
---- solid next to the selection, dashes between options, blank at the outer edges.
+--- a half-block edge in the selection tint next to the selected option (lower half above it,
+--- upper half below it, spanning the full window width), dashes between options, blank at
+--- the outer edges.
 ---@param view Beast.Select.ListView
 ---@param idx integer option the slot sits above
 ---@param first boolean top edge
 ---@param last boolean bottom edge
----@param width integer
----@return string text, string? hl
+---@param width integer width of the dashed separators (inside the side pads)
+---@return string text, string? hl, boolean? edge true for the full-width selection edges
 local function slot(view, idx, first, last, width)
 	if idx == view.cursor or idx - 1 == view.cursor then
-		return string.rep("─", width), "BeastSelectListSelectedLine"
+		local block = idx == view.cursor and "▄" or "▀"
+		return string.rep(block, vim.api.nvim_win_get_width(view.win)), "BeastSelectListSelectedEdge", true
 	end
 	if first or last then
 		return "", nil
@@ -182,14 +185,18 @@ local function render_visible(view)
 	local visible_count = math.min(capacity(view), #items - view._offset)
 
 	local lines = {} ---@type string[]
+	local edge_rows = {} ---@type table<integer, true> rows that span the full width (no side pad)
 	local marks = {} ---@type { row0: integer, col_end: integer, hl: string }[]
 	local tags = {} ---@type table<integer, string>
 	local cursor_row0 ---@type integer?
 
 	for i = 1, visible_count do
 		local idx = view._offset + i
-		local text, hl = slot(view, idx, i == 1, false, width)
+		local text, hl, edge = slot(view, idx, i == 1, false, width)
 		lines[#lines + 1] = text
+		if edge then
+			edge_rows[#lines - 1] = true
+		end
 		if hl then
 			marks[#marks + 1] = { row0 = #lines - 1, col_end = #text, hl = hl }
 		end
@@ -210,8 +217,11 @@ local function render_visible(view)
 			tags[#lines - 1] = tag
 		end
 	end
-	local text, hl = slot(view, view._offset + visible_count + 1, false, true, width)
+	local text, hl, edge = slot(view, view._offset + visible_count + 1, false, true, width)
 	lines[#lines + 1] = text
+	if edge then
+		edge_rows[#lines - 1] = true
+	end
 	if hl then
 		marks[#marks + 1] = { row0 = #lines - 1, col_end = #text, hl = hl }
 	end
@@ -228,7 +238,10 @@ local function render_visible(view)
 	draw_footer(view, footer_row0)
 	reset_scroll(view)
 	for row0 = 0, #lines - 1 do
-		vim.api.nvim_buf_set_extmark(view.buf, view.ns, row0, 0, { virt_text = { { PAD } }, virt_text_pos = "inline" })
+		if not edge_rows[row0] then
+			-- combine so the pad keeps the selected row's tint instead of resetting it
+			vim.api.nvim_buf_set_extmark(view.buf, view.ns, row0, 0, { virt_text = { { PAD } }, virt_text_pos = "inline", hl_mode = "combine" })
+		end
 	end
 	for _, m in ipairs(marks) do
 		vim.api.nvim_buf_set_extmark(view.buf, view.ns, m.row0, 0, { end_col = m.col_end, hl_group = m.hl })
@@ -241,9 +254,12 @@ local function render_visible(view)
 		})
 	end
 	if cursor_row0 then
+		-- tint the whole selected row; it joins the half-block edges above and below into one block
+		vim.api.nvim_buf_set_extmark(view.buf, view.ns, cursor_row0, 0, { line_hl_group = "BeastSelectListSelectedRow" })
 		vim.api.nvim_buf_set_extmark(view.buf, view.ns, cursor_row0, 0, {
 			virt_text = { { " ◀", "BeastSelectListPointer" } },
 			virt_text_pos = "eol",
+			hl_mode = "combine",
 		})
 		pcall(vim.api.nvim_win_set_cursor, view.win, { cursor_row0 + 1, 0 })
 	end
