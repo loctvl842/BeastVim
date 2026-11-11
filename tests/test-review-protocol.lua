@@ -85,11 +85,11 @@ do
 	local dead = vim.fn.jobpid(job)
 	vim.fn.jobwait({ job }, 2000)
 
-	write_lock("1.lock", { pid = dead, ideName = "Neovim", transport = "ws", authToken = "x", workspaceFolders = {} })
+	write_lock("1.lock", { pid = dead, ideName = "BeastVim", transport = "ws", authToken = "x", workspaceFolders = {} })
 	write_lock("2.lock", { pid = dead, ideName = "VS Code", transport = "ws", authToken = "x", workspaceFolders = {} })
-	write_lock("3.lock", { pid = uv.os_getpid(), ideName = "Neovim", transport = "ws", authToken = "x", workspaceFolders = {} })
-	write_lock("6.lock", { pid = dead, ideName = "Neovim (09:00:00, pid 1)", transport = "ws", authToken = "x", workspaceFolders = {} })
-	write_lock("4.lock", { pid = 1, ideName = "Neovim", transport = "ws", authToken = "x", workspaceFolders = {} }) -- alive, not ours to signal
+	write_lock("3.lock", { pid = uv.os_getpid(), ideName = "BeastVim", transport = "ws", authToken = "x", workspaceFolders = {} })
+	write_lock("6.lock", { pid = dead, ideName = "BeastVim (09:00:00, pid 1)", transport = "ws", authToken = "x", workspaceFolders = {} })
+	write_lock("4.lock", { pid = 1, ideName = "BeastVim", transport = "ws", authToken = "x", workspaceFolders = {} }) -- alive, not ours to signal
 	vim.fn.writefile({ "not json" }, lock_dir .. "/5.lock")
 end
 
@@ -99,10 +99,10 @@ local lock_path = status.lock_path
 
 print("== stale lock cleanup (result) ==")
 do
-	assert_test("dead Neovim lock removed", not exists(lock_dir .. "/1.lock"))
-	assert_test("dead labelled Neovim lock removed", not exists(lock_dir .. "/6.lock"))
+	assert_test("dead BeastVim lock removed", not exists(lock_dir .. "/1.lock"))
+	assert_test("dead labelled BeastVim lock removed", not exists(lock_dir .. "/6.lock"))
 	assert_test("other IDE's lock kept", exists(lock_dir .. "/2.lock"))
-	assert_test("live Neovim lock kept", exists(lock_dir .. "/3.lock"))
+	assert_test("live BeastVim lock kept", exists(lock_dir .. "/3.lock"))
 	assert_test("lock of a process we cannot signal kept", exists(lock_dir .. "/4.lock"))
 	assert_test("unparseable lock kept", exists(lock_dir .. "/5.lock"))
 end
@@ -115,7 +115,7 @@ do
 	assert_eq("pid", lock.pid, uv.os_getpid())
 	assert_test(
 		"ideName carries start time and pid",
-		lock.ideName == ("Neovim (%s, pid %d)"):format(lock.ideName:match("(%d%d:%d%d:%d%d)") or "?", uv.os_getpid())
+		lock.ideName == ("BeastVim (%s, pid %d)"):format(lock.ideName:match("(%d%d:%d%d:%d%d)") or "?", uv.os_getpid())
 	)
 	assert_eq("status shows the same name /ide lists", status.name, lock.ideName)
 	assert_eq("transport", lock.transport, "ws")
