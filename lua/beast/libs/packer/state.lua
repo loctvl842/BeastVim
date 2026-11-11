@@ -39,6 +39,7 @@ local M = {
 	libs = {}, ---@type table<string, Beast.Packer.LibEntry> Beast libraries registered via packer.lazy()
 	loaded_libs = {}, ---@type table<string, boolean> Libraries that have been loaded
 	deleted_plugins = {}, ---@type string[] Names of plugins deleted this session, most-recent first
+	failed_plugins = {}, ---@type table<string, boolean> Plugins that could not be installed; skipped by load()
 }
 
 ---@class Beast.Packer.LibEntry
@@ -118,6 +119,8 @@ end
 function M.load(plugin_name, reason) -- Already loaded
   -- stylua: ignore
   if M.loaded_plugins[plugin_name] then return end
+  -- stylua: ignore
+  if M.failed_plugins[plugin_name] then return end
 
 	M.check_circular_dependency(plugin_name)
 	start_load(plugin_name)

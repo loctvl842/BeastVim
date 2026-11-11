@@ -1,6 +1,7 @@
 -- stylua: ignore start
 local config            = require("beast.libs.packer.config")
 local event_trigger     = require("beast.libs.packer.triggers.event")
+local failures          = require("beast.libs.packer.failures")
 local import            = require("beast.libs.packer.import")
 local keys_trigger      = require("beast.libs.packer.triggers.keys")
 local module_trigger    = require("beast.libs.packer.triggers.module")
@@ -381,26 +382,33 @@ function M.setup(opts)
 		profile.add_phase_time("pack_add", (Util.hrtime() - t_pack_add) / 1e6)
 	end
 	if not packadd_ok then
-		local installed = {}
-		for _, p in ipairs(vim.pack.get()) do
-			installed[p.spec.name] = true
-		end
-
+		-- vim.pack.add installs and loads the reachable plugins before it throws,
+		-- so record the ones still missing and keep going with the rest.
+		local failed = {}
 		local op = operation()
-		for plugin_name, _ in pairs(op.status) do
-			if not installed[plugin_name] then
-				op.complete(plugin_name, false, string.format("Failed to install plugin '%s' | error: %s", plugin_name, tostring(packadd_err)))
+		for _, vspec in ipairs(vim_pack_specs) do
+			if not failures.is_installed(vspec.name) then
+				local reason = failures.reason_for(packadd_err, vspec.name)
+				failures.record(vspec.name, vspec.src, reason)
+				state.failed_plugins[vspec.name] = true
+				op.complete(vspec.name, false, string.format("Failed to install plugin '%s' | error: %s", vspec.name, reason))
+				table.insert(failed, vspec.name)
 			end
 		end
-		vim.notify("vim.pack.add failed:\n" .. tostring(packadd_err), vim.log.levels.ERROR, { title = "BeastVim" })
-		return
+		if #failed == 0 then
+			Toast("vim.pack.add failed:\n" .. tostring(packadd_err), vim.log.levels.ERROR, { title = "BeastVim" })
+		elseif #failed == 1 then
+			Toast(string.format('Could not install "%s": %s', failed[1], failures.list()[failed[1]].reason), vim.log.levels.WARN, { title = "BeastVim" })
+		else
+			Toast(string.format("Could not install %d plugins: %s", #failed, table.concat(failed, ", ")), vim.log.levels.WARN, { title = "BeastVim" })
+		end
 	else
 		operation().clear_completed()
 	end
 
 	-- Step 5: Load eager plugins and run their config
 	for _, spec in pairs(eager_specs) do
-		if spec.config and not state.loaded_plugins[spec.name] then
+		if spec.config and not state.loaded_plugins[spec.name] and not state.failed_plugins[spec.name] then
 			local ok, err = profile.measure(spec.name, "config_ms", spec.config)
 			if not ok then
 				vim.notify("Error in config for " .. spec.name .. ": " .. tostring(err), vim.log.levels.ERROR, { title = "BeastVim" })
