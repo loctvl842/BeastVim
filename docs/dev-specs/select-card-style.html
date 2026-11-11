@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dev spec: Select card style</title>
+<style>
+  :root { --bg:#fbfaf7; --fg:#1c1b19; --muted:#6b675f; --line:#dcd8cf; --card:#fff; --accent:#b4540a; --term:#1e1f26; --termfg:#d8dae5; --termsel:#34374a; --termline:#3b3e50; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#161513; --fg:#ece8df; --muted:#a29d92; --line:#3a3732; --card:#1f1d1a; --accent:#e08a3c; }
+  }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, sans-serif; }
+  main { max-width:880px; margin:0 auto; padding:24px 16px 80px; }
+  section { margin:32px 0; }
+  h1 { margin:0 0 8px; } h2 { margin:0 0 10px; } h3 { margin:18px 0 6px; font-size:1rem; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; }
+  .muted { color:var(--muted); }
+  .mock { background:var(--term); color:var(--termfg); border-radius:10px; padding:16px; font:14px/1.4 ui-monospace,Menlo,monospace; max-width:420px; margin:8px 0; }
+  .box { border:0; padding:6px 14px; }
+  .prompt { min-height:2.4em; padding-top:12px; padding-bottom:12px; background:#24262d; }
+  .prompt::before { content:"\1F50D  "; opacity:.7; }
+  .list { background:#0b0c10; padding:10px 14px; }
+  .row { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:2px 6px; border-left:3px solid transparent; }
+  .row.sel { color:#4a9ede; font-weight:600; }
+  .row.sel .nm::after { content:"  \25C0"; }
+  .list > .row.sel:first-child { border-top:1px solid #4a9ede; }
+  .list > .row.sel:last-child { border-bottom:1px solid #4a9ede; }
+  .nm { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .sw { display:flex; gap:4px; flex:none; }
+  .sw i { width:10px; height:10px; border-radius:3px; display:block; }
+  hr { border:0; border-top:1px dashed #3b3e50; margin:4px 0; }
+  hr:has(+ .row.sel), .row.sel + hr { border-top:1px solid #4a9ede; }
+  .states { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:16px; }
+  ol.steps { margin:0; padding-left:22px; } ol.steps li { margin:6px 0; } ol.steps span { color:var(--muted); }
+  ul { padding-left:20px; }
+  details { margin:10px 0; } summary { cursor:pointer; font-weight:600; }
+  .rec { border-left:3px solid var(--accent); padding-left:10px; margin:10px 0; }
+  .tag { color:var(--accent); font-weight:600; font-size:.85em; }
+
+  .panel { background:#0b0c10; color:#e8e6ea; border-radius:8px; overflow:hidden; font:14px/1.6 ui-monospace,Menlo,monospace; max-width:520px; margin:8px 0; }
+  .panel .top { background:#24262d; padding:16px 22px; } .panel .hd { color:#ffd866; } .panel .q { min-height:1.6em; } .panel .q::after { content:"|"; opacity:.8; }
+  .panel .lst { padding:12px 22px 8px; } .panel .it { display:flex; justify-content:space-between; padding:2px 0; border-top:1px dashed #3b3e50; }
+  .panel .it:first-child { border-top-color:transparent; } .panel .it.sel { color:#4a9ede; font-weight:600; border-top:1px solid #4a9ede; border-bottom:1px solid #4a9ede; }
+  .panel .it.sel + .it { border-top-color:transparent; } .panel .it.sel .nm::after { content:"  \25C0"; }
+  .panel .tag { color:#7d7b80; font-weight:400; } .panel .ft { color:#7d7b80; text-align:right; margin-top:10px; } .panel .empty { text-align:center; color:#7d7b80; padding:6px 0; }
+</style>
+</head>
+<body>
+<main>
+<header data-spec="summary"><h1>Select card style - implementation</h1>
+<p>The list window renders a separator slot above every option (dashed between, solid blue around the selected one), blue bold text and a pointer on the selection, and the footer in a blank bottom border row. The prompt becomes a backing header window with the input overlaid on its filter row. Behavior is unchanged.</p>
+<p class="muted">PM spec: <code>docs/pm-specs/select-card-style.md</code></p></header>
+<section data-spec="context"><h2>Why now / how</h2><div class="card"><code>select/ui.lua</code> uses a bordered input joined to the list with <code>&#9500;&#9472;&#9508;</code>; <code>select/list.lua</code> shows a bullet and a cursorline tint. The finder already has the slot-row design; select gets its own small copy because its list differs (no grouping, no match highlights, dynamic height).</div></section>
+<section data-spec="research"><h2>Research</h2><div class="card"><b>Reuse:</b> finder's slot scheme and highlight groups as the reference. <b>Use:</b> native float footer (needs a border, so a blank bottom border row), blank borders for padding. <b>Build:</b> header window (floats stack by zindex). <code>BeastSelect*</code> groups are used only inside the select lib.</div></section>
+<section data-spec="architecture-changes"><h2>Files</h2><table>
+<tr><th>Path</th><th></th><th>What</th></tr>
+<tr><td><code>libs/select/highlights.lua</code></td><td>mod</td><td>panel, selection, separator groups; keep Border; drop bullet/cursorline</td></tr>
+<tr><td><code>libs/select/list.lua</code></td><td>mod</td><td>slot rows, selection styling, pointer, footer row, height in rows</td></tr>
+<tr><td><code>libs/select/ui.lua</code></td><td>mod</td><td>header window + borderless input, geometry, close both</td></tr>
+<tr><td><code>libs/select/health.lua</code></td><td>mod</td><td>expected-group list follows the new groups</td></tr>
+<tr><td><code>tests/test-select-list.lua</code></td><td>new</td><td>layout, frame, scroll, empty, tags</td></tr>
+<tr><td><code>docs/CODEMAP/libraries.md</code></td><td>mod</td><td>select section</td></tr></table></section>
+<section data-spec="phases"><h2>Phases</h2>
+<div class="card" data-spec="phase-1"><h3>Phase 1 - List panel</h3><ol><li>Highlight groups <span class="risk Low">Low</span></li><li>Slot rows, framed selection, pointer, footer row <span class="risk Medium">Medium</span> (cursor/offset math with 2-row items)</li><li>Wire geometry in ui.lua <span class="risk Low">Low</span></li><li>Test <span class="risk Low">Low</span></li></ol></div>
+<div class="card" data-spec="phase-2"><h3>Phase 2 - Prompt panel</h3><ol><li>Header window (blank / heading / filter row / blank) with the input overlaid; close both <span class="risk Medium">Medium</span> (three stacked floats, BufLeave cancel)</li><li>Remove the old border table and title formatting <span class="risk Low">Low</span></li></ol></div></section>
+<section data-spec="testing-strategy"><h2>Testing</h2><ul><li>Headless: new list test plus the existing filter test.</li><li>Manual in tmux: code action, tagged menu with footer hints, PM scenarios 1-6, exact panel colours.</li></ul></section>
+<section data-spec="success-criteria"><h2>Success criteria</h2><ul style="list-style:none;padding-left:0"><li>&#9744; Panels, dashed and solid lines, pointer, no tint</li><li>&#9744; Footer right-aligned incl. caller hints</li><li>&#9744; Tags, long labels, empty state correct</li><li>&#9744; Behavior and original indices unchanged</li><li>&#9744; Tests green, stylua clean</li></ul></section>
+</main></body></html>
