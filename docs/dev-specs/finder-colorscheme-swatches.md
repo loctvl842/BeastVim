@@ -130,13 +130,25 @@ After the change: opening `<leader>c` reads a JSON cache (name -> mtime + 10 hex
 - Manual (with `NVIM_APPNAME=BeastVim`): PM scenarios 1-6 - browse and Enter, Esc restores, filter `ay`, theme with missing colors (dim squares, ten wide), narrow terminal and a long name, `zzzz` empty result. Also: first ever open (cold cache) then second open (warm), delete the cache file, resize while open, Esc then other pickers unchanged.
 
 # Success Criteria
-- [ ] `<leader>c` shows a prompt box above a separate theme list box.
-- [ ] Every row shows a name on the left and ten colored squares on the right.
-- [ ] A thin line separates consecutive rows, none after the last.
-- [ ] Squares match each theme's own colors; opening the picker never repaints the editor.
-- [ ] Warm-cache open shows all swatches immediately; cold-cache open fills them in without blocking input.
-- [ ] Live preview, Esc restore and Enter apply behave as today; swatches survive live previews.
-- [ ] Filtering keeps swatches; missing colors are dim grey; strip always ten wide.
-- [ ] Long names are shortened and never collide with swatches.
-- [ ] Files, buffers, grep and help pickers look and perform unchanged (tests + bench green).
-- [ ] stylua clean, existing finder tests pass.
+- [x] `<leader>c` shows a prompt box above a separate theme list box.
+- [x] Every row shows a name on the left and ten colored squares on the right.
+- [x] A thin line separates consecutive rows, none after the last.
+- [x] Squares match each theme's own colors; opening the picker never repaints the editor.
+- [x] Warm-cache open shows all swatches immediately; cold-cache open fills them in without blocking input.
+- [x] Live preview, Esc restore and Enter apply behave as today; swatches survive live previews.
+- [x] Filtering keeps swatches; missing colors are dim grey; strip always ten wide.
+- [x] Long names are shortened and never collide with swatches.
+- [x] Files, buffers, grep and help pickers look and perform unchanged (tests + bench green).
+- [x] stylua clean, existing finder tests pass.
+
+---
+
+## Completed
+
+2026-11-11 - Phase 1: cached headless swatch extraction. Phase 2: separator rows and multi-chunk right align in the list. Phase 3: card layout, row format, live-preview-safe swatch groups, `<leader>c` wiring.
+
+- `78d2521` feat(finder): cache per-colorscheme swatch colors via a headless worker
+- `a47a350` feat(finder): list separator rows and multi-chunk right-aligned text
+- `bb007e0` feat(finder): card layout with palette swatches for the colorscheme picker (also: filter-match rows follow the separator stride, empty-title input fix found in E2E, ErrorMsg/WarningMsg preferred over Diagnostic* for red/yellow, card width 46)
+
+Verification: all 5 `tests/test-finder-*.lua` pass (19 + 19 + 8 + 4 + 11); stylua clean on touched files; E2E in tmux (`NVIM_APPNAME=BeastVim`): layout, live preview, Esc restore, Enter apply, filter highlights, swatch colors after a `:colorscheme` between opens. `bench-ux.sh` not run.

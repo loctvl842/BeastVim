@@ -94,8 +94,8 @@ finder/
 │                     open_split/open_vsplit(win,item), copy_path(item)
 ├── keymaps.lua    ← input/list/preview pane keymaps + printable-char redirect
 ├── autocmds.lua   ← picker lifetime autocmds (BufEnter, WinClosed)
-├── highlights.lua ← BeastFinder* groups
-├── layout.lua     ← window layout calculations
+├── highlights.lua ← BeastFinder* groups; swatch(hex)/reset_swatches() per-color groups (wiped by :colorscheme)
+├── layout.lua     ← window layout calculations; calc(has_preview, "cards") = two separate narrow boxes
 ├── fzf.lua        ← external fzf integration
 ├── pipeline/
 │   ├── match.lua  ← streaming match pipeline
@@ -112,12 +112,14 @@ finder/
 │   │       ├── serialize.lua  ← binary index dump/load (header + col_for uint16 pairs + raw uint32 matrix + NUL paths)
 │   │       ├── builder.lua    ← pure build routine (rg --files → read → serialize.write); runs in the child
 │   │       └── index.lua      ← spawns headless builder subprocess, loads via ffi.copy, fs_event refresh, query→paths
-│   ├── colorschemes.lua ← sync (rtp-only globpath); grouped beastvim > nvim builtin > plugin, alphabetical within group
+│   ├── colorschemes.lua ← sync (rtp-only globpath); grouped beastvim > nvim builtin > plugin, alphabetical within group; item.swatches from cache
+│   ├── colorscheme_swatches.lua        ← JSON cache (stdpath cache, key = theme mtime + worker mtime); ensure() spawns worker, fires User BeastFinderSwatchesReady
+│   ├── colorscheme_swatches_worker.lua ← headless child: applies each theme, prints 10 role colors (bg, fg, red…purple, grey)
 │   └── help_tags.lua  ← sync (rtp-only tag parsing)
 └── ui/
     ├── init.lua     ← barrel (input, list, preview, backdrop)
     ├── input.lua    ← prompt buffer + debounced TextChanged
-    ├── list.lua     ← rendered items + cursor + selection prefix
+    ├── list.lua     ← rendered items + cursor + selection prefix; opt-in separator rows (create(..., separators)), multi-chunk right_align (Highlight.chunks)
     ├── preview.lua  ← file preview with filetype detection
     └── backdrop.lua ← fullscreen dim overlay
 ```
