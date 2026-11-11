@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794409072891,
+  "lastUpdate": 1794419912260,
   "repoUrl": "https://github.com/loctvl842/BeastVim",
   "entries": {
     "BeastVim Startup": [
@@ -3077,6 +3077,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "BeastVim startup (warm) max",
             "value": 53.221953,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "committer": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "distinct": true,
+          "id": "aaac1731ba73bfa6aa22db52e5ce86a955cc98d1",
+          "message": "docs(finder): note the thick selection block in the swatches spec",
+          "timestamp": "2026-11-12T00:55:01+07:00",
+          "tree_id": "4ebae9178088a64b519f6da7213cf38fa5102ea9",
+          "url": "https://github.com/loctvl842/BeastVim/commit/aaac1731ba73bfa6aa22db52e5ce86a955cc98d1"
+        },
+        "date": 1794419911678,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "BeastVim startup (warm) mean",
+            "value": 37.43088914999999,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) stddev",
+            "value": 0.5460314318549874,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) min",
+            "value": 36.776857,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) max",
+            "value": 38.792007000000005,
             "unit": "ms"
           }
         ]
