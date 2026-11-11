@@ -79,6 +79,14 @@ local defaults = {
 				views = { "main" },
 			},
 			{
+				keys = { "r" },
+				label = "Retry",
+				key_hl = "DiagnosticWarn",
+				label_hl = "Comment",
+				on_press = "retry_install",
+				views = { "main" },
+			},
+			{
 				keys = { "F" },
 				label = "Filter",
 				key_hl = "DiagnosticHint",

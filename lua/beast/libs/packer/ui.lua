@@ -1,5 +1,6 @@
 local View = require("beast.libs.view")
 local config = require("beast.libs.packer.config")
+local failures = require("beast.libs.packer.failures")
 local operation = require("beast.libs.packer.operation")
 local profile = require("beast.libs.packer.profile")
 local state = require("beast.libs.packer.state")
@@ -318,6 +319,21 @@ function Main.render(main)
 	end
 end
 
+--- "5m ago", "2h ago", "3d ago" for an os.time() stamp.
+---@param at integer
+---@return string
+local function format_age(at)
+	local secs = math.max(0, os.time() - at)
+	if secs < 60 then
+		return "just now"
+	elseif secs < 3600 then
+		return math.floor(secs / 60) .. "m ago"
+	elseif secs < 86400 then
+		return math.floor(secs / 3600) .. "h ago"
+	end
+	return math.floor(secs / 86400) .. "d ago"
+end
+
 ---@param reason Beast.Packer.LoadReason|nil
 ---@return Beast.Packer.UI.Segment|nil
 local function format_reason(reason)
@@ -480,6 +496,29 @@ function Main._render_main(main)
 		table.sort(loaded, function(a, b)
 			return a.name < b.name
 		end)
+	end
+
+	-- Plugins that could not be installed. Records can outlive a config change,
+	-- so only list ones still declared and still missing.
+	local failed_rows = {}
+	for name, rec in pairs(failures.list()) do
+		if state.plugins[name] and not failures.is_installed(name) then
+			table.insert(failed_rows, { name = name, rec = rec })
+		end
+	end
+	if #failed_rows > 0 then
+		table.sort(failed_rows, function(a, b)
+			return a.name < b.name
+		end)
+		table.insert(lines_segments, { { text = "  Failed ", hl = "BeastPackerH2" }, { text = "(" .. #failed_rows .. ")", hl = "BeastPackerComment" } })
+		for _, row in ipairs(failed_rows) do
+			table.insert(lines_segments, {
+				{ text = "    " .. config.ui.icons.error .. " ", hl = "BeastPackerError" },
+				{ text = row.name, hl = "BeastPackerPlugin" },
+				{ text = string.format("  install failed %s - %s", format_age(row.rec.at), row.rec.reason), hl = "BeastPackerComment" },
+			})
+		end
+		table.insert(lines_segments, { new_line })
 	end
 
 	if #state.deleted_plugins > 0 then
@@ -1126,6 +1165,7 @@ function Main._render_help(main)
 	table.insert(lines_segments, { { text = "  <CR> - Load plugin or library under cursor", hl = "BeastPackerComment" } })
 	table.insert(lines_segments, { { text = "  x - Delete plugin under cursor", hl = "BeastPackerComment" } })
 	table.insert(lines_segments, { { text = "  u - Update plugin under cursor", hl = "BeastPackerComment" } })
+	table.insert(lines_segments, { { text = "  r - Retry install of a failed plugin under cursor", hl = "BeastPackerComment" } })
 	table.insert(lines_segments, { { text = "  S - Toggle sort", hl = "BeastPackerComment" } })
 	table.insert(lines_segments, { { text = "  F - Cycle filter (>= 0/1/5/10/50 ms)", hl = "BeastPackerComment" } })
 	table.insert(lines_segments, { { text = "  G - Toggle group by load reason", hl = "BeastPackerComment" } })
@@ -1492,6 +1532,31 @@ function _actions_handler.update_plugin()
 	else
 		vim.notify("Failed to update " .. name .. ": remote unreachable", vim.log.levels.ERROR, { title = "BeastVim" })
 	end
+end
+
+function _actions_handler.retry_install()
+	local name = get_plugin_at_cursor()
+	local spec = name and state.plugins[name]
+	if not spec or not failures.list()[name] then
+		Toast("Not a failed plugin - nothing to retry", vim.log.levels.WARN, { title = "BeastVim" })
+		return
+	end
+
+	failures.clear(name)
+	local ok, err = pcall(vim.pack.add, { { src = spec.src, name = name, version = spec.version } }, { confirm = false, load = false })
+	if ok and failures.is_installed(name) then
+		state.failed_plugins[name] = nil
+		state.installed_plugins[name] = true
+		Toast(name .. " installed", vim.log.levels.INFO, { title = "BeastVim" })
+	else
+		local reason = failures.reason_for(err, name)
+		failures.record(name, spec.src, reason)
+		-- vim.pack fired PackChangedPre for this attempt but never fires
+		-- PackChanged on a failed clone, so the operation would spin forever.
+		operation.status[name] = nil
+		Toast(string.format('Could not install "%s": %s', name, reason), vim.log.levels.WARN, { title = "BeastVim" })
+	end
+	render_state()
 end
 
 local function mount_keymaps()

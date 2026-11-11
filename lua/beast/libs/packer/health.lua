@@ -115,6 +115,20 @@ function M.check()
 	end
 
 	-- =========================================================================
+	-- Install failures
+	-- =========================================================================
+	health.start("beast.libs.packer — install failures")
+
+	local recorded = require("beast.libs.packer.failures").list()
+	if next(recorded) == nil then
+		health.ok("No plugin install failures recorded")
+	else
+		for name, rec in pairs(recorded) do
+			health.warn(string.format("%s could not be installed: %s (%s)", name, rec.reason, rec.src), "Press r on it in the Packer window to retry")
+		end
+	end
+
+	-- =========================================================================
 	-- Profile data
 	-- =========================================================================
 	health.start("beast.libs.packer — profile")
