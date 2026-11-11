@@ -64,7 +64,7 @@ function M.create(on_change, total_w, total_h, win_row, win_col, title, debounce
 
 	View.win.wo(win, "cursorline", false)
 	if card then
-		View.win.wo(win, "winhl", "Normal:BeastFinderInputNormal,FloatBorder:BeastFinderCardInput")
+		View.win.wo(win, "winhl", "Normal:BeastFinderCardInputNormal,FloatBorder:BeastFinderCardInputBorder")
 	else
 		View.win.wo(win, "winhl", "Normal:BeastFinderInputNormal,FloatBorder:BeastFinderBorder,FloatTitle:BeastFinderInputTitle")
 	end
@@ -82,7 +82,7 @@ function M.create(on_change, total_w, total_h, win_row, win_col, title, debounce
 	if prefix_len > 0 then
 		vim.api.nvim_buf_set_extmark(buf, ns, 0, 0, {
 			end_col = prefix_len,
-			hl_group = "BeastFinderInputPromptPrefix",
+			hl_group = card and "BeastFinderCardInputPrefix" or "BeastFinderInputPromptPrefix",
 		})
 	end
 

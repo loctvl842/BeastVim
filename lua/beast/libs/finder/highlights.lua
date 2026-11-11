@@ -23,9 +23,11 @@ function M.get()
 		ListSelected = { fg = p.accent5, bold = true },
 		ListSelectedLine = { fg = p.accent5 },
 		ListPointer = { fg = p.accent5 },
-		-- Card style (colorscheme picker): list panel is darker than the prompt panel
-		CardList = { bg = p.background, fg = p.text },
-		CardInput = { fg = bg, bg = bg },
+		-- Card style (colorscheme picker): editor > prompt panel > list panel, getting darker
+		CardList = { bg = p.dark2, fg = p.text },
+		CardInputNormal = { bg = p.dark1, fg = p.text },
+		CardInputBorder = { fg = p.dark1, bg = p.dark1 },
+		CardInputPrefix = { bg = p.dark1, fg = p.accent2 },
 		SwatchEmpty = { fg = p.dimmed4 },
 		ListCursor = { blend = 100, nocombine = true },
 		-- Preview
