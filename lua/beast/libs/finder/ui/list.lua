@@ -223,15 +223,19 @@ local function render_visible(view)
 	-- Same margin on both sides: the inline prefix pad on the left, an equal gap on the right.
 	local sep_width = vim.api.nvim_win_get_width(view.win) - 2 * vim.fn.strdisplaywidth(sel_prefix)
 
-	--- Row above item `idx` (or below the last one when `idx` is past it) in card style:
-	--- solid line next to the selected item, dashes between items, blank at the edges.
+	--- Row above item `idx` (or below the last one when `idx` is past it) in card style: a
+	--- half-block edge in the selection tint next to the selected item (lower half above it,
+	--- upper half below it, full window width), dashes between items, blank at the edges.
 	---@param idx integer item the slot sits above
 	---@param first boolean slot is the top edge
 	---@param last boolean slot is the bottom edge
-	---@return Beast.Finder.Highlight[]
+	---@return Beast.Finder.Highlight[] highlights
+	---@return boolean? edge true for the full-width selection edges
 	local function slot(idx, first, last)
 		if idx == view.cursor or idx - 1 == view.cursor then
-			return { { text = string.rep("─", sep_width), hl = "BeastFinderListSelectedLine" } }
+			local block = idx == view.cursor and "▄" or "▀"
+			local text = string.rep(block, vim.api.nvim_win_get_width(view.win))
+			return { { text = text, hl = "BeastFinderListSelectedEdge" } }, true
 		end
 		if first or last then
 			return {}
@@ -242,6 +246,7 @@ local function render_visible(view)
 	local lines = {} ---@type string[]
 	local row_hl = {} ---@type table<integer, Beast.Finder.Highlight[]> 1-based row -> highlights
 	local row_is_match = {} ---@type table<integer, boolean>
+	local edge_rows = {} ---@type table<integer, true> rows spanning the full width (no side pad)
 	local item_to_row = {} ---@type table<integer, integer>
 	local row_to_item = {} ---@type table<integer, integer>
 
@@ -256,7 +261,8 @@ local function render_visible(view)
 		end
 		if separators then
 			rows = rows + 1
-			local h = slot(idx, idx == offset + 1, false)
+			local h, edge = slot(idx, idx == offset + 1, false)
+			edge_rows[rows] = edge
 			row_hl[rows] = h
 			row_is_match[rows] = false
 			lines[rows] = line_text(h)
@@ -285,7 +291,8 @@ local function render_visible(view)
 
 	if separators and rows > 0 then
 		rows = rows + 1
-		local h = slot(idx, false, true)
+		local h, edge = slot(idx, false, true)
+		edge_rows[rows] = edge
 		row_hl[rows] = h
 		row_is_match[rows] = false
 		lines[rows] = line_text(h)
@@ -311,17 +318,24 @@ local function render_visible(view)
 		if row_is_match[r] and r == cursor_row and not separators then
 			prefix_text = sel_prefix
 		end
-		vim.api.nvim_buf_set_extmark(view.buf, view.prefix_ns, r - 1, 0, {
-			virt_text = { { prefix_text, "BeastFinderListSelectionPrefix" } },
-			virt_text_pos = "inline",
-		})
+		if not edge_rows[r] then
+			vim.api.nvim_buf_set_extmark(view.buf, view.prefix_ns, r - 1, 0, {
+				virt_text = { { prefix_text, "BeastFinderListSelectionPrefix" } },
+				virt_text_pos = "inline",
+				-- combine so the pad keeps the selected row's tint (card style)
+				hl_mode = "combine",
+			})
+		end
 		apply_row_highlights(view, r - 1, row_hl[r])
 	end
 
 	if separators and cursor_row then
+		-- tint the whole selected row; it joins the half-block edges above and below into one block
+		vim.api.nvim_buf_set_extmark(view.buf, view.ns, cursor_row - 1, 0, { line_hl_group = "BeastFinderListSelectedRow" })
 		vim.api.nvim_buf_set_extmark(view.buf, view.ns, cursor_row - 1, 0, {
 			virt_text = { { " ◀", "BeastFinderListPointer" } },
 			virt_text_pos = "eol",
+			hl_mode = "combine",
 		})
 	end
 

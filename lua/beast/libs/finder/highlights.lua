@@ -3,6 +3,7 @@ local M = {}
 function M.get()
 	local p = Theme.get()
 	local bg = p.dark1
+	local selected_bg = Util.colors.blend(p.dimmed3, 0.3, p.dark2)
 	return Util.colors.build("BeastFinder", {
 		-- Shared
 		Backdrop = { bg = bg },
@@ -21,7 +22,10 @@ function M.get()
 		ListDir = { fg = p.dimmed3 },
 		ListSeparator = { fg = p.dimmed4 },
 		ListSelected = { fg = p.accent5, bold = true },
-		ListSelectedLine = { fg = p.accent5 },
+		-- Selection block (card style): tint behind the selected row, plus the half-block rows
+		-- above (▄) and below (▀) it that draw their half in the tint over the list panel colour.
+		ListSelectedRow = { bg = selected_bg },
+		ListSelectedEdge = { fg = selected_bg, bg = p.dark2 },
 		ListPointer = { fg = p.accent5 },
 		-- Card style (colorscheme picker): editor > prompt panel > list panel, getting darker
 		CardList = { bg = p.dark2, fg = p.text },
