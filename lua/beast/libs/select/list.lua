@@ -1,25 +1,22 @@
 local View = require("beast.libs.view")
 
-local BULLET = "● "
-local BULLET_PAD = string.rep(" ", vim.fn.strdisplaywidth(BULLET))
+local PAD = "  "
 local EMPTY_TEXT = "No matching items"
 
 ---@class Beast.Select.ListView : Beast.View.Instance
 ---@field ns integer
----@field prefix_ns integer namespace for the bullet-marker extmarks
 ---@field items any[]
 ---@field cursor integer 1-based index into items
 ---@field _format_item fun(item: any): string
 ---@field _format_tag? fun(item: any): string?
 ---@field _offset integer 0-based index of the first visible item
----@field _win_height integer current window height (viewport size)
----@field _max_height integer height cap the window never grows past
+---@field _win_height integer current window height in rows (viewport size)
+---@field _max_height integer row cap the window never grows past
 ---@overload fun(buf?: integer, win?: integer, ns: integer, max_height: integer): Beast.Select.ListView
 local ListView = View:extend(
 	---@param obj Beast.Select.ListView
 	function(obj, ns, max_height)
 		obj.ns = ns
-		obj.prefix_ns = vim.api.nvim_create_namespace("")
 		obj.items = {}
 		obj.cursor = 1
 		obj._format_item = nil
@@ -33,40 +30,49 @@ local ListView = View:extend(
 ---@class Beast.Select.UI.List
 local M = {}
 
+--- Rows needed for `count` options: a slot row above each option plus one below the last.
+---@param count integer
+---@return integer
+local function rows_for(count)
+	return count == 0 and 1 or 2 * count + 1
+end
+
+---@param view Beast.Select.ListView
+---@return integer options that fit in the current window
+local function capacity(view)
+	return math.max(1, math.floor((view._win_height - 1) / 2))
+end
+
 ---@param win_row integer
 ---@param win_col integer
----@param win_w integer
----@param win_h integer initial (and maximum) height
----@param border? table border chars
+---@param win_w integer content width (the blank side borders add one cell each)
+---@param max_rows integer initial (and maximum) height in rows
 ---@param footer? string
 ---@return Beast.Select.ListView
-function M.create(win_row, win_col, win_w, win_h, border, footer)
+function M.create(win_row, win_col, win_w, max_rows, footer)
 	local buf = View.buf.new("beast-select-list")
 	local ns = vim.api.nvim_create_namespace("beast-select-list")
 
 	local win = vim.api.nvim_open_win(buf, false, {
 		relative = "editor",
 		width = win_w,
-		height = win_h,
+		height = max_rows,
 		row = win_row,
 		col = win_col,
 		style = "minimal",
-		border = border or { "", "", "", "│", "╯", "─", "╰", "│" },
+		-- Blank side pads; the blank bottom row carries the footer.
+		border = { "", "", "", " ", " ", " ", " ", " " },
 		footer = footer,
 		footer_pos = footer and "right" or nil,
 		zindex = 101,
 	})
 
-	View.win.wo(win, "cursorline", true)
+	View.win.wo(win, "cursorline", false)
 	View.win.wo(win, "scrolloff", 0)
 	View.win.wo(win, "wrap", false)
-	View.win.wo(
-		win,
-		"winhl",
-		"Normal:BeastSelectNormal,FloatBorder:BeastSelectBorder,FloatFooter:BeastSelectFooter,CursorLine:BeastSelectListCursorLine"
-	)
+	View.win.wo(win, "winhl", "Normal:BeastSelectNormal,FloatBorder:BeastSelectBorder,FloatFooter:BeastSelectFooter")
 
-	return ListView(buf, win, ns, win_h)
+	return ListView(buf, win, ns, max_rows)
 end
 
 --- Clamp the viewport offset so `cursor` stays visible.
@@ -79,102 +85,131 @@ local function clamp_offset(view, cursor, offset)
 	if total == 0 then
 		return 0
 	end
+	local n = capacity(view)
 	-- A prior scroll offset can be stale after the item count shrinks (e.g.
-	-- filtering a scrolled-down list down to a handful of matches) — cap it
+	-- filtering a scrolled-down list down to a handful of matches) - cap it
 	-- to the current list's valid range before adjusting for cursor visibility.
-	local max_offset = math.max(0, total - view._win_height)
-	offset = math.max(0, math.min(offset, max_offset))
+	offset = math.max(0, math.min(offset, math.max(0, total - n)))
 
 	if cursor - 1 < offset then
 		return cursor - 1
 	end
-	local last_visible = offset + view._win_height
-	if cursor > last_visible then
-		return cursor - view._win_height
+	if cursor > offset + n then
+		return cursor - n
 	end
 	return offset
 end
 
---- Resize the window to fit the current item count, capped at `_max_height`
---- and floored at 1 (so the empty state always has a row to render into).
+--- Resize the window to fit the current item count, capped at `_max_height`.
 ---@param view Beast.Select.ListView
 local function resize_to_fit(view)
-	local desired = math.max(1, math.min(#view.items, view._max_height))
+	local desired = math.min(rows_for(#view.items), view._max_height)
 	if desired ~= view._win_height then
 		vim.api.nvim_win_set_config(view.win, { height = desired })
 		view._win_height = desired
 	end
 end
 
---- Draw the bullet marker on the cursor's row, blank padding elsewhere, so
---- label columns stay aligned regardless of which row is selected.
+--- Text and highlight of the slot row above option `idx` (or below the last one):
+--- solid next to the selection, dashes between options, blank at the outer edges.
 ---@param view Beast.Select.ListView
----@param visible_count integer
-local function render_bullets(view, visible_count)
-	vim.api.nvim_buf_clear_namespace(view.buf, view.prefix_ns, 0, -1)
-	local cursor_row0 = view.cursor - view._offset - 1
-	for row0 = 0, visible_count - 1 do
-		vim.api.nvim_buf_set_extmark(view.buf, view.prefix_ns, row0, 0, {
-			virt_text = { { row0 == cursor_row0 and BULLET or BULLET_PAD, "BeastSelectListBullet" } },
-			virt_text_pos = "inline",
-		})
+---@param idx integer option the slot sits above
+---@param first boolean top edge
+---@param last boolean bottom edge
+---@param width integer
+---@return string text, string? hl
+local function slot(view, idx, first, last, width)
+	if idx == view.cursor or idx - 1 == view.cursor then
+		return string.rep("─", width), "BeastSelectListSelectedLine"
 	end
+	if first or last then
+		return "", nil
+	end
+	return string.rep("-", width), "BeastSelectListSeparator"
 end
 
---- Write the visible slice of items to the buffer, with the bullet marker
---- and an optional right-aligned dim tag per row.
+--- Write the visible slice of options with their slot rows to the buffer.
 ---@param view Beast.Select.ListView
 local function render_visible(view)
 	if not view:is_valid() then
 		return
 	end
+	vim.api.nvim_buf_clear_namespace(view.buf, view.ns, 0, -1)
 
 	if #view.items == 0 then
 		vim.bo[view.buf].modifiable = true
 		vim.api.nvim_buf_set_lines(view.buf, 0, -1, false, { "" })
 		vim.bo[view.buf].modifiable = false
-		vim.api.nvim_buf_clear_namespace(view.buf, view.ns, 0, -1)
-		vim.api.nvim_buf_clear_namespace(view.buf, view.prefix_ns, 0, -1)
 		vim.api.nvim_buf_set_extmark(view.buf, view.ns, 0, 0, {
-			virt_text = { { BULLET_PAD .. EMPTY_TEXT, "BeastSelectListEmpty" } },
+			virt_text = { { PAD .. EMPTY_TEXT, "BeastSelectListEmpty" } },
 			virt_text_pos = "inline",
 		})
 		return
 	end
 
 	local items = view.items
-	local visible_count = math.min(view._win_height, #items - view._offset)
+	local width = vim.api.nvim_win_get_width(view.win) - 2 * #PAD
+	local visible_count = math.min(capacity(view), #items - view._offset)
 
 	local lines = {} ---@type string[]
+	local marks = {} ---@type { row0: integer, col_end: integer, hl: string }[]
 	local tags = {} ---@type table<integer, string>
+	local cursor_row0 ---@type integer?
+
 	for i = 1, visible_count do
-		local item = items[view._offset + i]
-		lines[i] = view._format_item(item)
-		if view._format_tag then
-			local tag = view._format_tag(item)
-			if tag then
-				tags[i] = tag
-			end
+		local idx = view._offset + i
+		local text, hl = slot(view, idx, i == 1, false, width)
+		lines[#lines + 1] = text
+		if hl then
+			marks[#marks + 1] = { row0 = #lines - 1, col_end = #text, hl = hl }
 		end
+
+		local tag = view._format_tag and view._format_tag(items[idx]) or nil
+		-- Keep room for both side pads, the pointer (2) and the tag so none of them get clipped.
+		local room = vim.api.nvim_win_get_width(view.win) - 2 * #PAD - 2 - (tag and (vim.fn.strdisplaywidth(tag) + 1) or 0)
+		local label = view._format_item(items[idx])
+		if vim.fn.strdisplaywidth(label) > room then
+			label = vim.fn.strcharpart(label, 0, math.max(0, room - 3)) .. "..."
+		end
+		lines[#lines + 1] = label
+		if idx == view.cursor then
+			cursor_row0 = #lines - 1
+			marks[#marks + 1] = { row0 = cursor_row0, col_end = #label, hl = "BeastSelectListSelected" }
+		end
+		if tag then
+			tags[#lines - 1] = tag
+		end
+	end
+	local text, hl = slot(view, view._offset + visible_count + 1, false, true, width)
+	lines[#lines + 1] = text
+	if hl then
+		marks[#marks + 1] = { row0 = #lines - 1, col_end = #text, hl = hl }
 	end
 
 	vim.bo[view.buf].modifiable = true
 	vim.api.nvim_buf_set_lines(view.buf, 0, -1, false, lines)
 	vim.bo[view.buf].modifiable = false
 
-	vim.api.nvim_buf_clear_namespace(view.buf, view.ns, 0, -1)
-	for i, tag in pairs(tags) do
-		vim.api.nvim_buf_set_extmark(view.buf, view.ns, i - 1, 0, {
-			virt_text = { { tag, "BeastSelectListTag" } },
+	for row0 = 0, #lines - 1 do
+		vim.api.nvim_buf_set_extmark(view.buf, view.ns, row0, 0, { virt_text = { { PAD } }, virt_text_pos = "inline" })
+	end
+	for _, m in ipairs(marks) do
+		vim.api.nvim_buf_set_extmark(view.buf, view.ns, m.row0, 0, { end_col = m.col_end, hl_group = m.hl })
+	end
+	for row0, tag in pairs(tags) do
+		vim.api.nvim_buf_set_extmark(view.buf, view.ns, row0, 0, {
+			virt_text = { { tag .. PAD, "BeastSelectListTag" } },
 			virt_text_pos = "right_align",
 			hl_mode = "combine",
 		})
 	end
-
-	render_bullets(view, visible_count)
-
-	local cursor_row0 = view.cursor - view._offset - 1
-	pcall(vim.api.nvim_win_set_cursor, view.win, { cursor_row0 + 1, 0 })
+	if cursor_row0 then
+		vim.api.nvim_buf_set_extmark(view.buf, view.ns, cursor_row0, 0, {
+			virt_text = { { " ◀", "BeastSelectListPointer" } },
+			virt_text_pos = "eol",
+		})
+		pcall(vim.api.nvim_win_set_cursor, view.win, { cursor_row0 + 1, 0 })
+	end
 end
 
 ---@param view Beast.Select.ListView
@@ -201,16 +236,9 @@ function M.set_cursor(view, idx)
 		return
 	end
 	view.cursor = math.max(1, math.min(idx, #view.items))
-	local new_offset = clamp_offset(view, view.cursor, view._offset)
-	if new_offset ~= view._offset then
-		view._offset = new_offset
-		render_visible(view)
-	else
-		local visible_count = math.min(view._win_height, #view.items - view._offset)
-		render_bullets(view, visible_count)
-		local cursor_row0 = view.cursor - view._offset - 1
-		pcall(vim.api.nvim_win_set_cursor, view.win, { cursor_row0 + 1, 0 })
-	end
+	view._offset = clamp_offset(view, view.cursor, view._offset)
+	-- The frame follows the cursor, so every move redraws the visible slice.
+	render_visible(view)
 end
 
 ---@param view Beast.Select.ListView

@@ -53,7 +53,7 @@ end
 function M.open(items, opts, on_choice)
 	local total_w = math.min(math.max(math.floor(vim.o.columns * WIDTH_RATIO), MIN_WIDTH), MAX_WIDTH)
 	local content_w = total_w - 2
-	local list_h = math.max(1, math.min(#items, MAX_VISIBLE_ITEMS))
+	local list_h = 2 * math.max(1, math.min(#items, MAX_VISIBLE_ITEMS)) + 1
 	local total_h = list_h + 4
 	-- Upper-middle, not dead-center (matches input's centered-fallback
 	-- placement) — but never let a tall list run off the bottom of a small
@@ -98,7 +98,7 @@ function M.open(items, opts, on_choice)
 	vim.wo[input_win].signcolumn = "no"
 	vim.wo[input_win].wrap = false
 
-	local list_view = list.create(top + 3, left, content_w, list_h, nil, format_footer(opts.footer_hints))
+	local list_view = list.create(top + 3, left, content_w, list_h, format_footer(opts.footer_hints))
 
 	---@type Beast.Select.Wrapped[]
 	local wrapped = {}
