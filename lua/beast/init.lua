@@ -8,6 +8,7 @@ M.reload_highlights = hl.reload_highlights
 ---@field key? Beast.Key.Config
 ---@field notify? Beast.Notify.Config
 ---@field toast? table
+---@field messages? Beast.Messages.Config
 ---@field explorer? Beast.Explorer.Config
 ---@field packer? Beast.Packer.Config
 ---@field treesitter? Beast.Treesitter.Config
