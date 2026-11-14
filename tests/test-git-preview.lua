@@ -255,6 +255,27 @@ do
 	end
 end
 
+io.write("\n== word spans on paired rows ==\n")
+do
+	-- 2 lines replaced by 3: first two pair up, the extra added line stays soft.
+	local base = "ctx\nif not confirmed then\nlocal count = old_name(x)\nend\n"
+	local cur = { "ctx", "if not confirmed and ok then", "local count = new_name(x)", "extra line here", "end" }
+	local buf = make_buf(cur)
+	local hunk = { a_start = 2, a_count = 2, b_start = 2, b_count = 3 }
+	local rows = build_rows_unstaged(buf, base, { hunk }, 1)
+
+	local by = {}
+	for _, r in ipairs(rows) do
+		by[r.marker .. r.text] = r
+	end
+	assert_eq("context row has no spans", by["  ctx"].spans, nil)
+	assert_eq("removed row 1 pairs (nothing removed)", by["- if not confirmed then"].spans, {})
+	assert_eq("added row 1 marks the phrase", by["+ if not confirmed and ok then"].spans, { { 17, 24 } })
+	assert_eq("removed row 2 marks old word", by["- local count = old_name(x)"].spans, { { 14, 22 } })
+	assert_eq("added row 2 marks new word", by["+ local count = new_name(x)"].spans, { { 14, 22 } })
+	assert_eq("unpaired added row has no spans", by["+ extra line here"].spans, nil)
+end
+
 io.write("\n== Summary ==\n")
 io.write(("  Passed: %d\n  Failed: %d\n"):format(passed, failed))
 os.exit(failed == 0 and 0 or 1)

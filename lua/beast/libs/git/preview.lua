@@ -14,6 +14,7 @@
 
 local api = vim.api
 local View = require("beast.libs.view")
+local diff = require("beast.libs.git.diff")
 
 local M = {}
 
@@ -173,6 +174,7 @@ end
 ---@field marker string "- " | "+ " | "  "
 ---@field text string
 ---@field hl string?
+---@field spans integer[][]? Byte ranges {s, e} (0-based, end exclusive) of the words that changed on a paired -/+ row
 
 ---@param rows Beast.Git.PreviewRow[]
 ---@param source Beast.Git.PreviewSource
@@ -224,13 +226,15 @@ local function build_rows(source, removed_text, added_text, hunks, ctx_n)
 		-- sit (b_start for change/delete; clamped to 1 for topdelete).
 		local removed = slice_text(removed_text, hunk.a_start, hunk.a_count)
 		local removed_anchor = math.max(1, hunk.b_start)
+		local removed_rows = {}
 		for j, l in ipairs(removed) do
-			rows[#rows + 1] = {
+			removed_rows[j] = {
 				lnum = removed_anchor + j - 1,
 				marker = "- ",
 				text = l,
 				hl = "BeastGitPreviewDelete",
 			}
+			rows[#rows + 1] = removed_rows[j]
 		end
 		-- Added lines map to b_start .. b_start+b_count-1 in `source`.
 		local added
@@ -242,12 +246,17 @@ local function build_rows(source, removed_text, added_text, hunks, ctx_n)
 			added = source.get_lines(hunk.b_start, hunk.b_start + hunk.b_count - 1)
 		end
 		for j, l in ipairs(added) do
-			rows[#rows + 1] = {
+			local row = {
 				lnum = hunk.b_start + j - 1,
 				marker = "+ ",
 				text = l,
 				hl = "BeastGitPreviewAdd",
 			}
+			rows[#rows + 1] = row
+			-- Pair the j-th added line with the j-th removed line (surplus lines stay soft).
+			if removed_rows[j] then
+				removed_rows[j].spans, row.spans = diff.word_spans(removed_rows[j].text, l)
+			end
 		end
 		if hunk.b_count > 0 then
 			prev_emit = hunk.b_start + hunk.b_count - 1
