@@ -371,7 +371,9 @@ local function apply_decorations(buf, body, hls, gutters, spans)
 	vim.b[buf].beast_git_preview_gutter = gutters
 	for i = 1, #body do
 		if hls[i] then
-			api.nvim_buf_set_extmark(buf, ns, i - 1, 0, { line_hl_group = hls[i] })
+			-- A range highlight (not line_hl_group, which always paints over ranges)
+			-- so the changed-word backgrounds below can layer on top of it.
+			api.nvim_buf_set_extmark(buf, ns, i - 1, 0, { end_row = i, end_col = 0, hl_group = hls[i], hl_eol = true, priority = 100 })
 		end
 		for _, range in ipairs(spans[i] and spans[i].ranges or {}) do
 			api.nvim_buf_set_extmark(buf, ns, i - 1, range[1], { end_col = range[2], hl_group = spans[i].hl, priority = 200 })
