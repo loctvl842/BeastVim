@@ -10,6 +10,11 @@ function M.get()
 		PreviewAdd = { bg = Util.colors.blend(p.green, 0.15, p.dark1) },
 		PreviewDelete = { bg = Util.colors.blend(p.red, 0.15, p.dark1) },
 
+		-- Stronger backgrounds for the words that changed inside a modified line
+		-- (bg only, so syntax foreground colors stay intact).
+		PreviewAddWord = { bg = Util.colors.blend(p.green, 0.35, p.dark1) },
+		PreviewDeleteWord = { bg = Util.colors.blend(p.red, 0.35, p.dark1) },
+
 		-- Gutter foregrounds (line number + +/- marker). bg inherits the line bg
 		-- so the tint stays continuous across the gutter.
 		PreviewAddSign = { fg = Util.colors.blend(p.green, 0.6, p.dark1), bg = Util.colors.blend(p.green, 0.15, p.dark1), bold = true },
