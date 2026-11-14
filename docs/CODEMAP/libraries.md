@@ -8,7 +8,13 @@
 explorer/
 ├── init.lua       ← open/close/toggle, setup, replace_netrw
 ├── config.lua     ← style, width, side, icons, git, sticky, mappings
-├── state.lua      ← tree, view, sticky, source_win, augroup, watchers, git_root/job/timer
+├── state.lua      ← tree, view, sticky, source_win, augroup, watchers, git_root/job/timer, mode/mode_state
+├── mode.lua       ← mode registry: decorate() hook for render.build, leave() back to normal
+├── search/        ← search mode (state.mode = "search"): state.tree swapped for a SearchTree
+│   ├── init.lua   ← start/prompt/set_query/exit/stop; finder session, WinLeave/WinClosed end it
+│   ├── tree.lua   ← SearchTree extends Tree: expand only prunes, from_matches(), positions/count
+│   ├── prompt.lua ← getcharstr key loop for the top-line query
+│   └── decorate.lua ← query line, count, empty row, matched letters (render hook)
 ├── clipboard.lua  ← "+" register read/write/toggle for cross-session copy/cut/paste
 ├── tree.lua       ← filesystem tree with flat cache, unwatch_subtree()
 ├── git.lua        ← async git status engine (vim.system, porcelain v1, propagation)
@@ -26,6 +32,7 @@ explorer/
     ├── create.lua, delete.lua, rename.lua
     ├── trash.lua, _trash_cmd.lua (OS-specific trash command resolver)
     ├── set_root.lua, navigate_up.lua, show_hidden.lua
+    ├── search.lua, search_exit.lua (`/` `?` and `<Esc><Esc>`; available() = finder session usable)
     ├── next_git_file.lua, prev_git_file.lua, next_diag_file.lua, prev_diag_file.lua
     │   (candidates from _git_jump.lua / _diag_jump.lua; DFS order + wrap in _jump.lua)
     ├── debug_node.lua (dump node metadata to a float)
@@ -83,6 +90,7 @@ provider can't honestly answer a query (SSH-without-display OSC52 case in
 finder/
 ├── init.lua       ← open(source, opts) — pre-flight gate for auto_select
 │                     sources, then open_finder() (State + keymaps + autocmds); setup()
+├── search.lua     ← headless file search session (stream files once, re-match per query; no UI)
 ├── preflight.lua  ← run a source to completion with no picker UI (generation-
 │                     guarded: a rapid re-trigger supersedes a pending check)
 ├── status.lua     ← "is a pre-flight check running, for what" — start()/stop(),

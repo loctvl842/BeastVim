@@ -23,7 +23,7 @@ The explorer only knows the folders the user opened, and `/` is Neovim's text se
 ### Solution
 
 1. **Finder:** `finder/search.lua`, a headless session: stream the `files` source once, re-run `matcher.run` per query, no windows or picker state.
-2. **Explorer modes:** the explorer gets a standard `state.mode` (`"normal"` by default, `"search"` here; Git, Diagnostics etc. could follow) and `state.mode_state` (data owned by the active mode, e.g. search's `real_tree`, query, session). A tiny `explorer/mode.lua` holds the registry (`{ search = "beast.libs.explorer.search" }`) and three calls: `enter(name, ...)`, `leave()` (stops the active mode, no-op in normal), `decorate(lines, hls, badges, nodes)` (dispatches to the active mode's optional `decorate`). A mode module exposes `start`, `stop` and optionally `decorate`; core code never names search.
+2. **Explorer modes:** the explorer gets a standard `state.mode` (`"normal"` by default, `"search"` here; Git, Diagnostics etc. could follow) and `state.mode_state` (data owned by the active mode, e.g. search's `real_tree`, query, session). A tiny `explorer/mode.lua` holds the registry (`{ search = "beast.libs.explorer.search" }`) and two calls: `leave()` (stops the active mode, no-op in normal), `decorate(lines, hls, badges, nodes)` (dispatches to the active mode's optional `decorate`). A mode module exposes `start`, `stop` and optionally `decorate`; core code never names search.
 3. **Result tree:** `SearchTree` inherits `Tree` and overrides one method, `expand`, to prune missing children instead of scanning the disk; that single override stops walk, refresh, watchers and actions from re-adding non-matching files. It also owns the search data (`positions`, `count`, `capped`) and `SearchTree.from_matches(root, matches)`, so `decorate.lua` reads everything from `state.tree`. `tree.lua` itself is not edited.
 4. **Drawing:** one call at the end of `render.build` hands the built rows to `search/decorate.lua`, which adds the query line + caret while typing, the count badge, the empty message and matched-letter highlights.
 5. **Typing:** `search/prompt.lua` reads keys with `getcharstr` and repaints the top line per key. No cmdline, no insert mode, no second prompt.
@@ -84,7 +84,7 @@ New:
 
 Small edits (a few lines each):
 - `lua/beast/libs/finder/source/files.lua` - `M.supported()`.
-- `lua/beast/libs/explorer/mode.lua` (new) - mode registry: `enter`, `leave`, `decorate`.
+- `lua/beast/libs/explorer/mode.lua` (new) - mode registry: `leave`, `decorate`.
 - `lua/beast/libs/explorer/state.lua` - `mode` (default `"normal"`) and `mode_state`, both reset by `reset()`.
 - `lua/beast/libs/explorer/render.lua` - at the end of `build`: `mode.decorate(lines, hls, badges, nodes)` (returns at once in normal mode).
 - `lua/beast/libs/explorer/config.lua` - default mappings `/`, `?`, `<Esc><Esc>`.
@@ -125,7 +125,7 @@ Not touched: `tree.lua`, `ui.lua`, `sticky.lua`, `autocmds.lua`, `watch.lua`, `g
    - Risk: Low (normal trees untouched)
 
 2. **Modes** (Files: `lua/beast/libs/explorer/state.lua`, `explorer/mode.lua`)
-   - Action: `state.mode` and `state.mode_state` (`reset()` clears both); `mode.lua` with the registry and `enter` / `leave` / `decorate`. Search's `mode_state` is `Beast.Explorer.SearchState` (`real_tree, query, confirmed, prompting, session, loading, focus_pending, saved_cursor, augroup`).
+   - Action: `state.mode` and `state.mode_state` (`reset()` clears both); `mode.lua` with the registry and `leave` / `decorate`. Search's `mode_state` is `Beast.Explorer.SearchState` (`real_tree, query, confirmed, prompting, session, loading, focus_pending, saved_cursor, augroup`).
    - Why: a standard seam so another mode later adds a module and a registry line, not new fields and hooks.
    - Depends on: None
    - Risk: Low
@@ -143,7 +143,7 @@ Not touched: `tree.lua`, `ui.lua`, `sticky.lua`, `autocmds.lua`, `watch.lua`, `g
 ## Phase 3: Search mode - lifecycle, prompt, keys, degradation
 
 1. **Lifecycle** (File: `lua/beast/libs/explorer/search/init.lua`)
-   - Action: `start()` (via `mode.enter("search")`) sets `state.mode = "search"`, saves `state.tree` as `real_tree` and the cursor, creates the finder session for the root, sets an empty `SearchTree`, registers one augroup (`WinClosed` on the explorer window -> `stop`; `WinLeave` on the explorer buffer -> scheduled `exit({path = file open now})` when it is under the root and readable, else `exit({reveal = false})`, skipping floating targets; `User BeastVisibilityChanged` -> `session:refresh()`). `set_query(q)`: empty -> empty tree; else `session:query`, and on a non-stale result build a fresh `SearchTree.from_matches` (matches + ancestors), assign `state.tree`, `ui.flush()`, `sticky.refresh()`, cursor on the first file row for a new query or back on the same path otherwise, `redraw` while prompting. `stop()`: close session, delete augroup, `state.tree = real_tree`, `state.mode = "normal"`, `state.mode_state = nil`, `ui.render()`. `exit(opts)`: pick the path to reveal (given path, else row under cursor; `reveal = false` restores the saved cursor), `stop()`, then `ui.focus_path`.
+   - Action: `start()` sets `state.mode = "search"`, saves `state.tree` as `real_tree` and the cursor, creates the finder session for the root, sets an empty `SearchTree`, registers one augroup (`WinClosed` on the explorer window -> `stop`; `WinLeave` on the explorer buffer -> scheduled `exit({path = file open now})` when it is under the root and readable, else `exit({reveal = false})`, skipping floating targets; `User BeastVisibilityChanged` -> `session:refresh()`). `set_query(q)`: empty -> empty tree; else `session:query`, and on a non-stale result build a fresh `SearchTree.from_matches` (matches + ancestors), assign `state.tree`, `ui.flush()`, `sticky.refresh()`, cursor on the first file row for a new query or back on the same path otherwise, `redraw` while prompting. `stop()`: close session, delete augroup, `state.tree = real_tree`, `state.mode = "normal"`, `state.mode_state = nil`, `ui.render()`. `exit(opts)`: pick the path to reveal (given path, else row under cursor; `reveal = false` restores the saved cursor), `stop()`, then `ui.focus_path`.
    - Why: all search behavior in one module on top of the explorer.
    - Depends on: Phase 2
    - Risk: Medium
@@ -191,15 +191,31 @@ Not touched: `tree.lua`, `ui.lua`, `sticky.lua`, `autocmds.lua`, `watch.lua`, `g
 
 # Success Criteria
 
-- [ ] Searching `in.lua` with every folder closed shows `lua/beast/init.lua` and the other matches.
-- [ ] Search mode starts empty; the tree fills while typing on the top line; no prompt at the bottom.
-- [ ] Results appear as a tree with the right folders opened, non-matches hidden, matching letters highlighted, count shown while typing.
-- [ ] `<Enter>` ends typing, keeps results and puts the cursor on the first match; the top line is the folder title again.
-- [ ] Folders open and close, files open or split, and create, rename, delete, trash, copy, cut, paste, `H` work on result rows.
-- [ ] `.` and `<BS>` while searching end search mode first, then behave as usual.
-- [ ] Sticky headers work while scrolling results with no search-specific code in `sticky.lua`.
-- [ ] `<Esc><Esc>`, closing the explorer, or moving focus out of the explorer ends search mode; focus-out puts the explorer cursor on the file now open and the cursor stays visible.
-- [ ] The real tree object and its open/closed folders are untouched by searching.
-- [ ] A zero-result search shows the empty message and a 0 count.
-- [ ] With the finder or fd/rg/find missing, `/` and `?` behave exactly as before.
-- [ ] Existing explorer files change only by the listed small edits; explorer bench shows no regression.
+- [x] Searching `in.lua` with every folder closed shows `lua/beast/init.lua` and the other matches.
+- [x] Search mode starts empty; the tree fills while typing on the top line; no prompt at the bottom.
+- [x] Results appear as a tree with the right folders opened, non-matches hidden, matching letters highlighted, count shown while typing.
+- [x] `<Enter>` ends typing, keeps results and puts the cursor on the first match; the top line is the folder title again.
+- [x] Folders open and close, files open or split, and create, rename, delete, trash, copy, cut, paste, `H` work on result rows.
+- [x] `.` and `<BS>` while searching end search mode first, then behave as usual.
+- [x] Sticky headers work while scrolling results with no search-specific code in `sticky.lua`.
+- [x] `<Esc><Esc>`, closing the explorer, or moving focus out of the explorer ends search mode; focus-out puts the explorer cursor on the file now open and the cursor stays visible.
+- [x] The real tree object and its open/closed folders are untouched by searching.
+- [x] A zero-result search shows the empty message and a 0 count.
+- [x] With the finder or fd/rg/find missing, `/` and `?` behave exactly as before.
+- [x] Existing explorer files change only by the listed small edits; explorer bench shows no regression.
+
+---
+
+# Completed
+
+2026-11-14. Phase 1 finder session, Phase 2 SearchTree + mode seam + render hook, Phase 3 lifecycle, prompt, keys, degradation, Phase 4 bench, e2e and docs.
+
+- `eb5ae11` docs(explorer): dev spec v2 for project search (SearchTree + explorer modes)
+- `b4e30d3` feat(finder): headless file search session for other libs
+- `54328d1` feat(explorer): SearchTree and mode seam for search results
+- `bc0ebb3` feat(explorer): project search mode on / and ?
+
+Deviations from the plan: `SearchTree:open` and `SearchTree:unwatch_subtree` are overridden too (a created or renamed file must join the results; the real tree's watchers must not be stopped), `explorer/init.lua` calls `mode.leave()` before re-rooting, and `mode.enter` was dropped (nothing needed it).
+
+Verification: `test-finder-search` 14/14, `test-explorer-search` 46/46, `test-explorer-clipboard` 19/19, `test-visibility` 17/17, `test-finder-preloaded-items` 4/4. Bench: explorer mixed 533 us (unchanged); search, 1000 matches, build 0.9 ms + render 0.7 ms (budget 16 ms). tmux run on the real config: typing with live count, no-match message, `<Esc>` in the first prompt, `<Esc><Esc>`, `G` scrolling with sticky, opening a result ends search and reveals the file.
+
