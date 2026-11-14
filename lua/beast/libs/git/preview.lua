@@ -632,16 +632,6 @@ local function staged_hunks_in_range(st, s, e)
 	return matched, project
 end
 
---- HEAD↔BUFFER diff — the union of staged + unstaged changes. Used when a
---- range spans both tiers so the user sees one continuous picture.
----@param st Beast.Git.BufState
----@param source_buf integer
----@return Beast.Git.RawHunk[]
-local function compute_combined_hunks(st, source_buf)
-	local current = table.concat(api.nvim_buf_get_lines(source_buf, 0, -1, false), "\n") .. "\n"
-	return require("beast.libs.git.diff").compute_hunks(st.head, current)
-end
-
 ---@class Beast.Git.PreviewPlan
 ---@field matched Beast.Git.RawHunk[]
 ---@field all_hunks Beast.Git.RawHunk[]    full hunk list for expand_adjacent context
@@ -696,12 +686,14 @@ local function plan_preview(opts, st, source_buf, s, e)
 		}
 	end
 
-	-- target == "auto": pick the tier(s) that intersect the range.
+	-- target == "auto": unstaged wins whenever it overlaps, so a line that is
+	-- staged and then edited again previews index↔buffer (what is still
+	-- unstaged), not the already-staged change.
 	if #matched_unstaged == 0 and #matched_staged == 0 then
 		vim.notify("No hunk in selection", vim.log.levels.INFO, { title = "beast.git" })
 		return nil
 	end
-	if #matched_unstaged > 0 and #matched_staged == 0 then
+	if #matched_unstaged > 0 then
 		return {
 			matched = matched_unstaged,
 			all_hunks = st.hunks,
@@ -711,35 +703,14 @@ local function plan_preview(opts, st, source_buf, s, e)
 			title = nil,
 		}
 	end
-	if #matched_staged > 0 and #matched_unstaged == 0 then
-		return {
-			matched = matched_staged,
-			all_hunks = st.staged_hunks,
-			source = string_source(st.base),
-			removed_text = st.head,
-			added_text = st.base,
-			title = { { " Staged ", "BeastGitPreviewStagedTitle" } },
-			project = staged_project,
-		}
-	end
-
-	-- Mixed: compute the union HEAD↔BUFFER diff and filter to the range.
-	-- This naturally handles overlapping/abutting staged + unstaged hunks
-	-- (matches `git diff HEAD -- <file>`).
-	local combined = compute_combined_hunks(st, source_buf)
-	local matched_combined = hunks_in_range(combined, s, e)
-	if #matched_combined == 0 then
-		-- Should not happen given the per-tier matches, but bail safely.
-		vim.notify("No hunk in selection", vim.log.levels.INFO, { title = "beast.git" })
-		return nil
-	end
 	return {
-		matched = matched_combined,
-		all_hunks = combined,
-		source = buffer_source(source_buf),
+		matched = matched_staged,
+		all_hunks = st.staged_hunks,
+		source = string_source(st.base),
 		removed_text = st.head,
-		added_text = nil,
-		title = { { " HEAD↔buffer ", "BeastGitPreviewStagedTitle" } },
+		added_text = st.base,
+		title = { { " Staged ", "BeastGitPreviewStagedTitle" } },
+		project = staged_project,
 	}
 end
 
