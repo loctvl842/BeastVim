@@ -51,8 +51,10 @@ child wins). Debounced refresh on BufWritePost + FocusGained. Badges: M, A, D, U
 `config.show_hidden` delegates to `beast.visibility.hidden` (read-only proxy,
 zero call-site changes). `tree.lua:flat()` also filters `git_status.kind ==
 "ignored"` unless `beast.visibility.gitignored`, and unconditionally excludes
-`.git` regardless of either flag. `autocmds.lua` listens for `User
-BeastVisibilityChanged` to re-filter + redraw live.
+`.git` regardless of either flag. Listed file buffers (plus their ancestor dirs)
+are exempt from both filters, and the open-file set is part of the flat cache
+key. `autocmds.lua` listens for `User BeastVisibilityChanged` to re-filter +
+redraw live, and for `BufAdd`/`BufDelete` to redraw when the pinned set changes.
 
 ### Sticky ancestor headers (`sticky.lua`)
 
