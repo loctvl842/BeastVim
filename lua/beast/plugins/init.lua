@@ -10,6 +10,14 @@ return {
 		lazy = {
 			module = "nvim-web-devicons",
 		},
+		config = function()
+			require("nvim-web-devicons").setup({
+				override_by_extension = {
+					out = { icon = "󰧭", color = "#a6adc8", name = "Out" },
+					err = { icon = "", color = "#f38ba8", name = "Err" },
+				},
+			})
+		end,
 	},
 	{
 		name = "mini.icons",
