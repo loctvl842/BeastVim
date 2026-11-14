@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794625122115,
+  "lastUpdate": 1794638563354,
   "repoUrl": "https://github.com/loctvl842/BeastVim",
   "entries": {
     "BeastVim Startup": [
@@ -3253,6 +3253,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "BeastVim startup (warm) max",
             "value": 35.567923,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "committer": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "distinct": true,
+          "id": "6625fdc08e284f3d82ff35520b4b2d8d14a72ffd",
+          "message": "fix(explorer): jump to the open file when search mode ends by leaving the explorer",
+          "timestamp": "2026-11-14T11:23:50+07:00",
+          "tree_id": "79f93295857d004d4dee2a2f197377a87b71790c",
+          "url": "https://github.com/loctvl842/BeastVim/commit/6625fdc08e284f3d82ff35520b4b2d8d14a72ffd"
+        },
+        "date": 1794638563004,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "BeastVim startup (warm) mean",
+            "value": 49.55709130000001,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) stddev",
+            "value": 1.901213819623666,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) min",
+            "value": 46.876876,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) max",
+            "value": 56.721748000000005,
             "unit": "ms"
           }
         ]
