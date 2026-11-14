@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794646443962,
+  "lastUpdate": 1794649446367,
   "repoUrl": "https://github.com/loctvl842/BeastVim",
   "entries": {
     "BeastVim Startup": [
@@ -3385,6 +3385,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "BeastVim startup (warm) max",
             "value": 38.476136000000004,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "committer": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "distinct": true,
+          "id": "d9bfd415a4800716bb9855d4f2e7e420b7451e2e",
+          "message": "feat(review): restore port and token across restarts\n\nClaude Code re-dials the ws://127.0.0.1:<port> and token it first\nconnected with and never rescans lock files, so a restarted Neovim only\ngets its session back by coming up on the same address.\n\nRemember {port, token} per working directory and try them first on\nstart. If the saved port is taken, serve on a fresh address and leave\nthe saved identity to its holder.",
+          "timestamp": "2026-11-14T16:43:33+07:00",
+          "tree_id": "2723981a0aa3e3b5a210056d34d6b1995eac6614",
+          "url": "https://github.com/loctvl842/BeastVim/commit/d9bfd415a4800716bb9855d4f2e7e420b7451e2e"
+        },
+        "date": 1794649445650,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "BeastVim startup (warm) mean",
+            "value": 32.3006527,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) stddev",
+            "value": 0.4600700226394716,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) min",
+            "value": 31.659165,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) max",
+            "value": 33.044324,
             "unit": "ms"
           }
         ]
