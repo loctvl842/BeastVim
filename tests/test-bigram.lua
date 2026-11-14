@@ -10,7 +10,7 @@ package.path = "./lua/?.lua;./lua/?/init.lua;" .. package.path
 
 -- index.lua notifies via the global Toast (set by beast.setup) when a build
 -- finishes; stub it so the headless build callback doesn't error.
-_G.Toast = _G.Toast or function() end
+_G.Toast = _G.Toast or function(...) end
 
 local passed, failed = 0, 0
 

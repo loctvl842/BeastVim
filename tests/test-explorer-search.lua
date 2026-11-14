@@ -19,7 +19,7 @@ _G.Theme = {
 	refresh = function() end,
 }
 _G.Util = require("beast.util")
-_G.Toast = function() end
+_G.Toast = function(...) end
 _G.Icon = require("beast.icon")
 _G.View = require("beast.libs.view")
 package.loaded["nvim-web-devicons"] = {

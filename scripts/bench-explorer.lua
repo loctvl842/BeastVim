@@ -38,7 +38,7 @@ _G.Theme = {
 
 _G.Util = require("beast.util")
 
-_G.Toast = function() end
+_G.Toast = function(...) end
 
 -- Stub nvim-web-devicons — in real BeastVim this is always loaded by packer.
 -- Without it, config.file_icon would fall back to cfg.icon.file (fast path),

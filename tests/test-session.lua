@@ -23,7 +23,7 @@ _G.Theme = {
 
 _G.Util = require("beast.util")
 
-_G.Toast = function() end
+_G.Toast = function(...) end
 
 package.loaded["nvim-web-devicons"] = {
 	get_icon = function(_, _, _)
