@@ -1,6 +1,10 @@
 --- Headless file search: streams the `files` source once, then re-scores the
 --- cached items per query with the finder matcher. No windows, no picker State,
 --- so other libs (explorer) can reuse the finder's search without its UI.
+---
+--- Lives in the finder because it drives finder internals (filter, config.matcher,
+--- matcher.run, source.files); callers only see `available()` and `files()`.
+--- Currently only the explorer (search mode) uses it.
 local Filter = require("beast.libs.finder.filter")
 local config = require("beast.libs.finder.config")
 local matcher = require("beast.libs.finder.matcher")
