@@ -90,6 +90,12 @@ do
 	assert_eq("new marks the inserted word", texts(new, n), { "there " })
 end
 
+io.write("\n== invalid bytes ==\n")
+do
+	local ok = pcall(word_spans, "abc \255 def", "abc \200 deff")
+	assert_eq("does not throw on stray bytes", ok, true)
+end
+
 io.write("\n== over-length line ==\n")
 do
 	local long = string.rep("a", 1001)

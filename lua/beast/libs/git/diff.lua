@@ -76,13 +76,14 @@ local WORD_MIN_SHARED = 0.4 -- min shared non-whitespace ratio (vs the shorter l
 ---@field space boolean
 
 --- Split a line into word runs, whitespace runs and single other characters
---- (a whole UTF-8 sequence counts as one character).
+--- (a whole UTF-8 sequence counts as one character; a stray invalid byte is
+--- its own token).
 ---@param line string
 ---@return Beast.Git.Token[]
 local function tokenize(line)
 	local tokens, i, n = {}, 1, #line
 	while i <= n do
-		local text = line:match("^[%w_]+", i) or line:match("^%s+", i) or line:match("^[%z\1-\127\194-\244][\128-\191]*", i)
+		local text = line:match("^[%w_]+", i) or line:match("^%s+", i) or line:match("^[%z\1-\127\194-\244][\128-\191]*", i) or line:sub(i, i)
 		tokens[#tokens + 1] = { text = text, s = i - 1, e = i - 1 + #text, space = text:find("^%s") ~= nil }
 		i = i + #text
 	end
