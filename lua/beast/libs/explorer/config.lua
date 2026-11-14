@@ -74,6 +74,9 @@ local defaults = {
 		["[d"] = "prev_diag_file",
 		["]c"] = "next_git_file",
 		["[c"] = "prev_git_file",
+		["/"] = "search",
+		["?"] = "search",
+		["<Esc><Esc>"] = "search_exit",
 	},
 }
 

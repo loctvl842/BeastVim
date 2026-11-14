@@ -19,9 +19,12 @@ function M.mount()
 		if not ok then
 			error("Invalid action: " .. action_name)
 		end
-		vim.keymap.set("n", lhs, action.run, opts)
-		if action.run_visual then
-			vim.keymap.set("v", lhs, action.run_visual, opts)
+		-- An action can opt out (e.g. search without the finder) so the key keeps its Neovim meaning.
+		if not action.available or action.available() then
+			vim.keymap.set("n", lhs, action.run, opts)
+			if action.run_visual then
+				vim.keymap.set("v", lhs, action.run_visual, opts)
+			end
 		end
 	end
 

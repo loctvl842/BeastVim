@@ -1,5 +1,6 @@
 local Tree = require("beast.libs.explorer.tree")
 local config = require("beast.libs.explorer.config")
+local mode = require("beast.libs.explorer.mode")
 local state = require("beast.libs.explorer.state")
 local ui = require("beast.libs.explorer.ui")
 
@@ -18,6 +19,7 @@ function M.run()
   -- stylua: ignore
   if new_root == state.tree.root.path then return end
 
+	mode.leave()
 	state.tree = Tree(new_root)
 	ui.render()
 end

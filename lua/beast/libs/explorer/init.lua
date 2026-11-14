@@ -5,6 +5,7 @@ local config = require("beast.libs.explorer.config")
 local diagnostics = require("beast.libs.explorer.diagnostics")
 local git = require("beast.libs.explorer.git")
 local keymaps = require("beast.libs.explorer.keymaps")
+local mode = require("beast.libs.explorer.mode")
 local state = require("beast.libs.explorer.state")
 local sticky = require("beast.libs.explorer.sticky")
 local ui = require("beast.libs.explorer.ui")
@@ -25,6 +26,7 @@ local function ensure_explorer(dir)
 	if not state.tree or state.tree.root.path ~= dir then
 		-- Re-rooting abandons the old tree's expanded-directory watchers;
 		-- stop them explicitly or they leak (fs_event handles pile up).
+		mode.leave()
 		watch.stop_all()
 		state.tree = Tree(dir)
 	end
