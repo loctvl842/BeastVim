@@ -27,6 +27,7 @@ local OP, CLOSE = frame.OP, frame.CLOSE
 
 ---@class Beast.Review.ListenOpts
 ---@field token string
+---@field port? integer  fixed port to bind (default: OS-assigned)
 ---@field max_payload integer
 ---@field handshake_timeout_ms integer
 ---@field on_open fun(client: Beast.Review.Client)
@@ -193,13 +194,13 @@ local function on_data(opts, client, chunk)
 	pump(opts, client)
 end
 
---- Bind 127.0.0.1 on an OS-assigned port and start accepting.
+--- Bind 127.0.0.1 (on `opts.port`, else an OS-assigned port) and start accepting.
 ---@param opts Beast.Review.ListenOpts
 ---@return Beast.Review.Listener? listener
 ---@return string? err
 function M.listen(opts)
 	local server = uv.new_tcp()
-	local ok, err = server:bind("127.0.0.1", 0)
+	local ok, err = server:bind("127.0.0.1", opts.port or 0)
 	if not ok then
 		server:close()
 		return nil, err

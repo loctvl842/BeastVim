@@ -444,5 +444,19 @@ do
 	late:close()
 end
 
+print("== server: fixed port ==")
+do
+	local first = assert(server.start({ token = TOKEN }))
+	local port = first.port
+	local clash, cerr = server.start({ token = TOKEN, port = port })
+	assert_test("port already held is refused", clash == nil and cerr ~= nil)
+	first:close()
+	local again = server.start({ token = TOKEN, port = port })
+	assert_test("a released port can be bound again", again ~= nil and again.port == port)
+	if again then
+		again:close()
+	end
+end
+
 print(string.format("\n%d passed, %d failed", passed, failed))
 os.exit(failed == 0 and 0 or 1)

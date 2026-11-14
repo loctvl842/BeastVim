@@ -14,8 +14,8 @@ local DEFAULTS = {
 	on_reject = function() end,
 }
 
---- Start listening on 127.0.0.1 (OS-assigned port).
----@param opts { token: string, max_payload?: integer, handshake_timeout_ms?: integer, on_open?: function, on_message?: function, on_close?: function, on_reject?: function }
+--- Start listening on 127.0.0.1 (OS-assigned port unless `port` is given).
+---@param opts { token: string, port?: integer, max_payload?: integer, handshake_timeout_ms?: integer, on_open?: function, on_message?: function, on_close?: function, on_reject?: function }
 ---@return Beast.Review.Listener? listener
 ---@return string? err
 function M.start(opts)

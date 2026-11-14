@@ -44,7 +44,9 @@ function M.propose(path, contents, on_done, opts)
 end
 
 --- Listen for Claude Code on loopback and advertise ourselves in its
---- discovery directory. Returns false (after notifying) when it cannot.
+--- discovery directory. A directory that served before comes back on the same
+--- port and token, so a Claude Code session still retrying that address
+--- reconnects by itself. Returns false (after notifying) when it cannot.
 ---@return boolean ok
 function M.start()
 	if host then
@@ -52,10 +54,18 @@ function M.start()
 	end
 	local server = require("beast.libs.review.server")
 	local lockfile = require("beast.libs.review.server.lockfile")
+	local identity = require("beast.libs.review.server.identity")
 	local jsonrpc = require("beast.libs.review.server.jsonrpc")
 	local handlers = require("beast.libs.review.server.mcp").handlers
 
-	local token, terr = lockfile.token()
+	local cwd = vim.fn.getcwd()
+	local saved = identity.load(cwd)
+	local token, terr
+	if saved then
+		token = saved.token
+	else
+		token, terr = lockfile.token()
+	end
 	if not token then
 		notify("cannot start: " .. terr, vim.log.levels.ERROR)
 		return false
@@ -65,32 +75,57 @@ function M.start()
 
 	---@type Beast.Review.Host
 	local h = { clients = 0 }
-	local listener, err = server.start({
-		token = token,
-		on_open = function()
-			h.clients = h.clients + 1
-			emit_status_changed()
-		end,
-		on_message = function(client, text)
-			h.last_message_ns = uv.hrtime()
-			jsonrpc.handle(client, text, handlers)
-			-- A tools/call may have opened or resolved a diff; emit after the
-			-- handler so an openDiff that blocks is visible immediately.
-			emit_status_changed()
-		end,
-		on_close = function(client)
-			h.clients = h.clients - 1
-			jsonrpc.client_closed(client)
-			emit_status_changed()
-		end,
-		on_reject = function(reason)
-			h.last_refused = { reason = reason, at_ns = uv.hrtime() }
-			emit_status_changed()
-		end,
-	})
+	---@param tok string
+	---@param port? integer
+	local function listen(tok, port)
+		return server.start({
+			token = tok,
+			port = port,
+			on_open = function()
+				h.clients = h.clients + 1
+				emit_status_changed()
+			end,
+			on_message = function(client, text)
+				h.last_message_ns = uv.hrtime()
+				jsonrpc.handle(client, text, handlers)
+				-- A tools/call may have opened or resolved a diff; emit after the
+				-- handler so an openDiff that blocks is visible immediately.
+				emit_status_changed()
+			end,
+			on_close = function(client)
+				h.clients = h.clients - 1
+				jsonrpc.client_closed(client)
+				emit_status_changed()
+			end,
+			on_reject = function(reason)
+				h.last_refused = { reason = reason, at_ns = uv.hrtime() }
+				emit_status_changed()
+			end,
+		})
+	end
+
+	local listener, err = listen(token, saved and saved.port)
+	if not listener and saved then
+		-- The saved port is taken (another Neovim in this directory, or an
+		-- unrelated process). Serve on a fresh address and leave the saved one
+		-- to whoever holds it.
+		token, terr = lockfile.token()
+		if not token then
+			notify("cannot start: " .. terr, vim.log.levels.ERROR)
+			return false
+		end
+		listener, err = listen(token)
+		saved = {} -- do not overwrite the saved identity below
+	end
 	if not listener then
 		notify("cannot start: " .. tostring(err), vim.log.levels.ERROR)
 		return false
+	end
+	if not saved then
+		local ok, serr = identity.save(cwd, listener.port, token)
+		if not ok then
+			notify("cannot remember port for restarts: " .. tostring(serr), vim.log.levels.WARN)
+		end
 	end
 
 	local name = lockfile.name()
