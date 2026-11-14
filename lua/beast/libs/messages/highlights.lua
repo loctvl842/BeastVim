@@ -1,6 +1,7 @@
 local M = {}
 
 function M.get()
+	local p = Theme.get()
 	-- ui2 windows map Normal to MsgArea; unset, they fall back to the terminal's default colors.
 	return vim.tbl_extend(
 		"error",
