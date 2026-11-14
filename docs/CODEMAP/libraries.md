@@ -1,4 +1,4 @@
-<!-- Generated: 2026-11-14 | Files scanned: 30 | Token estimate: ~11589 -->
+<!-- Generated: 2026-11-14 | Files scanned: 331 | Token estimate: ~13964 -->
 
 # Libraries
 
@@ -15,6 +15,7 @@ explorer/
 ├── ui.lua         ← create split window, focus_path, render, flush
 ├── render.lua     ← draw tree nodes to buffer (git name colors + virt_text badges)
 ├── watch.lua      ← fs_event watchers per expanded dir, 100ms debounce
+├── diagnostics.lua ← per-file/dir max severity map from DiagnosticChanged (node.diagnostic)
 ├── sticky.lua     ← floating ancestor headers (cursor-anchored, git colors)
 ├── prompt.lua     ← inline input prompt (create/rename)
 ├── keymaps.lua    ← mount action keymaps
@@ -25,6 +26,9 @@ explorer/
     ├── create.lua, delete.lua, rename.lua
     ├── trash.lua, _trash_cmd.lua (OS-specific trash command resolver)
     ├── set_root.lua, navigate_up.lua, show_hidden.lua
+    ├── next_git_file.lua, prev_git_file.lua, next_diag_file.lua, prev_diag_file.lua
+    │   (candidates from _git_jump.lua / _diag_jump.lua; DFS order + wrap in _jump.lua)
+    ├── debug_node.lua (dump node metadata to a float)
     ├── copy_to_clipboard.lua, cut_to_clipboard.lua
     └── paste_from_clipboard.lua
 ```
@@ -94,9 +98,10 @@ finder/
 │                     open_split/open_vsplit(win,item), copy_path(item)
 ├── keymaps.lua    ← input/list/preview pane keymaps + printable-char redirect
 ├── autocmds.lua   ← picker lifetime autocmds (BufEnter, WinClosed)
+├── state.lua      ← State class (views, query, closed guard, initial_text/initial_done)
+├── render.lua     ← format items → list buffer, match highlights, debounced preview; places the cursor on `initial_text`
 ├── highlights.lua ← BeastFinder* groups; freeze() snapshots them into per-window namespaces (opts.freeze_colors, survives :colorscheme); swatch(hex) per-color groups
 ├── layout.lua     ← window layout calculations; calc(has_preview, "cards") = two separate narrow boxes
-├── fzf.lua        ← external fzf integration
 ├── pipeline/
 │   ├── match.lua  ← streaming match pipeline
 │   └── stream.lua ← async stream processing
@@ -112,6 +117,8 @@ finder/
 │   │       ├── serialize.lua  ← binary index dump/load (header + col_for uint16 pairs + raw uint32 matrix + NUL paths)
 │   │       ├── builder.lua    ← pure build routine (rg --files → read → serialize.write); runs in the child
 │   │       └── index.lua      ← spawns headless builder subprocess, loads via ffi.copy, fs_event refresh, query→paths
+│   ├── lsp.lua        ← factory: create(method, label) → async LSP source (auto_select)
+│   ├── lsp_{definitions,references,declarations,implementations}.lua ← one-line instances of lsp.create
 │   ├── colorschemes.lua ← sync (rtp-only globpath); grouped beastvim > nvim builtin > plugin, alphabetical within group; item.swatches from cache
 │   ├── colorscheme_swatches.lua        ← JSON cache (stdpath cache, key = theme mtime + worker mtime); ensure() spawns worker, fires User BeastFinderSwatchesReady
 │   ├── colorscheme_swatches_worker.lua ← headless child: applies each theme, prints 10 role colors (bg, fg, red…purple, grey)
@@ -127,7 +134,7 @@ finder/
 API: `finder.open("files", opts)`, `finder.open("live_grep")`, `finder.open("help_tags")`
 View subclasses: `Beast.Finder.InputView`, `Beast.Finder.ListView`, `Beast.Finder.PreviewView`
 Loaded via: `packer.lazy()` on keys (`<leader>f/b/g/c/h`)
-Opts: `layout="cards"`, `separators`, `backdrop=false`, `freeze_colors` (colorscheme picker)
+Opts: `layout="cards"`, `separators`, `backdrop=false`, `freeze_colors`, `initial_text` (start on the item whose text matches), `on_preview(item)`, `on_close(confirmed)` (colorscheme picker; the selected theme is a thick tinted block with half-block edges)
 
 ### Query lifecycle
 
@@ -176,6 +183,10 @@ rebuilds on a `gitignored`-keyed `BeastVisibilityChanged` (registered once via
 invalidates the index since it's always a safe superset there. An open
 picker's `autocmds.lua` re-runs its active query live on the same event.
 
+Binary files are excluded from live grep: the bigram builder skips NUL-containing
+files when indexing (rg searches explicitly named files even if binary) and `ug` gets
+`--ignore-binary`.
+
 ---
 
 ## tabline — Native `%!` Tabline
@@ -194,6 +205,7 @@ tabline/
     ├── cell.lua         ← single buffer cell (two click regions: body + close)
     ├── buffer_list.lua  ← truncation orchestrator with smart marker reserve
     ├── offset.lua       ← centered sidebar title
+    ├── pid.lua          ← nvim PID label (show_pid; resolved once per process)
     ├── tabpages.lua     ← right-aligned tab indicators with %nT click regions
     ├── toggle_button.lua ← day/night background toggle (far right)
     └── visibility.lua   ← hidden/gitignored toggle buttons (beside toggle_button)
@@ -286,6 +298,7 @@ notify/
 ├── state.lua    ← State class (views[], next_id)
 ├── stack.lua    ← push/dismiss, layout management
 ├── record.lua   ← Record factory (count/key/mergeable, count_label "x2".."x99+") (id, message, level, timeout)
+├── highlights.lua ← BeastNotify* groups
 └── ui.lua       ← create/render/close/fade views
 ```
 
@@ -303,6 +316,7 @@ toast/
 ├── stack.lua    ← push/update/dismiss, layout management
 ├── record.lua   ← Record factory
 ├── progress.lua ← LspProgress → in-place toast adapter (bar + spinner)
+├── highlights.lua ← BeastToast* groups (incl. BeastToastCount)
 └── ui.lua       ← create/render/close views
 ```
 
@@ -322,6 +336,7 @@ key/
 ├── api.lua              ← show/hide/query operations
 ├── highlights.lua       ← BeastKey* groups (incl. BeastKeyHint*)
 ├── builtin.lua          ← default keymaps (scroll, pin, etc.)
+├── vim_builtins.lua     ← label-only registry entries for vim core motions/operators/textobjects (hint discoverability)
 ├── cheatsheet/          ← full-screen keymap browser
 │   ├── init.lua         ← public M.open/M.refresh + controller + actions
 │   ├── state.lua        ← active main/action views, lines, augroup
@@ -393,9 +408,10 @@ select/
 ├── config.lua     ← disabled flag, ui.backdrop blend
 ├── filter.lua     ← pure matches(text, query): case-insensitive literal substring
 ├── list.lua       ← Beast.Select.ListView : virtualized rows with a slot row above each
-│                     option and below the last (dashed between, solid blue around the
-│                     selection, blue text + ◀ pointer), right-aligned tag extmark,
+│                     option and below the last (dashed between; the selection is a thick
+│                     tinted block with half-block edges, blue text + ◀ pointer), right-aligned tag extmark,
 │                     dynamic resize-to-fit (2n+1 rows), label truncation, empty state
+├── highlights.lua ← BeastSelect* groups (editor > prompt > list panel shading, framed selection)
 ├── ui.lua         ← backdrop + prompt panel (backing header window + overlaid input)
 │                     + list window orchestration, keymaps, debounced filter wiring
 └── health.lua     ← :checkhealth beast.libs.select
@@ -536,6 +552,7 @@ lsp/
 ├── config.lua        ← diagnostics defaults (Icon.diagnostics.*), inlay_hints/codelens/fold toggles, read-only metatable
 ├── capabilities.lua  ← base() + contributors + get(); first_client_seen flag for late-add warning
 ├── attach.lua        ← single LspAttach autocmd on BeastVim-lsp augroup; servers map + subscribers list; inline keymap binding (cond gated via client:supports_method, Key.safe_set, group defaults to "LSP"); apply_fold/inlay_hints/codelens (codelens via vim.lsp.codelens.enable); wraps client/registerCapability (reload-safe, identity-compared) to re-apply caps when servers announce them after handshake
+├── highlights.lua    ← LspReference{Text,Read,Write} groups for document_highlight
 └── health.lua        ← :checkhealth beast.libs.lsp (version, init, servers + cmd[1] PATH, contributors, attached clients, toggle status)
 ```
 
@@ -629,6 +646,8 @@ statusline/
     ├── mode.lua, git_branch.lua, git_commit.lua, macro.lua
     ├── diagnostics.lua, position.lua, filetype.lua
     ├── shiftwidth.lua, encoding.lua
+    ├── claude.lua        ← Claude Code state (idle/running) from beast.libs.review
+    ├── blink.lua         ← blink.cmp source provider status (idle/loading/completed); cpn.blink({names})
     ├── search_count.lua  ← "2/3" pill; reads beast.libs.searchcount.get
     └── finder_lsp.lua    ← finder pre-flight "checking" spinner, reads
                             beast.libs.finder.status (User BeastFinderStatusChanged)
@@ -723,6 +742,8 @@ git/
 ├── actions.lua    ← stage_hunk (toggle), unstage_hunk, reset_hunk; with_path_data covers untracked via intent-to-add
 ├── nav.lua        ← nav_hunk("next"|"prev", { wrap, foldopen, target }) — `''` mark + `zv`; target=unstaged|staged|all
 ├── preview.lua    ← Beast.View subclass; <leader>gp opens diff float, auto-close on CursorMoved; pairs -/+ rows per hunk, paints changed words (hl_group extmarks over the hl_eol line tint)
+├── visual.lua     ← visual-mode helper: selected line span for hunk actions/preview
+├── conflict.lua   ← merge-conflict highlighter: one coloured band per side + (Current/Incoming Change) labels
 ├── blame.lua      ← async `git blame --incremental` parser; run(ctx, { lnum?, contents?, ignore_whitespace?, revision?, untracked? }, cb)
 ├── current_line_blame.lua ← cursor-driven virt_text; namespace beast_git_blame; debounced via Util.debounce; cursor-race guard
 ├── blame_view.lua ← Beast.View subclass; <leader>gB opens left side window with full-file blame; scrollbind-synced; <CR>=show commit, r=reblame parent, R=reset
@@ -814,8 +835,6 @@ window/
 ├── init.lua       ← setup(opts), maximize/maximize_vertically/maximize_horizontally/equalize,
 │                    enable/disable/toggle, user commands, WinEnter maximize-guard
 ├── config.lua     ← readonly singleton (autowidth, animation, ignore.{buftype,filetype})
-├── state.lua      ← per-tab maximized snapshot (keyed by tabpage), augroup handles,
-│                    cursor_virtcol cache, animation handle slot
 ├── win.lua        ← bare-winid helpers: get/set width/height, is_floating, is_ignored,
 │                    get_wanted_width (textwidth + cfg.autowidth.winwidth, ft-aware,
 │                    supports fractional w: 0<w<1 = %columns, 1<w<2 = %textwidth)
@@ -824,16 +843,13 @@ window/
 │                    Plain-Lua metatable class (no middleclass)
 ├── layout.lua     ← orchestrator returning WinResizeData[]:
 │                    autowidth(curwin), maximize_win(win, do_w, do_h), equalize_wins(do_w, do_h)
-├── resize.lua     ← apply(data) via nvim_win_set_width/height (pcall);
-│                    merge(width_data, height_data) by winid
 ├── animate.lua    ← split-resize tween built on Beast.Animate.tween;
 │                    captures (w0, h0, dw, dh); snap-to-final on completion;
 │                    single-flight (cancel + restart on new run())
-├── autocmds.lua   ← BufWinEnter/WinEnter/WinNew/VimResized/WinClosed/TabLeave
-│                    driving layout.autowidth; single-flight via state.resizing_request;
-│                    vim.defer_fn(setup_layout, 10) on WinEnter so BufWinEnter wins
-│                    the race for new buffers
-└── health.lua     ← :checkhealth — modules, config, augroups, animation status, current layout
+└── autocmds.lua   ← BufWinEnter/WinEnter/WinNew/VimResized/WinClosed/TabLeave
+                     driving layout.autowidth; single-flight resize requests;
+                     vim.defer_fn(setup_layout, 10) on WinEnter so BufWinEnter wins
+                     the race for new buffers
 ```
 
 API: `window.setup(opts)`, `window.maximize()`, `window.maximize_vertically()`,

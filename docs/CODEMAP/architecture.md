@@ -1,4 +1,4 @@
-<!-- Generated: 2026-10-08 | Files scanned: 30 | Token estimate: ~2945 -->
+<!-- Generated: 2026-11-14 | Files scanned: 331 | Token estimate: ~3380 -->
 
 # Architecture
 
@@ -35,6 +35,8 @@ lua/beast/
 ├── util/
 │   ├── init.lua          ← Util.wo, Util.mod, Util.hrtime, find_normal_win, ...
 │   ├── colors.lua        ← Util.colors.{set_hl, blend, lighten, inspect}
+│   ├── debounce.lua      ← Util.debounce / Beast.Util.Debouncer
+│   ├── lsp.lua           ← copy of nvim-lspconfig util (root_pattern, path helpers)
 │   └── root.lua          ← project root detection
 ├── libs/
 │   ├── _meta.lua         ← ---@meta-only: Beast.Lib.Meta type contract
@@ -49,15 +51,17 @@ lua/beast/
 │   ├── confirm/          ← vim.fn.confirm drop-in (lazy via module trigger)
 │   ├── explorer/         ← file explorer (split panel + sticky headers + git)
 │   ├── finder/           ← fuzzy finder (files, buffers, grep, help, …)
-│   ├── git/              ← native git signs / preview / stage / blame
+│   ├── git/              ← native git signs / preview (word-level emphasis) / stage / blame / conflicts
 │   ├── image/            ← terminal inline-image protocol helpers + viewer
 │   ├── indent/           ← indent guides + scope (decoration provider)
 │   ├── input/            ← vim.ui.input replacement (cursor-anchored / centered)
 │   ├── key/              ← keybinding registry, cheatsheet, press-and-wait hint
 │   ├── lsp/              ← Lsp.register / capabilities / on_attach dispatcher
+│   ├── mason/            ← Mason.bin / Mason.ensure_package (install helper)
 │   ├── notify/           ← floating notification stack
 │   ├── packer/           ← plugin loader + packer.lazy() (event/keys/
 │   │                       filetype/module/cmd/path triggers)
+│   ├── review/           ← inline diff review of changes proposed by Claude Code (IDE WS server)
 │   ├── scroll/           ← smooth viewport scrolling
 │   ├── messages/         ← ui2 message UI + toast routing for errors/warnings
 │   ├── searchcount/      ← search match counter (eol label + statusline pill + toasts)
@@ -72,8 +76,10 @@ lua/beast/
 │   └── window/           ← auto-width + maximize/restore splits
 └── plugins/
     ├── init.lua           ← plugin spec imports
+    ├── coding.lua         ← coding plugin specs (e.g. supermaven)
     ├── colorscheme.lua    ← colorscheme plugin spec
-    └── development.lua    ← dev-only plugin specs
+    ├── development.lua    ← dev-only plugin specs
+    └── lang.lua           ← BeastVim/<Lang> language plugin specs (lua_ls, typescript, ...)
 ```
 
 ## Globals Registered at Setup
@@ -85,6 +91,8 @@ lua/beast/
 | `Key` | beast.libs.key | Keymap registration + viewer |
 | `View` | beast.libs.view | View instance constructor + `.buf`/`.win` submodules |
 | `Icon` | beast.icon | Icon lookup |
+| `Treesitter` | beast.libs.treesitter | `ensure_parser` for `BeastVim/<Lang>` extensions (module only; `setup`/`enable` stay lazy) |
+| `Mason` | beast.libs.mason | `bin` / `ensure_package` for `BeastVim/<Lang>` extensions |
 | `Toast` | beast.libs.toast | Toast notifications (registered eagerly in setup) |
 | `Lsp` | beast.libs.lsp | LSP infra: register, capabilities, on_attach |
 | `gh` | (closure) | `gh("user/repo") → "https://github.com/user/repo"` for plugin specs |
@@ -96,41 +104,49 @@ Note: legacy `Buffer` global removed — use `View.buf.delete` instead.
 ```
 beast.setup(opts)
   1.  require beast.libs.packer + beast.option + beast.visibility.setup()
-  2.  Register globals: Util, Theme, Key, View, Icon
+  2.  Register globals: Util, Theme, Key, View, Icon, Treesitter, Mason
+        (Util.mod loads the file only; Treesitter/Mason setup stay lazy)
   3.  packer.lazy("beast.theme", VimEnter+defer) → Theme.setup() +
         hl_reload.setup() + Theme.refresh() + reload_highlights()
   4.  notify.setup(cfg.notify) + toast.setup(cfg.toast) — EAGER (_G.Toast set)
+  4b. messages.setup(cfg.messages) - EAGER (ui2 + toast routing; messages
+        must never prompt, even at startup)
   5.  packer.lazy confirm (module trigger: beast.libs.confirm)
   6.  image.viewer.setup(cfg.image) — EAGER (terminal inline-image support)
   6b. input.setup() — EAGER (monkey-patches vim.ui.input directly; no
         require() call site exists to hang packer.lazy's module trigger off,
         since Neovim/LSP call the global vim.ui.input themselves)
-  6c. select.setup() — EAGER (same rationale as input above, but for
-        vim.ui.select)
-  7.  packer.lazy statusline (VimEnter+defer) — uses components registry
-  7b. packer.lazy session (VimEnter+defer) — registers VimLeavePre autosave
-  8.  packer.lazy breadcrumb / tabline / statuscolumn (BufWinEnter/BufWritePost+defer)
-  9.  packer.lazy git (event-driven) — exposes ]c/[c/<leader>g* keymaps
-  10. packer.lazy explorer (VimEnter+defer + <leader>e + module trigger —
-        session.load() calls explorer.open() directly on restore)
-  11. packer.lazy indent (BufReadPost/BufWritePost+defer)
-  12. packer.lazy treesitter (FileType+defer)
-  13. packer.lazy finder (keys: <leader>f/b/F/h/c)
-  14. packer.lazy scroll (BufReadPost+defer)
-  15. packer.lazy window (WinNew+defer, keys: <leader>zz/<leader>z=)
-  16. packer.lazy autopairs (InsertEnter/CmdlineEnter; key: <leader>up)
-  17. packer.lazy key (VimEnter) — Key.setup + defaults (<leader>d/<leader>n/<leader>p)
-  18. _G.Lsp + Lsp.setup(cfg.lsp) — EAGER (before first FileType)
-        + Lsp.on_attach binds gd/gr/gD/gi/gl via finder/diagnostic float
-  19. _G.gh helper closure for plugin specs
-  20. packer.setup(cfg.packer) — git-clone + lazy-load plugins
-  21. starter.setup(cfg.starter) — EAGER (registers VimEnter autocmd)
+  6c. select.setup() - EAGER (same rationale, for vim.ui.select)
+  6d. confirm.setup() - EAGER
+  7.  packer.lazy statusline (VimEnter+defer) - components registry
+  7b. packer.lazy searchcount (VimEnter+defer) - redraw hooks only
+  8.  packer.lazy breadcrumb (BufWinEnter/BufWritePost+defer)
+  8b. packer.lazy review (cmd: Review; keys: <leader>r{a,r,A,R}, ]r/[r;
+        VimEnter+defer only when cfg.review.enabled)
+  9.  packer.lazy session (VimEnter+defer) - registers VimLeavePre autosave;
+        a second spec adds <leader>s (once) when a saved session exists
+  10. packer.lazy tabline / statuscolumn (BufWinEnter/BufWritePost+defer)
+  11. packer.lazy git (BufReadPost+defer) - ]c/[c/<leader>g* keymaps
+  12. packer.lazy explorer (VimEnter+defer when argv is a dir + <leader>e +
+        module trigger - session.load() calls explorer.open() directly)
+  13. packer.lazy indent (BufReadPost/BufWritePost+defer)
+  14. packer.lazy treesitter (FileType+defer)
+  15. packer.lazy finder (keys: <leader>f/b/F/h/c)
+  16. packer.lazy scroll (BufReadPost+defer)
+  17. packer.lazy window (WinNew+defer, keys: <leader>zz/<leader>z=)
+  18. packer.lazy autopairs (InsertEnter/CmdlineEnter; key: <leader>up)
+  19. packer.lazy key (VimEnter) - Key.setup + defaults (<leader>d/n/p/uh/ug)
+  20. _G.Lsp + Lsp.setup(cfg.lsp) - EAGER (before first FileType)
+        + Lsp.on_attach binds gd/gr/gD/gi (finder sources) + gl/<leader>lr/<leader>la
+  21. _G.gh helper closure for plugin specs
+  22. packer.setup(cfg.packer) - git-clone + lazy-load plugins
+  23. starter.setup(cfg.starter) - EAGER (registers VimEnter autocmd)
 ```
 
 ## Lazy Lib Loading (`packer.lazy`)
 
-Every lib above (except theme/notify/toast/image/input/select eager setup
-paths, plus `lsp` and `starter`)
+Every lib above (except theme/notify/toast/messages/image/input/select/confirm
+eager setup paths, plus `lsp` and `starter`)
 loads via `packer.lazy(mod, opts)`. Trigger types:
 
 | Trigger | Field | Sync? | Use case |
@@ -139,8 +155,10 @@ loads via `packer.lazy(mod, opts)`. Trigger types:
 | keys | `keys` | always sync | user-initiated, must load before keystroke |
 | filetype | `filetype` | always sync | render-critical |
 | module | `module` | always sync | direct `require("beast.libs.X")` from keymap bodies |
+| cmd | `cmd` | always sync | user command stub (e.g. `:Review`) loads the lib on first call |
+| path | `path` | always sync | load when the opened file lives under a directory/glob |
 
-`module` is the newest addition — closes the half-init hole where a keymap
+`module` was the most recent addition to the original set - closes the half-init hole where a keymap
 body's `require()` could return the lib before `setup()` ran. See
 `lua/beast/libs/packer/triggers/module.lua`.
 
@@ -187,8 +205,8 @@ optional `M.post_apply()`. See ADR-026 for the contract.
 
 `M.highlight_modules` includes: `beast.theme.highlights`, `beast.theme.blink`,
 plus `<lib>.highlights` for confirm, input, select, explorer, finder, key,
-notify, packer, statusline, breadcrumb, tabline, toast, indent, treesitter,
-statuscolumn, git.
+notify, packer, statusline, statuscolumn, git, breadcrumb, tabline, toast,
+indent, treesitter (+ treesitter.context), lsp, review, searchcount, messages.
 Skipped for plugin schemes (gated by `Theme.kind() == "plugin"`): treesitter,
 theme.highlights, theme.blink; lsp highlights branch on the same check.
 
