@@ -74,6 +74,17 @@ SUPPORTED = {
 	},
 }
 
+--- True when at least one of the supported file-find binaries is installed.
+---@return boolean
+function M.supported()
+	for _, command in ipairs(SUPPORTED) do
+		if vim.fn.executable(command.cmd) == 1 then
+			return true
+		end
+	end
+	return false
+end
+
 local function ensure_cmd(cwd)
 	for _, command in ipairs(SUPPORTED) do
 		if vim.fn.executable(command.cmd) == 1 then
