@@ -13,6 +13,8 @@
 ---@type Beast.Explorer.State
 local state = {
 	tree = nil,
+	mode = "normal",
+	mode_state = nil,
 	view = nil,
 	sticky = nil,
 	augroup = nil,
@@ -28,6 +30,8 @@ local state = {
 
 ---@class Beast.Explorer.State
 ---@field tree Beast.Explorer.Tree|nil
+---@field mode string  -- "normal" or the name of a mode in explorer/mode.lua
+---@field mode_state any  -- data owned by the active mode (nil in normal mode)
 ---@field view Beast.Explorer.View|nil
 ---@field sticky Beast.Explorer.StickyView|nil
 ---@field augroup integer|nil
@@ -88,6 +92,8 @@ end
 
 function M.reset()
 	M.tree = nil
+	M.mode = "normal"
+	M.mode_state = nil
 	M.view = nil
 	M.sticky = nil
 	M.augroup = nil

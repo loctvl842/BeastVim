@@ -13,6 +13,7 @@
 
 local FAIL_THRESHOLD_US = 2000 -- 2 ms full render (mixed scenario)
 local WARN_THRESHOLD_US = 500 -- soft target
+local SEARCH_WARN_THRESHOLD_US = 16000 -- search mode, 1000 matches: build + render per keystroke
 local ITERS_PER_RUN = 200
 local RUNS = 3
 
@@ -335,6 +336,36 @@ for _, scenario in ipairs(scenarios) do
 		io.stderr:write("BENCH ERROR in scenario '" .. scenario.name .. "': " .. tostring(err) .. "\n")
 		cleanup()
 		os.exit(2)
+	end
+end
+
+-- =========================================================================
+-- Search mode: per-keystroke cost of turning 1000 matches into rows
+-- =========================================================================
+
+do
+	local SearchTree = require("beast.libs.explorer.search.tree")
+	local real_tree = state.tree
+	local items = {}
+	for i = 1, 1000 do
+		local text = string.format("pkg_%02d/sub_%02d/dir_%02d/file_%04d.lua", i % 8, i % 13, i % 5, i)
+		items[i] = { text = text, positions = { #text - 6, #text - 5, #text - 4 } }
+	end
+
+	state.mode, state.mode_state = "search", { query = "file", prompting = true, loading = false }
+	local root = real_tree.root.path
+	local build_us = bench(function()
+		state.tree = SearchTree.from_matches(root, items)
+	end)
+	local render_us = bench(function()
+		local nodes = state.tree:flat({ show_hidden = false })
+		render.build(nodes)
+	end)
+	print(string.format("search   build=%.2fus render=%.2fus  (1000 matches)", build_us, render_us))
+	state.mode, state.mode_state, state.tree = "normal", nil, real_tree
+	-- Soft budget: rebuilt on every keystroke, so keep it inside one frame (~16 ms).
+	if build_us + render_us > SEARCH_WARN_THRESHOLD_US then
+		io.stderr:write(string.format("WARN: search %.2f us > %d us per keystroke (1000 matches)\n", build_us + render_us, SEARCH_WARN_THRESHOLD_US))
 	end
 end
 

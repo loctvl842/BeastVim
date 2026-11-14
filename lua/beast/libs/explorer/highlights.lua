@@ -46,6 +46,10 @@ function M.get()
 		GitUntracked = { fg = p.dimmed1 },
 		GitIgnored = { fg = p.dimmed4 },
 
+		-- Search mode: result count on the query line, matched letters in names
+		SearchCount = { fg = p.dimmed3 },
+		SearchMatch = { fg = p.accent4, bold = true },
+
 		-- Sticky ancestor headers (float overlay)
 		StickyBg = { fg = p.dimmed1, bg = Util.colors.darken(p.dark1, 3) },
 		-- No `fg` so indent / icon / label colors on the last line still show

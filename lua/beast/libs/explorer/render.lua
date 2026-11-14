@@ -1,4 +1,5 @@
 local config = require("beast.libs.explorer.config")
+local mode = require("beast.libs.explorer.mode")
 local state = require("beast.libs.explorer.state")
 
 local M = {}
@@ -346,6 +347,8 @@ function M.build(nodes)
 		lines[#lines + 1] = inline_spacer.prefix
 		hls[#hls + 1] = { line = #lines - 1, col_s = 0, col_e = #inline_spacer.prefix, group = "BeastExplorerIndent" }
 	end
+
+	mode.decorate(lines, hls, badges, nodes)
 
 	return lines, hls, badges, active_line
 end
