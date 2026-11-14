@@ -361,6 +361,21 @@ function M.mount()
 		end,
 	})
 
+	-- Open buffers are exempt from hidden/gitignored filtering (see Tree:flat),
+	-- so redraw when the buffer list changes. Scheduled: BufDelete fires while
+	-- the buffer is still listed.
+	vim.api.nvim_create_autocmd({ "BufAdd", "BufDelete" }, {
+		group = state.augroup,
+		callback = function()
+			vim.schedule(function()
+				-- stylua: ignore
+				if not (state.tree and state.view and state.view:is_valid()) then return end
+				ui.flush()
+				sticky.refresh()
+			end)
+		end,
+	})
+
 	-- Re-filter and redraw when the shared visibility state (hidden/gitignored)
 	-- changes, whether toggled from Explorer's own `H` key, Finder, the tabline
 	-- buttons, or the global keymaps. No git re-fetch needed — only the flat()

@@ -98,6 +98,31 @@ local function norm(path)
 	return (vim.fn.fnamemodify(path, ":p"):gsub("/$", ""))
 end
 
+--- Paths of listed file buffers plus all their ancestor directories, and a
+--- signature string identifying that set (for the flat-list cache key).
+---@return table<string, true> keep
+---@return string sig
+local function open_buffer_paths()
+	local keep, files = {}, {}
+	for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+		if vim.bo[buf].buflisted and vim.bo[buf].buftype == "" then
+			local name = vim.api.nvim_buf_get_name(buf)
+			if name ~= "" then
+				files[#files + 1] = norm(name)
+			end
+		end
+	end
+	table.sort(files)
+	for _, file in ipairs(files) do
+		local path = file
+		while path ~= "" and not keep[path] do
+			keep[path] = true
+			path = path:match("^(.*)/[^/]*$")
+		end
+	end
+	return keep, table.concat(files, "\n")
+end
+
 ---@param tree Beast.Explorer.Tree
 ---@param path string
 local function remove_subtree(tree, path)
@@ -490,7 +515,10 @@ function M:flat(opts)
 	end
 
 	local show_gitignored = visibility.gitignored
-	local cache_key = tostring(opts.show_hidden) .. ":" .. tostring(show_gitignored)
+	-- Files open in the editor stay visible (with their ancestor dirs) even
+	-- when hidden/gitignored filtering would otherwise drop them.
+	local open_files, open_sig = open_buffer_paths()
+	local cache_key = tostring(opts.show_hidden) .. ":" .. tostring(show_gitignored) .. ":" .. open_sig
 	local cache = self._flat_cache[cache_key]
 	if cache and cache.version == self.version and cache.list then
 		return cache.list
@@ -505,10 +533,11 @@ function M:flat(opts)
 		if node.name == ".git" then
 			return false
 		end
-		if node.hidden and not opts.show_hidden then
+		local keep = open_files[node.path]
+		if not keep and node.hidden and not opts.show_hidden then
 			return false
 		end
-		if not show_gitignored and node.git_status and node.git_status.kind == "ignored" then
+		if not keep and not show_gitignored and node.git_status and node.git_status.kind == "ignored" then
 			return false
 		end
 
