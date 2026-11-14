@@ -36,6 +36,10 @@ for f in scripts/bench-*.lua; do
   nvim --clean --headless -l "$f" || echo "FAIL: $f"
 done
 
+# 2b. Type check (lua-language-server from Mason; CI runs the same command)
+VIMRUNTIME="$(nvim --clean --headless +'lua io.stdout:write(vim.env.VIMRUNTIME)' +q 2>&1)" \
+  ~/.local/share/BeastVim/mason/bin/lua-language-server --check . --checklevel=Warning
+
 # 3. After any plugin / autocmd / extmark change: is UX latency healthy?
 LOAD_USER_CONFIG=1 NVIM_APPNAME=BeastVim FIXTURE_LANG=lua FIXTURE_GIT=1 \
   ./scripts/bench-ux.sh all

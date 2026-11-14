@@ -1,0 +1,58 @@
+name: Lint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  format:
+    name: Format (stylua)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install stylua
+        run: |
+          # Pinned to the version used locally (Mason) so formatting verdicts match.
+          curl -fsSL -o /tmp/stylua.zip \
+            https://github.com/JohnnyMorganz/StyLua/releases/download/v2.5.2/stylua-linux-x86_64.zip
+          sudo unzip -o /tmp/stylua.zip -d /usr/local/bin
+          stylua --version
+
+      - name: Check formatting
+        run: stylua --check .
+
+  lint:
+    name: Lint (lua-language-server)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Neovim (stable)
+        run: |
+          curl -fsSL -o /tmp/nvim.tar.gz \
+            https://github.com/neovim/neovim/releases/download/stable/nvim-linux-x86_64.tar.gz
+          sudo tar -C /opt -xzf /tmp/nvim.tar.gz
+          sudo ln -sf /opt/nvim-linux-x86_64/bin/nvim /usr/local/bin/nvim
+          nvim --version | head -1
+
+      - name: Install lua-language-server
+        run: |
+          mkdir -p "$HOME/luals"
+          curl -fsSL \
+            https://github.com/LuaLS/lua-language-server/releases/download/3.19.2/lua-language-server-3.19.2-linux-x64.tar.gz \
+            | tar -C "$HOME/luals" -xz
+          echo "$HOME/luals/bin" >> "$GITHUB_PATH"
+
+      - name: Check
+        run: |
+          # .luarc.json reads the Neovim runtime types through ${env:VIMRUNTIME}.
+          export VIMRUNTIME="$(nvim --clean --headless +'lua io.stdout:write(vim.env.VIMRUNTIME)' +q 2>&1)"
+          # Exits non-zero when anything at Warning level or above is reported.
+          lua-language-server --check . --checklevel=Warning --logpath="$RUNNER_TEMP/luals"
