@@ -96,6 +96,7 @@ local function apply_highlight(buf, opts)
   if not ok or type(highlights) ~= "table" then return end
 
 	for _, h in ipairs(highlights) do
+		---@diagnostic disable-next-line: deprecated -- still the only call that takes a column range without an extmark
 		pcall(vim.api.nvim_buf_add_highlight, buf, ns, h[3], 0, h[1], h[2])
 	end
 end

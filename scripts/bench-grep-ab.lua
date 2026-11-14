@@ -48,7 +48,7 @@ print("Repo: " .. root)
 
 -- Build the index once (engine ON path needs it ready).
 config.setup({ engine = { enabled = true } })
-local built, bt = nil, uv.hrtime()
+local built, bt = nil, uv.hrtime() ---@type any, integer
 index.build(root, { max_files = 90000, max_file_size = 1024 * 1024 }, function(i)
 	built = i
 end)

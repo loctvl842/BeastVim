@@ -6,6 +6,7 @@
 
 local M = {}
 
+---@diagnostic disable-next-line: deprecated -- vim.diff fallback for nvim < 0.11
 local diff_fn = (vim.text and vim.text.diff) or vim.diff
 
 ---@class Beast.Review.Hunk

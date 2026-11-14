@@ -119,7 +119,9 @@ assert_true("snapshot passes vim.lsp capabilities validator", val_ok, val_err)
 Lsp.add_capabilities({ _testMarker = "late_added" })
 local params = { capabilities = stored.capabilities }
 stored.before_init(params, stored)
+---@diagnostic disable-next-line: undefined-field -- capabilities are open-ended; _testMarker is injected by the test
 assert_eq("late contributor reaches before_init", params.capabilities._testMarker, "late_added")
+---@diagnostic disable-next-line: undefined-field -- capabilities are open-ended; _testMarker is injected by the test
 assert_eq("before_init updates conf.capabilities too", stored.capabilities._testMarker, "late_added")
 
 -- Caller-supplied before_init must be chained, not clobbered

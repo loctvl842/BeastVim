@@ -19,7 +19,7 @@ end
 ---@param badges {line:integer,chunks:{[1]:string,[2]:string?}[]}[]
 ---@param nodes Beast.Explorer.Node[]
 function M.apply(lines, hls, badges, nodes)
-	local ms, tree = state.mode_state, state.tree
+	local ms, tree = state.mode_state, state.tree --[[@as Beast.Explorer.SearchTree]]
 	local pad = string.rep(" ", config.padding)
 
 	-- While typing, line 1 is the prompt. The caret is a real character: the

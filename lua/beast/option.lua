@@ -37,6 +37,7 @@ if vim.env.SSH_TTY and (vim.env.DISPLAY or "") == "" and (vim.env.WAYLAND_DISPLA
 		local osc_copy = osc52.copy(reg)
 		return function(lines, regtype)
 			last_copied = { lines = lines, regtype = regtype }
+			---@diagnostic disable-next-line: redundant-parameter -- the returned closure only declares `lines`; regtype is ignored by osc52.copy
 			osc_copy(lines, regtype)
 		end
 	end

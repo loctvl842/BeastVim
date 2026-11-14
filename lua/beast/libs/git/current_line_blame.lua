@@ -196,7 +196,6 @@ local function skip_buffer(buf)
 	return false
 end
 
----@param buf integer
 ---@param winid integer
 ---@param lnum integer
 ---@return boolean

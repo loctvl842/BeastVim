@@ -1,5 +1,6 @@
 ---@class Beast.Packer.LoadProfile
 ---@field packadd_ms number                           -- time spent in packadd (ms)
+---@field init_ms?   number                           -- time spent in init() (ms)
 ---@field config_ms  number                           -- time spent in config() (ms)
 ---@field total_ms   number                           -- packadd_ms + config_ms (ms)
 ---@field loaded_at  integer|nil                      -- os.time() when first loaded

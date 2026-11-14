@@ -293,6 +293,7 @@ function BlameView:close()
 		vim.wo[self.source_win].scrollbind = self.source_scrollbind_prev or false
 	end
 	-- Defer to base close (clears buf/win).
+	---@diagnostic disable-next-line: undefined-field -- resolved through the View module's __index
 	View.close(self)
 	if current == self then
 		current = nil
@@ -344,7 +345,7 @@ function M.open(source_win, opts)
 
 	-- Scroll-bind both windows. Capture the source's prior value so close
 	-- restores it (a user might have had scrollbind set for some other reason).
-	local self = BlameView:new(blame_buf, blame_win)
+	local self = BlameView:new(blame_buf, blame_win) --[[@as Beast.Git.BlameView]]
 	self.source_buf = source_buf
 	self.source_win = source_win
 	self.revision = opts.revision

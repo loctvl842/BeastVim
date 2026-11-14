@@ -152,9 +152,14 @@ local real_tree = state.tree
 local function buf_lines()
 	return vim.api.nvim_buf_get_lines(view_buf, 0, -1, false)
 end
+---@return Beast.Explorer.SearchTree
+local function search_tree()
+	return state.tree --[[@as Beast.Explorer.SearchTree]]
+end
+
 local function wait_count(n)
 	vim.wait(3000, function()
-		return state.mode == "search" and state.tree.count == n and not state.mode_state.loading
+		return state.mode == "search" and search_tree().count == n and not state.mode_state.loading
 	end, 10)
 end
 local function row_of(name)
@@ -202,7 +207,7 @@ assert_test("matched letters highlighted", matched > 0, tostring(matched))
 
 search.set_query("zzzz")
 vim.wait(3000, function()
-	return state.tree.count == 0 and not state.mode_state.loading and state.mode_state.query == "zzzz"
+	return search_tree().count == 0 and not state.mode_state.loading and state.mode_state.query == "zzzz"
 end, 10)
 assert_test("empty-result message", (buf_lines()[2] or ""):find('No files match "zzzz"', 1, true) ~= nil, vim.inspect(buf_lines()))
 search.set_query("")

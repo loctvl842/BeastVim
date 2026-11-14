@@ -76,6 +76,7 @@ call("nvim_input", "/zzz<CR>")
 vim.wait(300)
 local toasts = call("nvim_exec_lua", "return _G.toasts", {})
 assert_eq("not found becomes a toast", toasts[1] and toasts[1][1], "Pattern not found: zzz")
+---@diagnostic disable-next-line: undefined-field -- `call` is untyped; nvim_get_mode returns { mode, blocking }
 assert_eq("no hit-enter prompt", call("nvim_get_mode").blocking, false)
 
 -- a failed search that wraps first emits "search hit BOTTOM" and then E486: only the error toast is shown
@@ -92,6 +93,7 @@ call("nvim_input", ":nosuchcmd<CR>")
 vim.wait(300)
 toasts = call("nvim_exec_lua", "return _G.toasts", {})
 assert_eq("unknown command becomes an error toast", toasts[#toasts] and toasts[#toasts][2], vim.log.levels.ERROR)
+---@diagnostic disable-next-line: undefined-field -- `call` is untyped; nvim_get_mode returns { mode, blocking }
 assert_eq("still not blocking", call("nvim_get_mode").blocking, false)
 
 call("nvim_input", ":echo 'hello'<CR>")

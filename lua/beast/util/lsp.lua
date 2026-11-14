@@ -80,7 +80,7 @@ function M.root_markers_with_field(root_files, new_names, field, fname, match_mo
 				end)
 				:totable()
 			if #to_find == 0 then
-				to_find = vim.deepcopy(files)
+				to_find = vim.deepcopy(fields)
 				return true
 			end
 			return false
@@ -309,6 +309,7 @@ end
 --- @deprecated Will be removed. Do not use.
 function M.get_other_matching_providers(filetype)
 	local configs = require("lspconfig.configs")
+	---@diagnostic disable-next-line: deprecated
 	local active_clients_list = M.get_active_clients_list_by_ft(filetype)
 	local other_matching_configs = {}
 	for _, config in pairs(configs) do
@@ -392,6 +393,7 @@ end
 function M.create_module_commands(module_name, commands)
 	for command_name, def in pairs(commands) do
 		if type(def) ~= "function" then
+			---@diagnostic disable-next-line: deprecated
 			local opts = M._parse_user_command_options(def)
 			api.nvim_create_user_command(command_name, function(info)
 				require("lspconfig")[module_name].commands[command_name][1](unpack(info.fargs))

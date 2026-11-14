@@ -15,7 +15,7 @@ local M = {}
 -- =============================================================================
 
 --- Build the per-keystroke context for insert mode.
----@return { line: string, col: integer, before: string, after: string, before_full: string, row: integer }
+---@return Beast.Autopairs.Ctx
 local function insert_ctx()
 	local line = vim.api.nvim_get_current_line()
 	local row, col = unpack(vim.api.nvim_win_get_cursor(0))
@@ -30,7 +30,7 @@ local function insert_ctx()
 end
 
 --- Build the per-keystroke context for cmdline mode.
----@return { line: string, col: integer, before: string, after: string, before_full: string, row: integer }
+---@return Beast.Autopairs.Ctx
 local function cmdline_ctx()
 	local line = vim.fn.getcmdline()
 	-- `getcmdpos()` is 1-based and points at the byte the next char will be

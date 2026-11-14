@@ -804,7 +804,8 @@ local function render_timeline(body_width)
 end
 
 ---@param total_ms number
----@param loaded_count integer
+---@param plugin_loaded integer
+---@param lib_loaded integer
 ---@param phase_total_ms number
 ---@param sort_label string
 ---@param filter_ms number

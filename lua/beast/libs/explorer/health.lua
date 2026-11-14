@@ -365,7 +365,8 @@ function M.check()
 			health.info(string.format("Skipped: cwd (%s) is not inside a git repo", cwd))
 		else
 			local root = vim.fn.fnamemodify(git_dir, ":h")
-			local done, exit_code, stdout = false, nil, nil
+			local done, exit_code = false, nil
+			local stdout = "" ---@type string
 
 			local ok_sys = pcall(vim.system, { "git", "-C", root, "status", "--porcelain=v2", "--ignored", "-z" }, { text = true }, function(result)
 				exit_code = result.code

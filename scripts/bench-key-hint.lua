@@ -46,6 +46,7 @@ for _, p in ipairs(prefixes) do
 	end
 end
 
+---@diagnostic disable-next-line: redundant-parameter -- setup() takes no declared params; the bench passes a full config
 hint.setup({
 	enabled = true,
 	triggers = { "<leader>" },

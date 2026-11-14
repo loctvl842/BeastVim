@@ -15,6 +15,20 @@ local skip = require("beast.libs.autopairs.skip")
 
 local M = {}
 
+--- Per-keystroke context built by `keymap.lua`. `open`/`close`/`neigh_pattern`
+--- are filled per pair and `cfg` for the <BS>/<CR> actions.
+---@class Beast.Autopairs.Ctx
+---@field line string
+---@field row integer
+---@field col integer
+---@field before string
+---@field after string
+---@field before_full string
+---@field open? string
+---@field close? string
+---@field neigh_pattern? string
+---@field cfg? Beast.Autopairs.Config
+
 -- Pre-decode the termcodes we hand back so we don't pay the cost per keystroke.
 local KEY_LEFT = vim.api.nvim_replace_termcodes("<Left>", true, true, true)
 local KEY_RIGHT = vim.api.nvim_replace_termcodes("<Right>", true, true, true)
@@ -34,7 +48,7 @@ end
 --- skip rule may also return an override keystroke string (used by the
 --- markdown fence rule).
 ---
----@param ctx { open: string, close: string, neigh_pattern: string, before: string, after: string, line: string, before_full: string, row: integer, col: integer }
+---@param ctx Beast.Autopairs.Ctx
 ---@return string keystrokes
 function M.open(ctx)
 	if is_disabled() then
@@ -55,7 +69,7 @@ end
 
 --- Close action — jump over an existing closer, else insert it literally.
 ---
----@param ctx { close: string, after: string }
+---@param ctx Beast.Autopairs.Ctx
 ---@return string keystrokes
 function M.close(ctx)
 	if is_disabled() then
@@ -70,7 +84,7 @@ end
 --- Closeopen action (symmetric pairs only) — jump over if next char equals
 --- the close, otherwise delegate to `open`.
 ---
----@param ctx { open: string, close: string, neigh_pattern: string, before: string, after: string }
+---@param ctx Beast.Autopairs.Ctx
 ---@return string keystrokes
 function M.closeopen(ctx)
 	if is_disabled() then
@@ -85,7 +99,7 @@ end
 --- Backspace action — delete the whole pair if the cursor sits between an
 --- `open`/`close` from any registered pair; otherwise behave as plain `<BS>`.
 ---
----@param ctx { before: string, after: string, cfg: Beast.Autopairs.Config }
+---@param ctx Beast.Autopairs.Ctx
 ---@return string keystrokes
 function M.bs(ctx)
 	if is_disabled() then
@@ -106,7 +120,7 @@ end
 --- then `<C-o>O` opens a new line above in normal mode — Neovim handles
 --- indentation per the active 'indentexpr'/'cindent' rules.
 ---
----@param ctx { before: string, after: string, cfg: Beast.Autopairs.Config }
+---@param ctx Beast.Autopairs.Ctx
 ---@return string keystrokes
 function M.cr(ctx)
 	if is_disabled() then

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://raw.githubusercontent.com/LuaLS/vscode-lua/master/setting/schema.json",
+  "runtime.version": "LuaJIT",
+  "workspace.library": ["${env:VIMRUNTIME}/lua"],
+  "workspace.checkThirdParty": false,
+  "workspace.ignoreDir": ["docs", "assets"],
+  "type.weakNilCheck": true,
+  "type.weakUnionCheck": true,
+  "diagnostics.globals": ["vim"],
+  "diagnostics.disable": [
+    "need-check-nil",
+    "duplicate-set-field",
+    "missing-fields",
+    "inject-field",
+    "cast-local-type"
+  ]
+}

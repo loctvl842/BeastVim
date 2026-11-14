@@ -166,6 +166,7 @@ return {
 			cmd = { "Mason", "MasonInstall", "MasonUpdate" },
 		},
 		config = function()
+			---@diagnostic disable-next-line: undefined-field -- mason.nvim is not in the workspace library
 			require("mason").setup({
 				ui = {
 					icons = {

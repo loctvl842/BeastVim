@@ -185,7 +185,8 @@ end
 --- range end in `end_pos`. Falls back to a plain search for the literal when the
 --- reported column doesn't line up (e.g. ugrep visual vs byte columns).
 ---@param item Beast.Finder.Item
----@return integer? s 0-based start, integer? e 0-based end (exclusive)
+---@return integer? s 0-based start
+---@return integer? e 0-based end (exclusive)
 local function grep_match_range(item)
 	local text = item.grep_text or ""
 	if text == "" then

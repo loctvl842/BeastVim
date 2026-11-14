@@ -27,6 +27,7 @@ end
 
 -- Minimal setup so all libs exist and a colorscheme is applied.
 pcall(beast.setup, {})
+---@diagnostic disable-next-line: param-type-mismatch -- vim.cmd is a callable table
 pcall(vim.cmd, "colorscheme tokyonight")
 vim.wait(50)
 

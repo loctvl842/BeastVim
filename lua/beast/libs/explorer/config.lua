@@ -119,6 +119,7 @@ function methods.file_icon(name)
 	end
 
 	if methods._devicons then
+		---@diagnostic disable-next-line: undefined-field -- nvim-web-devicons is not in the workspace library
 		local icon, hl = methods._devicons.get_icon(name, nil, { default = true })
 		if icon then
 			return icon, hl

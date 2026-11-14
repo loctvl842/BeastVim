@@ -79,7 +79,8 @@ local function median(xs)
 	return (sorted[n / 2] + sorted[n / 2 + 1]) / 2
 end
 
----@return number  µs/call (median across RUNS, warmups discarded)
+---@return number median µs/call (median across RUNS, warmups discarded)
+---@return number mean µs/call
 local function bench()
 	local samples = {}
 	for _ = 1, WARMUP_RUNS + RUNS do

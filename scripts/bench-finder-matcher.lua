@@ -84,13 +84,14 @@ local cfg = { smartcase = true, ignorecase = true }
 ---@param prev_state? Beast.Finder.MatchState
 ---@return number elapsed_ms
 ---@return Beast.Finder.MatchState state
+---@return table matched
 local function run_sync(pattern, prev_state)
 	local filter = Filter()
 	filter:update(pattern)
 
 	local done = false
-	local result_state = nil
-	local result_matched = nil
+	local result_state ---@type Beast.Finder.MatchState
+	local result_matched ---@type table
 
 	local start = uv.hrtime()
 	matcher.run(items, filter, cfg, function(matched, state)
