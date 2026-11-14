@@ -203,7 +203,7 @@ function M.build(nodes)
 
 	-- Root header: " UPPERCASE-BASENAME" — no icon, plain text, visually distinct
 	local root_name = string.upper(vim.fn.fnamemodify(state.tree.root.path, ":t"))
-	lines[1] = " " .. root_name
+	lines[1] = " " .. root_name .. mode.suffix()
 	hls[#hls + 1] = { line = 0, col_s = 0, col_e = #lines[1], group = "BeastExplorerTitle" }
 	if inline_spacer and inline_spacer.after_line == 1 then
 		lines[#lines + 1] = inline_spacer.prefix

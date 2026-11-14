@@ -1,5 +1,5 @@
 --- Explorer modes: `state.mode` names what the explorer is showing ("normal"
---- is the plain tree). A mode module exposes `stop()` and optionally
+--- is the plain tree). A mode module exposes `label`, `stop()` and optionally
 --- `decorate(lines, hls, badges, nodes)`; core code only talks to this registry.
 local state = require("beast.libs.explorer.state")
 
@@ -22,6 +22,13 @@ function M.decorate(lines, hls, badges, nodes)
 	if mode and mode.decorate then
 		mode.decorate(lines, hls, badges, nodes)
 	end
+end
+
+--- Text after the root name in the title and sticky header: " (Search)", empty in normal mode.
+---@return string
+function M.suffix()
+	local mode = active()
+	return mode and " (" .. mode.label .. ")" or ""
 end
 
 --- Return to the normal tree (no-op when already there).

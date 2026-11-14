@@ -11,6 +11,7 @@
 --- below the sticky stack on every motion (`gg`, `H`, `j`, `<C-u>`, etc.).
 local View = require("beast.libs.view")
 local config = require("beast.libs.explorer.config")
+local mode = require("beast.libs.explorer.mode")
 local render = require("beast.libs.explorer.render")
 local state = require("beast.libs.explorer.state")
 
@@ -124,7 +125,7 @@ local function compute_pinned()
 	if has_root then
 		entries[#entries + 1] = {
 			kind = "root",
-			label = string.upper(vim.fn.fnamemodify(state.tree.root.path, ":t")),
+			label = string.upper(vim.fn.fnamemodify(state.tree.root.path, ":t")) .. mode.suffix(),
 			depth = -1,
 		}
 	end

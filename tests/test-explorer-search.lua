@@ -171,6 +171,7 @@ local function row_of(name)
 end
 
 io.write("\n--- start() ---\n")
+assert_test("normal title has no mode label", vim.trim(buf_lines()[1]) == vim.fn.fnamemodify(root, ":t"):upper(), buf_lines()[1])
 assert_test("normal mode by default", state.mode == "normal" and state.mode_state == nil)
 search.start()
 assert_test("mode is search", state.mode == "search" and search.is_active())
@@ -178,7 +179,7 @@ assert_test("state.tree is a SearchTree", getmetatable(state.tree) == SearchTree
 assert_test("buffer and window are the explorer's own", state.view.buf == view_buf and vim.api.nvim_win_get_buf(view_win) == view_buf)
 assert_test(
 	"starts empty: only the root title",
-	#buf_lines() == 1 and vim.trim(buf_lines()[1]) == vim.fn.fnamemodify(root, ":t"):upper(),
+	#buf_lines() == 1 and vim.trim(buf_lines()[1]) == vim.fn.fnamemodify(root, ":t"):upper() .. " (Search)",
 	vim.inspect(buf_lines())
 )
 
@@ -186,7 +187,7 @@ io.write("\n--- set_query() ---\n")
 search.set_query("in.lua")
 wait_count(3)
 local lines = buf_lines()
-assert_test("title shown once typing ended", vim.trim(lines[1]) == vim.fn.fnamemodify(root, ":t"):upper(), lines[1])
+assert_test("title shown once typing ended", vim.trim(lines[1]) == vim.fn.fnamemodify(root, ":t"):upper() .. " (Search)", lines[1])
 assert_test("three files plus their folders", #lines == 1 + 3 + 5, vim.inspect(lines))
 assert_test("cursor on first file row", vim.api.nvim_win_get_cursor(view_win)[1] > 1)
 assert_test("real tree untouched", not (real_tree.nodes[root .. "/lua"] and real_tree.nodes[root .. "/lua"].open))

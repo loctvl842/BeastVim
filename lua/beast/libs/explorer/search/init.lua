@@ -11,6 +11,8 @@ local ui = require("beast.libs.explorer.ui")
 
 local M = {}
 
+M.label = "Search"
+
 M.decorate = function(...)
 	return require("beast.libs.explorer.search.decorate").apply(...)
 end
