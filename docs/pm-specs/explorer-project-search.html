@@ -41,11 +41,10 @@ ul{padding-left:20px} li{margin:4px 0} ul.check{list-style:none;padding:0}
 │            init.lua                 │
 └─────────────────────────────────────┘
 /in.lua█
-  (usual bottom prompt takes the typing; matching letters &quot;in.lua&quot; are highlighted in each name;
+  (typing goes on the top line, where the caret is; no prompt at the bottom; matching letters &quot;in.lua&quot; are highlighted in each name;
    folders on the way to a match are opened automatically;
    everything that does not match is hidden)</pre></section><section data-spec="state-3"><h3>STATE 3 - After Enter</h3><pre class="panel">┌─ explorer ──────────────────────────┐
-│  / in.lua                   3 files│
-│  BeastVim                           │
+│  BEASTVIM                           │
 │  ▾ lua                              │
 │    ▾ beast                          │
 │ ▶     init.lua                      │
@@ -64,7 +63,7 @@ ul{padding-left:20px} li{margin:4px 0} ul.check{list-style:none;padding:0}
 /zzzz█</pre></section><section data-spec="state-5"><h3>STATE 5 - Finder not installed</h3><pre class="panel">  `/` and `?` behave exactly as they do today (plain text search of the
   explorer window). No search line, no error.</pre></section>
 <h2>Scenarios</h2><details data-spec="scenario-1" open><summary>1 - Find a file inside a closed folder (happy path)</summary><pre class="panel">Step 1: Explorer is open, every folder closed. User presses `/`.
-  The editor's normal search prompt opens at the bottom, and a "/ query" line appears at the top of the explorer.
+  A "/" search line appears at the top of the explorer with a caret; typing goes there.
 
 Step 2: User types `in.lua`.
   The explorer shows only the search line and nothing else until something
@@ -72,20 +71,21 @@ Step 2: User types `in.lua`.
   them (all opened) appear. The count at the right updates.
 
 Step 3: User presses &lt;Enter&gt;.
-  The bottom prompt closes. Results stay on screen. Cursor moves
+  The caret goes away. Results stay on screen. Cursor moves
   to the first matching file.
 
 Step 4: User moves with j / k between matching files.
   The cursor jumps from one match to the next, skipping folders.
 
 Step 5: User presses &lt;Enter&gt; on a file.
-  The file opens in the editor window, as it does today. The explorer stays
-  in search mode with the same results.</pre></details><details data-spec="scenario-2"><summary>2 - Leave search mode</summary><pre class="panel">Step 1: Explorer shows search results (bottom prompt already closed).
+  The file opens in the editor window, as it does today. Focus has left the
+  explorer, so search mode ends: the explorer shows the normal tree with that
+  file's folders opened.</pre></details><details data-spec="scenario-2"><summary>2 - Leave search mode</summary><pre class="panel">Step 1: Explorer shows search results (caret already gone).
 Step 2: User presses &lt;Esc&gt;&lt;Esc&gt;.
-  The "/ query" line disappears. The tree returns to how it looked before the
+  Nothing but the results is on screen. The tree returns to how it looked before the
   search: same folders open or closed, cursor on the file that was selected in
   the results (its folders are opened so it stays visible).</pre></details><details data-spec="scenario-3"><summary>3 - Typing is cancelled before confirming</summary><pre class="panel">Step 1: User presses `/`, types `abc`.
-Step 2: User presses &lt;Esc&gt; in the bottom prompt (as with any search).
+Step 2: User presses &lt;Esc&gt; while typing on the search line.
   The prompt closes, search mode ends, tree is back to its previous state.</pre></details><details data-spec="scenario-4"><summary>4 - No match</summary><pre class="panel">Step 1: User presses `/`, types `zzzz`.
   The explorer shows &quot;No files match &quot;zzzz&quot;&quot; and the count reads 0 files.
 Step 2: User deletes characters with &lt;BS&gt;.
@@ -95,14 +95,14 @@ Step 2: User searches `env`.
 Step 3: User toggles hidden files.
   Results refresh to include them without losing the typed text.</pre></details><details data-spec="scenario-6"><summary>6 - Finder is not installed (graceful degrading)</summary><pre class="panel">Step 1: User presses `/` in the explorer.
   The editor&#x27;s plain text search starts, exactly as before this feature.
-  Nothing about the explorer looks different.</pre></details><details data-spec="scenario-7"><summary>7 - Change of root after searching</summary><pre class="panel">Step 1: In search mode, user presses &lt;Esc&gt;&lt;Esc&gt;, then `.` on a folder
-  (set as root). Search mode has ended; the explorer re-roots as today.
+  Nothing about the explorer looks different.</pre></details><details data-spec="scenario-7"><summary>7 - Change of root while searching</summary><pre class="panel">Step 1: In search mode, user presses `.` on a folder (set as root).
+  Search mode ends and the explorer re-roots as today.
   The user can press `/` again to search the new root.</pre></details>
-<section data-spec="behavior-rules"><h2>Behavior rules</h2><ul><li><code>/</code> and <code>?</code> do the same thing (search is not directional).</li><li>The search covers every file under the explorer&#x27;s current root, not only what is drawn.</li><li>Matching uses the file finder&#x27;s fuzzy matching on the path relative to the root. A folder name in the query narrows results to files under it.</li><li>Only files are matched. Folders appear only as the path to a matching file, and are always shown open.</li><li>Results are ordered like the normal tree (folders first, then alphabetical), not by score.</li><li>Hidden and gitignored files follow the same visibility switches as the explorer and the file finder.</li><li>Files that are open in a buffer are not given special treatment in search results: they show only if they match.</li><li>Git status, diagnostics and clipboard badges keep showing on result rows.</li><li>While searching, result rows support open, split, system open and toggling hidden files. Create, rename, delete, trash, copy, cut, paste, set root and navigate up are not available until search mode ends with <code>&lt;Esc&gt;&lt;Esc&gt;</code> (the cursor lands on the file the user was on).</li><li>Search mode starts empty and fills as the user types.</li><li>Typing uses the editor's own bottom search prompt (history, paste, editing keys all work). <code>&lt;Enter&gt;</code> closes it and keeps results; <code>&lt;Esc&gt;</code> closes it and ends search mode.</li><li>Search mode stays on after the prompt closes and ends only on <code>&lt;Esc&gt;&lt;Esc&gt;</code> or when the explorer is closed.</li><li>Once results show, <code>&lt;Esc&gt;&lt;Esc&gt;</code> ends search mode; a single <code>&lt;Esc&gt;</code> does nothing. The top "/ query" line is display only.</li><li>Pinned ancestor folder headers (sticky) are switched off during search mode: results already show the full folder path, and the pins would cover the "/ query" line. They return when search mode ends.</li><li>The tree state from before the search (opened folders, cursor) is restored when search mode ends.</li><li>The search line stays visible for as long as search mode is on.</li><li>If the finder is not installed, <code>/</code> and <code>?</code> keep their normal meaning and no search mode exists.</li></ul></section>
-<section data-spec="success-criteria"><h2>Success criteria</h2><ul class="check"><li><label><input type="checkbox"> Searching <code>in.lua</code> with every folder closed shows <code>lua/beast/init.lua</code> and the other matches.</label></li><li><label><input type="checkbox"> Results appear as a tree with the right folders opened and non-matches hidden.</label></li><li><label><input type="checkbox"> Matching letters are highlighted in each result name.</label></li><li><label><input type="checkbox"> <code>&lt;Enter&gt;</code> leaves the prompt, keeps results, and puts the cursor on the first match.</label></li><li><label><input type="checkbox"> j / k move between results without landing on folders.</label></li><li><label><input type="checkbox"> Opening a result file works and search mode stays on.</label></li><li><label><input type="checkbox"> <code>&lt;Esc&gt;&lt;Esc&gt;</code> returns the tree to its exact pre-search state.</label></li><li><label><input type="checkbox"> A zero-result search shows a clear empty message and a 0 count.</label></li><li><label><input type="checkbox"> With the file finder missing, <code>/</code> and <code>?</code> behave exactly as before.</label></li><li><label><input type="checkbox"> Searching a large project stays responsive while typing.</label></li></ul></section>
+<section data-spec="behavior-rules"><h2>Behavior rules</h2><ul><li><code>/</code> and <code>?</code> do the same thing (search is not directional).</li><li>The search covers every file under the explorer&#x27;s current root, not only what is drawn.</li><li>Matching uses the file finder&#x27;s fuzzy matching on the path relative to the root. A folder name in the query narrows results to files under it.</li><li>Only files are matched. Folders appear only as the path to a matching file, and are always shown open.</li><li>Results are ordered like the normal tree (folders first, then alphabetical), not by score.</li><li>Hidden and gitignored files follow the same visibility switches as the explorer and the file finder.</li><li>Files that are open in a buffer are not given special treatment in search results: they show only if they match.</li><li>Git status, diagnostics and clipboard badges keep showing on result rows.</li><li>While searching, the results behave like the normal explorer tree: folders open and close, files open or split, and create, rename, delete, trash, copy, cut, paste and toggling hidden files all work on result rows. Setting a new root (<code>.</code>) or going up (<code>&lt;BS&gt;</code>) ends search mode first and then runs as usual.</li><li>Search mode starts empty and fills as the user types.</li><li>Typing happens on the search line at the top; there is no second prompt. Keys: characters, <code>&lt;BS&gt;</code>, <code>&lt;C-w&gt;</code>, <code>&lt;C-u&gt;</code>. <code>&lt;Enter&gt;</code> keeps results, <code>&lt;Esc&gt;</code> ends search mode.</li><li>Search mode stays on after the prompt closes and ends only on <code>&lt;Esc&gt;&lt;Esc&gt;</code> or when the explorer is closed.</li><li>Once results show, <code>&lt;Esc&gt;&lt;Esc&gt;</code> ends search mode; a single <code>&lt;Esc&gt;</code> does nothing. The top "/ query" line is display only.</li><li>Pinned ancestor folder headers (sticky) are switched off during search mode: results already show the full folder path, and the pins would cover the "/ query" line. They return when search mode ends.</li><li>The tree state from before the search (opened folders, cursor) is restored when search mode ends.</li><li>The search line stays visible for as long as search mode is on.</li><li>If the finder is not installed, <code>/</code> and <code>?</code> keep their normal meaning and no search mode exists.</li></ul></section>
+<section data-spec="success-criteria"><h2>Success criteria</h2><ul class="check"><li><label><input type="checkbox"> Searching <code>in.lua</code> with every folder closed shows <code>lua/beast/init.lua</code> and the other matches.</label></li><li><label><input type="checkbox"> Results appear as a tree with the right folders opened and non-matches hidden.</label></li><li><label><input type="checkbox"> Matching letters are highlighted in each result name.</label></li><li><label><input type="checkbox"> <code>&lt;Enter&gt;</code> leaves the prompt, keeps results, and puts the cursor on the first match.</label></li><li><label><input type="checkbox"> j / k move through result rows like in the normal tree (folders are rows too).</label></li><li><label><input type="checkbox"> Opening a result file works, and leaving the explorer window ends search mode.</label></li><li><label><input type="checkbox"> <code>&lt;Esc&gt;&lt;Esc&gt;</code> returns the tree to its exact pre-search state.</label></li><li><label><input type="checkbox"> A zero-result search shows a clear empty message and a 0 count.</label></li><li><label><input type="checkbox"> With the file finder missing, <code>/</code> and <code>?</code> behave exactly as before.</label></li><li><label><input type="checkbox"> Searching a large project stays responsive while typing.</label></li></ul></section>
 <section data-spec="out-of-scope"><h2>Out of scope</h2><ul><li>Searching inside file contents (the finder&#x27;s live grep already does that).</li><li>Matching folder names on their own (files only).</li><li>Sorting results by match score.</li><li>Searching outside the explorer&#x27;s root.</li><li>Remembering the last query between uses.</li><li>Customizing the search keys (defaults only for now).</li></ul></section>
 <section data-spec="decisions"><h2>Decisions I made (change if you disagree)</h2><ul>
-<li><strong>Flow:</strong> <code>/</code> opens the native bottom prompt in insert mode, <code>&lt;Enter&gt;</code> closes it and search mode stays on with the tree of results, move up/down normally.</li>
+<li><strong>Flow:</strong> <code>/</code> starts typing on the top search line, <code>&lt;Enter&gt;</code> closes it and search mode stays on with the tree of results, move up/down normally.</li>
 <li><strong>Results ordered like the tree</strong>, not by match score.</li>
 <li><strong>Open file keeps search mode on</strong>, so you can open several results in a row (confirmed).</li><li><strong>Search mode ends</strong> only when you press <code>&lt;Esc&gt;&lt;Esc&gt;</code> in the explorer or close the explorer.</li>
 </ul></section>
