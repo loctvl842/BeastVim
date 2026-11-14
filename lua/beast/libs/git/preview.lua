@@ -373,6 +373,9 @@ local function apply_decorations(buf, body, hls, gutters, spans)
 		if hls[i] then
 			api.nvim_buf_set_extmark(buf, ns, i - 1, 0, { line_hl_group = hls[i] })
 		end
+		for _, range in ipairs(spans[i] and spans[i].ranges or {}) do
+			api.nvim_buf_set_extmark(buf, ns, i - 1, range[1], { end_col = range[2], hl_group = spans[i].hl, priority = 200 })
+		end
 	end
 end
 
