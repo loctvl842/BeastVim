@@ -200,7 +200,7 @@ function M.setup()
 	})
 end
 
---- Read one file (1-based) and feed its bigrams. Oversize files are skipped.
+--- Read one file (1-based) and feed its bigrams. Oversize and binary files are skipped.
 ---@param id integer
 function Index:scan_file(id)
 	local fd = uv.fs_open(self.files[id], "r", 420)
@@ -210,7 +210,8 @@ function Index:scan_file(id)
 	local st = uv.fs_fstat(fd)
 	if st and st.size <= self.max_file_size then
 		local data = uv.fs_read(fd, st.size, 0)
-		if data then
+		-- NUL byte = binary (rg's own heuristic): leave it bit-less so it is never a survivor.
+		if data and not data:find("\0", 1, true) then
 			self.bigram:add(id - 1, data)
 		end
 	else

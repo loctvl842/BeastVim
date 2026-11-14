@@ -85,6 +85,7 @@ local function ensure_cmd(text)
 			"--color=never",
 			"--smart-case",
 			"--exclude-dir=.git",
+			"--ignore-binary",
 			"--tabs=1",
 		}
 		if visibility.hidden then

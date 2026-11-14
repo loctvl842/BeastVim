@@ -57,7 +57,8 @@ local function scan_file(bg, path, id, max_file_size)
 	local st = uv.fs_fstat(fd)
 	if st and st.size <= max_file_size then
 		local data = uv.fs_read(fd, st.size, 0)
-		if data then
+		-- NUL byte = binary (rg's own heuristic): leave it bit-less so it is never a survivor.
+		if data and not data:find("\0", 1, true) then
 			bg:add(id, data)
 		end
 	end
