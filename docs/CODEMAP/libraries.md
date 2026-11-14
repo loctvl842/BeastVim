@@ -1,4 +1,4 @@
-<!-- Generated: 2026-11-11 | Files scanned: 30 | Token estimate: ~11589 -->
+<!-- Generated: 2026-11-14 | Files scanned: 30 | Token estimate: ~11589 -->
 
 # Libraries
 
@@ -715,18 +715,18 @@ git/
 ├── init.lua       ← state, attach/detach, debounced recompute, single-flight, autocmds, public surface
 ├── config.lua     ← debounce_ms, keymaps, icons, ft_ignore, bt_ignore, blame{ enabled, delay_ms, ... } (frozen, ADR-003)
 ├── repo.lua       ← resolve(buf) + get_base/get_head/get_path_data/intent_to_add/get_username via vim.system
-├── diff.lua       ← compute_hunks(base, current) via vim.text.diff (fallback vim.diff), histogram + linematch
+├── diff.lua       ← compute_hunks(base, current) via vim.text.diff (fallback vim.diff), histogram + linematch; word_spans(old, new) → changed-word byte ranges (nil if too different / >1000 bytes)
 ├── hunks.lua      ← expand_signs / expand_staged_signs / find_at_buffer_line / index_to_buffer_delta
 ├── signs.lua      ← namespaces { unstaged, staged }; place_unstaged / place_staged (priority 6 vs 5)
 ├── patch.lua      ← pure: format(ref, target, hunks, path_data) → unified-zero patch lines (mini.diff pattern)
 ├── apply.lua      ← async: vim.system `git apply --cached --unidiff-zero [--reverse] -` on stdin
 ├── actions.lua    ← stage_hunk (toggle), unstage_hunk, reset_hunk; with_path_data covers untracked via intent-to-add
 ├── nav.lua        ← nav_hunk("next"|"prev", { wrap, foldopen, target }) — `''` mark + `zv`; target=unstaged|staged|all
-├── preview.lua    ← Beast.View subclass; <leader>gp opens diff float, auto-close on CursorMoved
+├── preview.lua    ← Beast.View subclass; <leader>gp opens diff float, auto-close on CursorMoved; pairs -/+ rows per hunk, paints changed words (hl_group extmarks over the hl_eol line tint)
 ├── blame.lua      ← async `git blame --incremental` parser; run(ctx, { lnum?, contents?, ignore_whitespace?, revision?, untracked? }, cb)
 ├── current_line_blame.lua ← cursor-driven virt_text; namespace beast_git_blame; debounced via Util.debounce; cursor-race guard
 ├── blame_view.lua ← Beast.View subclass; <leader>gB opens left side window with full-file blame; scrollbind-synced; <CR>=show commit, r=reblame parent, R=reset
-├── highlights.lua ← BeastGit{Add,Change,Delete,TopDelete,Changedelete} + BeastGitStaged* + BeastGitCurrentLineBlame + BeastGitBlameView{Sha,Author,Date}
+├── highlights.lua ← BeastGit{Add,Change,Delete,TopDelete,Changedelete} + BeastGitStaged* + BeastGitPreview{Add,Delete}{,Word} + BeastGitCurrentLineBlame + BeastGitBlameView{Sha,Author,Date}
 └── health.lua     ← :checkhealth — git bin, diff backend, namespaces, attached count, staged-tier hl groups, blame config + user.name
 ```
 

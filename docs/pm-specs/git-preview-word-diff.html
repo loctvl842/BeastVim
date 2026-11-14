@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spec: Preview word diff</title>
+<style>
+  :root { --bg:#fbfaf7; --fg:#1c1b19; --muted:#6b675f; --line:#dcd8cf; --card:#fff;
+    --del:#f6dcdc; --del2:#eaa0a0; --add:#dcefdc; --add2:#8fd08f; --ctx:#f1efe9; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#161513; --fg:#ece8df; --muted:#a29d92; --line:#3a3732; --card:#1f1d1a;
+      --del:#3b2326; --del2:#7a2f38; --add:#25342a; --add2:#2f6b3f; --ctx:#1a1917; }
+  }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, sans-serif; }
+  main { max-width:880px; margin:0 auto; padding:24px 16px 80px; }
+  section { margin:32px 0; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin:12px 0; }
+  .mock { font:13px/1.7 ui-monospace, Menlo, monospace; border:1px solid var(--line); border-radius:8px; overflow-x:auto; background:var(--card); }
+  .mock div { padding:0 10px; white-space:pre; }
+  .d { background:var(--del); } .a { background:var(--add); } .c { background:var(--ctx); }
+  .d b { background:var(--del2); font-weight:normal; border-radius:3px; }
+  .a b { background:var(--add2); font-weight:normal; border-radius:3px; }
+  .muted { color:var(--muted); font-size:14px; }
+  h1,h2 { line-height:1.25; } li { margin:4px 0; }
+</style>
+</head>
+<body>
+<main>
+<header data-spec="summary">
+  <h1>Preview word diff</h1>
+  <p>In the hunk preview, the exact words that changed get a stronger background than the rest of the line, like GitHub and GitLab. You see the real edit at a glance.</p>
+</header>
+
+<section data-spec="problem">
+  <h2>Problem</h2>
+  <p>An edited line shows as a removed line and an added line that are almost identical, each tinted entirely red or green. You must compare them word by word to find the change.</p>
+</section>
+
+<section data-spec="target-behavior">
+  <h2>Target behavior</h2>
+  <div class="card" data-spec="target-behavior-state-1">
+    <h3>1 - Words added</h3>
+    <div class="mock"><div class="d">401 -    if not confirmed then</div><div class="a">401 +    if not confirmed <b>and vim.g.colors_name ~= original </b>then</div></div>
+  </div>
+  <div class="card" data-spec="target-behavior-state-2">
+    <h3>2 - Word replaced</h3>
+    <div class="mock"><div class="d"> 12 -    local count = <b>old_name</b>(x)</div><div class="a"> 12 +    local count = <b>new_name</b>(x)</div></div>
+  </div>
+  <div class="card" data-spec="target-behavior-state-3">
+    <h3>3 - Completely different lines: soft only</h3>
+    <div class="mock"><div class="d"> 30 -    foo(a, b)</div><div class="a"> 30 +    return bar</div></div>
+  </div>
+  <div class="card" data-spec="target-behavior-state-4">
+    <h3>4 - Pure addition: soft only</h3>
+    <div class="mock"><div class="c"> 54      local y = 0</div><div class="a"> 55 +    local x = 1</div></div>
+  </div>
+</section>
+
+<section data-spec="scenarios">
+  <h2>Scenarios</h2>
+  <details open data-spec="scenario-1"><summary>1 - Words added to a line</summary><p>Append a phrase, open the preview: only that phrase is stronger green.</p></details>
+  <details data-spec="scenario-2"><summary>2 - Word replaced</summary><p>Old name stronger red, new name stronger green.</p></details>
+  <details data-spec="scenario-3"><summary>3 - Staged, then edited again</summary><p>Compares staged text to current text; emphasis marks only what changed since staging.</p></details>
+  <details data-spec="scenario-4"><summary>4 - Several lines in one hunk</summary><p>Removed and added lines pair in order; each pair is emphasized on its own.</p></details>
+  <details data-spec="scenario-5"><summary>5 - Unequal line counts</summary><p>2 removed, 3 added: first two pair up, the extra line is soft green only.</p></details>
+  <details data-spec="scenario-6"><summary>6 - Whole line rewritten</summary><p>Almost nothing shared: soft highlight only, no striped noise.</p></details>
+  <details data-spec="scenario-7"><summary>7 - Theme change</summary><p>Emphasis follows the theme and stays visible in dark and light.</p></details>
+</section>
+
+<section data-spec="behavior-rules">
+  <h2>Behavior rules</h2>
+  <ul>
+    <li>Only removed and added lines are emphasized, never context.</li>
+    <li>Lines pair in order within a hunk; unpaired lines stay soft.</li>
+    <li>Emphasis is word-level, grouped, not scattered characters.</li>
+    <li>Pairs sharing too little text skip emphasis.</li>
+    <li>Same in staged and unstaged previews.</li>
+    <li>Two new theme-adjustable highlight groups (removed, added), defaulting to stronger red and green.</li>
+    <li>Syntax colors are kept; only the background changes.</li>
+    <li>Large hunks stay instant; very long lines may skip emphasis.</li>
+  </ul>
+</section>
+
+<section data-spec="success-criteria">
+  <h2>Success criteria</h2>
+  <ul>
+    <li>&#9744; Appended phrase is the only stronger-green region (matches GitHub).</li>
+    <li>&#9744; Replaced word is stronger red then stronger green.</li>
+    <li>&#9744; Different lines and pure add/delete stay soft only.</li>
+    <li>&#9744; Context lines are never emphasized.</li>
+    <li>&#9744; Staged-then-edited emphasizes only changes since staging.</li>
+    <li>&#9744; Visible in every bundled colorscheme, dark and light.</li>
+    <li>&#9744; No visible delay on a large hunk.</li>
+  </ul>
+</section>
+
+<section data-spec="out-of-scope">
+  <h2>Out of scope</h2>
+  <ul>
+    <li>Gutter, sign column, or inline emphasis in the main buffer.</li>
+    <li>Sub-word (character) emphasis.</li>
+    <li>A setting to turn emphasis off.</li>
+    <li>Side-by-side layout.</li>
+  </ul>
+</section>
+</main>
+</body>
+</html>

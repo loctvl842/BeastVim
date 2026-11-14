@@ -1,4 +1,4 @@
-<!-- Generated: 2026-11-11 | Files scanned: 30 | Token estimate: ~324 -->
+<!-- Generated: 2026-11-14 | Files scanned: 30 | Token estimate: ~324 -->
 
 # BeastVim Codemaps
 
@@ -16,4 +16,4 @@ Quick-reference architecture documentation. Regenerate with `/update-codemap`.
 - Colorschemes: repo-root colors/ (monokai-pro + classic/light/machine/octagon/ristretto/spectrum)
 - Shared modules: view/ (instance + .buf + .win submodules), animate.lua, async.lua, util/, theme/, visibility.lua (global hidden/gitignored state)
 - Profiler: lua/beast/profile.lua (per-fn count/total/self stats)
-- Last updated: 2026-11-11
+- Last updated: 2026-11-14

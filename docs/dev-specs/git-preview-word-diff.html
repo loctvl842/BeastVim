@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dev spec: Preview word diff</title>
+<style>
+  :root { --bg:#fbfaf7; --fg:#1c1b19; --muted:#6b675f; --line:#dcd8cf; --card:#fff; --accent:#b4540a; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#161513; --fg:#ece8df; --muted:#a29d92; --line:#3a3732; --card:#1f1d1a; --accent:#e08a3c; }
+  }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, sans-serif; }
+  main { max-width:880px; margin:0 auto; padding:24px 16px 80px; }
+  section { margin:32px 0; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin:12px 0; }
+  table { width:100%; border-collapse:collapse; font-size:14px; } td,th { border-bottom:1px solid var(--line); padding:6px 8px; text-align:left; vertical-align:top; }
+  code { font:13px ui-monospace, Menlo, monospace; word-break:break-word; }
+  svg { width:100%; height:auto; color:var(--fg); }
+  .muted { color:var(--muted); font-size:14px; } .tag { color:var(--accent); font-size:13px; }
+  .box { fill:var(--card); stroke:var(--line); } .t { fill:currentColor; font:12px ui-monospace, Menlo, monospace; } .ar { stroke:currentColor; fill:none; }
+</style>
+</head>
+<body>
+<main>
+<header data-spec="summary">
+  <h1>Preview word diff</h1>
+  <p>Add a pure word-diff helper, attach its column spans to paired preview rows, and paint them with two new stronger highlight groups over the existing line tint. PM spec: <code>docs/pm-specs/git-preview-word-diff.md</code>.</p>
+</header>
+
+<section data-spec="flow">
+  <h2>How it works</h2>
+  <svg viewBox="0 0 760 130" role="img" aria-label="Data flow">
+    <title>Word diff data flow</title>
+    <rect class="box" x="5" y="30" width="150" height="50" rx="6"/><text class="t" x="80" y="52" text-anchor="middle">build_rows</text><text class="t" x="80" y="68" text-anchor="middle">pair - / + per hunk</text>
+    <rect class="box" x="205" y="30" width="160" height="50" rx="6"/><text class="t" x="285" y="52" text-anchor="middle">diff.word_spans</text><text class="t" x="285" y="68" text-anchor="middle">tokens + vim.text.diff</text>
+    <rect class="box" x="415" y="30" width="150" height="50" rx="6"/><text class="t" x="490" y="52" text-anchor="middle">render_rows</text><text class="t" x="490" y="68" text-anchor="middle">5th return: spans</text>
+    <rect class="box" x="610" y="30" width="145" height="50" rx="6"/><text class="t" x="682" y="52" text-anchor="middle">apply_decorations</text><text class="t" x="682" y="68" text-anchor="middle">extmark per span</text>
+    <path class="ar" d="M155 55H205M365 55H415M565 55H610"/>
+    <text class="t" x="285" y="105" text-anchor="middle">nil when lines too different / too long</text>
+  </svg>
+</section>
+
+<section data-spec="research">
+  <h2>Research</h2>
+  <div class="card">
+    <p><b>Found:</b> <code>diff.lua</code> already wraps <code>vim.text.diff</code>; preview rows, <code>_test</code> seam, extmark namespace and highlight builder exist. No word-level diff anywhere.</p>
+    <p><b>Decision:</b> <span class="tag">Use</span> <code>vim.text.diff</code> on tokens; <span class="tag">Reuse</span> diff wrapper, row pipeline, highlights; <span class="tag">Build</span> tokenizer, pairing, span mapping.</p>
+  </div>
+</section>
+
+<section data-spec="architecture-changes">
+  <h2>Files</h2>
+  <table>
+    <tr><th>Path</th><th></th><th>What</th></tr>
+    <tr><td><code>lua/beast/libs/git/diff.lua</code></td><td>modified</td><td><code>word_spans(old, new)</code></td></tr>
+    <tr><td><code>lua/beast/libs/git/preview.lua</code></td><td>modified</td><td>spans on rows, pairing, paint</td></tr>
+    <tr><td><code>lua/beast/libs/git/highlights.lua</code></td><td>modified</td><td><code>PreviewAddWord</code>, <code>PreviewDeleteWord</code></td></tr>
+    <tr><td><code>lua/beast/libs/git/health.lua</code></td><td>modified</td><td>list new groups if enumerated</td></tr>
+    <tr><td><code>tests/test-git-word-diff.lua</code></td><td>new</td><td>unit tests</td></tr>
+    <tr><td><code>tests/test-git-preview.lua</code></td><td>modified</td><td>span assertions</td></tr>
+  </table>
+</section>
+
+<section data-spec="phases">
+  <h2>Phases</h2>
+  <div class="card" data-spec="phase-1">
+    <h3>Phase 1 - Word-span helper (no UI change)</h3>
+    <ol>
+      <li data-spec="phase-1-step-1"><b>Tokenize</b>: word runs, whitespace runs, single punctuation chars, UTF-8 aware. <span class="muted">Risk low</span></li>
+      <li data-spec="phase-1-step-2"><b>word_spans</b>: diff tokens joined by newline, map to merged byte ranges. <span class="muted">Risk medium: off-by-one</span></li>
+      <li data-spec="phase-1-step-3"><b>Cutoffs</b>: skip if a line is over 1000 bytes or under 40% shared non-whitespace (vs the shorter line). <span class="muted">Risk low</span></li>
+      <li data-spec="phase-1-step-4"><b>Tests</b>: appended phrase, replaced word, identical, different, punctuation, whitespace, multibyte, long.</li>
+    </ol>
+  </div>
+  <div class="card" data-spec="phase-2">
+    <h3>Phase 2 - Paint in the preview</h3>
+    <ol>
+      <li data-spec="phase-2-step-1"><b>Highlight groups</b>, bg only, blend 0.35 vs line tint 0.15.</li>
+      <li data-spec="phase-2-step-2"><b>Pair rows</b> in <code>build_rows</code>: j-th removed with j-th added; unpaired and context get none. <span class="muted">Risk medium</span></li>
+      <li data-spec="phase-2-step-3"><b>Carry spans</b>: <code>render_rows</code> 5th return, forwarded by <code>open_float</code>. Existing returns unchanged.</li>
+      <li data-spec="phase-2-step-4"><b>Paint</b>: extmark with <code>hl_group</code>, priority 200, per span.</li>
+      <li data-spec="phase-2-step-5"><b>Health + codemap</b>.</li>
+    </ol>
+  </div>
+</section>
+
+<section data-spec="decisions">
+  <h2>Decisions for you</h2>
+  <div class="card">
+    <p><b>Similarity cutoff:</b> skip emphasis below 40% shared non-whitespace text <span class="tag">recommended</span>. Alternatives: 25% (more emphasis, noisier), 60% (cleaner, misses big edits).</p>
+    <p><b>Length cutoff:</b> 1000 bytes per line <span class="tag">recommended</span>.</p>
+    <p><b>Emphasis strength:</b> blend 0.35 <span class="tag">recommended</span>, to be tuned by eye across themes.</p>
+  </div>
+</section>
+
+<section data-spec="testing-strategy">
+  <h2>Testing</h2>
+  <ul>
+    <li>Headless: new <code>tests/test-git-word-diff.lua</code>; extend <code>tests/test-git-preview.lua</code>.</li>
+    <li>Bench: <code>scripts/bench-git.lua</code> plus a 200-line hunk case, under 16 ms.</li>
+    <li>Manual: PM scenarios 1-7 in <code>NVIM_APPNAME=BeastVim</code>, dark and light themes.</li>
+  </ul>
+</section>
+
+<section data-spec="success-criteria">
+  <h2>Success criteria</h2>
+  <ul>
+    <li>&#9744; Appended phrase is the only stronger-green region.</li>
+    <li>&#9744; Replaced word stronger red then stronger green.</li>
+    <li>&#9744; Different lines and pure add/delete stay soft.</li>
+    <li>&#9744; Context never emphasized; staged-then-edited correct.</li>
+    <li>&#9744; Visible in all bundled themes; no large-hunk delay.</li>
+    <li>&#9744; All <code>tests/test-git-*.lua</code> pass.</li>
+  </ul>
+</section>
+</main>
+</body>
+</html>
