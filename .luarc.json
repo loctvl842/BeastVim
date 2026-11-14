@@ -3,7 +3,7 @@
   "runtime.version": "LuaJIT",
   "workspace.library": ["${env:VIMRUNTIME}/lua"],
   "workspace.checkThirdParty": false,
-  "workspace.ignoreDir": [".claude", "docs", "assets"],
+  "workspace.ignoreDir": [".claude", "docs", "assets", "tests", "scripts"],
   "type.weakNilCheck": true,
   "type.weakUnionCheck": true,
   "diagnostics.globals": ["vim"],
