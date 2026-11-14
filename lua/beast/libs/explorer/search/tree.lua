@@ -73,7 +73,7 @@ end
 ---@param capped? boolean more matches existed than `items`
 ---@return Beast.Explorer.SearchTree
 function M.from_matches(root, items, capped)
-	local self = M:new(root)
+	local self = M:new(root) ---@type Beast.Explorer.SearchTree
 	self.positions, self.count, self.capped = {}, #items, capped or false
 	self.root.expanded = true
 
