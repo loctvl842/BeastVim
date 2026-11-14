@@ -10,6 +10,7 @@
 -- =========================================================================
 
 local FAIL_THRESHOLD_MS = 10 -- hard cap for the 5k-line scenario
+local WORD_FAIL_THRESHOLD_MS = 16 -- word_spans over a 200-line modified hunk must fit a frame
 local RUNS = 3
 
 vim.opt.runtimepath:prepend(vim.fn.getcwd())
@@ -69,20 +70,46 @@ local m1k = bench("1k", 1000, 20)
 local m5k = bench("5k", 5000, 50)
 local m20k = bench("20k", 20000, 100)
 
+-- Word-level spans for a 200-line hunk where every line changed (preview emphasis).
+local function bench_words(pairs_n)
+	local old, new = {}, {}
+	for i = 1, pairs_n do
+		old[i] = string.format("    if not confirmed%d then call(alpha, bravo)", i)
+		new[i] = string.format("    if not confirmed%d and vim.g.colors_name ~= original then call(alpha, charlie)", i)
+	end
+	local function run()
+		for i = 1, pairs_n do
+			assert(diff.word_spans(old[i], new[i]), "expected spans")
+		end
+	end
+	run()
+	local samples = {}
+	for _ = 1, RUNS do
+		local t0 = vim.uv.hrtime()
+		run()
+		samples[#samples + 1] = (vim.uv.hrtime() - t0) / 1e6
+	end
+	local m = median(samples)
+	print(string.format("%-12s %d line pairs  median=%.3f ms", "words", pairs_n, m))
+	return m
+end
+local mwords = bench_words(200)
+
 local status = "PASS"
 local exit = 0
-if m5k > FAIL_THRESHOLD_MS then
+if m5k > FAIL_THRESHOLD_MS or mwords > WORD_FAIL_THRESHOLD_MS then
 	status = "FAIL"
 	exit = 1
 end
 
 print(
 	string.format(
-		"BENCH name=git backend=%s 1k=%.2fms 5k=%.2fms 20k=%.2fms threshold=%dms status=%s",
+		"BENCH name=git backend=%s 1k=%.2fms 5k=%.2fms 20k=%.2fms words200=%.2fms threshold=%dms status=%s",
 		diff.backend,
 		m1k,
 		m5k,
 		m20k,
+		mwords,
 		FAIL_THRESHOLD_MS,
 		status
 	)
