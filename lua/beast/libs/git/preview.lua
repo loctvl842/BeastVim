@@ -286,11 +286,16 @@ end
 ---@field marker string     "- " | "+ " | "  "
 ---@field marker_hl string  Highlight group for the marker (and line bg)
 
+---@class Beast.Git.PreviewWordSpans
+---@field hl string  Highlight group painted over each range
+---@field ranges integer[][]  {s, e} byte ranges, 0-based, end exclusive
+
 ---@param rows Beast.Git.PreviewRow[]
 ---@return string[] body  pure code lines (no gutter), one per row
 ---@return table<integer, string> hls  row → line_hl_group
 ---@return Beast.Git.PreviewGutter[] gutters  one per row
 ---@return integer gutter_width  display width of the prefix column
+---@return table<integer, Beast.Git.PreviewWordSpans> spans  row → changed-word ranges (paired rows only)
 local function render_rows(rows)
 	local max_lnum = 0
 	for _, r in ipairs(rows) do
@@ -300,7 +305,7 @@ local function render_rows(rows)
 	end
 	local lnum_w = math.max(2, #tostring(max_lnum))
 
-	local body, hls, gutters = {}, {}, {}
+	local body, hls, gutters, spans = {}, {}, {}, {}
 	for i, r in ipairs(rows) do
 		local lnum_str = r.lnum and tostring(r.lnum) or ""
 		local lnum_text = string.rep(" ", lnum_w - #lnum_str) .. lnum_str .. " "
@@ -322,8 +327,11 @@ local function render_rows(rows)
 		if r.hl then
 			hls[i] = r.hl
 		end
+		if r.spans and #r.spans > 0 then
+			spans[i] = { hl = r.hl .. "Word", ranges = r.spans }
+		end
 	end
-	return body, hls, gutters, lnum_w + 1 + 2
+	return body, hls, gutters, lnum_w + 1 + 2, spans
 end
 
 ---@param lines string[]
@@ -354,7 +362,8 @@ end
 ---@param body string[]
 ---@param hls table<integer, string>
 ---@param gutters Beast.Git.PreviewGutter[]
-local function apply_decorations(buf, body, hls, gutters)
+---@param spans table<integer, Beast.Git.PreviewWordSpans>
+local function apply_decorations(buf, body, hls, gutters, spans)
 	local ns = api.nvim_create_namespace("beast_git_preview")
 	api.nvim_buf_clear_namespace(buf, ns, 0, -1)
 	-- Stash the gutter table on the buffer so the window's statuscolumn can
@@ -399,6 +408,7 @@ end
 ---@param body string[]
 ---@param hls table<integer, string>
 ---@param gutters Beast.Git.PreviewGutter[]
+---@param spans table<integer, Beast.Git.PreviewWordSpans>
 ---@param width integer
 ---@param gutter_w integer  display width of the per-row gutter
 ---@param source_ft string
@@ -406,14 +416,14 @@ end
 ---@param anchor_lnum integer  1-indexed buffer line to anchor the float below
 ---@param title (string|table)?  optional title shown in the float border (string or chunks list)
 ---@return integer buf, integer win
-local function open_float(body, hls, gutters, width, gutter_w, source_ft, source_win, anchor_lnum, title)
+local function open_float(body, hls, gutters, spans, width, gutter_w, source_ft, source_win, anchor_lnum, title)
 	local buf = View.buf.new("")
 	api.nvim_buf_set_lines(buf, 0, -1, false, body)
 	vim.bo[buf].modifiable = false
 	vim.bo[buf].readonly = true
 
 	maybe_start_treesitter(buf, source_ft)
-	apply_decorations(buf, body, hls, gutters)
+	apply_decorations(buf, body, hls, gutters, spans)
 
 	local height = math.min(#body, math.max(1, resolve_max_height()))
 	-- Offset left by the source window's gutter (statuscolumn/sign/number) so
@@ -765,7 +775,7 @@ function M.open_for_range(range_start, range_end, opts)
 	if #rows == 0 then
 		return
 	end
-	local body, hls, gutters, gutter_w = render_rows(rows)
+	local body, hls, gutters, gutter_w, spans = render_rows(rows)
 
 	local source_ft = vim.bo[source_buf].filetype
 	local source_win = api.nvim_get_current_win()
@@ -777,7 +787,7 @@ function M.open_for_range(range_start, range_end, opts)
 	local width = recompute_width()
 
 	M.close()
-	local buf, win = open_float(body, hls, gutters, width, gutter_w, source_ft, source_win, hunk_min, plan.title)
+	local buf, win = open_float(body, hls, gutters, spans, width, gutter_w, source_ft, source_win, hunk_min, plan.title)
 	current = PreviewView(buf, win)
 	wire_close(buf, source_buf, source_win, hunk_lines, hunk_min, hunk_max, recompute_width)
 end
