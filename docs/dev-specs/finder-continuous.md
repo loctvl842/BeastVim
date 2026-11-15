@@ -6,22 +6,26 @@ generated: 2026-11-15
 
 > PM Spec: [docs/pm-specs/finder-continuous.md](../pm-specs/finder-continuous.md)
 
+> **Builds on the finished levels refactor** ([finder-levels-refactor.md](finder-levels-refactor.md)): `Session` / `Level` with `push` / `pop` in the same windows, UI-free engines behind a `Host`, `query.total` / `engine.matches(query)` (the full match set), behavior declared on the source (`format`, `header`, `group`, `open`, `reload_on`), one key table, and `ui.input.set_text` already exist. This spec only adds what is specific to chained pickers. Steps of the original plan that the refactor delivered are marked *(done by the refactor)*.
+
 # Summary
-The finder keeps its three windows and swaps what they show: a **level stack** inside the one `State`. `<C-g>` asks the current source for its next level (`source.drill`), pushes the current query/pipeline/prompt onto a stack and installs the new one; `<BS>` on an empty prompt or `<C-o>` pops it back with no re-search. Scoped grep is the existing `live_grep` source given a file list. The key hint is a small borderless float under the picker. Files and Buffers rows are first moved to the grep file look, because the chain relies on it.
+The finder keeps its three windows and swaps what they show with the Session's **level stack** (`push` / `pop`, already built by the refactor). `<C-g>` asks the current source for its next level (`source.drill`) and pushes it; `<BS>` on an empty prompt or `<C-o>` pops it back with no re-search. Scoped grep is the existing `live_grep` source given a file list. The key hint is a small borderless float under the picker. Files and Buffers rows are first moved to the grep file look, because the chain relies on it.
 
 ---
 
 # Context
 
 ## Problem
-Every picker starts from nothing: `State:new` builds one `Query` + pipeline and there is no way to feed one picker's results into the next. The match pipeline also keeps only the top 1000 matches (`matched` is a TopK), so even "the files that currently match" cannot be read from the state when the prompt is short. Files rows show the whole path folder-first and Buffers rows show `[n] path`, unlike grep results (icon, name, dim folder). The fuzzy-match highlight assumes the rendered row contains the relative path contiguously, which breaks as soon as the row is reordered.
+Even with Session / Level in place, nothing yet *asks* a picker for its next level: sources have no `drill`, there is no key for it, no hint line, and `live_grep` cannot be limited to a list of files. Files and Buffers rows still show the whole path folder-first (Buffers: `[n] path`), unlike grep results (icon, name, dim folder), and the fuzzy-match highlight assumes the rendered row contains the relative path contiguously, which breaks as soon as the row is reordered.
 
 ### Solution
-`State` gains a `stack` of level snapshots plus `push(spec)` / `pop()` that swap `query`, `pipeline`, prompt text, title and list position in place (windows are never closed, so there is no flicker and the dimmed backdrop stays). Sources opt in through `drill = { hint, open }`. The match pipeline exposes `count(state)` / `matches(state)` (from the matcher's score table, so the full match set is available, not just 1000). `live_grep` accepts `filter.files`. New sources `gh_pr_files` and `gh_issue_grep` complete the GitHub chains. A new `ui/hint.lua` draws the tooltip line.
+Sources opt in through `drill = { hint, open }`; a small `chain.lua` turns `<C-g>` into `session:push(Level.new(...))` and `<BS>` / `<C-o>` into `session:pop()`. `live_grep` accepts `filter.files`. New sources `gh_pr_files` and `gh_issue_grep` complete the GitHub chains. A new `ui/hint.lua` draws the tooltip line. Counts come from `query.total`.
 
 ---
 
 # Research
+*(Written before the levels refactor: the findings about `State`, pipeline coupling and the top-1000 limit describe the code the refactor replaced.)*
+
 
 ### Repo Search
 - Searched for: `State:new`, `instance`, `reset`, `pipeline.load/run/abort`, `Query:new`, `Filter`, `source.preview`, `count`, `title`, `initial_query`, `preloaded_items`, `header_fn`, `set_count`, `set_title`, `batch_targets`, `survivors`, `topk_capacity`, `match_state`, `format.filename`, `compute_list_ranges`, `<BS>`/`<C-g>`/`<C-o>` mappings.
@@ -54,10 +58,10 @@ Every picker starts from nothing: `State:new` builds one `Query` + pipeline and 
 # Architecture Changes
 - `lua/beast/libs/finder/format.lua` - modified: shared file-row builder (icon, base, dim dir, `src` ranges), `filename` and `buffers` use it, `ratio` count helper, formats for the new sources.
 - `lua/beast/libs/finder/match_hl.lua` - modified: `compute_list_ranges` maps positions through `src` ranges when a row provides them.
-- `lua/beast/libs/finder/matcher.lua` - modified: `MatchState.total`.
-- `lua/beast/libs/finder/pipeline/match.lua` - modified: `count(state)`, `matches(state)`, settled count label, title refresh on load.
+- `lua/beast/libs/finder/matcher.lua` - *(done by the refactor)*: `MatchState.total`.
+- `lua/beast/libs/finder/pipeline/match.lua` - modified: settled count label via `source.count(items, total)`, title refresh when loading ends (`count` / `matches` exist).
 - `lua/beast/libs/finder/pipeline/stream.lua` - modified: `count`, `matches`, empty-prompt placeholder row, export `update_count` use.
-- `lua/beast/libs/finder/state.lua` - modified: `stack`, `push`, `pop`, closure refactor, `reset` cleans stacked queries, hint wiring.
+- `lua/beast/libs/finder/session.lua` - modified: hint wiring only (stack, push/pop, cleanup exist).
 - `lua/beast/libs/finder/chain.lua` - **new**: `drill(state)`, `back(state)`, `hint_text(state)`, level spec types.
 - `lua/beast/libs/finder/ui/hint.lua` - **new**: the below-the-frame tooltip window.
 - `lua/beast/libs/finder/ui/input.lua` - modified: `set_text`.
@@ -108,33 +112,22 @@ Drill is refused (toast, nothing changes) while the pipeline is not settled (`Ta
    - Risk: Low
 
 ## Phase 2: Chain core + Files -> grep (the first complete chain)
-1. **Full match set and count** (Files: `matcher.lua`, `pipeline/match.lua`)
-   - Action: `MatchState.total` counted in the final pass (empty pattern: `#items`). `match.count(state)` returns the total when loader and matcher tasks are not running (else nil); `match.matches(state)` returns `query.items` for an empty pattern, otherwise the items whose `scores[idx] > 0`. After each settled run, `ui.input.set_count(source.count(items, total))` when the source defines `count`; on loader completion with a source `title` function, refresh the title with `source.title(filter, items)`.
-   - Why: scope must be everything that matches, not the 1000 shown.
-   - Risk: Medium (hot path: the counter must cost O(1) per item - bench).
-2. **Stream equivalents** (File: `pipeline/stream.lua`)
-   - Action: `stream.count(state)` / `stream.matches(state)` (settled when no spinner/run active); empty prompt with `source.placeholder(filter)` renders one message row (`message = true`).
-   - Depends on: Step 1. Risk: Low
-3. **Level stack in State** (File: `state.lua`)
-   - Action: `stack = {}`; input `on_change` uses `instance.query` / `instance.pipeline`; `push(spec)` snapshots, `render.cleanup(old query)`, builds a `Query` (new `files`, `ctx` options flow into `Filter`), swaps pipeline by `source.live`, clears list cursor/offset and preview, writes an empty prompt via `ui.input.set_text` (echo-skip), sets title/count, then `pipeline.load` / `pipeline.run`. `pop()` aborts the child query, restores the saved query/pipeline/prompt (echo-skip), title, count, cursor, offset and calls `render.render` - no search. `reset()` also aborts and cleans every stacked query.
-   - Depends on: Steps 1-2. Risk: High (singleton lifecycle, WinEnter guard, stale callbacks of the aborted child).
-4. **Input text** (File: `ui/input.lua`)
-   - Action: `set_text(view, text)` rewriting line 1 after the prompt prefix, cursor at end.
+1. **Full match set and count** *(done by the refactor: `query.total`, `engine.matches(query)`, results fields)*. Remaining: show the count in the prompt row of match sources (Files, Buffers, Help) once the scorer is done: add `format.ratio(items, total)` and give those sources `count`; the match engine calls `host.count(source.count(query.items, query.total))` after each settled run, and refreshes `host.title(source.title(filter, items))` when loading ends.
    - Risk: Low
-5. **Hint window** (Files: `ui/hint.lua` new, `ui/init.lua`, `layout.lua`, `highlights.lua`, `state.lua`)
-   - Action: borderless `focusable = false` float, `zindex` above the three panels, one line, right edge aligned to the picker's right edge, row just under the bottom border; hidden when `row + 1 > vim.o.lines - vim.o.cmdheight` or the layout is `cards`; `BeastFinderHint` (dim fg, bg and blend taken from the backdrop so it looks like part of the dim). `relayout` repositions it; `reset` closes it. Text comes from `chain.hint_text(state)`: `<C-g> <drill.hint>` and, below level 1, `<BS> back to <crumb>`; refreshed from `render.render` (O(1)).
-   - Risk: Medium (visual match with the backdrop: verify in wezterm light and dark).
-6. **Orchestration and keys** (Files: `chain.lua` new, `keymaps.lua`)
-   - Action: `<C-g>` -> `chain.drill(state)` (refusals as toasts: "Nothing to open from here", "Still searching - try again in a moment"); `<C-o>` -> `chain.back(state)` (no-op at level 1, toast not needed); `<BS>` as an `expr` insert/normal mapping that pops when the prompt text is empty and depth > 1, else returns a real `<BS>`.
-   - Depends on: Steps 3-5. Risk: Medium (insert-mode `<C-o>` is normally "one normal command").
-7. **Scoped live grep** (File: `source/live_grep/init.lua`, `filter.lua`, `query.lua`)
-   - Action: `Filter` carries `files` (absolute paths); `M.get` uses them as survivors (skipping the bigram index, optionally intersected with it); `M.placeholder(filter)` returns "(type to search inside the N files)" only when `filter.files`. Title spec: `"<N> Files › Live Grep"`.
+2. **Level stack in the Session** *(done by the refactor: `Session:push/pop`, `ui.input.set_text`, echo guard)*.
+3. **Hint window** (Files: `ui/hint.lua` new, `ui/init.lua`, `layout.lua`, `highlights.lua`, `session.lua`)
+   - Action: borderless `focusable = false` float, `zindex` above the three panels, one line, right edge aligned to the picker's right edge, row just under the bottom border; hidden when `row + 1 > vim.o.lines - vim.o.cmdheight` or the layout is `cards`; `BeastFinderHint` (dim fg, bg and blend taken from the backdrop). `relayout` repositions it; `close` closes it. Text from `chain.hint_text(session)`: `<C-g> <drill.hint>` and, below level 1, `<BS> back to <crumb>`; refreshed from `render.render` (O(1)).
+   - Risk: Medium (visual match with the backdrop: verify in wezterm light and dark)
+4. **Orchestration and keys** (Files: `chain.lua` new, `keymaps.lua`)
+   - Action: `chain.drill(session)` (refusals as toasts: "Nothing to open from here", "Still searching - try again in a moment") builds `Level.new(spec.source, spec)` and calls `session:push`; `chain.back(session)` calls `session:pop`. In the key table: `<C-g>` -> `drill` (all panes), `<C-o>` -> `back` (input), `<BS>` as an `expr` mapping in the input that pops when the prompt is empty and depth > 1, else returns a real `<BS>`. One line each in `common`.
+   - Also: the `reload_on` autocmds are registered for the first level only; register per pushed level (`autocmds.lua` comment marks this).
+   - Risk: Medium (insert-mode `<C-o>` is normally "one normal command")
+5. **Scoped live grep** (Files: `source/live_grep/init.lua`, `filter.lua`, `query.lua`)
+   - Action: `Filter` carries `files` (absolute paths); `M.get` uses them as survivors (skipping the bigram index); `M.placeholder(filter)` returns "(type to search inside the N files)" only when `filter.files`; the stream engine renders it as one message row on an empty prompt. Level spec: `{ source = "live_grep", files = {...}, title = N .. " Files › Live Grep", crumb = "Files" }`.
    - Risk: Medium
-8. **Files drill** (Files: `source/files.lua`, `source/init.lua` types, `format.lua`)
-   - Action: `count = format.ratio`; `drill.hint = function(total) return ("grep %d files"):format(total)`, `drill.open` builds `{ source = "live_grep", files = <abs paths of ctx.items>, title = N .. " Files › Live Grep", crumb = "Files" }`.
+6. **Files drill** (Files: `source/files.lua`): `count`; `drill.hint = grep N files`, `drill.open(ctx)` builds the spec from `engine.matches(query)` (nil while working -> the "still searching" toast).
    - Risk: Low
-9. **Tests** (Files: `tests/test-finder-chain.lua` new, `tests/test-finder-chain-grep.lua` new)
-   - Action: fake sources: push/pop restores prompt, cursor, results with no re-run; `<BS>` on empty vs non-empty prompt; `<C-o>`; `<Esc>` closes the whole chain; refusals (no drill, empty list, still loading); more than 1000 matches still scope all of them; hint text and visibility; real `live_grep` over a temp directory returns only scoped files.
+7. **Tests** (Files: `tests/test-finder-chain.lua`, `tests/test-finder-chain-grep.lua` new, using `tests/helpers/finder.lua`): refusals, push/pop through the keys, `<BS>` empty vs non-empty prompt, more than 1000 matches scoped fully, hint text and visibility, scoped real `live_grep` over a temp directory.
    - Risk: Low
 
 ## Phase 3: Buffers and Help -> grep

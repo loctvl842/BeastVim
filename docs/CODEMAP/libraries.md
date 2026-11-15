@@ -89,34 +89,38 @@ provider can't honestly answer a query (SSH-without-display OSC52 case in
 ```
 finder/
 ├── init.lua       ← open(source, opts) — pre-flight gate for auto_select
-│                     sources, then open_finder() (State + keymaps + autocmds); setup()
-├── search.lua     ← headless file search session (stream files once, re-match per query; no UI)
+│                     sources, then Session.open(); close(); setup()
+├── session.lua    ← Session: the picker (windows, backdrop, keys, autocmds, picker opts) + stack of Levels;
+│                     open/close_current/current, push(level)/pop() swap levels in the SAME windows (pop restores
+│                     prompt, results, cursor, scroll without searching); one autocmd group per session; on_close runs last
+├── level.lua      ← Level: one search (source, query, engine, prompt text, title, count, cursor, offset); start/run/reload/stop
+├── host.lua       ← Host interface engines talk to (alive, render, busy, rewind, count, title, rows) + headless()
+├── search.lua     ← headless file search session: Query + match pipeline through a headless host (explorer's client; no UI)
 ├── preflight.lua  ← run a source to completion with no picker UI (generation-
 │                     guarded: a rapid re-trigger supersedes a pending check)
 ├── status.lua     ← "is a pre-flight check running, for what" — start()/stop(),
 │                     fires User BeastFinderStatusChanged (statusline reads it)
 ├── config.lua     ← width, height, preview_ratio, debounce, matcher opts
-├── query.lua      ← Query class: layout, source loading (or opts.preloaded_items), batch flush, rematch
+├── query.lua      ← Query class: items, matched (best `limit`), total, loading, matching, filter; opts.preloaded_items
 ├── filter.lua     ← Filter class: pattern + cwd state
 ├── matcher.lua    ← fuzzy matching (smartcase, scoring, positions)
 ├── score.lua      ← scoring algorithm (bonus tables, gap penalties)
 ├── topk.lua       ← top-K min-heap for fast ranking
 ├── queue.lua      ← priority queue helper
-├── format.lua     ← per-source display formatters (filename, live_grep, help_tags, …)
+├── format.lua     ← library of row formatters (filename, buffers, live_grep(+_header), help_tags, colorschemes, gh); sources point at them
 ├── match_hl.lua   ← fuzzy match highlight extmarks (list + preview)
-├── action.lua     ← open(state,item) [source-name dispatch], open_help/open_file/
+├── action.lua     ← open(session,item) [asks source.open], open_default (url, else file), open_help/open_file/
 │                     open_split/open_vsplit(win,item), copy_path(item)
-├── keymaps.lua    ← input/list/preview pane keymaps + printable-char redirect
-├── autocmds.lua   ← picker lifetime autocmds (BufEnter, WinClosed)
-├── state.lua      ← State class (views, query, closed guard, initial_text/initial_done)
+├── keymaps.lua    ← one action table + per-pane binding tables (input/list/preview) + printable-char redirect
+├── autocmds.lua   ← picker lifetime autocmds (BufEnter, WinEnter close, per-source `reload_on` User events)
 ├── render.lua     ← format items → list buffer, match highlights, debounced preview; places the cursor on `initial_text`
 ├── highlights.lua ← BeastFinder* groups; freeze() snapshots them into per-window namespaces (opts.freeze_colors, survives :colorscheme); swatch(hex) per-color groups
 ├── layout.lua     ← window layout calculations; calc(has_preview, "cards") = two separate narrow boxes
 ├── pipeline/
-│   ├── match.lua  ← streaming match pipeline
-│   └── stream.lua ← async stream processing; opt-in per source: retain_results (old list stays until first new item), run_when_empty, count label, title refresh; drops callbacks of cancelled runs (run_id)
+│   ├── match.lua  ← match engine: start/run/reload/abort/matches(query, host); UI-free, stale-callback guarded; query.total/matches() give the FULL match set (matched is only the best `limit`)
+│   └── stream.lua ← stream engine (same API); opt-in per source: retain_results (old list stays until first new item), run_when_empty, count label, title refresh; drops callbacks of cancelled runs (run_id)
 ├── source/
-│   ├── init.lua       ← lazy registry (__index → require source.<name>)
+│   ├── init.lua       ← lazy registry (__index → require source.<name> → normalize()); ASource contract: get + format/header/group/open/preview_highlight/reload_on (defaults filled here)
 │   ├── files.lua      ← async (fd/rg/find via uv.spawn)
 │   ├── buffers.lua    ← sync (getbufinfo)
 │   ├── live_grep/     ← live async (rg/ug; opt-in bigram prefilter → survivor files)
@@ -152,13 +156,18 @@ View subclasses: `Beast.Finder.InputView`, `Beast.Finder.ListView`, `Beast.Finde
 Loaded via: `packer.lazy()` on keys (`<leader>f/b/g/c/h`)
 Opts: `layout="cards"`, `separators`, `backdrop=false`, `freeze_colors`, `initial_text` (start on the item whose text matches), `on_preview(item)`, `on_close(confirmed)` (colorscheme picker; the selected theme is a thick tinted block with half-block edges)
 
-### Query lifecycle
+### Picker lifecycle
 
 ```
-Query:new(source_name, opts)
-  → calc_layout(has_preview) → create input/list/preview views
-  → mount keymaps → load source (sync or async batch)
-  → rematch → render list → schedule_preview
+Session.open(source_name, opts)
+  → Level.new(source_name)            -- source + Query + engine (match | stream)
+  → create input/list/preview/backdrop windows
+  → level.host = Host bound to this session (no-op unless it is the shown level)
+  → level:start()                     -- engine.start(query, host): load, or run the initial query
+  → keymaps.mount / autocmds.mount
+typing → level:run(text) → engine.run → host.render() → render.render(session) → schedule_preview
+session:push(level) / pop()          -- same windows; pop restores the parent without searching
+session:close()                      -- aborts every level, closes windows, then on_close(confirmed)
 ```
 
 Sources: `files` (async, fd/rg/find), `buffers` (sync), `live_grep` (live async),
@@ -175,11 +184,11 @@ finder.open(source_name)
       yes → status.start(label) → preflight.check(source, filter, cb)
               1 item  → action.open_file(main_win, item)      — no picker ever opens
               0 items → (source already notified "not found")
-              >1 item → open_finder(source_name, { preloaded_items = items })
+              >1 item → Session.open(source_name, { preloaded_items = items })
                           — pipeline/match.lua skips its own source.get() when
                             Query.items is already populated
             cb always calls status.stop() first
-      no  → open_finder(source_name, opts)   — the normal picker path
+      no  → Session.open(source_name, opts)   — the normal picker path
 ```
 
 Removes the old post-load "close picker and jump" branch (and the cursor-

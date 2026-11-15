@@ -32,6 +32,8 @@
 <body>
 <main>
 
+<aside class="card" data-spec="refactor-note"><b>Builds on the finished levels refactor.</b> Session/Level with <code>push</code>/<code>pop</code>, UI-free engines behind a Host, <code>query.total</code> and <code>engine.matches</code> (full match set), behavior on the source, one key table and <code>ui.input.set_text</code> already exist. Phase 2 below is reduced to what is chain-specific: count label, hint window, <code>chain.lua</code> + keys, scoped grep, Files drill. See the markdown spec for the exact steps.</aside>
+
 <header data-spec="summary">
   <h1>Continuous finder - dev spec</h1>
   <p>The finder keeps its three windows and swaps what they show: a <b>level stack</b> inside the one picker state. <code>&lt;C-g&gt;</code> asks the current source for its next level and pushes; <code>&lt;BS&gt;</code> on an empty prompt or <code>&lt;C-o&gt;</code> pops back with no re-search. Scoped grep is the existing grep source given a file list. Files and Buffers rows are restyled first, because the chain depends on that look.</p>

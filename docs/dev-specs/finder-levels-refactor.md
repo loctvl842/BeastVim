@@ -344,16 +344,16 @@ Each phase is mergeable on its own: finder behavior unchanged, whole test suite 
 - Not testable headless (reported at the end): pixel-level look in wezterm beyond the manual pass.
 
 # Success Criteria
-- [ ] The finder looks and behaves exactly as before in every manual check above; the only difference is `<C-v>` in the list pane opening a vertical split.
-- [ ] Whole existing test suite plus the new tests pass; stylua and luals clean.
-- [ ] `grep -rn 'source\.name' lua/beast/libs/finder` only matches `source/init.lua`; no `format[<name>]` lookups remain.
-- [ ] Engines run without `ui` (tests with `host.headless()`); a late callback of a stopped level changes nothing.
-- [ ] `engine.matches(query)` returns the full match set (not capped at 1000) and `query.total` is correct.
-- [ ] `session:push(level)` / `pop()` swap levels in the same windows (same window ids) and restore prompt, cursor, offset and results with no source call; no key is bound to them yet.
-- [ ] One key table drives input, list and preview panes; adding a key is one line.
-- [ ] `search.lua` contains no private copy of the load/score loop; explorer search tests and bench unchanged.
-- [ ] `bench-finder-matcher`, `bench-explorer` and `bench-ux.sh all` are within noise of the Phase 0 baseline.
-- [ ] A new source needs no edit outside its own file (verified by writing the fake source in `tests/helpers/finder.lua` with every behavior declared on the source).
+- [x] The finder looks and behaves exactly as before in every manual check above; the only difference is `<C-v>` in the list pane opening a vertical split.
+- [x] Whole existing test suite plus the new tests pass; stylua and luals clean.
+- [x] `grep -rn 'source\.name' lua/beast/libs/finder` only matches `source/init.lua`; no `format[<name>]` lookups remain.
+- [x] Engines run without `ui` (tests with `host.headless()`); a late callback of a stopped level changes nothing.
+- [x] `engine.matches(query)` returns the full match set (not capped at 1000) and `query.total` is correct.
+- [x] `session:push(level)` / `pop()` swap levels in the same windows (same window ids) and restore prompt, cursor, offset and results with no source call; no key is bound to them yet.
+- [x] One key table drives input, list and preview panes; adding a key is one line.
+- [x] `search.lua` contains no private copy of the load/score loop; explorer search tests and bench unchanged.
+- [x] `bench-finder-matcher`, `bench-explorer` and `bench-ux.sh all` are within noise of the Phase 0 baseline.
+- [x] A new source needs no edit outside its own file (verified by writing the fake source in `tests/helpers/finder.lua` with every behavior declared on the source).
 
 # Risks and notes
 - **Hot path (Phase 1):** keep the counter O(1); compare `bench-finder-matcher` before/after.
@@ -361,3 +361,31 @@ Each phase is mergeable on its own: finder behavior unchanged, whole test suite 
 - **Singleton lifecycle (Phase 3):** the reentrancy guard from `reset()` (commit `ef31ad3` on the `new-input-ui` branch is the same fix) must be preserved; Phase 0 lifecycle tests exist for it.
 - **R5 semantics:** explorer relies on "only final scored results" and `{capped, loading}`; covered by `test-explorer-search.lua`.
 - **Scope guard:** no new user feature; `push/pop` exist but are unbound. The chain feature (`docs/dev-specs/finder-continuous.md`) is rebased onto this refactor after Phase 6.
+
+---
+
+# Completed
+
+**2026-11-15** - all phases done: Phase 0 safety net, Phase 1 UI-free engines, Phase 2 behavior on the source, Phase 3 Session + Level, Phase 4 one key table, Phase 5 headless search on the engine, Phase 6 docs.
+
+Commits (`git log --oneline --reverse 6851690..HEAD`):
+
+- `2f4e447` docs(finder): specs for continuous finder and the levels refactor
+- `e15df61` test(finder): shared harness and lifecycle characterization tests
+- `2c26874` test(finder): characterize match and stream pipelines through the real picker
+- `a808550` test(finder): characterize picker keys per pane
+- `67595a8` test(finder): characterize per-source format, open, reload and preview behavior
+- `1db25a1` style(finder): format the new finder tests
+- `659246e` refactor(finder): pipelines talk to a host instead of the picker
+- `6f7d0c4` refactor(finder): sources declare their own format, open, group and reload behavior
+- `05666da` refactor(finder): split the picker state into a Session and per-search Levels
+- `faf0341` refactor(finder): write the picker keys once
+- `5579c45` refactor(finder): headless search runs on the match pipeline
+- `08fcc41` fix(finder): make the headless search fields visible to its constructor for luals
+- `0e77a79` fix(finder): headless search ignores late scorer answers and refresh after close
+
+Bugs the new tests found and the refactor fixed (all noted in the commits): the match loader busy-spun while an async source was open and idle; the garbage collector it stopped was never restarted on abort; a visibility change did not re-fetch an async source; clearing the prompt of a live source left its spinner running; a picker opened from `on_close` was closed again by the first picker's teardown (and raised E367); a pattern typed during loading could be overwritten by unscored arrivals.
+
+Deviations from the plan: `highlight_preview` was removed in Phase 2 (not Phase 1); the static `Session.close_current()` exists because `Session:close()` is the instance method; `on_close` now runs after the picker is fully gone; the colorscheme list reloads only when swatches are ready; `keymaps.move_cursor` uses the width-aware formatter like `render`; list-pane `<C-v>` is a vertical split (the only user-visible change). The `reload_on` autocmds are registered for the first level only (marked in `autocmds.lua`, to be extended when a key pushes levels).
+
+Verification: every finder test file, `test-explorer-search` (47) and `test-preflight` pass (new: lifecycle 28, engines 31+, keys 76, source-behavior 30, source-contract 107, host 46, session 41, finder-search 18); stylua and lua-language-server clean; `bench-finder-matcher` 17.5-18.3 ms full scan / 16.3-19.4 ms subset (same spread as the old matcher); `bench-explorer` search build 886 us / render 655 us (baseline 924 / 709); `bench-ux.sh all` PASS on all scenarios, and the keymaps scenario (the one that opens the pickers) equals the baseline commit within noise (p50 2.30/2.45 ms vs 2.16/2.42 ms, p99 37.5/36.9 ms vs 36.8/37.3 ms). Headless smoke of the real files, grep, help and buffers pickers, and of the colorscheme picker (preview, Esc restores the theme) with the real config. Not done: a pixel-level look in wezterm (the refactor changes no drawing code); `tests/test-key-hint.lua` is a manual test and not runnable headless (unchanged).
