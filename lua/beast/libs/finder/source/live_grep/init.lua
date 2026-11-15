@@ -234,7 +234,8 @@ end
 ---@return string?
 function M.placeholder(filter)
 	if filter.files then
-		return ("(type to search inside the %d files)"):format(#filter.files)
+		local what = filter.ctx and filter.ctx.local_copies and "your local copies of the" or "inside the"
+		return ("(type to search %s %d files)"):format(what, #filter.files)
 	end
 end
 

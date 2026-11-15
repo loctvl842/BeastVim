@@ -77,10 +77,39 @@ local function pr_files(ctx)
 	}
 end
 
+---@param ctx Beast.Finder.ChainCtx
+---@return string?
+local function grep_local_copies(ctx)
+	return ctx.total > 0 and "grep your local copies" or nil
+end
+
+--- The grep over the working-tree copies of the files a pull request changes: files it removes or that
+--- are not in this checkout are left out.
+---@param ctx Beast.Finder.ChainCtx
+---@return Beast.Finder.LevelOpts|string|nil
+local function scope_local_copies(ctx)
+	local paths = {}
+	for _, item in ipairs(ctx.items) do
+		local abs = ctx.filter.cwd .. "/" .. item.file
+		if item.status ~= "removed" and vim.uv.fs_stat(abs) then
+			paths[#paths + 1] = abs
+		end
+	end
+	if #paths == 0 then
+		return "None of these files exist in your working tree"
+	end
+	return {
+		files = paths,
+		ctx = { local_copies = true },
+		title = ("%d PR Files › Live Grep"):format(#paths),
+	}
+end
+
 ---@type Beast.Finder.Edge[]
 return {
 	{ from = "files", to = "live_grep", crumb = "Files", hint = grep_files, open = scope_files("Files") },
 	{ from = "buffers", to = "live_grep", crumb = "Buffers", hint = grep_files, open = scope_files("Buffers") },
 	{ from = "gh_pr", to = "gh_pr_files", crumb = "Pull Requests", hint = files_in_pr, open = pr_files },
+	{ from = "gh_pr_files", to = "live_grep", crumb = "Files Changed", hint = grep_local_copies, open = scope_local_copies },
 	{ from = "help_tags", to = "live_grep", crumb = "Help", hint = grep_help, open = scope_files("Help Files") },
 }
