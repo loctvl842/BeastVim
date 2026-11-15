@@ -24,11 +24,15 @@ local defaults = {
 		max_survivors = 5000,
 	},
 	actions = {},
-	-- Chains (`chains.lua`): the edges are built in; these only choose among them.
+	-- Chains (`chains.lua`): the edges are built in; these only choose among them (see
+	-- `docs/chains.md` for the edge ids and their default keys). Invalid settings raise at setup.
 	chains = {
-		-- Keys that go back one level. "<BS>" goes back only on an empty prompt (else it deletes a character).
+		-- Keys that go back one level (at least one; a key the picker already uses raises).
+		-- "<BS>" goes back only on an empty prompt, else it deletes a character.
 		back = { "<BS>", "<C-o>" },
-		-- By edge id ("from|to"): `false` switches the edge off, `{ key = "<C-t>" }` gives it another key.
+		-- By edge id ("from|to"): `false` switches the edge off, `{ key = "<M-g>" }` gives it another key.
+		-- An edge left out keeps its default key. Two edges from one picker cannot share a key, and an
+		-- edge key cannot also be a back key.
 		---@type table<string, false|{ key?: string }>
 		edges = {},
 	},
