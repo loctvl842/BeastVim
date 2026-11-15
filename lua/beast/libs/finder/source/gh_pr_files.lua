@@ -85,16 +85,7 @@ function M.preview(view, item)
 	if not item or item.message then
 		return require("beast.libs.finder.ui.preview").clear(view)
 	end
-	local lines = { diff.summary(item) }
-	vim.list_extend(lines, diff.raw_lines(item))
-	vim.bo[view.buf].modifiable = true
-	vim.api.nvim_buf_set_lines(view.buf, 0, -1, false, lines)
-	vim.bo[view.buf].modifiable = false
-	vim.bo[view.buf].filetype = "diff"
-	-- The preview shows the diff, not a file of the working tree.
-	view.loaded_file = nil
-	pcall(vim.api.nvim_win_set_config, view.win, { title = " " .. item.file .. " ", title_pos = "center" })
-	pcall(vim.api.nvim_win_set_cursor, view.win, { 1, 0 })
+	diff.draw(view, diff.rows(item), " " .. item.file .. " ")
 end
 
 function M.open(session, item)

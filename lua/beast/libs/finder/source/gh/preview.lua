@@ -256,6 +256,7 @@ local function clear(view)
 	end
 	-- stylua: ignore
 	if not view:is_valid() then return end
+	require("beast.libs.finder.ui.diff").leave(view)
 	View.win.wo(view.win, "number", false)
 	vim.bo[view.buf].modifiable = true
 	vim.api.nvim_buf_set_lines(view.buf, 0, -1, false, {})
@@ -284,6 +285,7 @@ function M.show(view, item)
 		st.proc = nil
 	end
 
+	require("beast.libs.finder.ui.diff").leave(view)
 	View.win.wo(view.win, "number", false)
 	View.win.wo(view.win, "wrap", true)
 	View.win.wo(view.win, "linebreak", true)

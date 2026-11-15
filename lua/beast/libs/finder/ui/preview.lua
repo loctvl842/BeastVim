@@ -8,6 +8,7 @@ local image = require("beast.libs.image")
 ---@field loaded_file? string  absolute path of the file currently shown in the buffer
 ---@field loaded_line_count integer  line count of the loaded file (for cursor clamping)
 ---@field loaded_image? string  absolute path of the image currently drawn over the window
+---@field diff_drawn? boolean  the pane shows a drawn diff (see ui/diff.lua)
 ---@overload fun(buf?: integer, win?: integer, ns: integer): Beast.Finder.PreviewView
 local PreviewView = View:extend(
 	---@param obj Beast.Finder.PreviewView
@@ -47,6 +48,7 @@ end
 ---@param view Beast.Finder.PreviewView
 ---@param file string  absolute path of the image to draw
 function M.draw_image(view, file)
+	require("beast.libs.finder.ui.diff").leave(view)
 	-- Blank the buffer + hide the number column so Neovim paints an empty region
 	-- (no text, no line numbers) underneath the image.
 	View.win.wo(view.win, "number", false)
@@ -125,6 +127,7 @@ end
 function M.show(view, item)
 	-- stylua: ignore
 	if not view:is_valid() or not view.visible then return end
+	require("beast.libs.finder.ui.diff").leave(view)
 
 	-- Image path: draw the file as an inline image over the window via the
 	-- terminal's graphics protocol instead of dumping its bytes into the buffer.
@@ -210,6 +213,7 @@ end
 function M.clear(view)
 	-- stylua: ignore
 	if not view:is_valid() then return end
+	require("beast.libs.finder.ui.diff").leave(view)
 	if view.loaded_image then
 		view.loaded_image = nil
 		image.clear()

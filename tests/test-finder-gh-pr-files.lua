@@ -42,13 +42,25 @@ t.eq("count shows the number of files", H.count(), "3")
 t.ok("hint offers the grep and the way back", H.hint():find("<BS> back to Pull Requests", 1, true) ~= nil, H.hint())
 local preview = H.panes().preview
 local text = table.concat(vim.api.nvim_buf_get_lines(preview.buf, 0, -1, false), "\n")
-t.ok("preview shows the diff of the first file", text:find("+new 1", 1, true) ~= nil, text)
-t.eq("preview is a diff", vim.bo[preview.buf].filetype, "diff")
+t.ok("preview shows the diff of the first file", text:find("new 1", 1, true) ~= nil and text:find("+new 1", 1, true) == nil, text)
+t.eq("the code has no filetype of its own", vim.bo[preview.buf].filetype, "")
+local plines = vim.api.nvim_buf_get_lines(preview.buf, 0, -1, false)
+t.eq(
+	"header, hunk band, removed, added",
+	{ plines[1]:match("^modified%s+%+1 %-1"), plines[2], plines[3], plines[4] },
+	{ "modified  +1 -1", "▸ @@ -1 +1 @@", "old 1", "new 1" }
+)
+local function gutter(lnum)
+	return vim.api.nvim_eval_statusline(vim.wo[preview.win].statuscolumn, { winid = preview.win, use_statuscol_lnum = lnum }).str
+end
+t.eq("the removed line shows its old number and a minus", gutter(3), " 1    - ")
+t.eq("the added line shows its new number and a plus", gutter(4), "    1 + ")
+t.eq("long lines wrap in the pane", vim.wo[preview.win].wrap, true)
 
 H.press("<C-j>")
 H.settle(300)
 text = table.concat(vim.api.nvim_buf_get_lines(preview.buf, 0, -1, false), "\n")
-t.ok("moving shows the next diff", text:find("+new 2", 1, true) ~= nil, text)
+t.ok("moving shows the next diff", text:find("new 2", 1, true) ~= nil, text)
 
 H.type("f3")
 t.eq("typing filters by path", { H.has_row("f3.lua"), H.has_row("f1.lua") }, { true, false })
@@ -58,6 +70,7 @@ H.type("")
 H.press("<BS>")
 H.settle(300)
 t.eq("back to the pull requests", H.title():match("^Pull Requests") ~= nil, true)
+t.eq("the pull request preview has no diff gutter", { vim.wo[preview.win].statuscolumn, vim.wo[preview.win].signcolumn }, { "", "auto" })
 t.eq("no new search was made", gh.count("gh api -X GET search/issues"), searches)
 t.ok("the list is still there", H.has_row("Short title"), vim.inspect(H.rows()))
 
