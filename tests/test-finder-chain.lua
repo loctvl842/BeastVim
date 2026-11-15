@@ -50,7 +50,7 @@ for _, from in ipairs(sources) do
 end
 t.ok("sources were found", #sources >= 12, vim.inspect(sources))
 t.eq("exactly the six built-in edges exist, every other pair raises", wrong, {})
-t.eq("finder.chains() is the same table", require("beast.libs.finder").chains(), require("beast.libs.finder.chains"))
+t.eq("finder.chains() lists the enabled edges", #require("beast.libs.finder").chains(), #require("beast.libs.finder.chains"))
 
 t.section("files -> grep")
 local dir = vim.fn.resolve(vim.fn.tempname())

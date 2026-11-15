@@ -24,6 +24,14 @@ local defaults = {
 		max_survivors = 5000,
 	},
 	actions = {},
+	-- Chains (`chains.lua`): the edges are built in; these only choose among them.
+	chains = {
+		-- Keys that go back one level. "<BS>" goes back only on an empty prompt (else it deletes a character).
+		back = { "<BS>", "<C-o>" },
+		-- By edge id ("from|to"): `false` switches the edge off, `{ key = "<C-t>" }` gives it another key.
+		---@type table<string, false|{ key?: string }>
+		edges = {},
+	},
 }
 
 ---@type Beast.Finder.Config

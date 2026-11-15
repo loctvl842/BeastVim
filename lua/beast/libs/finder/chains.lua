@@ -11,9 +11,10 @@
 ---@field filter Beast.Finder.Filter
 
 ---@class Beast.Finder.Edge
+---@field id string "from|to", the name of the edge in the configuration
 ---@field from Beast.Finder.Source
 ---@field to Beast.Finder.Source
----@field key? string key that follows the edge (default `<C-g>`)
+---@field key string key that follows the edge (default `<C-g>`; the configuration can change it)
 ---@field crumb string name of the `from` picker, shown as "<BS> back to <crumb>"
 ---@field hint fun(ctx: Beast.Finder.ChainCtx): string?
 ---@field open fun(ctx: Beast.Finder.ChainCtx): Beast.Finder.LevelOpts|string|nil
@@ -132,8 +133,7 @@ local function scope_issues(ctx)
 	return { ctx = { issues = issues }, title = ("%d Issues › Live Grep"):format(#issues) }
 end
 
----@type Beast.Finder.Edge[]
-return {
+local edges = {
 	{ from = "files", to = "live_grep", crumb = "Files", hint = grep_files, open = scope_files("Files") },
 	{ from = "buffers", to = "live_grep", crumb = "Buffers", hint = grep_files, open = scope_files("Buffers") },
 	{ from = "gh_pr", to = "gh_pr_files", crumb = "Pull Requests", hint = files_in_pr, open = pr_files },
@@ -141,3 +141,10 @@ return {
 	{ from = "gh_issue", to = "gh_issue_grep", crumb = "Issues", hint = grep_issues, open = scope_issues },
 	{ from = "help_tags", to = "live_grep", crumb = "Help", hint = grep_help, open = scope_files("Help Files") },
 }
+
+for _, edge in ipairs(edges) do
+	edge.id = edge.from .. "|" .. edge.to
+	edge.key = edge.key or "<C-g>"
+end
+
+return edges --[[@as Beast.Finder.Edge[] ]]

@@ -11,7 +11,9 @@ local initialized = false
 
 ---@param opts? Beast.Finder.Config
 function M.setup(opts)
-	require("beast.libs.finder.config").setup(opts)
+	local config = require("beast.libs.finder.config")
+	config.setup(opts)
+	require("beast.libs.finder.chain").validate(config.chains)
 	require("beast").apply_highlights("beast.libs.finder.highlights")
 	require("beast.libs.finder.source.live_grep.engine.index").setup()
 	initialized = true
@@ -67,10 +69,10 @@ function M.chain(from, to)
 	return require("beast.libs.finder.chain").edge(from, to)
 end
 
---- Every chain the finder supports: the pickers a picker can lead to (see chains.lua).
+--- The chains that are on: the pickers a picker can lead to and the key that follows each (see chains.lua).
 ---@return Beast.Finder.Edge[]
 function M.chains()
-	return require("beast.libs.finder.chains")
+	return require("beast.libs.finder.chain").enabled()
 end
 
 function M.close()

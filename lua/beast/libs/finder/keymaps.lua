@@ -44,7 +44,7 @@ local function focus_input(session)
 	vim.cmd("startinsert!")
 end
 
----@type table<string, fun(session: Beast.Finder.Session): string?>
+---@type table<string, fun(session: Beast.Finder.Session, key: string): string?>
 local actions = {
 	down = function(s)
 		move_cursor(s, 1)
@@ -91,8 +91,8 @@ local actions = {
 		s:close()
 	end,
 	-- Chains: open the next picker / come back to the previous one.
-	drill = function(s)
-		chain.drill(s)
+	drill = function(s, key)
+		chain.drill(s, key)
 	end,
 	back = function(s)
 		chain.back(s)
@@ -143,10 +143,6 @@ local pick = {
 	{ "<C-v>", "vsplit" },
 }
 ---@type Beast.Finder.KeyBinding[]
-local chains = {
-	{ chain.KEY, "drill" },
-}
----@type Beast.Finder.KeyBinding[]
 local leave = {
 	{ "<Esc>", "close", modes = { "n" } },
 	{ "<C-c>", "close", modes = { "i", "n" } },
@@ -158,6 +154,7 @@ local preview_redirect = { "i", "I", "a", "A", "o", "O", "s", "S", "c", "C", "r"
 ---@class Beast.Finder.PaneKeys
 ---@field modes string[] modes the keys are bound in
 ---@field keys Beast.Finder.KeyBinding[][] binding groups
+---@field chain "back"|"drill" which chain keys the pane has: `drill` (the keys of the enabled edges) and, for "back", also the keys that go back
 ---@field redirect? "printable"|string[] keys that move to the prompt and type themselves
 ---@field also_leader? boolean `<leader>` moves to the prompt instead of triggering a global mapping
 
@@ -165,36 +162,32 @@ local preview_redirect = { "i", "I", "a", "A", "o", "O", "s", "S", "c", "C", "r"
 local panes = {
 	input = {
 		modes = { "i", "n" },
+		chain = "back",
 		keys = {
 			move,
 			move_more,
 			leave,
 			pick,
-			chains,
-			{
-				{ "<C-o>", "back", modes = { "i" } },
-				{ "<BS>", "backspace", modes = { "i" }, expr = true },
-			},
 			{ { "<C-y>", "copy" }, { "<C-h>", "noop" }, { "<C-l>", "focus_preview" } },
 		},
 	},
 	list = {
 		modes = { "n" },
+		chain = "drill",
 		keys = {
 			move,
 			move_more,
 			leave,
 			pick,
-			chains,
 			{ { "<C-h>", "focus_input" }, { "<C-l>", "focus_preview" } },
 		},
 		redirect = "printable",
 	},
 	preview = {
 		modes = { "n" },
+		chain = "drill",
 		keys = {
 			move,
-			chains,
 			{ { "<Esc>", "close" } },
 			{ { "<C-h>", "focus_input" }, { "<C-l>", "noop" } },
 		},
@@ -202,6 +195,41 @@ local panes = {
 		also_leader = true,
 	},
 }
+
+--- The keys of the picker that a chain key may not take (all but the chain keys themselves), normalized.
+---@return table<string, true>
+function M.reserved()
+	local out = {}
+	local groups = { move, move_more, pick, leave, { { "<C-y>" }, { "<C-h>" }, { "<C-l>" } } }
+	for _, group in ipairs(groups) do
+		for _, binding in ipairs(group) do
+			out[chain.normalize_key(binding[1])] = true
+		end
+	end
+	return out
+end
+
+--- The chain keys of a pane from the configuration: one `drill` binding per key some enabled edge follows,
+--- and for the prompt the keys that go back (`<BS>` only on an empty prompt).
+---@param kind "back"|"drill"
+---@param session Beast.Finder.Session
+---@return Beast.Finder.KeyBinding[]
+local function chain_bindings(kind, session)
+	local out = {}
+	for _, key in ipairs(chain.keys(session)) do
+		out[#out + 1] = { key, "drill" }
+	end
+	if kind == "back" then
+		for _, key in ipairs(require("beast.libs.finder.config").chains.back) do
+			if chain.same_key(key, "<BS>") then
+				out[#out + 1] = { key, "backspace", modes = { "i" }, expr = true }
+			else
+				out[#out + 1] = { key, "back", modes = { "i" } }
+			end
+		end
+	end
+	return out
+end
 
 ---@param session Beast.Finder.Session
 ---@param role "input"|"list"|"preview"
@@ -212,12 +240,14 @@ local function mount_pane(session, role, spec)
 	if not view or not view:is_valid() then return end
 	local opts = { buffer = view.buf, nowait = true }
 
-	for _, group in ipairs(spec.keys) do
+	local groups = vim.list_extend({ chain_bindings(spec.chain, session) }, spec.keys)
+	for _, group in ipairs(groups) do
 		for _, binding in ipairs(group) do
 			local run = actions[binding[2]]
+			local lhs = binding[1]
 			local map_opts = binding.expr and vim.tbl_extend("force", opts, { expr = true }) or opts
-			vim.keymap.set(binding.modes or spec.modes, binding[1], function()
-				return run(session)
+			vim.keymap.set(binding.modes or spec.modes, lhs, function()
+				return run(session, lhs)
 			end, map_opts)
 		end
 	end
