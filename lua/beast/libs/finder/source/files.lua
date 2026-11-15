@@ -7,6 +7,7 @@ local M = {}
 
 M.live = false
 M.async = true
+M.count = require("beast.libs.finder.format").ratio
 M.cmd = nil
 M.args = {}
 

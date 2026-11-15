@@ -54,6 +54,16 @@ local function restart_gc(s)
 	end
 end
 
+--- Show the source's count label (when it has one) now that the list is settled.
+---@param query Beast.Finder.Query
+---@param host Beast.Finder.Host
+local function update_count(query, host)
+	local source = query.source
+	if source.count then
+		host.count(source.count(query.items, query.total))
+	end
+end
+
 --- Re-score all cached items against the current pattern.
 --- Aborts any previous scorer to avoid stale work consuming CPU. Never touches
 --- the loader - if items are still streaming in, the loader re-runs `run` (or
@@ -79,6 +89,9 @@ function M.run(query, host)
 			s.match_state = match_state
 			query.total = match_state.total
 			query.matching = false
+			if not query.loading then
+				update_count(query, host)
+			end
 		end
 		host.render()
 	end, s.match_state, query.limit)
@@ -204,6 +217,8 @@ function M.start(query, host)
 			end
 			if query.filter.pattern ~= "" then
 				M.run(query, host)
+			else
+				update_count(query, host)
 			end
 		end)
 	end)

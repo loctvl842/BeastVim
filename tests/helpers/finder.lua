@@ -221,6 +221,21 @@ function H.prompt()
 	return line:sub(1, #prefix) == prefix and line:sub(#prefix + 1) or line
 end
 
+--- The right-aligned count label in the prompt row ("" when none).
+---@return string
+function H.count()
+	local input = H.panes().input
+	-- stylua: ignore
+	if not input then return "" end
+	for _, mark in ipairs(vim.api.nvim_buf_get_extmarks(input.buf, -1, 0, -1, { details = true })) do
+		local virt = mark[4].virt_text
+		if virt and mark[4].virt_text_pos == "right_align" then
+			return virt[1][1]
+		end
+	end
+	return ""
+end
+
 --- Text of the list rows as drawn (headers included), trimmed.
 ---@return string[]
 function H.rows()

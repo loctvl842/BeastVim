@@ -150,6 +150,17 @@ function M.buffers(item, max_width)
 	return result
 end
 
+--- Count label of a match source: "38/912" while a pattern narrows the list, else the plain total.
+---@param items Beast.Finder.Item[]
+---@param total integer how many items match the pattern
+---@return string
+function M.ratio(items, total)
+	if total >= #items then
+		return tostring(#items)
+	end
+	return total .. "/" .. #items
+end
+
 ---@param item Beast.Finder.Item
 ---@return Beast.Finder.Highlight[]
 function M.colorschemes(item, width)

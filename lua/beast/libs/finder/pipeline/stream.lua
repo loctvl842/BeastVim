@@ -73,7 +73,7 @@ end
 local function update_count(query, host)
 	local source = query.source
 	if source.count then
-		host.count(source.count(query.items))
+		host.count(source.count(query.items, query.total))
 	end
 end
 

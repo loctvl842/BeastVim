@@ -1,6 +1,7 @@
 local M = {}
 
 M.format = require("beast.libs.finder.format").buffers
+M.count = require("beast.libs.finder.format").ratio
 
 ---@param filter Beast.Finder.Filter
 ---@return Beast.Finder.Item[]

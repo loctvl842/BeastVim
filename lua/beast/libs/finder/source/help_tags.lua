@@ -2,6 +2,7 @@
 local M = {}
 
 M.format = require("beast.libs.finder.format").help_tags
+M.count = require("beast.libs.finder.format").ratio
 
 ---@param session Beast.Finder.Session
 ---@param item Beast.Finder.Item
