@@ -29,6 +29,8 @@ local ui = require("beast.libs.finder.ui")
 ---@field frozen? boolean panels use frozen highlight namespaces
 ---@field main_win? integer
 ---@field augroup? integer
+---@field pending? table token of a chain request still waiting for its answer (see chain.drill)
+---@field pending_handle? { kill: fun() } the request of `pending`
 local M = {}
 M.__index = M
 
@@ -185,6 +187,18 @@ function M.current()
 	return instance
 end
 
+--- Stop waiting for a chain request: its answer will not open anything.
+function M:cancel_pending()
+	self.pending = nil
+	if self.pending_handle then
+		self.pending_handle.kill()
+		self.pending_handle = nil
+	end
+	if self.view and self.view.input then
+		ui.input.stop_spinner(self.view.input)
+	end
+end
+
 --- Remember where the list is, so the level can be shown again.
 function M:_leave()
 	local level = self.level
@@ -223,6 +237,7 @@ end
 function M:push(level)
 	-- stylua: ignore
 	if self.closed then return end
+	self:cancel_pending()
 	self:_leave()
 	self.stack[#self.stack + 1] = self.level
 	self.level = level
@@ -239,6 +254,7 @@ function M:pop()
 	local parent = table.remove(self.stack)
 	-- stylua: ignore
 	if self.closed or not parent then return false end
+	self:cancel_pending()
 	local child = self.level
 	self:_leave()
 	child:stop()
@@ -261,6 +277,10 @@ function M:close()
 	-- WinEnter/WinClosed autocmds that call close() again; the guard above
 	-- turns those re-entrant calls into no-ops so M.view is not nilled mid-cleanup.
 	self.closed = true
+	if self.pending_handle then
+		self.pending_handle.kill()
+	end
+	self.pending, self.pending_handle = nil, nil
 	local render = require("beast.libs.finder.render")
 	if self.view then
 		require("beast.libs.finder.ui.input").stop_spinner(self.view.input)

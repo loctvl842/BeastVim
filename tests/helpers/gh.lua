@@ -9,6 +9,8 @@
 local M = {}
 
 M.calls = {} ---@type string[]
+M.hold = {} ---@type string[] command prefixes whose answers wait until `release()`
+local held = {} ---@type fun()[]
 M.script = {} ---@type table<string, vim.SystemCompleted>
 
 local orig_system, orig_executable
@@ -103,9 +105,20 @@ function M.install()
 		end
 		res = res or M.fail("unscripted: " .. line)
 		if on_exit then
-			vim.schedule(function()
-				on_exit(res)
-			end)
+			local function answer()
+				vim.schedule(function()
+					on_exit(res)
+				end)
+			end
+			local waits = false
+			for _, prefix in ipairs(M.hold) do
+				waits = waits or line:sub(1, #prefix) == prefix
+			end
+			if waits then
+				held[#held + 1] = answer
+			else
+				answer()
+			end
 		end
 		return {
 			wait = function()
@@ -116,7 +129,17 @@ function M.install()
 	end
 end
 
+--- Deliver the answers held back by `hold`.
+function M.release()
+	local pending = held
+	held = {}
+	for _, answer in ipairs(pending) do
+		answer()
+	end
+end
+
 function M.restore()
+	M.hold, held = {}, {}
 	vim.system, vim.fn.executable = orig_system, orig_executable
 end
 

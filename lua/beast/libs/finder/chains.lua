@@ -17,7 +17,7 @@
 ---@field key string key that follows the edge (default `<C-g>`; the configuration can change it)
 ---@field crumb string name of the `from` picker, shown as "<BS> back to <crumb>"
 ---@field hint fun(ctx: Beast.Finder.ChainCtx): string?
----@field open fun(ctx: Beast.Finder.ChainCtx): Beast.Finder.LevelOpts|string|nil
+---@field open fun(ctx: Beast.Finder.ChainCtx): Beast.Finder.LevelOpts|string|nil|fun(resume: fun(result: Beast.Finder.LevelOpts|string|nil)): Beast.Finder.Gh.Handle? a function when the level needs a request first: it is called with `resume`, which takes what `open` would have returned
 
 --- Paths of the items that are files, without repeats.
 ---@param items Beast.Finder.Item[]
@@ -153,11 +153,57 @@ local function scope_issues(ctx)
 	return { ctx = { issues = issues }, title = ("%d Issues › Live Grep"):format(#issues) }
 end
 
+---@param ctx Beast.Finder.ChainCtx
+---@return string?
+local function grep_commit_files(ctx)
+	local commit = ctx.selected
+	return commit and not commit.message and ("grep the files changed in " .. commit.short) or nil
+end
+
+--- The grep over the local copies of the files one commit changed. The commit's files are only known after
+--- a request (instant when the preview already fetched them), so this answers later.
+---@param ctx Beast.Finder.ChainCtx
+---@return (fun(resume: fun(result: Beast.Finder.LevelOpts|string|nil)): Beast.Finder.Gh.Handle?)?
+local function scope_commit_files(ctx)
+	local commit = ctx.selected
+	if not commit or commit.message then
+		return nil
+	end
+	local cwd = ctx.filter.cwd
+	return function(resume)
+		return require("beast.libs.finder.source.gh.commit_preview").detail(commit, function(result)
+			if result.error then
+				return resume(result.error.message)
+			end
+			local files = result.detail.files
+			if #files == 0 then
+				return resume(nil)
+			end
+			local paths = {}
+			for _, file in ipairs(files) do
+				local abs = cwd .. "/" .. file.path
+				if file.status ~= "removed" and vim.uv.fs_stat(abs) then
+					paths[#paths + 1] = abs
+				end
+			end
+			if #paths == 0 then
+				return resume("None of these files exist in your working tree")
+			end
+			resume({
+				files = paths,
+				ctx = { local_copies = true, commit = commit.short },
+				title = ("%d Files in %s › Live Grep"):format(#paths, commit.short),
+			})
+		end)
+	end
+end
+
 local edges = {
 	{ from = "files", to = "live_grep", crumb = "Files", hint = grep_files, open = scope_files("Files") },
 	{ from = "buffers", to = "live_grep", crumb = "Buffers", hint = grep_files, open = scope_files("Buffers") },
 	{ from = "gh_pr", to = "gh_pr_files", crumb = "Pull Requests", hint = files_in_pr, open = pr_files },
 	{ from = "gh_pr", to = "gh_commits", key = "<C-t>", crumb = "Pull Requests", hint = commits_in_pr, open = pr_commits },
+	{ from = "gh_commits", to = "live_grep", crumb = "Commits", hint = grep_commit_files, open = scope_commit_files },
 	{ from = "gh_pr_files", to = "live_grep", crumb = "Files Changed", hint = grep_local_copies, open = scope_local_copies },
 	{ from = "gh_issue", to = "gh_issue_grep", crumb = "Issues", hint = grep_issues, open = scope_issues },
 	{ from = "help_tags", to = "live_grep", crumb = "Help", hint = grep_help, open = scope_files("Help Files") },

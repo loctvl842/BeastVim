@@ -12,6 +12,11 @@ local M = {}
 ---@type table<string, Beast.Finder.Gh.CommitDetail>
 local cache = {}
 
+--- Forget the commits fetched so far (for tests: a commit never changes, so the cache is otherwise kept).
+function M.reset()
+	cache = {}
+end
+
 ---@param item Beast.Finder.Item a commit item
 ---@return string
 local function key(item)

@@ -234,7 +234,11 @@ end
 ---@return string?
 function M.placeholder(filter)
 	if filter.files then
-		local what = filter.ctx and filter.ctx.local_copies and "your local copies of the" or "inside the"
+		local ctx = filter.ctx or {}
+		if ctx.commit then
+			return ("(type to search your local copies of the %d files changed by %s)"):format(#filter.files, ctx.commit)
+		end
+		local what = ctx.local_copies and "your local copies of the" or "inside the"
 		return ("(type to search %s %d files)"):format(what, #filter.files)
 	end
 end

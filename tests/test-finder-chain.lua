@@ -37,6 +37,7 @@ local valid = {
 	["help_tags>live_grep"] = true,
 	["gh_pr>gh_pr_files"] = true,
 	["gh_pr>gh_commits"] = true,
+	["gh_commits>live_grep"] = true,
 	["gh_pr_files>live_grep"] = true,
 	["gh_issue>gh_issue_grep"] = true,
 }

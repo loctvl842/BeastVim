@@ -165,15 +165,39 @@ local function context(session, with_items)
 	}
 end
 
---- Open the next picker of the chain from the one shown. Says why (a message) when it cannot.
+---@param session Beast.Finder.Session
+---@param edge Beast.Finder.Edge
+---@param opened Beast.Finder.LevelOpts|string|nil what the edge's `open` made
+---@return boolean pushed
+local function finish(session, edge, opened)
+	if type(opened) == "string" then
+		Toast(opened, vim.log.levels.INFO)
+		return false
+	end
+	if not opened then
+		Toast("Nothing to open from here", vim.log.levels.INFO)
+		return false
+	end
+	opened.crumb = edge.crumb
+	session:push(Level.new(edge.to, opened))
+	return true
+end
+
+--- Open the next picker of the chain from the one shown. Says why (a message) when it cannot. An edge that
+--- needs a request answers later: the prompt shows its spinner meanwhile, and the answer is dropped if the
+--- user went back or closed the picker (see `Session:cancel_pending`).
 ---@param session Beast.Finder.Session
 ---@param key string the key that was pressed
----@return boolean pushed
+---@return boolean pushed true when the next picker is open (false: refused, or still waiting)
 function M.drill(session, key)
 	local from = session.level.source.name
 	local edge = M.find(from, key)
 	if not edge then
 		Toast("Nothing to open from here", vim.log.levels.INFO)
+		return false
+	end
+	if session.pending then
+		Toast("Still loading - try again in a moment", vim.log.levels.INFO)
 		return false
 	end
 	-- A change still waiting out its debounce has not been searched: the results are not the prompt's.
@@ -187,17 +211,28 @@ function M.drill(session, key)
 		return false
 	end
 	local opened = #ctx.items > 0 and edge.open(ctx) or nil
-	if type(opened) == "string" then
-		Toast(opened, vim.log.levels.INFO)
-		return false
+	if type(opened) ~= "function" then
+		return finish(session, edge, opened)
 	end
-	if not opened then
-		Toast("Nothing to open from here", vim.log.levels.INFO)
-		return false
+
+	local token = {}
+	local level = session.level
+	session.pending = token
+	require("beast.libs.finder.ui").input.start_spinner(session.view.input)
+	local handle = opened(function(result)
+		-- Going back or closing cancelled this request: its answer is not wanted.
+		-- stylua: ignore
+		if session.pending ~= token then return end
+		session:cancel_pending()
+		if session.closed or session.level ~= level then
+			return
+		end
+		finish(session, edge, result)
+	end)
+	if session.pending == token then
+		session.pending_handle = handle
 	end
-	opened.crumb = edge.crumb
-	session:push(Level.new(edge.to, opened))
-	return true
+	return false
 end
 
 --- Go back to the picker the chain came from.

@@ -40,6 +40,7 @@ end, chain.enabled())
 local expected = {
 	"buffers|live_grep",
 	"files|live_grep",
+	"gh_commits|live_grep",
 	"gh_issue|gh_issue_grep",
 	"gh_pr|gh_commits",
 	"gh_pr|gh_pr_files",
@@ -86,6 +87,15 @@ t.eq("the new key follows the edge", H.title(), "2 Files › Live Grep")
 H.close()
 t.ok("keys are compared as keys, not as text", chain.same_key("<c-g>", "<C-g>"))
 
+t.section("two ways down from one list")
+t.eq(
+	"valid: the files-changed edge off, commits take <C-g>",
+	setup({ edges = { ["gh_pr|gh_pr_files"] = false, ["gh_pr|gh_commits"] = { key = "<C-g>" } } }),
+	nil
+)
+t.eq("one edge left from the pull requests", #chain.from("gh_pr"), 1)
+t.eq("with the new key", chain.from("gh_pr")[1].key, "<C-g>")
+
 t.section("back keys")
 t.eq("valid", setup({ back = { "<C-b>" } }), nil)
 H.open("files", { cwd = dir })
@@ -112,6 +122,7 @@ raises("key of the picker", { edges = { ["files|live_grep"] = { key = "<C-j>" } 
 raises("back list empty", { back = {} }, "at least one key")
 raises("back key not a string", { back = { 1 } }, "not a string")
 raises("back key of the picker", { back = { "<C-k>" } }, "already used by the picker")
+raises("two edges of one source share a key", { edges = { ["gh_pr|gh_commits"] = { key = "<C-g>" } } }, "both use '<C-g>' from 'gh_pr'")
 raises("edge key equals a back key", { back = { "<C-b>" }, edges = { ["files|live_grep"] = { key = "<C-b>" } } }, "also a back key")
 
 setup({})
