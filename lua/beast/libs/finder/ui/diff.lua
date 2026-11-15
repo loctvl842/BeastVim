@@ -88,6 +88,14 @@ function M.parse(patch)
 	return hunks
 end
 
+--- A row that is not code: a header, a band, a note, a line of text.
+---@param text string
+---@param hl? string background group
+---@return Beast.View.DiffRow
+function M.plain(text, hl)
+	return { plain = true, sign = " ", text = text, hl = hl }
+end
+
 ---@param n integer
 ---@return string
 local function unchanged(n)
@@ -113,7 +121,9 @@ local function head_row(file)
 			text = text .. block
 		end
 	end
-	return { plain = true, sign = " ", text = text, hl = "BeastViewDiffHead", marks = marks }
+	local row = M.plain(text, "BeastViewDiffHead")
+	row.marks = marks
+	return row
 end
 
 --- The rows of one changed file: its header, then every hunk (a band, the lines with their numbers, the
@@ -123,7 +133,7 @@ end
 function M.rows(file)
 	local rows = { head_row(file) }
 	if not file.patch then
-		rows[#rows + 1] = { plain = true, sign = " ", text = NO_DIFF, hl = "BeastViewDiffGap" }
+		rows[#rows + 1] = M.plain(NO_DIFF, "BeastViewDiffGap")
 		return rows
 	end
 
@@ -148,7 +158,7 @@ function M.rows(file)
 			}
 		end
 		after = first + hunk.old_count
-		rows[#rows + 1] = { plain = true, sign = " ", text = "▸ " .. hunk.header, hl = "BeastViewDiffHunk" }
+		rows[#rows + 1] = M.plain("▸ " .. hunk.header, "BeastViewDiffHunk")
 
 		local old, new = hunk.old_start, hunk.new_start
 		for _, line in ipairs(hunk.lines) do
@@ -156,7 +166,7 @@ function M.rows(file)
 				hidden_after = hidden_after + 1
 			elseif line.kind == "note" then
 				flush()
-				rows[#rows + 1] = { plain = true, sign = " ", text = line.text, hl = "BeastViewDiffGap" }
+				rows[#rows + 1] = M.plain(line.text, "BeastViewDiffGap")
 			else
 				shown = shown + 1
 				if line.kind == "del" then

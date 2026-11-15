@@ -61,10 +61,27 @@ local function preview_text()
 end
 t.ok(
 	"preview shows the first commit's diff",
-	preview_text():find("lib/c1.lua", 1, true) ~= nil and preview_text():find("+new 1", 1, true) ~= nil,
+	preview_text():find("lib/c1.lua", 1, true) ~= nil and preview_text():find("new 1", 1, true) ~= nil,
 	preview_text()
 )
-t.eq("preview is a diff", vim.bo[preview.buf].filetype, "diff")
+t.eq("the code has no filetype of its own", vim.bo[preview.buf].filetype, "")
+t.ok(
+	"each file has a divider and the numbered diff below it",
+	preview_text():find("━━ lib/c1.lua", 1, true) ~= nil and preview_text():find("▸ @@", 1, true) ~= nil,
+	preview_text()
+)
+local plines = vim.api.nvim_buf_get_lines(preview.buf, 0, -1, false)
+local added
+for lnum, line in ipairs(plines) do
+	if line == "new 1" then
+		added = lnum
+	end
+end
+t.eq(
+	"the added line has its new number and a plus",
+	added and vim.api.nvim_eval_statusline(vim.wo[preview.win].statuscolumn, { winid = preview.win, use_statuscol_lnum = added }).str,
+	"    1 + "
+)
 H.press("<C-j>")
 H.settle(300)
 t.ok(

@@ -1,7 +1,6 @@
 --- What a commit looks like in the preview pane and in the buffer Enter opens: its message, the files it
 --- changed and their diffs. The commit's files come from `gh api` (one request per commit, kept for the
 --- session), so the pane draws the header at once and the rest when the request answers.
-local View = require("beast.libs.view")
 local api = require("beast.libs.finder.source.gh.api")
 local diff = require("beast.libs.finder.ui.diff")
 local preview = require("beast.libs.finder.source.gh.preview")
@@ -61,13 +60,13 @@ function M.detail(item, cb)
 	return require("beast.libs.finder.source.git.log").show(item.cwd, item.sha, answer)
 end
 
---- The text of a commit: header, message, file list and each file's diff.
---- `detail` is nil while the request is running, `failure` the reason when it failed.
+--- What a commit shows: the lines up to and including the file list, then its files (each followed by its
+--- diff). `detail` is nil while the request is running, `failure` the reason when it failed.
 ---@param item Beast.Finder.Item a commit item
 ---@param detail? Beast.Finder.Gh.CommitDetail
 ---@param failure? string
----@return string[]
-function M.build(item, detail, failure)
+---@return string[] lines, Beast.Finder.Gh.File[] files
+local function parts(item, detail, failure)
 	local lines = {
 		item.sha,
 		("%s  %s"):format(item.author, preview.reltime(item.date)),
@@ -91,13 +90,40 @@ function M.build(item, detail, failure)
 		for _, file in ipairs(detail.files) do
 			lines[#lines + 1] = diff.summary(file, file.path)
 		end
-		for _, file in ipairs(detail.files) do
-			lines[#lines + 1] = ""
-			lines[#lines + 1] = "━━ " .. file.path
-			vim.list_extend(lines, diff.raw_lines(file))
-		end
+		return lines, detail.files
+	end
+	return lines, {}
+end
+
+--- The text of a commit: header, message, file list and each file's diff.
+---@param item Beast.Finder.Item a commit item
+---@param detail? Beast.Finder.Gh.CommitDetail
+---@param failure? string
+---@return string[]
+function M.build(item, detail, failure)
+	local lines, files = parts(item, detail, failure)
+	for _, file in ipairs(files) do
+		lines[#lines + 1] = ""
+		lines[#lines + 1] = "━━ " .. file.path
+		vim.list_extend(lines, diff.raw_lines(file))
 	end
 	return lines
+end
+
+--- The same, as rows for the diff renderer: each file's diff is drawn as in Files Changed.
+---@param item Beast.Finder.Item a commit item
+---@param detail? Beast.Finder.Gh.CommitDetail
+---@param failure? string
+---@return Beast.View.DiffRow[]
+function M.rows(item, detail, failure)
+	local lines, files = parts(item, detail, failure)
+	local rows = vim.tbl_map(diff.plain, lines)
+	for _, file in ipairs(files) do
+		rows[#rows + 1] = diff.plain("")
+		rows[#rows + 1] = diff.plain("━━ " .. file.path, "BeastViewDiffHead")
+		vim.list_extend(rows, diff.rows(file))
+	end
+	return rows
 end
 
 ---@class Beast.Finder.Gh.CommitPreviewState
@@ -114,14 +140,9 @@ local states = setmetatable({}, { __mode = "k" })
 local function draw(view, item, detail, failure)
 	-- stylua: ignore
 	if not view:is_valid() then return end
-	diff.leave(view)
-	vim.bo[view.buf].modifiable = true
-	vim.api.nvim_buf_set_lines(view.buf, 0, -1, false, M.build(item, detail, failure))
-	vim.bo[view.buf].modifiable = false
-	vim.bo[view.buf].filetype = "diff"
+	diff.draw(view, M.rows(item, detail, failure), (" %s  %s "):format(item.short, item.subject))
 	-- The pane shows a commit, not a file of the working tree; the marker says which one.
 	view.loaded_file = MARK .. key(item)
-	pcall(vim.api.nvim_win_set_config, view.win, { title = (" %s  %s "):format(item.short, item.subject), title_pos = "center" })
 end
 
 --- `source.preview` hook: draw the commit `item` in the preview pane.
@@ -149,7 +170,6 @@ function M.show(view, item)
 		state.proc.kill()
 		state.proc = nil
 	end
-	View.win.wo(view.win, "wrap", false)
 
 	local req = {}
 	state.req = req
