@@ -3,7 +3,7 @@
 -- =========================================================================
 -- Characterizes which key does what in which pane, through the real mappings, so the
 -- key-table rewrite (docs/dev-specs/finder-levels-refactor.md, phase 4) stays equivalent.
--- The only intended difference afterwards: <C-v> in the list pane opens a vertical split.
+-- (The list pane's <C-v> used to open a horizontal split; it is a vertical split like the other panes since phase 4.)
 --
 -- Run as: nvim --clean --headless -l tests/test-finder-keys.lua
 -- Exit code: 0 = PASS, 1 = FAIL
@@ -97,13 +97,8 @@ for _, pane in ipairs({ "input", "list" }) do
 	fresh()
 	splits[1], vsplits[1] = nil, nil
 	press("<C-v>")
-	if pane == "input" then
-		t.eq("<C-v> opens a vertical split", vsplits[1] and vsplits[1][2].text, "a.lua")
-	else
-		-- KNOWN BUG, fixed in phase 4 of the refactor: the list pane's <C-v> opens a horizontal split.
-		t.eq("<C-v> opens a split (list pane: horizontal, known bug)", splits[1] and splits[1][2].text, "a.lua")
-		t.eq("<C-v> does not open a vertical split (known bug)", vsplits[1], nil)
-	end
+	t.eq("<C-v> opens a vertical split", vsplits[1] and vsplits[1][2].text, "a.lua")
+	t.eq("<C-v> does not open a horizontal split", splits[1], nil)
 	t.eq("<C-v> closes the picker", H.window_count(), 0)
 
 	fresh()
