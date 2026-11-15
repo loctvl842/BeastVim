@@ -276,6 +276,7 @@ Each phase is mergeable on its own: finder behavior unchanged, whole test suite 
 3. **Match engine** (File: `pipeline/match.lua`)
    - Action: public API `start/run/reload/abort/matches(query, host)`; replace every `state.query` with the captured `query`; all UI calls go through `host`; per-query `s.aborted` + `host.alive()` checks in every `vim.schedule`/coroutine tail; `matches(query)` returns `query.items` for an empty pattern, else items with `scores[idx] > 0`, nil while `loading or matching`; TopK capacity from `query.limit`.
    - Why: late callbacks of a replaced search become no-ops; the engine runs headless.
+   - Also fix (found by the Phase 0 engine test): while an async source is open but idle, the loader does a bare `coroutine.yield()` without `suspend()`, so it busy-spins and re-renders every loop tick (starves the event loop; a slow `fd` run does the same). The loader must `suspend()` when it has nothing to do and be resumed by the source callback.
    - Depends on: Steps 1-2. Risk: High (hot path, async)
 4. **Stream engine** (File: `pipeline/stream.lua`)
    - Action: same API; `host.busy/count/title/rows` replace direct `ui.input` / `state.view.list` access; `run_id` guard kept and combined with `host.alive()`; `matches(query)` = `query.items` when settled.
@@ -356,6 +357,7 @@ Each phase is mergeable on its own: finder behavior unchanged, whole test suite 
 
 # Risks and notes
 - **Hot path (Phase 1):** keep the counter O(1); compare `bench-finder-matcher` before/after.
+- **Known pre-existing bugs found by the Phase 0 tests:** (1) the match loader spins while an async source is open and idle (fixed in Phase 1); (2) opening a picker from `on_close` is closed again by the first picker's window teardown and raises E367 (shared autocmd group name; each Session gets its own group in Phase 3).
 - **Singleton lifecycle (Phase 3):** the reentrancy guard from `reset()` (commit `ef31ad3` on the `new-input-ui` branch is the same fix) must be preserved; Phase 0 lifecycle tests exist for it.
 - **R5 semantics:** explorer relies on "only final scored results" and `{capped, loading}`; covered by `test-explorer-search.lua`.
 - **Scope guard:** no new user feature; `push/pop` exist but are unbound. The chain feature (`docs/dev-specs/finder-continuous.md`) is rebased onto this refactor after Phase 6.
