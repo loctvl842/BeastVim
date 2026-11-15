@@ -217,14 +217,20 @@ function M.drill(session, key)
 
 	local token = {}
 	local level = session.level
+	local ui = require("beast.libs.finder.ui")
+	local selected, text = ctx.selected, ui.input.get_text(session.view.input)
 	session.pending = token
-	require("beast.libs.finder.ui").input.start_spinner(session.view.input)
+	ui.input.start_spinner(session.view.input)
 	local handle = opened(function(result)
 		-- Going back or closing cancelled this request: its answer is not wanted.
 		-- stylua: ignore
 		if session.pending ~= token then return end
 		session:cancel_pending()
 		if session.closed or session.level ~= level then
+			return
+		end
+		-- The answer is for the row that was highlighted: moving or typing meanwhile means something else is wanted.
+		if ui.list.selected(session.view.list) ~= selected or ui.input.get_text(session.view.input) ~= text then
 			return
 		end
 		finish(session, edge, result)

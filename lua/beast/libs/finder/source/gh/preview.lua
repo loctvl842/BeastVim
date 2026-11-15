@@ -234,6 +234,7 @@ local function draw(view, item, detail, failure)
 	vim.bo[view.buf].modifiable = true
 	vim.api.nvim_buf_set_lines(view.buf, 0, -1, false, lines)
 	vim.bo[view.buf].modifiable = false
+	view.loaded_file = "gh:" .. item.url
 	if vim.bo[view.buf].filetype ~= "markdown" then
 		vim.bo[view.buf].filetype = "markdown"
 	end
@@ -274,8 +275,9 @@ function M.show(view, item)
 	---@cast item Beast.Finder.Gh.Item
 
 	local st = state_of(view)
+	-- Another level may have used the pane since (a push or pop clears it): the marker says what it shows.
 	-- stylua: ignore
-	if st.key == item.url then return end
+	if st.key == item.url and view.loaded_file == "gh:" .. item.url then return end
 	st.key = item.url
 	if st.proc then
 		st.proc.kill()

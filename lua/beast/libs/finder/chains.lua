@@ -192,7 +192,7 @@ local function scope_commit_files(ctx)
 			resume({
 				files = paths,
 				ctx = { local_copies = true, commit = commit.short },
-				title = ("%d Files in %s › Live Grep"):format(#paths, commit.short),
+				title = ("%d Files in %s%s › Live Grep"):format(#paths, commit.short, result.detail.truncated and " (partial)" or ""),
 			})
 		end)
 	end

@@ -8,13 +8,16 @@ local preview = require("beast.libs.finder.source.gh.preview")
 ---@class Beast.Finder.Gh.CommitPreview
 local M = {}
 
---- Commits already fetched, by "repo@sha". A commit never changes, so nothing expires.
+--- Commits already fetched, by "repo@sha" (at most `MAX_CACHED`). A commit never changes, so nothing expires.
 ---@type table<string, Beast.Finder.Gh.CommitDetail>
 local cache = {}
+local cached = 0
+local MAX_CACHED = 30
+local MARK = "gh-commit:"
 
 --- Forget the commits fetched so far (for tests: a commit never changes, so the cache is otherwise kept).
 function M.reset()
-	cache = {}
+	cache, cached = {}, 0
 end
 
 ---@param item Beast.Finder.Item a commit item
@@ -35,7 +38,12 @@ function M.detail(item, cb)
 	end
 	return api.commit(item.pr, item.sha, function(result)
 		if result.detail then
+			-- Patches can be large: when the cache is full it starts over instead of growing.
+			if cached >= MAX_CACHED then
+				cache, cached = {}, 0
+			end
 			cache[key(item)] = result.detail
+			cached = cached + 1
 		end
 		cb(result)
 	end)
@@ -109,8 +117,8 @@ local function draw(view, item, detail, failure)
 	vim.api.nvim_buf_set_lines(view.buf, 0, -1, false, M.build(item, detail, failure))
 	vim.bo[view.buf].modifiable = false
 	vim.bo[view.buf].filetype = "diff"
-	-- The pane shows a commit, not a file of the working tree.
-	view.loaded_file = nil
+	-- The pane shows a commit, not a file of the working tree; the marker says which one.
+	view.loaded_file = MARK .. key(item)
 	pcall(vim.api.nvim_win_set_config, view.win, { title = (" %s  %s "):format(item.short, item.subject), title_pos = "center" })
 end
 
@@ -130,8 +138,10 @@ function M.show(view, item)
 		end
 		return require("beast.libs.finder.ui.preview").clear(view)
 	end
+	-- The pane may have been used by another level since (a push or pop clears it): it shows this commit only
+	-- when it still carries the commit's marker.
 	-- stylua: ignore
-	if state.key == key(item) then return end
+	if state.key == key(item) and view.loaded_file == MARK .. key(item) then return end
 	state.key = key(item)
 	if state.proc then
 		state.proc.kill()
