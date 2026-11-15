@@ -150,6 +150,7 @@ end
 --- Sync listed file buffers with the filesystem.
 --- - Same-directory external rename (`mv old new`): rewire buffer name to the new path.
 --- - External delete (`rm`): drop unmodified buffers; keep modified ones.
+--- - Buffers whose file was never seen on disk (new files) are kept.
 --- If the current buffer is deleted, focus moves to a fallback buffer first.
 ---@return boolean changed whether any buffer was renamed or deleted
 function M.cleanup_stale()
@@ -164,8 +165,9 @@ function M.cleanup_stale()
 				local st = vim.uv.fs_stat(name)
 				if st and st.type == "file" then
 					M.remember_file(bufnr)
-				else
-					-- Path gone: try same-dir rename via cached inode, else mark for delete.
+				elseif file_id[bufnr] and file_id[bufnr].path == name then
+					-- Path gone after being seen on disk: try same-dir rename via cached inode, else mark for delete.
+					-- Buffers never seen on disk (`nvim newfile`) are left alone.
 					local new_path = find_renamed_path(bufnr, name)
 					if new_path then
 						local existing = vim.fn.bufnr(new_path)

@@ -93,6 +93,9 @@ do
 	vim.cmd.edit(f1)
 	vim.cmd.edit(f2)
 	vim.cmd.edit(f3)
+	for _, f in ipairs({ f1, f2, f3 }) do
+		buffers.remember_file(vim.fn.bufnr(f))
+	end
 
 	os.remove(f1)
 	local removed = buffers.cleanup_stale()
@@ -118,6 +121,8 @@ do
 
 	vim.cmd.edit(f1)
 	vim.cmd.edit(f2)
+	buffers.remember_file(vim.fn.bufnr(f1))
+	buffers.remember_file(vim.fn.bufnr(f2))
 
 	local before = vim.api.nvim_get_current_buf()
 	os.remove(f2)
@@ -142,6 +147,7 @@ do
 	local f1 = dir .. "/only.txt"
 	vim.fn.writefile({ "only" }, f1)
 	vim.cmd.edit(f1)
+	buffers.remember_file(vim.fn.bufnr(f1))
 
 	os.remove(f1)
 	local removed = buffers.cleanup_stale()
@@ -167,6 +173,8 @@ do
 	vim.cmd.edit(f1)
 	vim.api.nvim_buf_set_lines(0, 0, -1, false, { "unsaved" })
 	vim.cmd.edit(f2)
+	buffers.remember_file(vim.fn.bufnr(f1))
+	buffers.remember_file(vim.fn.bufnr(f2))
 
 	os.remove(f1)
 	os.remove(f2)
@@ -261,6 +269,30 @@ do
 	local removed = buffers.cleanup_stale()
 	assert_test("returns false when nothing is stale", removed == false)
 	assert_test("buffer remains listed", vim.fn.bufnr(f1) > 0)
+end
+
+-- =========================================================================
+-- Test: cleanup_stale - never-on-disk buffer (`nvim newfile`) is not stale
+-- =========================================================================
+
+io.write("\n--- cleanup_stale: buffer for a file that never existed ---\n")
+
+do
+	wipe_all()
+	local dir = make_temp_dir()
+	local keep = dir .. "/keep.txt"
+	local fresh = dir .. "/fresh.txt"
+	vim.fn.writefile({ "keep" }, keep)
+
+	vim.cmd.edit(keep)
+	vim.cmd.edit(fresh)
+	buffers.remember_file(vim.fn.bufnr(keep))
+	buffers.remember_file(vim.fn.bufnr(fresh))
+
+	local removed = buffers.cleanup_stale()
+	assert_test("returns false for never-on-disk buffer", removed == false)
+	assert_test("never-on-disk buffer survives", vim.fn.bufnr(fresh) > 0 and vim.fn.buflisted(fresh) == 1)
+	assert_test("current buffer is unchanged", vim.api.nvim_buf_get_name(0) == fresh, "got: " .. vim.api.nvim_buf_get_name(0))
 end
 
 -- =========================================================================

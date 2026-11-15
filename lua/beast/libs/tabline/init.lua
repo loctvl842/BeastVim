@@ -66,7 +66,7 @@ local function ensure_autocmds()
 	})
 
 	-- Keep file identity fresh for external-rename detection
-	vim.api.nvim_create_autocmd({ "BufWritePost", "BufFilePost" }, {
+	vim.api.nvim_create_autocmd({ "BufReadPost", "BufWritePost", "BufFilePost" }, {
 		group = state.augroup,
 		callback = function(args)
 			buffers_mod.remember_file(args.buf)
