@@ -1,3 +1,5 @@
+local diff = require("beast.libs.finder.ui.diff")
+
 local M = {}
 
 --- What Enter does: whatever the item's source says.
@@ -82,20 +84,14 @@ local function repo_name(commit)
 	return commit.pr and commit.pr.repo or vim.fn.fnamemodify(commit.cwd, ":t")
 end
 
---- Show the diff of a changed file of a pull request in a read-only scratch buffer.
----@param win? integer window to show it in; falls back to the current window
----@param item Beast.Finder.Gh.FileItem a changed file of a pull request, or of a commit (`commit`)
-function M.open_diff(win, item)
-	if win and vim.api.nvim_win_is_valid(win) then
-		vim.api.nvim_set_current_win(win)
-	end
-	local lines = item.patch and vim.split(item.patch, "\n", { plain = true }) or { "(diff too large or binary)" }
+--- Show `lines` as a diff in a read-only scratch buffer named `name`, in the current window.
+---@param name string
+---@param lines string[]
+local function open_scratch(name, lines)
 	local buf = vim.api.nvim_create_buf(true, true)
 	vim.bo[buf].buftype = "nofile"
 	vim.bo[buf].bufhidden = "wipe"
-	-- A second diff of the same file would collide on the name: the old buffer goes first.
-	local name = item.commit and ("%s@%s: %s"):format(repo_name(item.commit), item.commit.short, item.file)
-		or ("%s#%d: %s"):format(item.pr.repo, item.pr.number, item.file)
+	-- A second diff with the same name would collide: the old buffer goes first.
 	local existing = vim.fn.bufnr("^" .. vim.fn.escape(name, "\\[].*~") .. "$")
 	if existing ~= -1 then
 		pcall(vim.api.nvim_buf_delete, existing, { force = true })
@@ -106,6 +102,19 @@ function M.open_diff(win, item)
 	vim.bo[buf].filetype = "diff"
 	vim.cmd("normal! m'")
 	vim.api.nvim_win_set_buf(0, buf)
+end
+
+--- Show the diff of a changed file of a pull request in a read-only scratch buffer.
+---@param win? integer window to show it in; falls back to the current window
+---@param item Beast.Finder.Gh.FileItem a changed file of a pull request, or of a commit (`commit`)
+function M.open_diff(win, item)
+	if win and vim.api.nvim_win_is_valid(win) then
+		vim.api.nvim_set_current_win(win)
+	end
+	local lines = diff.raw_lines(item)
+	local name = item.commit and ("%s@%s: %s"):format(repo_name(item.commit), item.commit.short, item.file)
+		or ("%s#%d: %s"):format(item.pr.repo, item.pr.number, item.file)
+	open_scratch(name, lines)
 	for lnum, line in ipairs(lines) do
 		if line:sub(1, 2) == "@@" then
 			vim.api.nvim_win_set_cursor(0, { lnum, 0 })
@@ -128,20 +137,7 @@ function M.open_commit(win, item)
 		if win and vim.api.nvim_win_is_valid(win) then
 			vim.api.nvim_set_current_win(win)
 		end
-		local buf = vim.api.nvim_create_buf(true, true)
-		vim.bo[buf].buftype = "nofile"
-		vim.bo[buf].bufhidden = "wipe"
-		local name = ("%s@%s"):format(repo_name(item), item.short)
-		local existing = vim.fn.bufnr("^" .. vim.fn.escape(name, "\\[].*~") .. "$")
-		if existing ~= -1 then
-			pcall(vim.api.nvim_buf_delete, existing, { force = true })
-		end
-		vim.api.nvim_buf_set_name(buf, name)
-		vim.api.nvim_buf_set_lines(buf, 0, -1, false, commit_preview.build(item, result.detail))
-		vim.bo[buf].modifiable = false
-		vim.bo[buf].filetype = "diff"
-		vim.cmd("normal! m'")
-		vim.api.nvim_win_set_buf(0, buf)
+		open_scratch(("%s@%s"):format(repo_name(item), item.short), commit_preview.build(item, result.detail))
 	end)
 end
 

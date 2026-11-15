@@ -3,6 +3,7 @@
 --- session), so the pane draws the header at once and the rest when the request answers.
 local View = require("beast.libs.view")
 local api = require("beast.libs.finder.source.gh.api")
+local diff = require("beast.libs.finder.ui.diff")
 local preview = require("beast.libs.finder.source.gh.preview")
 
 ---@class Beast.Finder.Gh.CommitPreview
@@ -60,13 +61,6 @@ function M.detail(item, cb)
 	return require("beast.libs.finder.source.git.log").show(item.cwd, item.sha, answer)
 end
 
----@param file Beast.Finder.Gh.File
----@return string
-local function file_line(file)
-	local line = ("%-9s +%d -%d  %s"):format(file.status, file.additions, file.deletions, file.path)
-	return file.previous and (line .. "  (was " .. file.previous .. ")") or line
-end
-
 --- The text of a commit: header, message, file list and each file's diff.
 --- `detail` is nil while the request is running, `failure` the reason when it failed.
 ---@param item Beast.Finder.Item a commit item
@@ -95,16 +89,12 @@ function M.build(item, detail, failure)
 	else
 		lines[#lines + 1] = ("%d files changed%s"):format(#detail.files, detail.truncated and " (partial)" or "")
 		for _, file in ipairs(detail.files) do
-			lines[#lines + 1] = file_line(file)
+			lines[#lines + 1] = diff.summary(file, file.path)
 		end
 		for _, file in ipairs(detail.files) do
 			lines[#lines + 1] = ""
 			lines[#lines + 1] = "━━ " .. file.path
-			if file.patch then
-				vim.list_extend(lines, vim.split(file.patch, "\n", { plain = true }))
-			else
-				lines[#lines + 1] = "(diff too large or binary)"
-			end
+			vim.list_extend(lines, diff.raw_lines(file))
 		end
 	end
 	return lines

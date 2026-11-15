@@ -1,6 +1,7 @@
 --- The files a pull request changes: opened from the pull request list (a chain), the prompt filters
 --- them by path. Each file previews its diff; Enter shows the diff in a scratch buffer.
 local api = require("beast.libs.finder.source.gh.api")
+local diff = require("beast.libs.finder.ui.diff")
 local format = require("beast.libs.finder.format")
 
 ---@class Beast.Finder.Source.GhPrFiles: Beast.Finder.ASource
@@ -84,16 +85,8 @@ function M.preview(view, item)
 	if not item or item.message then
 		return require("beast.libs.finder.ui.preview").clear(view)
 	end
-	local head = ("%s  +%d -%d"):format(item.status, item.additions, item.deletions)
-	if item.previous then
-		head = head .. "  (was " .. item.previous .. ")"
-	end
-	local lines = { head }
-	if item.patch then
-		vim.list_extend(lines, vim.split(item.patch, "\n", { plain = true }))
-	else
-		lines[#lines + 1] = "(diff too large or binary)"
-	end
+	local lines = { diff.summary(item) }
+	vim.list_extend(lines, diff.raw_lines(item))
 	vim.bo[view.buf].modifiable = true
 	vim.api.nvim_buf_set_lines(view.buf, 0, -1, false, lines)
 	vim.bo[view.buf].modifiable = false
