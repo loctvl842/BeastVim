@@ -1,4 +1,4 @@
-<!-- Generated: 2026-11-14 | Files scanned: 331 | Token estimate: ~13964 -->
+<!-- Generated: 2026-11-15 | Files scanned: 345 | Token estimate: ~13964 -->
 
 # Libraries
 
@@ -114,7 +114,7 @@ finder/
 ├── layout.lua     ← window layout calculations; calc(has_preview, "cards") = two separate narrow boxes
 ├── pipeline/
 │   ├── match.lua  ← streaming match pipeline
-│   └── stream.lua ← async stream processing
+│   └── stream.lua ← async stream processing; opt-in per source: retain_results (old list stays until first new item), run_when_empty, count label, title refresh; drops callbacks of cancelled runs (run_id)
 ├── source/
 │   ├── init.lua       ← lazy registry (__index → require source.<name>)
 │   ├── files.lua      ← async (fd/rg/find via uv.spawn)
@@ -132,7 +132,13 @@ finder/
 │   ├── colorschemes.lua ← sync (rtp-only globpath); grouped beastvim > nvim builtin > plugin, alphabetical within group; item.swatches from cache
 │   ├── colorscheme_swatches.lua        ← JSON cache (stdpath cache, key = theme mtime + worker mtime); ensure() spawns worker, fires User BeastFinderSwatchesReady
 │   ├── colorscheme_swatches_worker.lua ← headless child: applies each theme, prints 10 role colors (bg, fg, red…purple, grey)
-│   └── help_tags.lua  ← sync (rtp-only tag parsing)
+│   ├── help_tags.lua  ← sync (rtp-only tag parsing)
+│   ├── gh.lua         ← factory create(kind): GitHub live source, prompt text = search query; stale-response guard; declares initial_query/retain_results/run_when_empty/debounce_ms/count/title/check/preview
+│   ├── gh_pr.lua, gh_issue.lua ← one-line instances (<leader>ghp / <leader>ghi)
+│   └── gh/
+│       ├── query.lua   ← pure: build(text, repo) adds repo:/sort:created-desc unless present; scope(); default_text(kind)
+│       ├── api.lua     ← `gh` CLI wrapper: check() local pre-flight, search() (gh api search/issues), detail() (gh pr|issue view), normalize*, error classes
+│       └── preview.lua ← preview pane: build()/reltime() pure, show() draws header at once then detail; per-view cache, stale-fetch guard
 └── ui/
     ├── init.lua     ← barrel (input, list, preview, backdrop)
     ├── input.lua    ← prompt buffer + debounced TextChanged
@@ -141,7 +147,7 @@ finder/
     └── backdrop.lua ← fullscreen dim overlay
 ```
 
-API: `finder.open("files", opts)`, `finder.open("live_grep")`, `finder.open("help_tags")`
+API: `finder.open("files", opts)`, `finder.open("live_grep")`, `finder.open("help_tags")`, `finder.open("gh_pr")`, `finder.open("gh_issue")`
 View subclasses: `Beast.Finder.InputView`, `Beast.Finder.ListView`, `Beast.Finder.PreviewView`
 Loaded via: `packer.lazy()` on keys (`<leader>f/b/g/c/h`)
 Opts: `layout="cards"`, `separators`, `backdrop=false`, `freeze_colors`, `initial_text` (start on the item whose text matches), `on_preview(item)`, `on_close(confirmed)` (colorscheme picker; the selected theme is a thick tinted block with half-block edges)
@@ -156,6 +162,7 @@ Query:new(source_name, opts)
 ```
 
 Sources: `files` (async, fd/rg/find), `buffers` (sync), `live_grep` (live async),
+`gh_pr`/`gh_issue` (live async, `gh api`; opt-in live features: `initial_query` prefills + searches on open, `retain_results`, `run_when_empty`, `debounce_ms`, `count`, `title`, `check` (false aborts open), `preview` (replaces file preview); message rows = `item.message`),
 `colorschemes` (sync, rtp-only), `help_tags` (sync, rtp-only — loaded plugins only),
 `lsp_definitions`/`lsp_references`/`lsp_declarations`/`lsp_implementations`
 (async, `source/lsp.lua` factory; `auto_select = true`, `label` for the statusline).

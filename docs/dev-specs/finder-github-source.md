@@ -70,13 +70,13 @@ New:
 - `tests/test-finder-gh-query.lua`, `tests/test-finder-gh-api.lua`, `tests/test-finder-stream-retain.lua`, `tests/test-finder-input-initial.lua`.
 
 Modified:
-- `lua/beast/libs/finder/source/init.lua` - extend `ASource` fields (`initial_query`, `retain_results`, `run_when_empty`, `debounce_ms`, `show_count`, `title`, `check`, `preview`) and the `Source` alias.
-- `lua/beast/libs/finder/query.lua` - `Item` fields: `url`, `kind`, `message`, `gh`.
+- `lua/beast/libs/finder/source/init.lua` - extend `ASource` fields (`initial_query`, `retain_results`, `run_when_empty`, `debounce_ms`, `count`, `title`, `check`, `preview`) and the `Source` alias.
+- `lua/beast/libs/finder/query.lua` - `Item` fields: `url`, `message`, `is_error`. (Built as: GitHub-specific fields live on `Beast.Finder.Gh.Item` in `source/gh/api.lua`; `count` is a source function `count(items) -> string`, not a flag.)
 - `lua/beast/libs/finder/pipeline/stream.lua` - `retain_results` and `run_when_empty` behavior (opt-in; unchanged path otherwise).
 - `lua/beast/libs/finder/ui/input.lua` - optional initial text (cursor at end) and `set_count`.
 - `lua/beast/libs/finder/state.lua` - use `source.title()`, `source.debounce_ms`, `source.initial_query` (prefill, then run once immediately).
 - `lua/beast/libs/finder/init.lua` - run `source.check()` before opening; abort with its toast.
-- `lua/beast/libs/finder/render.lua` - preview dispatch to `source.preview`; count update.
+- `lua/beast/libs/finder/render.lua` - preview dispatch to `source.preview` (also for an empty list). The count update lives in `pipeline/stream.lua`.
 - `lua/beast/libs/finder/format.lua` - `gh_pr`/`gh_issue` row formatter (state icon, number, title, author, label badges, message rows).
 - `lua/beast/libs/finder/highlights.lua` - state icon groups and label badge helper.
 - `lua/beast/libs/finder/action.lua` - `open` for `item.url` (`vim.ui.open`), `copy_path` copies `url` when present.
@@ -127,7 +127,7 @@ Modified:
 
 ## Phase 3: GitHub sources, list, actions, keys (preview off)
 1. **Factory and sources** (Files: `source/gh.lua`, `source/gh_pr.lua`, `source/gh_issue.lua`)
-   - Action: `create(kind)` sets `live`, `async`, `retain_results`, `run_when_empty`, `show_count`, `debounce_ms = 400`, `initial_query` from `query.default_text`, `title()` ("Pull Requests - owner/name"), `check()` (gh installed, remote parsed, `gh auth token`; each failure is a Toast per PM scenario 8), `get(filter, cb)` (build query, call `api.search`, emit items, or one message row for empty/error; generation guard), `cancel()`.
+   - Action: `create(kind)` sets `live`, `async`, `retain_results`, `run_when_empty`, `count`, `debounce_ms = 400`, `initial_query` from `query.default_text`, `title()` ("Pull Requests - owner/name"), `check()` (gh installed, remote parsed, `gh auth token`; each failure is a Toast per PM scenario 8), `get(filter, cb)` (build query, call `api.search`, emit items, or one message row for empty/error; generation guard), `cancel()`.
    - Depends on: Phase 1, Phase 2
    - Risk: Medium (stale-response guard, rate limit at 30/min)
 2. **Row format and highlights** (Files: `format.lua`, `highlights.lua`)
@@ -158,19 +158,37 @@ Modified:
 ---
 
 # Testing Strategy
-- Headless tests: new `tests/test-finder-gh-query.lua`, `test-finder-gh-api.lua`, `test-finder-stream-retain.lua`, `test-finder-input-initial.lua`; existing `tests/test-finder-*.lua`, `test-preflight.lua` must still pass. Run each as `nvim --clean --headless -l tests/<file>`.
+- Headless tests: new `tests/test-finder-gh-query.lua`, `test-finder-gh-api.lua`, `test-finder-gh-source.lua`, `test-finder-gh-keys.lua`, `test-finder-gh-preview.lua`, `test-finder-stream-retain.lua`, `test-finder-input-initial.lua`; existing `tests/test-finder-*.lua`, `test-preflight.lua` must still pass. Run each as `nvim --clean --headless -l tests/<file>`.
 - Bench: `scripts/bench-grep.lua` and `scripts/bench-ux.sh all` (stream pipeline touched). Compare against numbers before Phase 2.
 - Type check: the `lua-language-server --check` command from DEVELOPMENT.md.
 - Manual (use `NVIM_APPNAME=BeastVim`, in this repo which has a GitHub remote): PM scenarios 1 to 9 as written in the PM spec. Scenario 8A/8B: run from `/tmp` and with `PATH` lacking `gh`. Scenario 7: type quickly and confirm one search and no stale overwrite. Take screenshots and check the row, preview and prompt-row pixel layout against the PM mockups.
 
 # Success Criteria
-- [ ] `<leader>ghp` and `<leader>ghi` open pickers whose prompt holds `is:pr state:open ` and `is:issue state:open ` with the cursor at the end, and results appear without typing.
-- [ ] The list shows the current repo's open PRs / issues, newest created first, with state icon, number, title, author, colored label badges.
-- [ ] Editing the text (state, author, label, words, other repo, `is:pr` to `is:issue`, `sort:`) matches what github.com shows for that text.
-- [ ] The preview shows metadata, description and conversation; header is instant; revisiting an item is instant.
-- [ ] Fast typing runs one search; a slower older response never replaces a newer one.
-- [ ] While a search runs the old list stays and a spinner replaces the count; zero results clear the list.
-- [ ] Empty results and real errors (repo not found, rate limit, network) show one in-list line, never a popup.
-- [ ] No remote / no `gh` / not logged in shows a toast and does not open a picker.
-- [ ] Enter opens the browser, `<C-y>` copies the URL, `<C-s>`/`<C-v>` leave the picker open, Esc closes with no side effects.
-- [ ] Technical: all headless tests pass, `live_grep` bench within noise of baseline, luals check clean, no `vim.notify` or lib-config keymaps in the new code.
+- [x] `<leader>ghp` and `<leader>ghi` open pickers whose prompt holds `is:pr state:open ` and `is:issue state:open ` with the cursor at the end, and results appear without typing.
+- [x] The list shows the current repo's open PRs / issues, newest created first, with state icon, number, title, author, colored label badges.
+- [x] Editing the text (state, author, label, words, other repo, `is:pr` to `is:issue`, `sort:`) matches what github.com shows for that text.
+- [x] The preview shows metadata, description and conversation; header is instant; revisiting an item is instant.
+- [x] Fast typing runs one search; a slower older response never replaces a newer one.
+- [x] While a search runs the old list stays and a spinner replaces the count; zero results clear the list.
+- [x] Empty results and real errors (repo not found, rate limit, network) show one in-list line, never a popup.
+- [x] No remote / no `gh` / not logged in shows a toast and does not open a picker.
+- [x] Enter opens the browser, `<C-y>` copies the URL, `<C-s>`/`<C-v>` leave the picker open, Esc closes with no side effects.
+- [x] Technical: all headless tests pass, `live_grep` bench within noise of baseline, luals check clean, no `vim.notify` or lib-config keymaps in the new code.
+
+---
+
+## Completed
+
+2026-11-15. All five phases: query/API core, opt-in finder live features, GitHub sources with list/actions/keys, preview pane, verification and docs.
+
+- `8ed02c7` feat(finder): add github query builder and gh api wrapper
+- `262f472` feat(finder): opt-in live source features (prefilled prompt, keep results while searching, count, custom title/preview/check) (also drops callbacks of cancelled runs in the stream pipeline, found in review)
+- `bb0670f` feat(finder): github pull request and issue pickers (<leader>ghp, <leader>ghi) (also: title follows `repo:`, copy confirms via Toast, count blank after an error)
+- `5d6027f` feat(finder): preview pane for github pull requests and issues
+- `ed32889` fix(finder): message rows show no selection marker, cursorline or preview line number (found in the real-terminal check)
+
+Verification: new headless tests pass (query 22, api 82, source 49, keys 27, preview 70, stream-retain 24, input-initial 14) and every existing `tests/test-finder-*.lua` and `test-preflight.lua` still pass; luals check clean; stylua clean. `bench-ux.sh all` (FIXTURE_LANG=lua FIXTURE_GIT=1) all PASS and equal to a baseline run of the starting commit within noise (keymaps p50 1.83 vs 1.84 ms, p99 35.9 vs 35.9 ms). `bench-grep.lua` only measures the bigram index, so it cannot see the pipeline change. Checked live in a real wezterm pane against GitHub: default open, query edit to `is:merged`, preview, issue picker, `repo:` not found error rows, Esc, no-remote toast.
+
+Not exercised live (covered by stubbed tests only): opening the browser on Enter, copying to the clipboard, `gh` missing / not logged in toasts, rate-limit message, flipping `is:pr` to `is:issue` inside one picker.
+
+Deviations from the plan: `count` is a source function, not a `show_count` flag; GitHub item fields live on `Beast.Finder.Gh.Item`; extra tests `test-finder-gh-source.lua`, `test-finder-gh-keys.lua`, `test-finder-gh-preview.lua`; `is_bot` dropped as unused; preview title line is not right-aligned like the PM mockup.
