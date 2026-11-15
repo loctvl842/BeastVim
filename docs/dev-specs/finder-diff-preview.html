@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dev spec: Finder diff preview</title>
+<style>
+  :root { --bg:#fbfaf7; --fg:#1c1b19; --muted:#6b675f; --line:#dcd8cf; --card:#fff; --accent:#b4540a; --new:#2f7a41; --mod:#8a6a00; --bad:#b3364d; --box:#f2efe8; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#161513; --fg:#ece8df; --muted:#a29d92; --line:#3a3732; --card:#1f1d1a; --accent:#e08a3c; --new:#6cc28a; --mod:#e0b84c; --bad:#ef7f93; --box:#26231f; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, sans-serif; }
+  main { max-width:900px; margin:0 auto; padding:24px 16px 80px; }
+  h1 { font-size:28px; margin:0 0 8px; } h2 { font-size:21px; margin:0 0 10px; } h3 { font-size:16px; margin:0 0 6px; }
+  section { margin:36px 0; } p { margin:8px 0; } .muted { color:var(--muted); }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin:12px 0; }
+  code { font:13px ui-monospace, Menlo, monospace; background:rgba(128,128,128,.15); padding:1px 5px; border-radius:4px; }
+  ul { padding-left:20px; } li { margin:4px 0; }
+  .tag { display:inline-block; font-size:12px; padding:1px 8px; border-radius:999px; border:1px solid var(--line); color:var(--muted); }
+  .rec { border-color:var(--accent); color:var(--accent); } .ref { border-color:var(--new); color:var(--new); }
+  .risk-Low { color:var(--new); } .risk-Medium { color:var(--mod); }
+  table { border-collapse:collapse; width:100%; font-size:14px; display:block; overflow-x:auto; }
+  th, td { text-align:left; border-bottom:1px solid var(--line); padding:6px 8px; vertical-align:top; }
+  td.new { color:var(--new); } td.mod { color:var(--mod); } td.no { color:var(--bad); } td.yes { color:var(--new); }
+  svg { width:100%; height:auto; color:var(--fg); }
+  svg .box { fill:var(--box); stroke:var(--line); } svg .hot { fill:var(--box); stroke:var(--accent); stroke-width:2; } svg .old { fill:var(--box); stroke:var(--bad); stroke-dasharray:4 3; }
+  svg text { fill:currentColor; font:12px ui-monospace, Menlo, monospace; } svg .dim { fill:var(--muted); }
+  svg path { stroke:var(--muted); fill:none; }
+  .step { margin:8px 0; padding-left:12px; border-left:3px solid var(--line); } .step b { display:block; }
+  pre { background:var(--box); border:1px solid var(--line); border-radius:8px; padding:10px 12px; overflow-x:auto; font:12.5px/1.5 ui-monospace, Menlo, monospace; }
+  .warn { border-color:var(--accent); }
+  .refactor { border-left:4px solid var(--new); }
+</style>
+</head>
+<body>
+<main>
+
+<header data-spec="summary">
+  <h1>Finder diff preview - dev spec</h1>
+  <p>The repo already has a rich diff renderer (the git hunk float) and four raw-text diff paths in the finder. A second renderer for the new look would duplicate the first, so the work starts with two behavior-preserving refactors, then the feature on top:</p>
+  <ol>
+    <li>Lift the row renderer out of <code>git/preview.lua</code> into a shared <code>view/diff.lua</code>.</li>
+    <li>Give the finder one place for a file's patch, its summary and the "binary" placeholder, and one scratch-buffer opener.</li>
+    <li>Draw Files Changed (and commits) with the shared renderer. Syntax coloring last.</li>
+  </ol>
+  <p class="muted">PM spec: <code>docs/pm-specs/finder-diff-preview.md</code> (approved)</p>
+</header>
+
+<section data-spec="context">
+  <h2>What exists today</h2>
+  <table>
+    <tr><th>#</th><th>Where</th><th>How</th><th>Rich</th></tr>
+    <tr><td>1</td><td>Finder file preview <code>gh_pr_files.preview</code> (also <code>gh_commit_files</code>, <code>git_commit_files</code>)</td><td>raw patch + head line, <code>filetype=diff</code>, no wrap</td><td class="no">no</td></tr>
+    <tr><td>2</td><td>Finder commit preview <code>commit_preview.draw/build</code></td><td>raw summary + raw patch per file</td><td class="no">no</td></tr>
+    <tr><td>3</td><td>Enter on a file <code>action.open_diff</code></td><td>raw patch in a scratch buffer</td><td class="no">no</td></tr>
+    <tr><td>4</td><td>Enter on a commit <code>action.open_commit</code></td><td><code>commit_preview.build</code> in a scratch buffer</td><td class="no">no</td></tr>
+    <tr><td>5</td><td>Git hunk float <code>git/preview.lua</code> (803 lines)</td><td>numbered rows, tints, changed words, treesitter, statuscolumn</td><td class="yes">yes</td></tr>
+  </table>
+  <p class="muted">The review lib paints an agent's proposal inline in the live buffer: a different problem, not touched.</p>
+
+  <div class="card" data-spec="duplication">
+    <h3>Duplication found</h3>
+    <ul>
+      <li><b>The renderer:</b> <code>render_rows</code>, <code>apply_decorations</code>, <code>_statuscol</code>, the gutter window options, the red/green groups and <code>word_spans</code> are all locked inside the git lib. The finder needs the same thing; copying makes two.</li>
+      <li><b>Finder, 3x each:</b> <code>vim.split(patch, "\n")</code> and the text "(diff too large or binary)" (<code>gh_pr_files</code>, <code>commit_preview.build</code>, <code>action.open_diff</code>); a file's summary line in two formats (<code>head</code>, <code>file_line</code>).</li>
+      <li><b>Scratch buffers:</b> <code>open_diff</code> and <code>open_commit</code> repeat ~12 lines.</li>
+      <li><b>Pane writes:</b> <code>gh_pr_files.preview</code> and <code>commit_preview.draw</code> repeat modifiable / lines / filetype / loaded_file / title / cursor.</li>
+    </ul>
+  </div>
+
+  <h3>Target structure</h3>
+  <svg viewBox="0 0 860 300" role="img" aria-label="shared renderer with two callers">
+    <title>shared diff renderer</title>
+    <g id="n-shared"><title>shared, new</title><rect class="hot" x="280" y="100" width="300" height="100" rx="8"/><text x="294" y="124">libs/view/diff.lua  (shared)</text><text class="dim" x="294" y="146">word_spans, pair, render, paint</text><text class="dim" x="294" y="164">attach/detach window, statuscol</text><text class="dim" x="294" y="182">libs/view/highlights.lua: BeastViewDiff*</text></g>
+    <g id="n-git"><title>git hunk float</title><rect class="box" x="10" y="20" width="230" height="64" rx="8"/><text x="22" y="44">git/preview.lua</text><text class="dim" x="22" y="62">buffer text + hunks -> rows</text><text class="dim" x="22" y="76">columns = 1 (refactored)</text></g>
+    <g id="n-fin"><title>finder adapter</title><rect class="hot" x="620" y="20" width="230" height="64" rx="8"/><text x="632" y="44">finder/ui/diff.lua  (new)</text><text class="dim" x="632" y="62">patch -> rows, draw, leave</text><text class="dim" x="632" y="76">columns = 2, wrap on</text></g>
+    <path d="M125 84 V120 H280"/><path d="M735 84 V120 H580"/>
+    <g id="n-src1"><title>callers</title><rect class="box" x="560" y="215" width="140" height="70" rx="8"/><text x="570" y="238">gh_pr_files</text><text class="dim" x="570" y="256">(= commit_files,</text><text class="dim" x="570" y="272">git_commit_files)</text></g>
+    <g id="n-src2"><title>callers</title><rect class="box" x="715" y="215" width="135" height="70" rx="8"/><text x="725" y="238">commit_preview</text><text class="dim" x="725" y="256">pane draws styled</text><text class="dim" x="725" y="272">build stays raw</text></g>
+    <path d="M630 215 V160 M782 215 V84"/><path d="M630 160 H735"/>
+    <g id="n-act"><title>Enter paths</title><rect class="old" x="10" y="215" width="250" height="70" rx="8"/><text x="22" y="238">action.lua  (raw, unchanged look)</text><text class="dim" x="22" y="256">open_scratch() shared by</text><text class="dim" x="22" y="272">open_diff and open_commit</text></g>
+  </svg>
+</section>
+
+<section data-spec="research">
+  <h2>Research</h2>
+  <ul>
+    <li><b>Reuse, mostly:</b> the whole renderer exists. The work is moving it to a neutral place and making it serve two callers.</li>
+    <li><b>Why <code>view/</code>:</b> it is already the shared UI toolkit (<code>view/buf</code>, <code>view/win</code>). Groups follow <code>Beast&lt;Lib&gt;*</code> as <code>BeastViewDiff*</code>; <code>hl_reload.lua</code> needs one registry line. <code>BeastGitPreview*</code> is used only in <code>git/preview.lua</code> and <code>git/highlights.lua</code>, so renaming is safe.</li>
+    <li><b>Gutter store:</b> a module-local weak table keyed by buffer, not <code>vim.b</code> (a read copies a Vimscript dict, once per screen row; fine for a hunk, bad for 3000 rows).</li>
+    <li><b>Wrapping:</b> the statuscolumn is called per screen row with <code>v:virtnum &gt; 0</code> on continuation rows: one branch blanks the numbers.</li>
+    <li><b>Enter must stay raw:</b> <code>commit_preview.build</code> feeds the pane and Enter's buffer; it keeps its output.</li>
+    <li><b>Tests touched:</b> <code>test-git-preview</code> (<code>_test.render_rows</code>), <code>test-git-word-diff</code>, and the four finder preview tests.</li>
+  </ul>
+  <p><span class="tag rec">Decision</span> Reuse (move the git renderer + word spans to <code>view/diff.lua</code>) + Build only the finder adapter. No new dependency.</p>
+</section>
+
+<section data-spec="architecture-changes">
+  <h2>Files</h2>
+  <table>
+    <tr><th>Path</th><th></th><th>What</th></tr>
+    <tr><td><code>lua/beast/libs/view/diff.lua</code></td><td class="new">new</td><td>shared: word_spans, pair, render, paint, clear, attach, detach, statuscol</td></tr>
+    <tr><td><code>lua/beast/libs/view/highlights.lua</code>, <code>lua/beast/hl_reload.lua</code></td><td class="new">new / modified</td><td><code>BeastViewDiff*</code> groups, registered</td></tr>
+    <tr><td><code>lua/beast/libs/git/preview.lua</code></td><td class="mod">modified</td><td>uses view/diff; drops render_rows, apply_decorations, _statuscol, gutter window options</td></tr>
+    <tr><td><code>lua/beast/libs/git/diff.lua</code>, <code>git/highlights.lua</code></td><td class="mod">modified</td><td>word_spans and the red/green groups move out</td></tr>
+    <tr><td><code>lua/beast/libs/finder/ui/diff.lua</code></td><td class="new">new</td><td>summary, raw_lines, parse, rows, draw, leave, syntax (Phase 5)</td></tr>
+    <tr><td><code>lua/beast/libs/finder/action.lua</code></td><td class="mod">modified</td><td><code>open_scratch</code>; <code>open_diff</code> uses <code>raw_lines</code></td></tr>
+    <tr><td><code>finder/source/gh_pr_files.lua</code>, <code>source/gh/commit_preview.lua</code>, <code>ui/preview.lua</code>, <code>source/gh/preview.lua</code></td><td class="mod">modified</td><td>see phases</td></tr>
+    <tr><td><code>tests/test-view-diff.lua</code>, <code>tests/test-finder-diff.lua</code></td><td class="new">new</td><td>renderer, patch parsing, syntax, draw timing</td></tr>
+    <tr><td><code>tests/test-git-preview.lua</code>, <code>test-git-word-diff.lua</code>, four finder preview tests</td><td class="mod">modified</td><td>imports; new preview expectations (Phases 3-4)</td></tr>
+    <tr><td><code>docs/CODEMAP/libraries.md</code></td><td class="mod">regenerated</td><td>via <code>/update-codemap</code></td></tr>
+  </table>
+  <div class="card" data-spec="row-model">
+    <h3>Shared row model</h3>
+    <pre>row = { kind = text|head|gap|hunk|code|note, text, old?, new?, sign, spans?, marks? }
+render(rows, { columns = 1 | 2 }) -> { body, hls, spans, gutters, width }
+
+columns = 1  git float:   source line number + mark
+columns = 2  finder:      old  new  mark
+wrapped screen row (v:virtnum &gt; 0) -> blank gutter in the row's tint
+non-code rows (head, gap, hunk, note) -> blank gutter in their own background
+
+finder gaps: above first hunk = new_start - 1
+             between hunks   = next.old_start - (prev.old_start + prev.old_count)
+             nothing after the last hunk (a patch does not carry the file length)</pre>
+  </div>
+</section>
+
+<section data-spec="phases">
+  <h2>Phases</h2>
+
+  <div class="card refactor" data-spec="phase-1">
+    <h3>Phase 1 - Shared renderer, git hunk preview migrated <span class="tag ref">refactor, nothing looks different</span></h3>
+    <p class="muted">Depends on: nothing. Proves the shared code by serving its original caller first.</p>
+    <div class="step" data-spec="phase-1-step-1"><b>1. Baseline <span class="risk-Low">Low</span></b>Run <code>tests/test-git-*</code> and <code>tests/test-finder-*</code>; screenshot the git hunk preview (staged, unstaged, changed words).</div>
+    <div class="step" data-spec="phase-1-step-2"><b>2. Shared highlights <span class="risk-Low">Low</span></b><code>view/highlights.lua</code> + registry line: <code>BeastViewDiff*</code> (same blends), plus LineNr, Hunk, Gap, Head. <code>git/highlights.lua</code> keeps blame, conflict, staged badge.</div>
+    <div class="step" data-spec="phase-1-step-3"><b>3. <code>view/diff.lua</code> <span class="risk-Medium">Medium</span></b>Move <code>word_spans</code> out of <code>git/diff.lua</code>; add <code>pair</code>; move <code>render_rows</code> (with <code>columns</code>), <code>apply_decorations</code> as <code>paint</code>/<code>clear</code>, <code>_statuscol</code> as <code>statuscol</code> (weak table), gutter window options as <code>attach</code>/<code>detach</code>. Risk: statuscolumn registration, width, extmark priorities must stay identical.</div>
+    <div class="step" data-spec="phase-1-step-4"><b>4. Migrate the git float <span class="risk-Medium">Medium</span></b><code>git/preview.lua</code> calls view/diff; keeps <code>build_rows</code>, placement, close wiring.</div>
+    <div class="step" data-spec="phase-1-step-5"><b>5. Tests <span class="risk-Low">Low</span></b><code>test-view-diff.lua</code> (moved word-span cases, <code>columns = 2</code>, wrapped-row gutter, non-code rows); git tests only change imports; baseline comparison; <code>bench-git.lua</code> before/after.</div>
+  </div>
+
+  <div class="card refactor" data-spec="phase-2">
+    <h3>Phase 2 - Finder dedupe <span class="tag ref">refactor, nothing looks different</span></h3>
+    <p class="muted">Depends on: nothing (can run in parallel with Phase 1).</p>
+    <div class="step" data-spec="phase-2-step-1"><b>1. One place for a file's patch <span class="risk-Low">Low</span></b><code>finder/ui/diff.lua</code>: <code>summary(file)</code> (one format), <code>raw_lines(file)</code> (patch lines or the single placeholder definition).</div>
+    <div class="step" data-spec="phase-2-step-2"><b>2. Use it <span class="risk-Low">Low</span></b><code>gh_pr_files.preview</code>, <code>commit_preview.build/file_line</code>, <code>action.open_diff</code>; add <code>open_scratch</code> for <code>open_diff</code> and <code>open_commit</code>. The four finder preview tests pass unchanged.</div>
+  </div>
+
+  <div class="card" data-spec="phase-3">
+    <h3>Phase 3 - Draw Files Changed with the shared renderer <span class="tag">the feature</span></h3>
+    <p class="muted">Depends on: Phases 1 and 2.</p>
+    <div class="step" data-spec="phase-3-step-1"><b>1. Patch to rows <span class="risk-Medium">Medium</span></b><code>parse</code> (hunks, no-newline note, CRLF) and <code>rows</code>: head row with +/- bar, gap, hunk, code rows with old/new numbers, <code>pair</code> for word spans, placeholder row, <code>MAX_ROWS = 3000</code>. Risk: header edge cases (<code>-0,0</code>, <code>+1,0</code>, omitted counts).</div>
+    <div class="step" data-spec="phase-3-step-2"><b>2. draw / leave <span class="risk-Medium">Medium</span></b>Write buffer, <code>render(columns = 2)</code>, <code>paint</code>, <code>attach</code>, then <code>wrap = true</code>, <code>filetype = ""</code>, title, cursor row 1. <code>leave</code> detaches and restores <code>wrap = false</code>. Risk: shared preview window; width must not flicker.</div>
+    <div class="step" data-spec="phase-3-step-3"><b>3. Wire Files Changed <span class="risk-Low">Low</span></b><code>gh_pr_files.preview</code> draws via ui/diff; commit and local-commit Files Changed follow (aliased). Enter untouched.</div>
+    <div class="step" data-spec="phase-3-step-4"><b>4. Release the window <span class="risk-Medium">Medium</span></b><code>diff.leave(view)</code> in <code>ui.preview.show/clear/draw_image</code> and <code>gh/preview.show</code>. Risk: a writer that forgets leaves a stale gutter.</div>
+    <div class="step" data-spec="phase-3-step-5"><b>5. Tests <span class="risk-Low">Low</span></b><code>test-finder-diff.lua</code> (two hunks gap 13 / 19 above, pure add, pure delete, rename, no patch, spans, cap, no-newline, CRLF) and picker tests (gutter via <code>nvim_eval_statusline(use_statuscol_lnum)</code>, wrapped row blank, <code>&lt;BS&gt;</code> restores window options, Enter still raw).</div>
+  </div>
+
+  <div class="card" data-spec="phase-4">
+    <h3>Phase 4 - The commit preview uses the same look</h3>
+    <p class="muted">PM decision 3. Depends on: Phase 3.</p>
+    <div class="step" data-spec="phase-4-step-1"><b>1. Styled sections <span class="risk-Medium">Medium</span></b><code>commit_preview.lua</code>: local <code>summary()</code> shared with <code>build</code> (Enter stays raw); pane = text rows + head row and <code>diff.rows</code> per file. Early draw (no detail yet) must work.</div>
+    <div class="step" data-spec="phase-4-step-2"><b>2. Tests <span class="risk-Low">Low</span></b><code>gh-commits</code> and <code>git-commits</code> expectations; Enter still a raw <code>diff</code> buffer.</div>
+  </div>
+
+  <div class="card" data-spec="phase-5">
+    <h3>Phase 5 - Syntax coloring</h3>
+    <p class="muted">PM decision 2. Depends on: Phase 3. Can be dropped without affecting the rest.</p>
+    <div class="step" data-spec="phase-5-step-1"><b>1. Per-side treesitter <span class="risk-Medium">Medium</span></b>Parse each hunk's old side (context + removed) and new side (context + added) separately with <code>get_string_parser</code>; fg-only capture extmarks through the shared <code>paint</code>. Skip on too many rows, long lines, no parser, any error. The git float keeps its whole-buffer parse.</div>
+    <div class="step" data-spec="phase-5-step-2"><b>2. Tests <span class="risk-Low">Low</span></b>captures on code rows only; unknown extension and oversized file draw plain; time a 3000-row draw.</div>
+  </div>
+</section>
+
+<section data-spec="testing-strategy">
+  <h2>Testing</h2>
+  <ul>
+    <li><b>Headless, after every phase:</b> <code>tests/test-view-diff.lua</code> and <code>test-finder-diff.lua</code> (new), all <code>tests/test-git-*.lua</code>, all <code>tests/test-finder-*.lua</code>.</li>
+    <li><b>Types and style:</b> <code>lua-language-server --check . --checklevel=Warning</code>, <code>stylua</code>.</li>
+    <li><b>Bench:</b> <code>scripts/bench-git.lua</code> before/after Phase 1 (hunk preview is on its path); <code>bench-ux.sh all</code> before merging Phases 1, 3 and 5; time <code>draw</code> on 3000 rows.</li>
+    <li><b>Manual:</b> Phase 1: git hunk preview identical to the baseline screenshot. Phases 3-5: PM scenarios 1 to 9; hold <code>&lt;Down&gt;</code>, resize with a long line open, <code>&lt;BS&gt;</code> to PRs and to a grep, <code>:colorscheme</code> light and dark, deleted and binary files; pixel-level check of gutter and tint continuity across wrapped rows.</li>
+  </ul>
+</section>
+
+<section data-spec="success-criteria">
+  <h2>Success criteria</h2>
+  <ul>
+    <li>After Phases 1-2 nothing looks different and all tests are green.</li>
+    <li>One implementation of rows-to-buffer, word spans, tints and gutter, used by the git float and the finder; one source of red/green groups.</li>
+    <li>One definition in the finder of: the "binary" placeholder, a file's summary line, splitting a patch, opening a scratch diff buffer.</li>
+    <li>All PM spec criteria (header, numbers, red/green, changed words, wrap, gaps, special files, commit preview, colorscheme, speed, keys unchanged).</li>
+    <li>Code colored for the file's language without breaking tint or word backgrounds.</li>
+    <li>After leaving a diff the pane has no gutter, and file previews have line numbers again.</li>
+    <li>Git and finder tests, type check, <code>bench-git.lua</code> and <code>bench-ux.sh all</code> healthy.</li>
+  </ul>
+</section>
+
+<section data-spec="review-notes">
+  <h2>Needs your eye</h2>
+  <div class="card warn" data-spec="decision-home">
+    <h3>Where the shared renderer lives</h3>
+    <p><span class="tag rec">Recommended</span> <code>libs/view/diff.lua</code> with <code>BeastViewDiff*</code> groups: <code>view/</code> is already the shared UI toolkit and the renderer also paints buffers and sets window options.<br><span class="tag">Alternative</span> <code>util/diff.lua</code>: rejected, util has no UI code today.</p>
+  </div>
+  <div class="card warn" data-spec="pm-gap-scenario-8">
+    <h3>PM spec gap, scenario 8</h3>
+    <p>The PM spec says "the finder keeps its own colors while open". In the code only the prompt and list panels are frozen; the preview uses global groups, so the diff recolors with <code>:colorscheme</code>. This plan implements "recolors". The second sentence of scenario 8 should be dropped from the PM spec - say if you want it edited.</p>
+  </div>
+  <div class="card" data-spec="scope-note">
+    <h3>Scope</h3>
+    <p>Phases 1-2 are the refactors you asked for before new features. Not touched: the review lib's inline overlay, <code>git/patch.lua</code>, and moving the git float to the finder's per-side syntax parse.</p>
+  </div>
+</section>
+
+</main>
+</body>
+</html>

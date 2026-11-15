@@ -1,4 +1,4 @@
-<!-- Generated: 2026-11-15 | Files scanned: 345 | Token estimate: ~13964 -->
+<!-- Generated: 2026-11-16 | Files scanned: 361 | Token estimate: ~13964 -->
 
 # Libraries
 
@@ -134,7 +134,7 @@ finder/
 │   │       ├── builder.lua    ← pure build routine (rg --files → read → serialize.write); runs in the child
 │   │       └── index.lua      ← spawns headless builder subprocess, loads via ffi.copy, fs_event refresh, query→paths
 │   ├── gh_commits.lua ← match source over `filter.ctx.pr`: the commits of a pull request (id, subject, author, age; newest first via `keep_order`), diff preview (`gh/commit_preview.lua`, per-commit cache), Enter opens the commit in a scratch buffer
-│   ├── gh_commit_files.lua ← match source over `filter.ctx.commit`: the files one commit changes (rows/preview/Enter as gh_pr_files); title "Commit <id> › Files Changed (N)"
+│   ├── gh_commit_files.lua ← match source over `filter.ctx.commit`: the files one commit changes (rows/preview/Enter as gh_pr_files; the preview is `ui/diff.lua` drawing the file's diff); title "Commit <id> › Files Changed (N)"
 │   ├── git_commits.lua ← match source: the latest 500 commits of the local repo (`git log`, newest first); reuses the gh commit row/preview/open; `git/log.lua` runs `git log` / `git show` and parses them into the GitHub commit/file shapes
 │   ├── git_commit_files.lua ← match source over `filter.ctx.commit`: the files a local commit changed; title "<id> <subject> › Files Changed (N)"
 │   ├── gh_pr_files.lua ← match source over `filter.ctx.pr`: the files a pull request changes (paths), diff preview, Enter opens the diff in a scratch buffer; title "PR <title> › Files Changed (N)"
@@ -150,13 +150,15 @@ finder/
 │   └── gh/
 │       ├── query.lua   ← pure: build(text, repo) adds repo:/sort:created-desc unless present; scope(); default_text(kind)
 │       ├── api.lua     ← `gh` CLI wrapper: check() local pre-flight, search() (gh api search/issues), files() (pulls/{n}/files, 3 pages + truncation probe), detail() (gh pr|issue view), normalize*, error classes
-│       └── preview.lua ← preview pane: build()/reltime() pure, show() draws header at once then detail; per-view cache, stale-fetch guard
+│       ├── preview.lua ← preview pane: build()/reltime() pure, show() draws header at once then detail; per-view cache, stale-fetch guard
+│       └── commit_preview.lua ← a commit's pane: rows() (plain summary + each file via ui/diff) and build() (raw text, what Enter opens)
 └── ui/
     ├── init.lua     ← barrel (input, list, preview, backdrop, hint)
     ├── hint.lua     ← one-line key hints under the picker, right-aligned, hidden when there is no room (and in the cards layout)
     ├── input.lua    ← prompt buffer + debounced TextChanged (set_debounce follows the shown level)
     ├── list.lua     ← rendered items + cursor + selection prefix; opt-in separator rows (create(..., separators)), multi-chunk right_align (Highlight.chunks)
-    ├── preview.lua  ← file preview with filetype detection
+    ├── preview.lua  ← file preview with filetype detection; show/clear/draw_image first call diff.leave
+    ├── diff.lua     ← a changed file's diff: summary/raw_lines (the one place of the "diff too large or binary" text), parse(patch) → hunks, rows(file) → view/diff rows (header + bar, hunk bands, "N unchanged lines" gaps, numbers, changed words, per-side treesitter color), draw(view,rows,title)/leave(view) (wrap + gutter on/off in the shared preview window), plain(text,hl)
     └── backdrop.lua ← fullscreen dim overlay
 ```
 
@@ -644,7 +646,9 @@ view/
 ├── init.lua    ← Beast.View instance class + Beast.View.Module
 │                 View(buf, win), :is_valid, :close, View:extend(init)
 ├── buf.lua     ← View.buf.new(filetype), View.buf.delete({ buf, force })
-└── win.lua     ← View.win.wo, View.win.find_normal()
+├── win.lua     ← View.win.wo, View.win.find_normal()
+├── diff.lua    ← shared diff renderer (git hunk float + finder preview): row {text, sign, old?, new?, spans?, plain?, hl?, marks?}; render(rows,{columns=1|2}) → body/tints/changed-word spans/gutter chunks; pair() + word_spans() (changed words); paint(buf)/clear(buf) extmarks, gutter kept in a module table; attach(win,width)/detach(win) set + restore the gutter window options; statuscol() (wrapped screen rows get a blank gutter)
+└── highlights.lua ← BeastViewDiff* groups (Add/Delete, Word, Sign, Head, Hunk, Gap, StatAdd/StatDelete)
 ```
 
 API: `View(buf, win)`, `View:extend(init)` for subclasses (every UI lib's
@@ -776,14 +780,14 @@ git/
 ├── init.lua       ← state, attach/detach, debounced recompute, single-flight, autocmds, public surface
 ├── config.lua     ← debounce_ms, keymaps, icons, ft_ignore, bt_ignore, blame{ enabled, delay_ms, ... } (frozen, ADR-003)
 ├── repo.lua       ← resolve(buf) + get_base/get_head/get_path_data/intent_to_add/get_username via vim.system
-├── diff.lua       ← compute_hunks(base, current) via vim.text.diff (fallback vim.diff), histogram + linematch; word_spans(old, new) → changed-word byte ranges (nil if too different / >1000 bytes)
+├── diff.lua       ← compute_hunks(base, current) via vim.text.diff (fallback vim.diff), histogram + linematch; (word_spans moved to view/diff.lua)
 ├── hunks.lua      ← expand_signs / expand_staged_signs / find_at_buffer_line / index_to_buffer_delta
 ├── signs.lua      ← namespaces { unstaged, staged }; place_unstaged / place_staged (priority 6 vs 5)
 ├── patch.lua      ← pure: format(ref, target, hunks, path_data) → unified-zero patch lines (mini.diff pattern)
 ├── apply.lua      ← async: vim.system `git apply --cached --unidiff-zero [--reverse] -` on stdin
 ├── actions.lua    ← stage_hunk (toggle), unstage_hunk, reset_hunk; with_path_data covers untracked via intent-to-add
 ├── nav.lua        ← nav_hunk("next"|"prev", { wrap, foldopen, target }) — `''` mark + `zv`; target=unstaged|staged|all
-├── preview.lua    ← Beast.View subclass; <leader>gp opens diff float, auto-close on CursorMoved; pairs -/+ rows per hunk, paints changed words (hl_group extmarks over the hl_eol line tint)
+├── preview.lua    ← Beast.View subclass; <leader>gp opens diff float, auto-close on CursorMoved; builds -/+ rows per hunk, draws them with view/diff (columns=1)
 ├── visual.lua     ← visual-mode helper: selected line span for hunk actions/preview
 ├── conflict.lua   ← merge-conflict highlighter: one coloured band per side + (Current/Incoming Change) labels
 ├── blame.lua      ← async `git blame --incremental` parser; run(ctx, { lnum?, contents?, ignore_whitespace?, revision?, untracked? }, cb)

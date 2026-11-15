@@ -1,4 +1,4 @@
-<!-- Generated: 2026-11-14 | Files scanned: 331 | Token estimate: ~3380 -->
+<!-- Generated: 2026-11-16 | Files scanned: 361 | Token estimate: ~3380 -->
 
 # Architecture
 
@@ -206,7 +206,7 @@ optional `M.post_apply()`. See ADR-026 for the contract.
 `M.highlight_modules` includes: `beast.theme.highlights`, `beast.theme.blink`,
 plus `<lib>.highlights` for confirm, input, select, explorer, finder, key,
 notify, packer, statusline, statuscolumn, git, breadcrumb, tabline, toast,
-indent, treesitter (+ treesitter.context), lsp, review, searchcount, messages.
+indent, treesitter (+ treesitter.context), lsp, review, searchcount, messages, view (shared diff groups).
 Skipped for plugin schemes (gated by `Theme.kind() == "plugin"`): treesitter,
 theme.highlights, theme.blink; lsp highlights branch on the same check.
 

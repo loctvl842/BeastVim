@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spec: Finder diff preview</title>
+<style>
+  :root {
+    --bg:#fbfaf7; --fg:#1c1b19; --muted:#6b675f; --line:#dcd8cf; --card:#fff; --accent:#b4540a;
+    --term:#1e1e20; --term-fg:#e6e3da; --term-dim:#8a867c; --term-line:#38363a;
+    --del:#4a2430; --del-strong:#8a2f45; --add:#223d28; --add-strong:#2f7a41; --hunk:#2a2d3a; --hunk-fg:#8fb4e8;
+    --ok:#2f7a41;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#161513; --fg:#ece8df; --muted:#a29d92; --line:#3a3732; --card:#1f1d1a; --accent:#e08a3c; --term:#121214; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, sans-serif; }
+  main { max-width:880px; margin:0 auto; padding:24px 16px 80px; }
+  h1 { font-size:28px; margin:0 0 8px; }
+  h2 { font-size:20px; margin:0 0 10px; }
+  h3 { font-size:16px; margin:18px 0 6px; }
+  section { margin:36px 0; }
+  p { margin:8px 0; }
+  .muted { color:var(--muted); }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin:12px 0; }
+  .tag { display:inline-block; font-size:12px; padding:1px 8px; border-radius:999px; border:1px solid var(--line); color:var(--muted); }
+  .rec { border-color:var(--accent); color:var(--accent); }
+  code { font:13px ui-monospace, Menlo, monospace; background:rgba(128,128,128,.15); padding:1px 5px; border-radius:4px; }
+  ul { padding-left:20px; } li { margin:4px 0; }
+  .checks { list-style:none; padding:0; } .checks li::before { content:"\2610  "; color:var(--muted); }
+
+  /* terminal mockups */
+  .term { background:var(--term); color:var(--term-fg); border:1px solid var(--term-line); border-radius:8px; margin:10px 0; overflow:hidden; font:12.5px/1.5 ui-monospace, Menlo, monospace; }
+  .term .bar { padding:4px 12px; border-bottom:1px solid var(--term-line); color:#e8c46a; }
+  .term .sub { padding:4px 12px; border-bottom:1px solid var(--term-line); color:var(--term-fg); }
+  .term .sub b { color:var(--add-strong); font-weight:400; } .term .sub i { color:#d9566f; font-style:normal; }
+  .term .row { display:flex; white-space:pre-wrap; overflow-wrap:anywhere; padding-right:8px; }
+  .term .n { flex:0 0 2.6em; text-align:right; color:var(--term-dim); padding-right:.5em; user-select:none; }
+  .term .m { flex:0 0 1.6em; text-align:center; color:var(--term-dim); }
+  .term .t { flex:1 1 auto; min-width:0; }
+  .term .del { background:var(--del); } .term .add { background:var(--add); }
+  .term .del .m { color:#ff8fa3; } .term .add .m { color:#8fe0a0; }
+  .term .del mark { background:var(--del-strong); color:inherit; } .term .add mark { background:var(--add-strong); color:inherit; }
+  .term .gap { color:var(--term-dim); padding:3px 12px; background:rgba(255,255,255,.03); }
+  .term .hunk { color:var(--hunk-fg); padding:2px 12px; background:var(--hunk); }
+  .term .note { color:var(--term-dim); padding:8px 12px; }
+  .cut { color:#d9566f; font-size:11px; }
+  .pair { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  @media (max-width:700px) { .pair { grid-template-columns:1fr; } }
+  .legend { font-size:13px; color:var(--muted); margin:4px 0 12px; }
+  table { border-collapse:collapse; width:100%; font-size:14px; }
+  th, td { text-align:left; border-bottom:1px solid var(--line); padding:6px 8px; vertical-align:top; }
+  .step { display:flex; gap:10px; margin:6px 0; } .step b { flex:0 0 64px; color:var(--accent); font-weight:600; }
+</style>
+</head>
+<body>
+<main>
+
+<header data-spec="summary">
+  <h1>Finder diff preview</h1>
+  <p>Highlight a file in <b>Files Changed</b> (of a pull request or a commit) and the right side shows its diff the way GitHub does: line numbers, whole red and green lines, the exact changed words emphasized, long lines wrapped. Reviewing a change no longer needs the browser.</p>
+</header>
+
+<section data-spec="problem">
+  <h2>Problem: the preview is a raw patch</h2>
+  <div class="term" aria-label="today">
+    <div class="bar">packages/cli/README.md</div>
+    <div class="note" style="padding:6px 12px;color:var(--term-fg)">modified  +5 -6<br><span style="color:var(--hunk-fg)">@@ -20,7 +20,7 @@ mesh = jarvis &gt;&gt; planner &gt;&gt; (coder &amp; t</span><br>&nbsp;- The file may define other graphs or loose nodes; on<br><span style="color:#ff8fa3">-- `harness`, `cwd`, `model` and `prompt` are read fro</span> <span class="cut">&larr; cut at the edge</span><br><span style="color:#8fe0a0">+- `harness`, `cwd`, `model` and `prompt` are read fro</span> <span class="cut">&larr; cut at the edge</span></div>
+  </div>
+  <ul>
+    <li>No line numbers: you cannot tell where in the file you are.</li>
+    <li>An edited line is two near-identical rows with nothing marking the difference.</li>
+    <li>Long lines run off the right edge, so the part you need is often hidden.</li>
+  </ul>
+  <p class="muted">Today you open the PR in the browser to review properly. You would rather stay in the terminal. The patch is already fetched; only its presentation is missing.</p>
+</section>
+
+<section data-spec="target-behavior">
+  <h2>Target behavior</h2>
+
+  <div data-spec="state-1">
+    <h3>STATE 1 - a file with two changed places</h3>
+    <div class="term">
+      <div class="bar">packages/cli/README.md</div>
+      <div class="sub">modified &nbsp; <b>+5</b> <i>-6</i> &nbsp; <b>■■■■■</b><i>■■■■■</i></div>
+      <div class="gap">⋯ 19 unchanged lines above</div>
+      <div class="hunk">▸ @@ -20,7 +20,7 @@ mesh = jarvis &gt;&gt; planner &gt;&gt; (coder &amp; tests)</div>
+      <div class="row"><span class="n">20</span><span class="n">20</span><span class="m"></span><span class="t"></span></div>
+      <div class="row"><span class="n">21</span><span class="n">21</span><span class="m"></span><span class="t">- The file may define other graphs or loose nodes; only the graph rooted at `jarvis` is launched.</span></div>
+      <div class="row"><span class="n">22</span><span class="n">22</span><span class="m"></span><span class="t">- `A &gt;&gt; B` means A may message B. `&amp;` groups siblings and has no other meaning.</span></div>
+      <div class="row del"><span class="n">23</span><span class="n"></span><span class="m">-</span><span class="t">- `harness`, `cwd`, `model` and `prompt` are read from each node. `prompt` is the node's task, added to its system prompt; for `jarvis` it is your standing instructions (see below).</span></div>
+      <div class="row add"><span class="n"></span><span class="n">23</span><span class="m">+</span><span class="t">- `harness`, `cwd`, `model` and `prompt` are read from each node. `prompt` is the node's task, added to its system prompt<mark> (nothing else is)</mark>; for `jarvis` it is your standing instructions (see below).</span></div>
+      <div class="row"><span class="n">24</span><span class="n">24</span><span class="m"></span><span class="t">- A node with no `cwd` runs in its parent's folder, and `jarvis` with no `cwd` runs in `--cwd`.</span></div>
+      <div class="row"><span class="n">25</span><span class="n">25</span><span class="m"></span><span class="t">- A node that is defined but not connected to `jarvis` is not launched, and a warning names it.</span></div>
+      <div class="row"><span class="n">26</span><span class="n">26</span><span class="m"></span><span class="t">- A node written as a function (no `harness`) runs in its own pane.</span></div>
+      <div class="gap">⋯ 13 unchanged lines</div>
+      <div class="hunk">▸ @@ -40,14 +40,13 @@ jarvix mesh down</div>
+      <div class="row"><span class="n">40</span><span class="n">40</span><span class="m"></span><span class="t"></span></div>
+      <div class="row"><span class="n">41</span><span class="n">41</span><span class="m"></span><span class="t">`jarvis` is the one pane you talk to. It does not do project work.</span></div>
+    </div>
+    <p class="legend">Row = old number, new number, mark (<code>-</code> <code>+</code> or blank), text. The long red and green lines wrap onto the next row with empty number columns. Only the lines GitHub returns exist, so the hidden ones show as a count.</p>
+  </div>
+
+  <div data-spec="state-2">
+    <h3>STATE 2 - one edited line: only the changed words get the stronger shade</h3>
+    <div class="term">
+      <div class="row del"><span class="n">43</span><span class="n"></span><span class="m">-</span><span class="t">Its system prompt has three layers: our rules, a generated description of your graph, then your own text. Your text comes last and cannot lift the rules above it.</span></div>
+      <div class="row add"><span class="n"></span><span class="n">43</span><span class="m">+</span><span class="t">Its system prompt has three layers: our rules, a generated description of your graph, then your own text<mark>, the `prompt` of the `jarvis` node</mark>. Your text comes last and cannot lift the rules above it.</span></div>
+    </div>
+    <p class="legend">Lines that share little, pure additions and pure deletions get the soft color only (same rule as the git hunk preview).</p>
+  </div>
+
+  <div data-spec="state-3">
+    <h3>STATE 3 - an added file and a deleted file</h3>
+    <div class="pair">
+      <div class="term">
+        <div class="bar">packages/cli/src/jarvix/cli/prompts.py</div>
+        <div class="sub">added &nbsp; <b>+42</b> <i>-0</i> &nbsp; <b>■■■■■■■■■■</b></div>
+        <div class="hunk">▸ @@ -0,0 +1,42 @@</div>
+        <div class="row add"><span class="n"></span><span class="n">1</span><span class="m">+</span><span class="t">"""Prompt text for the nodes."""</span></div>
+        <div class="row add"><span class="n"></span><span class="n">2</span><span class="m">+</span><span class="t"></span></div>
+        <div class="row add"><span class="n"></span><span class="n">3</span><span class="m">+</span><span class="t">from __future__ import annotations</span></div>
+      </div>
+      <div class="term">
+        <div class="bar">docs/old-notes.md</div>
+        <div class="sub">removed &nbsp; <b>+0</b> <i>-18</i> &nbsp; <i>■■■■■■■■■■</i></div>
+        <div class="hunk">▸ @@ -1,18 +0,0 @@</div>
+        <div class="row del"><span class="n">1</span><span class="n"></span><span class="m">-</span><span class="t"># Old notes</span></div>
+        <div class="row del"><span class="n">2</span><span class="n"></span><span class="m">-</span><span class="t"></span></div>
+        <div class="row del"><span class="n">3</span><span class="n"></span><span class="m">-</span><span class="t">Nothing here is used any more.</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div data-spec="state-4">
+    <h3>STATE 4 - a renamed file, and a file with no readable diff</h3>
+    <div class="pair">
+      <div class="term">
+        <div class="bar">packages/cli/tests/test_prompts.py</div>
+        <div class="sub">renamed &nbsp; <b>+3</b> <i>-1</i> &nbsp; (was packages/cli/tests/test_p.py)</div>
+        <div class="hunk">▸ @@ -4,7 +4,9 @@ ...</div>
+        <div class="row"><span class="n">4</span><span class="n">4</span><span class="m"></span><span class="t">...</span></div>
+      </div>
+      <div class="term">
+        <div class="bar">assets/logo.png</div>
+        <div class="sub">modified</div>
+        <div class="note">(diff too large or binary)</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section data-spec="scenarios">
+  <h2>Scenarios</h2>
+
+  <div class="card" data-spec="scenario-1">
+    <h3>1 - Happy path: review a pull request file by file</h3>
+    <div class="step"><b>Step 1</b><span><code>&lt;leader&gt;ghp</code>, move to a PR, <code>&lt;C-g&gt;</code>. Title "PR Refactor m4 › Files Changed (5)"; the first file's diff fills the right side as in STATE 1.</span></div>
+    <div class="step"><b>Step 2</b><span><code>&lt;Down&gt;</code>: the next file's diff replaces it, starting at the top, no flicker.</span></div>
+    <div class="step"><b>Step 3</b><span>Scroll the preview with the usual keys. Numbers, marks and text move together; a wrapped line is never half off screen.</span></div>
+    <div class="step"><b>Step 4</b><span><code>&lt;Enter&gt;</code> on a file: unchanged, the diff opens in a read-only buffer.</span></div>
+  </div>
+
+  <div class="card" data-spec="scenario-2">
+    <h3>2 - A long line</h3>
+    <p>It wraps onto the next rows; wrapped rows have empty number columns and the same red or green, so it reads as one line. Nothing is cut at the edge. Resizing the terminal re-wraps.</p>
+  </div>
+
+  <div class="card" data-spec="scenario-3">
+    <h3>3 - An edited line: which words changed</h3>
+    <p>Similar removed and added lines: stronger red and green on the differing words. Lines that share little, or pure additions or deletions: soft color only.</p>
+  </div>
+
+  <div class="card" data-spec="scenario-4">
+    <h3>4 - Several changed places in one file</h3>
+    <p>Between changes a muted row says "13 unchanged lines", then the change's own header (lines and nearest function or heading). If the first change is not at the top, "19 unchanged lines above". Numbers stay right across the gap (23, 24, 25, 26, then 40).</p>
+  </div>
+
+  <div class="card" data-spec="scenario-5">
+    <h3>5 - Added, deleted and renamed files</h3>
+    <p>Added: only the new-line column, all green, "added +42 -0". Deleted: only the old-line column, all red, "removed +0 -18". Renamed: "renamed" and "(was &lt;old path&gt;)".</p>
+  </div>
+
+  <div class="card" data-spec="scenario-6">
+    <h3>6 - No diff to show</h3>
+    <p>Binary, image, or too large for GitHub: file name, status and "(diff too large or binary)". No rows, no error.</p>
+  </div>
+
+  <div class="card" data-spec="scenario-7">
+    <h3>7 - The commits of a PR use the same look</h3>
+    <p>Highlight a commit: its message, file list, then each file's diff drawn as in STATE 1. <code>&lt;C-g&gt;</code> to that commit's Files Changed gives the same preview as scenario 1.</p>
+  </div>
+
+  <div class="card" data-spec="scenario-8">
+    <h3>8 - Changing the colorscheme</h3>
+    <p>Red, green, stronger shades and number columns follow the new colorscheme, dark and light. The finder keeps its own colors while open, as for everything else.</p>
+  </div>
+
+  <div class="card" data-spec="scenario-9">
+    <h3>9 - Moving fast and going back</h3>
+    <p>Holding <code>&lt;Down&gt;</code> across many files stays smooth; only the file you stop on is drawn. <code>&lt;BS&gt;</code> on an empty prompt or <code>&lt;C-o&gt;</code> goes back a level, and the previous level's diff shows again for the same row.</p>
+  </div>
+</section>
+
+<section data-spec="behavior-rules">
+  <h2>Behavior rules</h2>
+  <ul>
+    <li>Applies to Files Changed (PR and commit) and to the per-file diffs inside a commit's preview.</li>
+    <li>Unified view, one column, top to bottom. No side-by-side.</li>
+    <li>Number columns are as wide as the largest line number in the file, so rows stay aligned.</li>
+    <li>Raw <code>@@ ... @@</code> text is never in the body; each hunk is one muted row.</li>
+    <li>The small bar in the header is proportional to additions vs deletions.</li>
+    <li>Marks and numbers are not part of the text: copying from the preview takes only the code.</li>
+    <li>"No newline at end of file" is shown as a muted note.</li>
+    <li>Only the lines GitHub returns exist; hidden lines cannot be expanded here.</li>
+    <li>All colors come from the colorscheme.</li>
+    <li><code>&lt;Enter&gt;</code> keeps opening the raw diff buffer; this spec does not change it.</li>
+  </ul>
+</section>
+
+<section data-spec="open-decisions">
+  <h2>Decisions for you</h2>
+  <div class="card" data-spec="decision-1">
+    <b>1. Long lines</b>
+    <p><span class="tag rec">Recommended</span> Wrap (like GitHub).<br><span class="tag">Alternative</span> Keep cutting and scroll sideways.</p>
+  </div>
+  <div class="card" data-spec="decision-2">
+    <b>2. Code coloring</b>
+    <p><span class="tag rec">Recommended</span> Color the code for the file's language (keywords, strings) on top of red/green.<br><span class="tag">Alternative</span> Plain text on red/green: simpler, faster.</p>
+  </div>
+  <div class="card" data-spec="decision-3">
+    <b>3. Commit preview</b>
+    <p><span class="tag rec">Recommended</span> Same look for the diffs inside a commit's preview, so the whole chain is consistent.<br><span class="tag">Alternative</span> Only the Files Changed level.</p>
+  </div>
+  <div class="card" data-spec="decision-4">
+    <b>4. Enter</b>
+    <p><span class="tag rec">Recommended</span> Unchanged: raw diff in a read-only buffer (easy to copy and search).<br><span class="tag">Alternative</span> Open the same drawn diff in a full window.</p>
+  </div>
+</section>
+
+<section data-spec="success-criteria">
+  <h2>Success criteria</h2>
+  <ul class="checks">
+    <li>Highlighting a file shows the header (status, +N -M, bar) and the diff with old and new line numbers.</li>
+    <li>Removed lines are red and added lines green across the whole row; context is neutral.</li>
+    <li>On an edited line, only the changed words get the stronger shade.</li>
+    <li>A long line wraps with empty number columns and keeps its color; nothing is cut at the edge.</li>
+    <li>Gaps show "N unchanged lines"; numbers stay correct across them.</li>
+    <li>Added, deleted, renamed, binary and too-large files render as in STATES 3 and 4.</li>
+    <li>A commit's preview draws each file's diff in the same style.</li>
+    <li>Changing the colorscheme recolors the diff correctly, dark and light.</li>
+    <li>Moving through files is as fast as before; the diff always starts at the top.</li>
+    <li><code>&lt;Enter&gt;</code>, <code>&lt;BS&gt;</code>, <code>&lt;C-o&gt;</code> and <code>&lt;C-g&gt;</code> behave exactly as before.</li>
+  </ul>
+</section>
+
+<section data-spec="out-of-scope">
+  <h2>Out of scope</h2>
+  <ul>
+    <li>Side-by-side view: the preview is half the screen wide.</li>
+    <li>Expanding hidden unchanged lines: needs the full file at that commit; deferred.</li>
+    <li>Review features: comments, "Viewed" checkmarks, approving, suggestions.</li>
+    <li>Toggling the changed-word emphasis off; it is always on, as in the git preview.</li>
+    <li>Diffs of local changes (git hunk preview), which already has its own look.</li>
+  </ul>
+</section>
+
+</main>
+</body>
+</html>
