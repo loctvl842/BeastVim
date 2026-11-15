@@ -21,6 +21,35 @@ for _, pair in ipairs({
 	local ok, err = pcall(chain.edge, pair[1], pair[2])
 	t.ok(("%s -> %s raises"):format(pair[1], pair[2]), not ok and tostring(err):find(pair[1] .. " -> " .. pair[2], 1, true), tostring(err))
 end
+local sources = {}
+for _, path in ipairs(vim.fn.globpath("lua/beast/libs/finder/source", "*.lua", false, true)) do
+	local name = vim.fn.fnamemodify(path, ":t:r")
+	if name ~= "init" then
+		sources[#sources + 1] = name
+	end
+end
+for _, dir_name in ipairs({ "live_grep" }) do
+	sources[#sources + 1] = dir_name
+end
+local valid = {
+	["files>live_grep"] = true,
+	["buffers>live_grep"] = true,
+	["help_tags>live_grep"] = true,
+	["gh_pr>gh_pr_files"] = true,
+	["gh_pr_files>live_grep"] = true,
+	["gh_issue>gh_issue_grep"] = true,
+}
+local wrong = {}
+for _, from in ipairs(sources) do
+	for _, to in ipairs(sources) do
+		local ok = pcall(chain.edge, from, to)
+		if ok ~= (valid[from .. ">" .. to] == true) then
+			wrong[#wrong + 1] = from .. " -> " .. to
+		end
+	end
+end
+t.ok("sources were found", #sources >= 12, vim.inspect(sources))
+t.eq("exactly the six built-in edges exist, every other pair raises", wrong, {})
 t.eq("finder.chains() is the same table", require("beast.libs.finder").chains(), require("beast.libs.finder.chains"))
 
 t.section("files -> grep")
