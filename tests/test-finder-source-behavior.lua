@@ -102,7 +102,16 @@ local lsp = sources.lsp_references
 local real_lsp_get = lsp.get
 lsp.get = function(_, cb)
 	for i, lnum in ipairs({ 4, 12 }) do
-		cb({ idx = i, score = 0, text = "lua/c.lua:" .. lnum .. ": use(x)", file = cwd .. "/lua/c.lua", cwd = cwd, pos = { lnum, 2 }, end_pos = { lnum, 5 }, grep_text = "use(x)" })
+		cb({
+			idx = i,
+			score = 0,
+			text = "lua/c.lua:" .. lnum .. ": use(x)",
+			file = cwd .. "/lua/c.lua",
+			cwd = cwd,
+			pos = { lnum, 2 },
+			end_pos = { lnum, 5 },
+			grep_text = "use(x)",
+		})
 	end
 	cb(nil)
 end
