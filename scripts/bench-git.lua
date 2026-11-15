@@ -79,7 +79,7 @@ local function bench_words(pairs_n)
 	end
 	local function run()
 		for i = 1, pairs_n do
-			assert(diff.word_spans(old[i], new[i]), "expected spans")
+			assert(require("beast.libs.view.diff").word_spans(old[i], new[i]), "expected spans")
 		end
 	end
 	run()

@@ -621,6 +621,7 @@ end
 function M.setup(opts)
 	config.setup(opts)
 	require("beast").apply_highlights("beast.libs.git.highlights")
+	require("beast").apply_highlights("beast.libs.view.highlights")
 	rebuild_ignore_sets()
 	ensure_autocmds()
 	-- Attach existing loaded buffers (lazy-load case).

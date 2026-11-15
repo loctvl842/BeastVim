@@ -63,7 +63,7 @@ end
 
 local preview = require("beast.libs.git.preview")
 local build_rows = preview._test.build_rows
-local render_rows = preview._test.render_rows
+local view_diff = require("beast.libs.view.diff")
 local buffer_source = preview._test.buffer_source
 
 -- build_rows(source, removed_text, added_text, hunks, ctx_n): the tests
@@ -104,17 +104,17 @@ do
 	-- Find the - and + rows.
 	local minus, plus
 	for _, r in ipairs(rows) do
-		if r.marker == "- " then
+		if r.sign == "-" then
 			minus = r
 		end
-		if r.marker == "+ " then
+		if r.sign == "+" then
 			plus = r
 		end
 	end
-	assert_eq("removed line uses current b_start", minus and minus.lnum, 4)
-	assert_eq("added line uses b_start", plus and plus.lnum, 4)
+	assert_eq("removed line uses current b_start", minus and minus.new, 4)
+	assert_eq("added line uses b_start", plus and plus.new, 4)
 
-	local body = render_rows(rows)
+	local body = view_diff.render(rows, { columns = 1 }).body
 	-- Context: lines 1,2,3 before; 5,6,7 after (in current buffer).
 	assert_eq("body[1]", body[1], "line 02 — baseline") -- current line 1 = baseline 02
 end
@@ -132,12 +132,12 @@ do
 	local rows = build_rows_unstaged(buf, base_text, { hunk }, 3)
 
 	local minus = rows[1]
-	assert_eq("topdelete removed lnum is clamped to 1", minus.lnum, 1)
-	assert_eq("topdelete first row is removed", minus.marker, "- ")
+	assert_eq("topdelete removed lnum is clamped to 1", minus.new, 1)
+	assert_eq("topdelete first row is removed", minus.sign, "-")
 
 	-- Trailing context: current lines 1,2,3 = baseline 02,03,04.
-	assert_eq("row[2] lnum (context after)", rows[2].lnum, 1)
-	assert_eq("row[2] marker (context after)", rows[2].marker, "  ")
+	assert_eq("row[2] lnum (context after)", rows[2].new, 1)
+	assert_eq("row[2] marker (context after)", rows[2].sign, " ")
 end
 
 -- =========================================================================
@@ -156,37 +156,12 @@ do
 	local rows = build_rows_unstaged(buf, base_text, { hunk }, 0)
 
 	assert_eq("3 added rows", #rows, 3)
-	assert_eq("first added lnum", rows[1].lnum, 11)
-	assert_eq("second added lnum", rows[2].lnum, 12)
-	assert_eq("third added lnum", rows[3].lnum, 13)
+	assert_eq("first added lnum", rows[1].new, 11)
+	assert_eq("second added lnum", rows[2].new, 12)
+	assert_eq("third added lnum", rows[3].new, 13)
 	for _, r in ipairs(rows) do
-		assert_eq("added marker", r.marker, "+ ")
+		assert_eq("added marker", r.sign, "+")
 	end
-end
-
--- =========================================================================
--- Test: render_rows gutter width
--- =========================================================================
-io.write("\n== render_rows gutter ==\n")
-do
-	local rows = {
-		{ lnum = 4, marker = "- ", text = "old", hl = "BeastGitPreviewDelete" },
-		{ lnum = 4, marker = "+ ", text = "new", hl = "BeastGitPreviewAdd" },
-		{ lnum = 100, marker = "  ", text = "ctx" },
-	}
-	local body, _, gutters, gw = render_rows(rows)
-	assert_eq("gutter prefix width fits max lnum", gw, 6)
-	assert_eq("removed gutter lnum", gutters[1].lnum_text, "  4 ")
-	assert_eq("removed gutter marker", gutters[1].marker, "- ")
-	assert_eq("removed gutter marker_hl", gutters[1].marker_hl, "BeastGitPreviewDeleteSign")
-	assert_eq("added gutter marker", gutters[2].marker, "+ ")
-	assert_eq("added gutter marker_hl", gutters[2].marker_hl, "BeastGitPreviewAddSign")
-	assert_eq("removed gutter lnum_hl", gutters[1].lnum_hl, "BeastGitPreviewDeleteSign")
-	assert_eq("added gutter lnum_hl", gutters[2].lnum_hl, "BeastGitPreviewAddSign")
-	assert_eq("context gutter lnum_hl", gutters[3].lnum_hl, "LineNr")
-	assert_eq("removed body row", body[1], "old")
-	assert_eq("added body row", body[2], "new")
-	assert_eq("context body row", body[3], "ctx")
 end
 
 -- =========================================================================
@@ -249,7 +224,7 @@ do
 	local rows = build_rows_unstaged(buf, base, { hunk }, 2)
 
 	for _, r in ipairs(rows) do
-		if r.marker == "  " then
+		if r.sign == " " then
 			assert_eq("no blank trailing/leading ctx", r.text ~= "", true)
 		end
 	end
@@ -266,7 +241,7 @@ do
 
 	local by = {}
 	for _, r in ipairs(rows) do
-		by[r.marker .. r.text] = r
+		by[r.sign .. " " .. r.text] = r
 	end
 	assert_eq("context row has no spans", by["  ctx"].spans, nil)
 	assert_eq("removed row 1 pairs (nothing removed)", by["- if not confirmed then"].spans, {})

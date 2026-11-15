@@ -6,20 +6,6 @@ function M.get()
 		PreviewNormal = { bg = p.dark1, fg = p.dimmed1 },
 		PreviewBorder = { fg = p.dark1, bg = p.dark1 },
 
-		-- Full-line backgrounds for changed rows (used via line_hl_group).
-		PreviewAdd = { bg = Util.colors.blend(p.green, 0.15, p.dark1) },
-		PreviewDelete = { bg = Util.colors.blend(p.red, 0.15, p.dark1) },
-
-		-- Stronger backgrounds for the words that changed inside a modified line
-		-- (bg only, so syntax foreground colors stay intact).
-		PreviewAddWord = { bg = Util.colors.blend(p.green, 0.35, p.dark1) },
-		PreviewDeleteWord = { bg = Util.colors.blend(p.red, 0.35, p.dark1) },
-
-		-- Gutter foregrounds (line number + +/- marker). bg inherits the line bg
-		-- so the tint stays continuous across the gutter.
-		PreviewAddSign = { fg = Util.colors.blend(p.green, 0.6, p.dark1), bg = Util.colors.blend(p.green, 0.15, p.dark1), bold = true },
-		PreviewDeleteSign = { fg = Util.colors.blend(p.red, 0.6, p.dark1), bg = Util.colors.blend(p.red, 0.15, p.dark1), bold = true },
-
 		-- "Staged" badge in the float's top-right border.
 		PreviewStagedTitle = { fg = p.dark1, bg = Util.colors.blend(p.accent4, 0.7, p.dark1), bold = true },
 

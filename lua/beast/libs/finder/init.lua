@@ -15,6 +15,7 @@ function M.setup(opts)
 	config.setup(opts)
 	require("beast.libs.finder.chain").validate(config.chains)
 	require("beast").apply_highlights("beast.libs.finder.highlights")
+	require("beast").apply_highlights("beast.libs.view.highlights")
 	require("beast.libs.finder.source.live_grep.engine.index").setup()
 	initialized = true
 end

@@ -1,8 +1,8 @@
 -- Hunk preview float.
 --
 -- open_for_current_line() finds the hunk under the cursor and opens a
--- floating window showing the diff: deleted lines in BeastGitPreviewDelete,
--- added lines in BeastGitPreviewAdd.
+-- floating window showing the diff: deleted lines in BeastViewDiffDelete,
+-- added lines in BeastViewDiffAdd.
 --
 -- open_for_range(s, e) stitches every hunk overlapping [s, e] (plus any
 -- neighbouring hunks within preview.adjacent_gap unchanged lines) into a
@@ -14,7 +14,7 @@
 
 local api = vim.api
 local View = require("beast.libs.view")
-local diff = require("beast.libs.git.diff")
+local diff = require("beast.libs.view.diff")
 
 local M = {}
 
@@ -169,14 +169,7 @@ end
 -- View helpers
 -- =========================================================================
 
----@class Beast.Git.PreviewRow
----@field lnum integer? Source-buffer line number (nil for removed-only lines)
----@field marker string "- " | "+ " | "  "
----@field text string
----@field hl string?
----@field spans integer[][]? Byte ranges {s, e} (0-based, end exclusive) of the words that changed on a paired -/+ row
-
----@param rows Beast.Git.PreviewRow[]
+---@param rows Beast.View.DiffRow[]
 ---@param source Beast.Git.PreviewSource
 ---@param from integer
 ---@param to integer
@@ -186,7 +179,7 @@ local function emit_context(rows, source, from, to)
 	end
 	local lines = source.get_lines(from, to)
 	for i, l in ipairs(lines) do
-		rows[#rows + 1] = { lnum = from + i - 1, marker = "  ", text = l }
+		rows[#rows + 1] = { new = from + i - 1, sign = " ", text = l }
 	end
 end
 
@@ -206,7 +199,7 @@ end
 ---@param added_text string?   Full text of the "after" side; nil = read added/context from `source` (unstaged case)
 ---@param hunks Beast.Git.RawHunk[]
 ---@param ctx_n integer
----@return Beast.Git.PreviewRow[]
+---@return Beast.View.DiffRow[]
 local function build_rows(source, removed_text, added_text, hunks, ctx_n)
 	local rows = {}
 	local total = source.line_count()
@@ -226,14 +219,9 @@ local function build_rows(source, removed_text, added_text, hunks, ctx_n)
 		-- sit (b_start for change/delete; clamped to 1 for topdelete).
 		local removed = slice_text(removed_text, hunk.a_start, hunk.a_count)
 		local removed_anchor = math.max(1, hunk.b_start)
-		local removed_rows = {}
+		local removed_rows, added_rows = {}, {}
 		for j, l in ipairs(removed) do
-			removed_rows[j] = {
-				lnum = removed_anchor + j - 1,
-				marker = "- ",
-				text = l,
-				hl = "BeastGitPreviewDelete",
-			}
+			removed_rows[j] = { new = removed_anchor + j - 1, sign = "-", text = l }
 			rows[#rows + 1] = removed_rows[j]
 		end
 		-- Added lines map to b_start .. b_start+b_count-1 in `source`.
@@ -246,18 +234,10 @@ local function build_rows(source, removed_text, added_text, hunks, ctx_n)
 			added = source.get_lines(hunk.b_start, hunk.b_start + hunk.b_count - 1)
 		end
 		for j, l in ipairs(added) do
-			local row = {
-				lnum = hunk.b_start + j - 1,
-				marker = "+ ",
-				text = l,
-				hl = "BeastGitPreviewAdd",
-			}
-			rows[#rows + 1] = row
-			-- Pair the j-th added line with the j-th removed line (surplus lines stay soft).
-			if removed_rows[j] then
-				removed_rows[j].spans, row.spans = diff.word_spans(removed_rows[j].text, l)
-			end
+			added_rows[j] = { new = hunk.b_start + j - 1, sign = "+", text = l }
+			rows[#rows + 1] = added_rows[j]
 		end
+		diff.pair(removed_rows, added_rows)
 		if hunk.b_count > 0 then
 			prev_emit = hunk.b_start + hunk.b_count - 1
 		end
@@ -270,68 +250,14 @@ local function build_rows(source, removed_text, added_text, hunks, ctx_n)
 
 	-- Trim leading + trailing blank context rows so the float doesn't show
 	-- empty source lines at its edges (they add no signal).
-	while #rows > 0 and rows[#rows].marker == "  " and rows[#rows].text == "" do
+	while #rows > 0 and rows[#rows].sign == " " and rows[#rows].text == "" do
 		rows[#rows] = nil
 	end
-	while #rows > 0 and rows[1].marker == "  " and rows[1].text == "" do
+	while #rows > 0 and rows[1].sign == " " and rows[1].text == "" do
 		table.remove(rows, 1)
 	end
 
 	return rows
-end
-
----@class Beast.Git.PreviewGutter
----@field lnum_text string  Padded line-number string + trailing space
----@field lnum_hl string    Highlight group for the line number
----@field marker string     "- " | "+ " | "  "
----@field marker_hl string  Highlight group for the marker (and line bg)
-
----@class Beast.Git.PreviewWordSpans
----@field hl string  Highlight group painted over each range
----@field ranges integer[][]  {s, e} byte ranges, 0-based, end exclusive
-
----@param rows Beast.Git.PreviewRow[]
----@return string[] body  pure code lines (no gutter), one per row
----@return table<integer, string> hls  row → line_hl_group
----@return Beast.Git.PreviewGutter[] gutters  one per row
----@return integer gutter_width  display width of the prefix column
----@return table<integer, Beast.Git.PreviewWordSpans> spans  row → changed-word ranges (paired rows only)
-local function render_rows(rows)
-	local max_lnum = 0
-	for _, r in ipairs(rows) do
-		if r.lnum and r.lnum > max_lnum then
-			max_lnum = r.lnum
-		end
-	end
-	local lnum_w = math.max(2, #tostring(max_lnum))
-
-	local body, hls, gutters, spans = {}, {}, {}, {}
-	for i, r in ipairs(rows) do
-		local lnum_str = r.lnum and tostring(r.lnum) or ""
-		local lnum_text = string.rep(" ", lnum_w - #lnum_str) .. lnum_str .. " "
-		local marker_hl
-		if r.marker == "- " then
-			marker_hl = "BeastGitPreviewDeleteSign"
-		elseif r.marker == "+ " then
-			marker_hl = "BeastGitPreviewAddSign"
-		else
-			marker_hl = "LineNr"
-		end
-		gutters[i] = {
-			lnum_text = lnum_text,
-			lnum_hl = marker_hl,
-			marker = r.marker,
-			marker_hl = marker_hl,
-		}
-		body[i] = r.text
-		if r.hl then
-			hls[i] = r.hl
-		end
-		if r.spans and #r.spans > 0 then
-			spans[i] = { hl = r.hl .. "Word", ranges = r.spans }
-		end
-	end
-	return body, hls, gutters, lnum_w + 1 + 2, spans
 end
 
 ---@param lines string[]
@@ -358,49 +284,6 @@ local function maybe_start_treesitter(buf, source_ft)
 	pcall(vim.treesitter.start, buf, lang)
 end
 
----@param buf integer
----@param body string[]
----@param hls table<integer, string>
----@param gutters Beast.Git.PreviewGutter[]
----@param spans table<integer, Beast.Git.PreviewWordSpans>
-local function apply_decorations(buf, body, hls, gutters, spans)
-	local ns = api.nvim_create_namespace("beast_git_preview")
-	api.nvim_buf_clear_namespace(buf, ns, 0, -1)
-	-- Stash the gutter table on the buffer so the window's statuscolumn can
-	-- look up the synthetic line number + marker per row.
-	vim.b[buf].beast_git_preview_gutter = gutters
-	for i = 1, #body do
-		if hls[i] then
-			-- A range highlight (not line_hl_group, which always paints over ranges)
-			-- so the changed-word backgrounds below can layer on top of it.
-			api.nvim_buf_set_extmark(buf, ns, i - 1, 0, { end_row = i, end_col = 0, hl_group = hls[i], hl_eol = true, priority = 100 })
-		end
-		for _, range in ipairs(spans[i] and spans[i].ranges or {}) do
-			api.nvim_buf_set_extmark(buf, ns, i - 1, range[1], { end_col = range[2], hl_group = spans[i].hl, priority = 200 })
-		end
-	end
-end
-
---- Statuscolumn callback for preview floats. Reads the per-line gutter
---- record stashed by apply_decorations and returns a `%#hl#text` string.
----@return string
-function M._statuscol()
-	-- statuscolumn `%!` evaluates with the command-line window as current;
-	-- resolve the *drawing* window via vim.g.statusline_winid so we read
-	-- gutter data from the float's buffer, not whatever buffer is current.
-	local winid = vim.g.statusline_winid or 0
-	local buf = winid ~= 0 and vim.api.nvim_win_get_buf(winid) or vim.api.nvim_get_current_buf()
-	local gutters = vim.b[buf].beast_git_preview_gutter
-	if not gutters then
-		return ""
-	end
-	local g = gutters[vim.v.lnum]
-	if not g then
-		return ""
-	end
-	return string.format("%%#%s#%s%%#%s#%s", g.lnum_hl, g.lnum_text, g.marker_hl, g.marker)
-end
-
 ---@return integer
 local function resolve_max_height()
 	local cfg = (require("beast.libs.git.config").preview or {}).max_height or 0.4
@@ -410,27 +293,23 @@ local function resolve_max_height()
 	return math.floor(cfg)
 end
 
----@param body string[]
----@param hls table<integer, string>
----@param gutters Beast.Git.PreviewGutter[]
----@param spans table<integer, Beast.Git.PreviewWordSpans>
+---@param rendered Beast.View.DiffRendered
 ---@param width integer
----@param gutter_w integer  display width of the per-row gutter
 ---@param source_ft string
 ---@param source_win integer
 ---@param anchor_lnum integer  1-indexed buffer line to anchor the float below
 ---@param title (string|table)?  optional title shown in the float border (string or chunks list)
 ---@return integer buf, integer win
-local function open_float(body, hls, gutters, spans, width, gutter_w, source_ft, source_win, anchor_lnum, title)
+local function open_float(rendered, width, source_ft, source_win, anchor_lnum, title)
 	local buf = View.buf.new("")
-	api.nvim_buf_set_lines(buf, 0, -1, false, body)
+	api.nvim_buf_set_lines(buf, 0, -1, false, rendered.body)
 	vim.bo[buf].modifiable = false
 	vim.bo[buf].readonly = true
 
 	maybe_start_treesitter(buf, source_ft)
-	apply_decorations(buf, body, hls, gutters, spans)
+	diff.paint(buf, rendered)
 
-	local height = math.min(#body, math.max(1, resolve_max_height()))
+	local height = math.min(#rendered.body, math.max(1, resolve_max_height()))
 	-- Offset left by the source window's gutter (statuscolumn/sign/number) so
 	-- the float's left border sits at the window's true left edge instead of
 	-- starting after the gutter.
@@ -457,22 +336,7 @@ local function open_float(body, hls, gutters, spans, width, gutter_w, source_ft,
 	-- effects so the float still looks chrome-free.
 	vim.api.nvim_set_option_value("winhighlight", "Normal:BeastGitPreviewNormal,FloatBorder:BeastGitPreviewBorder", { win = win })
 	vim.api.nvim_set_option_value("wrap", false, { win = win })
-	-- 'statuscolumn' only allocates width when 'number'/'relativenumber' or
-	-- 'signcolumn' is on; without one of those the callback runs but its
-	-- output has nowhere to render. Turn 'number' on (statuscolumn overrides
-	-- the actual number display) and explicitly size the column to match
-	-- our gutter so the float doesn't flicker on focus changes.
-	vim.api.nvim_set_option_value("number", true, { win = win })
-	vim.api.nvim_set_option_value("relativenumber", false, { win = win })
-	vim.api.nvim_set_option_value("numberwidth", math.max(1, gutter_w), { win = win })
-	vim.api.nvim_set_option_value("cursorline", false, { win = win })
-	vim.api.nvim_set_option_value("cursorcolumn", false, { win = win })
-	vim.api.nvim_set_option_value("foldcolumn", "0", { win = win })
-	vim.api.nvim_set_option_value("spell", false, { win = win })
-	vim.api.nvim_set_option_value("list", false, { win = win })
-	vim.api.nvim_set_option_value("signcolumn", "no", { win = win })
-	vim.api.nvim_set_option_value("colorcolumn", "", { win = win })
-	vim.api.nvim_set_option_value("statuscolumn", "%!v:lua.require'beast.libs.git.preview'._statuscol()", { win = win })
+	diff.attach(win, rendered.width)
 	return buf, win
 end
 
@@ -780,24 +644,24 @@ function M.open_for_range(range_start, range_end, opts)
 	if #rows == 0 then
 		return
 	end
-	local body, hls, gutters, gutter_w, spans = render_rows(rows)
+	local rendered = diff.render(rows, { columns = 1 })
 
 	local source_ft = vim.bo[source_buf].filetype
 	local source_win = api.nvim_get_current_win()
 	local hunk_lines, hunk_min, hunk_max = compute_hunk_extent(matched, plan.project)
 	local width_mode = preview_cfg.width
 	local recompute_width = function()
-		return compute_width(width_mode, body, gutter_w, source_win)
+		return compute_width(width_mode, rendered.body, rendered.width, source_win)
 	end
 	local width = recompute_width()
 
 	M.close()
-	local buf, win = open_float(body, hls, gutters, spans, width, gutter_w, source_ft, source_win, hunk_min, plan.title)
+	local buf, win = open_float(rendered, width, source_ft, source_win, hunk_min, plan.title)
 	current = PreviewView(buf, win)
 	wire_close(buf, source_buf, source_win, hunk_lines, hunk_min, hunk_max, recompute_width)
 end
 
 -- Test-only seam — exposes pure helpers for unit tests.
-M._test = { build_rows = build_rows, render_rows = render_rows, expand_adjacent = expand_adjacent, buffer_source = buffer_source }
+M._test = { build_rows = build_rows, expand_adjacent = expand_adjacent, buffer_source = buffer_source }
 
 return M

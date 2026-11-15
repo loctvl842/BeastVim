@@ -1,7 +1,7 @@
 -- =========================================================================
--- Test: Git word-level diff spans (hunk preview emphasis)
+-- Test: shared diff renderer (word-level spans, row rendering)
 -- =========================================================================
--- Run as: nvim --clean --headless -l tests/test-git-word-diff.lua
+-- Run as: nvim --clean --headless -l tests/test-view-diff.lua
 -- Exit code: 0 = PASS, 1 = FAIL
 -- =========================================================================
 
@@ -22,7 +22,8 @@ local function assert_eq(name, got, expected)
 	end
 end
 
-local word_spans = require("beast.libs.git.diff").word_spans
+local diff = require("beast.libs.view.diff")
+local word_spans = diff.word_spans
 
 ---@param line string
 ---@param spans integer[][]
@@ -102,6 +103,70 @@ do
 	local o, n = word_spans(long, long .. "b")
 	assert_eq("old is nil", o, nil)
 	assert_eq("new is nil", n, nil)
+end
+
+io.write("\n== render, one number column (git float) ==\n")
+do
+	local rows = {
+		{ new = 4, sign = "-", text = "old" },
+		{ new = 4, sign = "+", text = "new" },
+		{ new = 100, sign = " ", text = "ctx" },
+	}
+	local r = diff.render(rows, { columns = 1 })
+	assert_eq("gutter width fits the widest number", r.width, 6)
+	assert_eq("body is the code only", r.body, { "old", "new", "ctx" })
+	assert_eq("removed gutter", r.gutters[1], { { text = "  4 ", hl = "BeastViewDiffDeleteSign" }, { text = "- ", hl = "BeastViewDiffDeleteSign" } })
+	assert_eq("added gutter", r.gutters[2], { { text = "  4 ", hl = "BeastViewDiffAddSign" }, { text = "+ ", hl = "BeastViewDiffAddSign" } })
+	assert_eq("context gutter", r.gutters[3], { { text = "100 ", hl = "LineNr" }, { text = "  ", hl = "LineNr" } })
+	assert_eq("line tints", r.hls, { "BeastViewDiffDelete", "BeastViewDiffAdd" })
+end
+
+io.write("\n== render, two number columns (finder) ==\n")
+do
+	local rows = {
+		{ old = 23, sign = "-", text = "a" },
+		{ new = 23, sign = "+", text = "b" },
+		{ old = 24, new = 24, sign = " ", text = "c" },
+	}
+	local r = diff.render(rows, { columns = 2 })
+	assert_eq("width = old + new + mark", r.width, 2 * 2 + 2 + 2)
+	assert_eq("removed row shows only the old number", r.gutters[1][1].text, "23    ")
+	assert_eq("added row shows only the new number", r.gutters[2][1].text, "   23 ")
+	assert_eq("context row shows both", r.gutters[3][1].text, "24 24 ")
+end
+
+io.write("\n== pair ==\n")
+do
+	local removed = { { text = "if not confirmed then", sign = "-" }, { text = "unrelated", sign = "-" } }
+	local added = { { text = "if not confirmed and ready then", sign = "+" } }
+	diff.pair(removed, added)
+	assert_eq("paired rows get spans", { removed[1].spans ~= nil, added[1].spans ~= nil }, { true, true })
+	assert_eq("a surplus row stays plain", removed[2].spans, nil)
+	local r = diff.render({ added[1] }, { columns = 1 })
+	assert_eq("spans use the word group of the row", r.spans[1].hl, "BeastViewDiffAddWord")
+end
+
+io.write("\n== gutter text ==\n")
+do
+	local chunks = { { text = " 1 ", hl = "A" }, { text = "+ ", hl = "B" } }
+	assert_eq("chunks join as statuscolumn items", diff.gutter_text(chunks), "%#A# 1 %#B#+ ")
+	assert_eq("no chunks, no text", diff.gutter_text(nil), "")
+end
+
+io.write("\n== paint / clear ==\n")
+do
+	local buf = vim.api.nvim_create_buf(false, true)
+	local rendered = diff.render(
+		{ { new = 1, sign = "-", text = "old" }, { new = 1, sign = "+", text = "new", spans = { { 0, 3 } } } },
+		{ columns = 1 }
+	)
+	vim.api.nvim_buf_set_lines(buf, 0, -1, false, rendered.body)
+	diff.paint(buf, rendered)
+	local ns = vim.api.nvim_create_namespace("beast_view_diff")
+	local marks = vim.api.nvim_buf_get_extmarks(buf, ns, 0, -1, {})
+	assert_eq("a tint per row plus one per changed word", #marks, 3)
+	diff.clear(buf)
+	assert_eq("clear removes them", #vim.api.nvim_buf_get_extmarks(buf, ns, 0, -1, {}), 0)
 end
 
 io.write("\n== Summary ==\n")

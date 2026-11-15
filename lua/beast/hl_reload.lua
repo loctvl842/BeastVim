@@ -32,6 +32,7 @@ M.highlight_modules = {
 	"beast.libs.statusline.highlights",
 	"beast.libs.statuscolumn.highlights",
 	"beast.libs.git.highlights",
+	"beast.libs.view.highlights",
 	"beast.libs.breadcrumb.highlights",
 	"beast.libs.tabline.highlights",
 	"beast.libs.toast.highlights",
