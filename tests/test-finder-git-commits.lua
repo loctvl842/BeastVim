@@ -71,6 +71,10 @@ t.ok(
 	table.concat(vim.api.nvim_buf_get_lines(preview.buf, 0, -1, false), "\n"):find("Body of the second", 1, true) ~= nil
 )
 
+t.ok("a key of another picker's chain is muted here (<C-t> would indent the prompt)", H.press("<C-t>"))
+t.eq("the prompt is untouched", H.prompt(), "")
+t.eq("the list is untouched", H.title(), "Commits (2)")
+
 H.press("<C-g>")
 H.settle(400)
 t.eq("full chain in the title", H.title(), ("%s Second commit › Files Changed (3)"):format(commits[1].short))

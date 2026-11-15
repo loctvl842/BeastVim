@@ -215,9 +215,17 @@ end
 ---@param session Beast.Finder.Session
 ---@return Beast.Finder.KeyBinding[]
 local function chain_bindings(kind, session)
-	local out = {}
+	local out, bound = {}, {}
 	for _, key in ipairs(chain.keys(session)) do
 		out[#out + 1] = { key, "drill" }
+		bound[chain.normalize_key(key)] = true
+	end
+	-- A key that follows an edge of another picker does nothing here (not what Vim does with it: `<C-t>` would indent the prompt).
+	for _, edge in ipairs(chain.enabled()) do
+		if not bound[chain.normalize_key(edge.key)] then
+			bound[chain.normalize_key(edge.key)] = true
+			out[#out + 1] = { edge.key, "noop" }
+		end
 	end
 	if kind == "back" then
 		for _, key in ipairs(require("beast.libs.finder.config").chains.back) do
