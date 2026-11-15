@@ -5,7 +5,7 @@
 --- string (a message shown to the user, nothing opens) or nil ("nothing to open from here").
 --- `hint(ctx)` is the text shown after the key in the hint line under the picker; nil hides it.
 ---@class Beast.Finder.ChainCtx
----@field items? Beast.Finder.Item[] every item that matches the prompt (nil while the picker is still working)
+---@field items? Beast.Finder.Item[] every item that matches the prompt (only given to `open`; nil while the picker is still working)
 ---@field selected? Beast.Finder.Item the highlighted item
 ---@field total integer how many items match the prompt
 ---@field filter Beast.Finder.Filter
@@ -38,17 +38,28 @@ local function grep_files(ctx)
 	return ctx.total > 0 and ("grep " .. ctx.total .. " files") or nil
 end
 
----@param ctx Beast.Finder.ChainCtx
----@return Beast.Finder.LevelOpts?
-local function scope_files(ctx)
-	local paths = file_paths(ctx.items)
-	if #paths == 0 then
-		return nil
+--- The grep over the files behind the matching items, titled "<N> <what> › Live Grep".
+---@param what string what the files are called ("Files", "Buffers", ...)
+---@return fun(ctx: Beast.Finder.ChainCtx): Beast.Finder.LevelOpts?
+local function scope_files(what)
+	return function(ctx)
+		local paths = file_paths(ctx.items)
+		if #paths == 0 then
+			return nil
+		end
+		return { files = paths, title = ("%d %s › Live Grep"):format(#paths, what) }
 	end
-	return { files = paths, title = #paths .. " Files › Live Grep" }
+end
+
+---@param ctx Beast.Finder.ChainCtx
+---@return string?
+local function grep_help(ctx)
+	return ctx.total > 0 and "grep the matching help pages" or nil
 end
 
 ---@type Beast.Finder.Edge[]
 return {
-	{ from = "files", to = "live_grep", crumb = "Files", hint = grep_files, open = scope_files },
+	{ from = "files", to = "live_grep", crumb = "Files", hint = grep_files, open = scope_files("Files") },
+	{ from = "buffers", to = "live_grep", crumb = "Buffers", hint = grep_files, open = scope_files("Buffers") },
+	{ from = "help_tags", to = "live_grep", crumb = "Help", hint = grep_help, open = scope_files("Help Files") },
 }

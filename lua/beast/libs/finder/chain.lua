@@ -36,13 +36,15 @@ function M.find(from, key)
 	end
 end
 
---- What `drill` and the hint know about the picker shown.
+--- What `drill` and the hint know about the picker shown. `with_items` also collects every matching
+--- item (a walk over all of them: only when a chain is actually followed, never while drawing).
 ---@param session Beast.Finder.Session
+---@param with_items? boolean
 ---@return Beast.Finder.ChainCtx
-local function context(session)
+local function context(session, with_items)
 	local level = session.level
 	return {
-		items = level.engine.matches(level.query),
+		items = with_items and level.engine.matches(level.query) or nil,
 		selected = require("beast.libs.finder.ui").list.selected(session.view.list),
 		total = level.query.total,
 		filter = level.query.filter,
@@ -59,7 +61,7 @@ function M.drill(session)
 		Toast("Nothing to open from here", vim.log.levels.INFO)
 		return false
 	end
-	local ctx = context(session)
+	local ctx = context(session, true)
 	if not ctx.items then
 		Toast("Still searching - try again in a moment", vim.log.levels.INFO)
 		return false

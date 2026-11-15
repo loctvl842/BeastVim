@@ -75,6 +75,41 @@ t.eq("<BS> with text is a normal backspace (stays in grep)", H.title(), "3 Files
 H.close()
 t.eq("no hint line is left behind", H.hint(), "")
 
+t.section("buffers -> grep")
+local nb = {}
+for _, name in ipairs({ "a.lua", "c.txt" }) do
+	vim.cmd("edit " .. vim.fn.fnameescape(dir .. "/" .. name))
+	nb[#nb + 1] = vim.api.nvim_get_current_buf()
+end
+vim.cmd("enew") -- a nameless buffer
+H.open("buffers", { cwd = dir })
+H.settle(300)
+H.type("lua")
+H.press("<C-g>")
+H.settle(200)
+t.eq("buffers: title names the scoped buffers", H.title(), "1 Buffers › Live Grep")
+t.ok("buffers: hint names the way back", H.hint():find("<BS> back to Buffers", 1, true) ~= nil, H.hint())
+H.type("hello", 600)
+t.ok("buffers: a.lua found", H.has_row("a.lua"), vim.inspect(H.rows()))
+t.ok("buffers: b.lua (not open) is not searched", not H.has_row("b.lua"), vim.inspect(H.rows()))
+H.close()
+
+t.section("help -> grep")
+H.open("help_tags")
+H.settle(500)
+H.type("nvim_buf_set_lines")
+H.press("<C-g>")
+H.settle(300)
+t.ok("help: title counts help files", H.title():match("^%d+ Help Files › Live Grep$") ~= nil, H.title())
+H.type("nvim_buf_set_lines", 800)
+t.ok("help: a hit inside a help page", H.has_row("api.txt"), vim.inspect(H.rows()))
+H.press("<BS>")
+H.type("")
+H.press("<BS>")
+H.settle(200)
+t.eq("help: back to the tags", H.title(), "Help tags")
+H.close()
+
 t.section("refusals")
 local toasts = {}
 _G.Toast = function(msg)
