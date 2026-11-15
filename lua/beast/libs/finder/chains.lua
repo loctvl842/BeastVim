@@ -4,6 +4,8 @@
 --- `open(ctx)` builds the next level: a table of level options (see `Beast.Finder.LevelOpts`), a
 --- string (a message shown to the user, nothing opens) or nil ("nothing to open from here").
 --- `hint(ctx)` is the text shown after the key in the hint line under the picker; nil hides it.
+local format = require("beast.libs.finder.format")
+
 ---@class Beast.Finder.ChainCtx
 ---@field items? Beast.Finder.Item[] every item that matches the prompt (only given to `open`; nil while the picker is still working)
 ---@field selected? Beast.Finder.Item|Beast.Finder.Gh.Item the highlighted item
@@ -132,7 +134,8 @@ local function scope_local_copies(ctx)
 	return {
 		files = paths,
 		ctx = { local_copies = true, commit = commit and commit.short },
-		title = commit and ("%d Files in %s › Live Grep"):format(#paths, commit.short) or ("%d PR Files › Live Grep"):format(#paths),
+		title = commit and ("%s › %s › %d Files › Live Grep"):format(format.pr_label(commit.pr), format.commit_label(commit), #paths)
+			or ("%d PR Files › Live Grep"):format(#paths),
 	}
 end
 
@@ -210,7 +213,12 @@ local function scope_commit_files(ctx)
 			resume({
 				files = paths,
 				ctx = { local_copies = true, commit = commit.short },
-				title = ("%d Files in %s%s › Live Grep"):format(#paths, commit.short, result.detail.truncated and " (partial)" or ""),
+				title = ("%s › %s › %d Files%s › Live Grep"):format(
+					format.pr_label(commit.pr),
+					format.commit_label(commit),
+					#paths,
+					result.detail.truncated and " (partial)" or ""
+				),
 			})
 		end)
 	end

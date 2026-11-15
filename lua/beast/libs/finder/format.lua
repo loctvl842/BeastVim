@@ -327,6 +327,31 @@ function M.gh_issue_grep_header(item)
 	}
 end
 
+--- Shorten `text` to `width` columns by replacing its middle with "...", so both the start and the end stay.
+---@param text string
+---@param width integer
+---@return string
+function M.trim_middle(text, width)
+	if vim.fn.strdisplaywidth(text) <= width then
+		return text
+	end
+	local keep = math.max(2, width - 3)
+	local head = math.ceil(keep * 0.4)
+	local tail = keep - head
+	return vim.fn.strcharpart(text, 0, head) .. "..." .. vim.fn.strcharpart(text, vim.fn.strchars(text) - tail)
+end
+
+--- "<short id> <subject>", the subject shortened with "..." when it is long.
+---@param commit Beast.Finder.Item a commit item
+---@return string
+function M.commit_label(commit)
+	local subject = commit.subject
+	if vim.fn.strchars(subject) > 30 then
+		subject = vim.fn.strcharpart(subject, 0, 27) .. "..."
+	end
+	return commit.short .. " " .. subject
+end
+
 --- "PR <title>", the title shortened with "..." when it is long (the title bar of the levels opened from a pull request).
 ---@param pr Beast.Finder.Gh.Item
 ---@return string

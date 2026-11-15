@@ -45,7 +45,7 @@ t.ok(
 
 H.press("<C-g>")
 H.settle(400)
-t.eq("title", H.title(), "Commit 0000001 › Files Changed (2)")
+t.eq("title", H.title(), "PR Touch things › 0000001 Commit 1 subject › Files Changed (2)")
 t.eq("only paths are listed", { H.has_row("c1.lua"), H.has_row("c2.lua") }, { true, true })
 t.eq("count", H.count(), "2")
 t.ok("preview shows the diff of the first file", preview_text():find("+new 1", 1, true) ~= nil, preview_text())
@@ -58,6 +58,16 @@ t.ok(
 	H.hint()
 )
 
+local wide = vim.o.columns
+vim.o.columns = 90
+vim.api.nvim_exec_autocmds("VimResized", {})
+H.settle(100)
+t.ok("on a narrow screen the chain loses its middle", H.title():find("...", 1, true) ~= nil and H.title():sub(-11) == "Changed (2)", H.title())
+vim.o.columns = wide
+vim.api.nvim_exec_autocmds("VimResized", {})
+H.settle(100)
+t.eq("and gets it back when there is room", H.title(), "PR Touch things › 0000001 Commit 1 subject › Files Changed (2)")
+
 H.type("c2")
 t.ok("typing filters by path", H.has_row("c2.lua") and not H.has_row("c1.lua"), vim.inspect(H.rows()))
 t.eq("count shows matches over total", H.count(), "1/2")
@@ -65,14 +75,14 @@ H.type("")
 
 H.press("<C-g>")
 H.settle(300)
-t.eq("grep in the local copies only", H.title(), "1 Files in 0000001 › Live Grep")
+t.eq("grep in the local copies only", H.title(), "PR Touch things › 0000001 Commit 1 subject › 1 Files › Live Grep")
 t.ok("placeholder names the commit", H.has_row("changed by 0000001"), vim.inspect(H.rows()))
 H.type("needle", 600)
 t.ok("the file of the commit is searched, others are not", H.has_row("c1.lua") and not H.has_row("other.lua"), vim.inspect(H.rows()))
 H.type("")
 H.press("<BS>")
 H.settle(300)
-t.eq("back to the files of the commit", H.title(), "Commit 0000001 › Files Changed (2)")
+t.eq("back to the files of the commit", H.title(), "PR Touch things › 0000001 Commit 1 subject › Files Changed (2)")
 t.ok("with its diff in the preview", preview_text():find("+new", 1, true) ~= nil, preview_text())
 H.press("<BS>")
 H.settle(300)

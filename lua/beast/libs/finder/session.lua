@@ -355,6 +355,10 @@ function M:relayout()
 		})
 	end
 
+	if self.layout ~= "cards" then
+		ui.input.refit_title(self.view.input)
+	end
+
 	-- Reposition list
 	if self.view.list:is_valid() then
 		pcall(vim.api.nvim_win_set_config, self.view.list.win, {

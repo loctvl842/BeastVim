@@ -11,6 +11,7 @@ local SPINNER_INTERVAL_MS = 80
 
 ---@class Beast.Finder.InputView : Beast.View.Instance
 ---@field ns integer
+---@field _title? string the full title (the border shows it fitted to the width)
 ---@field _debounced Beast.Util.Debouncer|nil
 ---@field _on_change fun() reads the prompt and hands its text to the level
 ---@field _spinner_timer uv.uv_timer_t|nil
@@ -49,7 +50,7 @@ function M.create(on_change, total_w, total_h, win_row, win_col, title, debounce
 
 	local ns = vim.api.nvim_create_namespace("beast-finder-input")
 
-	local display_title = title ~= "" and (" " .. (title or "Find") .. " ") or nil
+	local display_title = title ~= "" and (" " .. M.fit_title(title or "Find", total_w) .. " ") or nil
 
 	-- Input: top-left panel with full border. Right side junctions connect to preview.
 	-- Bottom border ├─┤ is the visual separator between input and list.
@@ -73,6 +74,7 @@ function M.create(on_change, total_w, total_h, win_row, win_col, title, debounce
 	end
 
 	local view = InputView(buf, win, ns)
+	view._title = title
 
 	-- Set prompt prefix so the buffer line contains the prefix text
 	local prefix = config.prompt_prefix
@@ -168,7 +170,28 @@ end
 function M.set_title(view, title)
 	-- stylua: ignore
 	if not view:is_valid() then return end
-	pcall(vim.api.nvim_win_set_config, view.win, { title = " " .. title .. " ", title_pos = "center" })
+	view._title = title
+	pcall(
+		vim.api.nvim_win_set_config,
+		view.win,
+		{ title = " " .. M.fit_title(title, vim.api.nvim_win_get_width(view.win)) .. " ", title_pos = "center" }
+	)
+end
+
+--- A long title (the whole chain of pickers) loses its middle to "..." so it fits the border.
+---@param title string
+---@param width integer width of the prompt window
+---@return string
+function M.fit_title(title, width)
+	return require("beast.libs.finder.format").trim_middle(title, math.max(8, width - 6))
+end
+
+--- Fit the title again (the window changed size).
+---@param view Beast.Finder.InputView
+function M.refit_title(view)
+	if view._title then
+		M.set_title(view, view._title)
+	end
 end
 
 --- How long typing must pause before the prompt's text is searched (nil: the default). A change still

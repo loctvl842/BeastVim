@@ -34,6 +34,9 @@ function H.boot()
 		end,
 		refresh = function() end,
 	}
+	-- A wide screen: titles show whole (a long one is shortened to the width of the prompt).
+	vim.o.columns = 200
+	vim.o.lines = 50
 	H.toasts = {}
 	_G.Toast = function(msg)
 		H.toasts[#H.toasts + 1] = msg

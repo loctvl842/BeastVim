@@ -111,4 +111,21 @@ local abs_row = text(fmt(abs))
 local abs_r = match_hl.list_ranges(buf_list)[0] or {}
 t.ok("absolute item text maps through the cwd prefix", abs_r[1] and abs_r[1][1] == abs_row:find("a.lua", 1, true) - 1, vim.inspect(abs_r))
 
+-- Titles ---------------------------------------------------------------------
+t.eq("a short title is kept", format.trim_middle("PR x › Commits (4)", 40), "PR x › Commits (4)")
+local long = "PR Refactor the finder so that every pic... › 0000001 Add chain table › Files Changed (12)"
+local fitted = format.trim_middle(long, 40)
+t.eq("a long title fits the width", vim.fn.strdisplaywidth(fitted), 40)
+t.ok("the middle is replaced by ...", fitted:find("...", 1, true) ~= nil and fitted:sub(1, 6) == "PR Ref", fitted)
+t.ok(
+	"the end (the count) stays",
+	fitted:sub(-13) == "Changed (12)" or fitted:find("Files Changed (12)", 1, true) ~= nil or fitted:sub(-6) == "d (12)",
+	fitted
+)
+t.eq(
+	"a commit label shortens a long subject",
+	format.commit_label({ short = "abc1234", subject = ("x"):rep(50) }),
+	"abc1234 " .. ("x"):rep(27) .. "..."
+)
+
 t.done()
