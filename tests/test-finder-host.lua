@@ -155,6 +155,45 @@ H.settle(60)
 match.abort(q_open)
 t.eq("an aborted mid-load query never reports a partial set", match.matches(q_open), nil)
 
+t.section("match engine: a pattern typed while loading is not overwritten by unscored arrivals")
+local feed
+local hm = counting_host()
+local qm = Query({
+	live = false,
+	async = true,
+	get = function(_, cb)
+		cb({ idx = 1, score = 0, text = "keep1.lua", file = "keep1.lua" })
+		cb({ idx = 2, score = 0, text = "skip1.lua", file = "skip1.lua" })
+		feed = cb
+	end,
+}, { cwd = "/tmp" })
+match.start(qm, hm.host)
+H.settle(60)
+qm.filter:update("keep")
+match.run(qm, hm.host)
+H.wait(function()
+	return not qm.matching
+end)
+feed({ idx = 3, score = 0, text = "skip2.lua", file = "skip2.lua" })
+feed({ idx = 4, score = 0, text = "keep2.lua", file = "keep2.lua" })
+H.settle(100)
+local texts = vim.tbl_map(function(i)
+	return i.text
+end, qm.matched)
+t.ok("only matches of the pattern are shown while still loading", #texts == 1 and texts[1] == "keep1.lua", vim.inspect(texts))
+feed(nil)
+H.wait(function()
+	return not qm.loading and not qm.matching
+end)
+H.settle(100)
+texts = vim.tbl_map(function(i)
+	return i.text
+end, qm.matched)
+table.sort(texts)
+t.eq("once loaded, everything that matches is shown", texts, { "keep1.lua", "keep2.lua" })
+t.eq("and the full set agrees", #(match.matches(qm) or {}), 2)
+match.abort(qm)
+
 -- ---------------------------------------------------------------------------
 t.section("match engine: an open but idle source does not spin")
 local idle = counting_host()

@@ -56,7 +56,7 @@ end
 
 --- Re-score all cached items against the current pattern.
 --- Aborts any previous scorer to avoid stale work consuming CPU. Never touches
---- the loader — if items are still streaming in, the loader re-runs `run` (or
+--- the loader - if items are still streaming in, the loader re-runs `run` (or
 --- renders the full empty-pattern list) on completion, so the final result is
 --- correct even when a keystroke lands mid-load.
 ---@param query Beast.Finder.Query
@@ -105,7 +105,7 @@ function M.start(query, host)
 
 	-- A non-empty `items` here means the caller already fetched the full
 	-- result set (finder/preflight.lua, when it found more than one
-	-- result) — skip re-querying the source and drain straight into
+	-- result) - skip re-querying the source and drain straight into
 	-- scoring instead of streaming.
 	local preloaded = #query.items > 0
 	local items = query.items
@@ -164,11 +164,11 @@ function M.start(query, host)
 				yield()
 			end
 
-			if match_idx > 0 then
+			-- With a pattern typed meanwhile, the scorer owns `matched`: items that merely arrived have not
+			-- been scored and must not replace its answer (the final pass after loading scores them all).
+			if match_idx > 0 and query.filter.pattern == "" then
 				query.matched = topk:sorted()
-				if query.filter.pattern == "" then
-					query.total = match_idx
-				end
+				query.total = match_idx
 				vim.schedule(function()
 					-- stylua: ignore
 					if stale(s, host) then return end
@@ -183,8 +183,8 @@ function M.start(query, host)
 			end
 		end
 
-		query.matched = topk:sorted()
 		if query.filter.pattern == "" then
+			query.matched = topk:sorted()
 			query.total = match_idx
 		else
 			-- Scores so far only cover the items that had arrived: the final pass below completes them.

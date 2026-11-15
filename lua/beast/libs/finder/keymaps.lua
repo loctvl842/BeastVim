@@ -52,13 +52,14 @@ local actions = {
 		move_cursor(s, -1)
 	end,
 	-- Mouse wheel: drive selection (the buffer only holds the visible slice, so
-	-- native scrolling reveals nothing — move the cursor to re-render instead).
+	-- native scrolling reveals nothing - move the cursor to re-render instead).
 	wheel_down = function(s)
 		move_cursor(s, 3)
 	end,
 	wheel_up = function(s)
 		move_cursor(s, -3)
 	end,
+	-- Written out (not open_selected) because `confirmed` must be set before the picker closes.
 	confirm = function(s)
 		local item = ui.list.selected(s.view.list)
 		if item and not item.message then
@@ -213,7 +214,7 @@ local function mount_pane(session, role, spec)
 			redirect(char, char ~= "/")
 		end
 	end
-	-- Block <leader> from triggering global mappings — redirect to input
+	-- Block <leader> from triggering global mappings - redirect to input
 	if spec.also_leader then
 		vim.keymap.set("n", "<leader>", function()
 			focus_input(session)

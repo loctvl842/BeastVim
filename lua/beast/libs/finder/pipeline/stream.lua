@@ -9,8 +9,8 @@ local uv = vim.uv or vim.loop
 local M = {}
 
 --- Adaptive render budget (nanoseconds)
-local RENDER_FAST_NS = 10e6 -- 10ms — first results appear fast
-local RENDER_SLOW_NS = 30e6 -- 30ms — once viewport filled, reduce redraw cost
+local RENDER_FAST_NS = 10e6 -- 10ms - first results appear fast
+local RENDER_SLOW_NS = 30e6 -- 30ms - once viewport filled, reduce redraw cost
 
 --- Per-query pipeline state (keyed by query reference).
 ---@class Beast.Finder.Pipeline.Stream.State
@@ -77,7 +77,7 @@ local function update_count(query, host)
 	end
 end
 
---- Commit pending items and render. Stream sources are pre-filtered — no scoring needed.
+--- Commit pending items and render. Stream sources are pre-filtered - no scoring needed.
 ---@param query Beast.Finder.Query
 ---@param host Beast.Finder.Host
 local function flush(query, host)
@@ -154,7 +154,7 @@ function M.run(query, host)
 	collectgarbage("stop")
 	s.gc_stopped = true
 
-	-- Adaptive poll loop — fires every event loop tick, renders when budget allows
+	-- Adaptive poll loop - fires every event loop tick, renders when budget allows
 	s.last_render_ns = uv.hrtime()
 	if not s.render_check then
 		s.render_check = assert(uv.new_check(), "failed to create render check")

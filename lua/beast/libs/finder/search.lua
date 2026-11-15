@@ -1,13 +1,14 @@
---- Headless file search: streams the `files` source once, then re-scores the
---- cached items per query with the finder matcher. No windows, no picker State,
---- so other libs (explorer) can reuse the finder's search without its UI.
+--- Headless file search: streams the `files` source once, then re-scores the cached items per
+--- query with the finder's match pipeline. No windows, no picker Session, so other libs
+--- (explorer) can reuse the finder's search without its UI. It is the same engine the picker
+--- runs, driven through a headless host.
 ---
---- Lives in the finder because it drives finder internals (filter, config.matcher,
---- matcher.run, source.files); callers only see `available()` and `files()`.
+--- Lives in the finder because it drives finder internals (Query, match pipeline, source.files);
+--- callers only see `available()` and `files()`.
 --- Currently only the explorer (search mode) uses it.
-local Filter = require("beast.libs.finder.filter")
-local config = require("beast.libs.finder.config")
-local matcher = require("beast.libs.finder.matcher")
+local Query = require("beast.libs.finder.query")
+local host_mod = require("beast.libs.finder.host")
+local match = require("beast.libs.finder.pipeline.match")
 
 ---@class Beast.Finder.Search
 local M = {}
@@ -19,13 +20,11 @@ local M = {}
 ---@class Beast.Finder.Search.Session
 ---@field cwd string
 ---@field limit integer
----@field items Beast.Finder.Item[]
 ---@field loading boolean
----@field filter Beast.Finder.Filter
----@field private gen integer bumped on refresh/close; stale source/matcher callbacks compare against it
+---@field private q Beast.Finder.Query
+---@field private host Beast.Finder.Host
+---@field private closed boolean
 ---@field private cb? fun(matched: Beast.Finder.Item[], result: Beast.Finder.Search.Result)
----@field private task? Beast.Async.Task
----@field private match_state? Beast.Finder.MatchState
 local Session = {}
 Session.__index = Session
 
@@ -38,88 +37,61 @@ end
 ---@param opts { cwd: string, limit?: integer }
 ---@return Beast.Finder.Search.Session
 function M.files(opts)
+	local limit = opts.limit or 1000
+	-- One slot beyond `limit` tells "exactly limit matches" from "more than limit".
+	local query = Query(require("beast.libs.finder.source").files, { cwd = opts.cwd, limit = limit + 1 })
 	local self = setmetatable({
 		cwd = opts.cwd,
-		limit = opts.limit or 1000,
-		items = {},
-		loading = false,
-		filter = Filter({ cwd = opts.cwd }),
-		gen = 0,
+		limit = limit,
+		loading = true,
+		q = query,
+		closed = false,
 	}, Session)
-	self:_load()
+	self.host = host_mod.headless({
+		alive = function()
+			return not self.closed
+		end,
+		render = function()
+			self:_report()
+		end,
+	})
+	match.start(query, self.host)
 	return self
 end
 
-function Session:_load()
-	self.gen = self.gen + 1
-	local gen = self.gen
-	self.items = {}
-	self.match_state = nil
-	self.loading = true
-
-	require("beast.libs.finder.source").files.get(Filter({ cwd = self.cwd }), function(item)
-		-- stylua: ignore
-		if gen ~= self.gen then return end
-		if item == nil then
-			self.loading = false
-			-- Items that arrived after the last query were never scored.
-			self:_run()
-			return
-		end
-		self.items[#self.items + 1] = item
-	end)
-end
-
-function Session:_run()
+--- Tell the caller about the scored result, once the scorer has finished (progressive partials are not reported).
+function Session:_report()
+	self.loading = self.q.loading
 	-- stylua: ignore
-	if not self.cb then return end
-	if self.task then
-		self.task:abort()
+	if not self.cb or self.q.matching then return end
+	local matched = self.q.matched
+	local capped = #matched > self.limit
+	if capped then
+		matched = vim.list_slice(matched, 1, self.limit)
 	end
-
-	local gen, cb = self.gen, self.cb
-	self.task = matcher.run(self.items, self.filter, config.matcher, function(matched, state)
-		-- Progressive partials carry no state; only the final result is reported.
-		-- An aborted run can still deliver the result it had already queued; drop
-		-- it when a newer query has changed the pattern since.
-		-- stylua: ignore
-		if not state or gen ~= self.gen or cb ~= self.cb or state.pattern ~= self.filter.pattern then return end
-		self.match_state = state
-		-- One slot beyond `limit` tells "exactly limit matches" from "more than limit".
-		local capped = #matched > self.limit
-		if capped then
-			matched[#matched] = nil
-		end
-		cb(matched, { capped = capped, loading = self.loading })
-	end, self.match_state, self.limit + 1)
+	self.cb(matched, { capped = capped, loading = self.loading })
 end
 
 --- Match `pattern` against the files found so far (and again once streaming ends).
 ---@param pattern string finder fuzzy syntax
 ---@param cb fun(matched: Beast.Finder.Item[], result: Beast.Finder.Search.Result)
 function Session:query(pattern, cb)
-	self.filter:update(pattern)
+	self.q.filter:update(pattern)
 	self.cb = cb
-	self:_run()
+	match.run(self.q, self.host)
 end
 
 --- Re-read the file list (e.g. hidden/gitignored visibility changed). The last
 --- query is re-run once the new list has streamed in.
 function Session:refresh()
-	if self.task then
-		self.task:abort()
-		self.task = nil
-	end
-	self:_load()
+	self.loading = true
+	match.reload(self.q, self.host)
 end
 
 function Session:close()
-	self.gen = self.gen + 1
+	self.closed = true
 	self.cb = nil
-	if self.task then
-		self.task:abort()
-		self.task = nil
-	end
+	match.abort(self.q)
 end
 
 return M
