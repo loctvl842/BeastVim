@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1794649446367,
+  "lastUpdate": 1794764581723,
   "repoUrl": "https://github.com/loctvl842/BeastVim",
   "entries": {
     "BeastVim Startup": [
@@ -3429,6 +3429,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "BeastVim startup (warm) max",
             "value": 33.044324,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "committer": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "distinct": true,
+          "id": "ccda1b0e5c1adbb2ed52f63789435f51e9eaca2a",
+          "message": "feat(finder): files changed are previewed as a numbered, tinted diff with the changed words marked\n\nThe preview of a changed file (of a pull request, a commit or a local commit)\nshows old and new line numbers, red and green rows, the exact changed words,\na band per hunk, the count of unchanged lines hidden between hunks and a\nheader with +N -M. Long lines wrap instead of being cut. Other previews give\nthe pane back its window options.",
+          "timestamp": "2026-11-16T00:41:48+07:00",
+          "tree_id": "ab6b980e53acca2c1c85908c263b8f8cb0797453",
+          "url": "https://github.com/loctvl842/BeastVim/commit/ccda1b0e5c1adbb2ed52f63789435f51e9eaca2a"
+        },
+        "date": 1794764581372,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "BeastVim startup (warm) mean",
+            "value": 48.72643105,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) stddev",
+            "value": 0.8390381798978911,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) min",
+            "value": 47.281492,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) max",
+            "value": 50.125576,
             "unit": "ms"
           }
         ]
