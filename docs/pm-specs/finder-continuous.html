@@ -1,0 +1,528 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spec: Continuous finder</title>
+<style>
+  :root { --bg:#fbfaf7; --fg:#1c1b19; --muted:#6b675f; --line:#dcd8cf; --card:#fff; --accent:#b4540a; --term:#1e1f26; --termfg:#d8dae5; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#161513; --fg:#ece8df; --muted:#a29d92; --line:#3a3732; --card:#1f1d1a; --accent:#e08a3c; }
+  }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, sans-serif; }
+  main { max-width:880px; margin:0 auto; padding:24px 16px 80px; }
+  section { margin:32px 0; }
+  h1 { margin:0 0 8px; } h2 { margin:0 0 10px; } h3 { margin:18px 0 6px; font-size:1rem; }
+  .muted { color:var(--muted); }
+  pre.mock { background:var(--term); color:var(--termfg); border-radius:10px; padding:14px 16px; font:13px/1.35 ui-monospace,Menlo,monospace; overflow-x:auto; margin:8px 0; white-space:pre; }
+  pre.step { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:10px 14px; font:13px/1.5 ui-monospace,Menlo,monospace; overflow-x:auto; white-space:pre-wrap; margin:8px 0; }
+  ul { padding-left:20px; } li { margin:4px 0; }
+  ul.check { list-style:none; padding-left:0; } ul.check li::before { content:"\2610  "; color:var(--accent); }
+  details { margin:10px 0; } summary { cursor:pointer; font-weight:600; }
+  .choice { border-left:3px solid var(--accent); padding:6px 12px; margin:12px 0; background:var(--card); border-radius:0 8px 8px 0; }
+  .rec { color:var(--accent); font-weight:600; font-size:.85em; }
+  code { font:0.9em ui-monospace,Menlo,monospace; background:var(--card); border:1px solid var(--line); border-radius:4px; padding:0 4px; }
+  .sim { margin:12px 0 22px; }
+  .sim .bar { display:flex; flex-wrap:wrap; gap:6px; margin:6px 0; }
+  .sim button { font:12px ui-monospace,Menlo,monospace; background:var(--card); color:var(--fg); border:1px solid var(--line); border-radius:6px; padding:4px 8px; cursor:pointer; }
+  .sim button:hover { border-color:var(--accent); }
+  .term { background:var(--term); color:var(--termfg); border-radius:10px; padding:10px; font:13px/1.45 ui-monospace,Menlo,monospace; outline:none; min-height:300px; }
+  .term:focus { box-shadow:0 0 0 2px var(--accent); }
+  .panes { display:grid; grid-template-columns:1.1fr 1fr; gap:8px; }
+  @media (max-width:640px) { .panes { grid-template-columns:1fr; } }
+  .pane { border:1px solid #4a4c5a; border-radius:6px; padding:4px 8px; min-height:260px; overflow:hidden; white-space:pre; }
+  .pane .ttl { color:#e5c07b; text-align:center; }
+  .term .dim { color:#7c7f93; } .term .sel { background:#3a3d4d; display:block; } .term .row { display:block; }
+  .term .hit { background:#4a4c5a; } .term .add { color:#98c379; } .term .del { color:#e06c75; } .term .hunk { color:#7c7f93; }
+  .term .prompt { color:#e5a06a; } .term .cnt { float:right; color:#7c7f93; } .term .caret { background:#d8dae5; color:#1e1f26; }
+  .term .hint { color:#7c7f93; display:block; text-align:right; margin-top:4px; }
+  .simtoast { min-height:1.5em; margin-top:6px; font-size:.9em; color:var(--accent); }
+  svg { width:100%; height:auto; color:var(--fg); }
+</style>
+</head>
+<body>
+<main>
+
+<header data-spec="summary">
+  <h1>Continuous finder</h1>
+  <p>Press one key on a result list to open a follow-up picker that only looks inside what you just found. Files, buffers or help pages then grep in those; a pull request then the files it changed (each with its diff), then grep in those. Backspace steps back to the earlier picker exactly as you left it.</p>
+  <svg viewBox="0 0 760 120" role="img" aria-label="chain of pickers" data-spec="flow">
+    <title>Chain: Files, Grep in files; PRs, files changed</title>
+    <defs><marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="currentColor"/></marker></defs>
+    <g fill="none" stroke="currentColor" stroke-width="1.5">
+      <rect x="10" y="10" width="170" height="40" rx="8"/><rect x="290" y="10" width="200" height="40" rx="8"/>
+      <rect x="10" y="70" width="170" height="40" rx="8"/><rect x="290" y="70" width="200" height="40" rx="8"/>
+      <path d="M180 30 H288" marker-end="url(#ar)"/><path d="M180 90 H288" marker-end="url(#ar)"/>
+      <path d="M290 42 H182" stroke-dasharray="4 3" opacity=".6"/><path d="M290 102 H182" stroke-dasharray="4 3" opacity=".6"/>
+    </g>
+    <g fill="currentColor" font-size="13" font-family="ui-monospace,Menlo,monospace">
+      <text x="24" y="35">Files</text><text x="304" y="35">38 Files › Live Grep</text>
+      <text x="24" y="95">Pull Requests</text><text x="304" y="95">PR … › Files Changed (5)</text>
+      <text x="205" y="24">&lt;C-g&gt;</text><text x="205" y="84">&lt;C-g&gt;</text>
+      <text x="520" y="35" opacity=".7">dashed = &lt;BS&gt; or &lt;C-o&gt; (back)</text>
+    </g>
+  </svg>
+</header>
+
+<section data-spec="problem">
+  <h2>Problem</h2>
+  <p>You find a set of files, then want to search inside only those. Today you close the picker, open grep, and grep searches the whole project, so the narrowing is thrown away. Same with pull requests: to see what a PR changed you leave the editor, and coming back to the PR list loses your search.</p>
+  <p data-spec="why-now" class="muted">Why now: the finder already has a prompt, list, preview and both local and GitHub pickers. A follow-up picker is the natural next step, and the GitHub pickers just shipped.</p>
+</section>
+
+<section data-spec="target-behavior">
+  <h2>Target behavior</h2>
+
+  <div class="sim" data-spec="try-it">
+    <h3>Try it (demo data, click the box, then type)</h3>
+    <div class="bar" id="sim-open">
+      <button data-open="files">&lt;leader&gt;f Files</button>
+      <button data-open="buffers">&lt;leader&gt;b Buffers</button>
+      <button data-open="help">&lt;leader&gt;h Help</button>
+      <button data-open="prs">&lt;leader&gt;ghp Pull Requests</button>
+      <button data-open="issues">&lt;leader&gt;ghi Issues</button>
+    </div>
+    <div class="term" id="sim" tabindex="0" aria-label="finder simulator"></div>
+    <div class="bar" id="sim-keys">
+      <button data-k="C-g">&lt;C-g&gt; deeper</button><button data-k="BS">&lt;BS&gt;</button><button data-k="C-o">&lt;C-o&gt; back</button>
+      <button data-k="Up">&uarr;</button><button data-k="Down">&darr;</button><button data-k="Enter">&lt;Enter&gt;</button><button data-k="Esc">&lt;Esc&gt;</button>
+    </div>
+    <div class="simtoast" id="sim-toast"></div>
+    <p class="muted">Keys: type to filter, <code>&lt;C-g&gt;</code> deeper, <code>&lt;BS&gt;</code> on an empty prompt or <code>&lt;C-o&gt;</code> back, <code>&lt;C-j&gt;/&lt;C-k&gt;</code> or arrows to move, <code>&lt;Esc&gt;</code> closes the chain. Rows and counts are fake; the behavior is what the spec describes. Try: Files, type "finder", C-g, type "preview", BS, BS.</p>
+  </div>
+
+
+  <div data-spec="state-0">
+    <h3>STATE 0 - Prerequisite: Files and Buffers rows get the grep look (ships first)</h3>
+<pre class="mock">Today (path first, folder in front):
+┌─ Files ────────────────────────────────────────────┐
+│ &gt; finder                                      38/912│
+├────────────────────────────────────────────────────┤
+│▌  lua/beast/libs/finder/init.lua                   │
+│   lua/beast/libs/finder/state.lua                  │
+└────────────────────────────────────────────────────┘
+┌─ Buffers ──────────────────────────────────────────┐
+│ &gt; █                                              3 │
+├────────────────────────────────────────────────────┤
+│▌ [4] lua/beast/libs/finder/init.lua [+]            │
+│  [7] README.md                                     │
+└────────────────────────────────────────────────────┘
+
+After (file icon, file name, then the folder dimmed; same as a file row in Live Grep):
+┌─ Files ────────────────────────────────────────────┐
+│ &gt; finder                                      38/912│
+├────────────────────────────────────────────────────┤
+│▌  init.lua  lua/beast/libs/finder                  │
+│   state.lua  lua/beast/libs/finder                 │
+└────────────────────────────────────────────────────┘
+┌─ Buffers ──────────────────────────────────────────┐
+│ &gt; █                                              3 │
+├────────────────────────────────────────────────────┤
+│▌  init.lua  lua/beast/libs/finder  [+]             │
+│   README.md                                        │
+└────────────────────────────────────────────────────┘</pre>
+    <p class="muted">This changes how the normal Files and Buffers pickers look for everyone, chain or not. Buffers keeps <code>[+]</code> (moved to the row end); the buffer number is dropped. Other pickers are unchanged.</p>
+  </div>
+
+  <div data-spec="state-1">
+    <h3>STATE 1 - Level 1: Files</h3>
+<pre class="mock">┌─ Files ────────────────────────────────────────────┐┌─ preview ──────────────────────────────────────┐
+│ &gt; lua/finder█                                 38/912││ local M = {}                                   │
+├────────────────────────────────────────────────────┤│ ...                                            │
+│▌ ● init.lua  lua/beast/libs/finder                 ││                                                │
+│  ● state.lua  lua/beast/libs/finder                ││                                                │
+│  ● render.lua  lua/beast/libs/finder               ││                                                │
+└────────────────────────────────────────────────────┘└────────────────────────────────────────────────┘
+                                                                                     &lt;C-g&gt; grep 38 files</pre>
+  </div>
+
+  <div data-spec="state-2">
+    <h3>STATE 2 - Level 2: grep inside those files (just opened)</h3>
+<pre class="mock">┌─ 38 Files › Live Grep ─────────────────────────────┐
+│ &gt; █                                                │
+├────────────────────────────────────────────────────┤
+│  (type to search inside the 38 files)              │
+└────────────────────────────────────────────────────┘
+                                    &lt;BS&gt; back to Files</pre>
+  </div>
+
+  <div data-spec="state-3">
+    <h3>STATE 3 - Level 2 with a query (grouped like Live grep: file, then its matching lines)</h3>
+<pre class="mock">┌─ 38 Files › Live Grep ─────────────────────────────┐┌─ preview ──────────────────────────────────────┐
+│ &gt; preview                                      7/7 ││ 41 │ function M.show(view, item)               │
+├────────────────────────────────────────────────────┤│ 42 │   local st = state_of(view)               │
+│  ● render.lua  lua/beast/libs/finder               ││                                                │
+│▌ 41:12    function M.show(view, item)              ││                                                │
+│  57:3     -- preview the item                      ││                                                │
+│  ● init.lua    lua/beast/libs/finder               ││                                                │
+│  90:8     local preview = require("...")           ││                                                │
+└────────────────────────────────────────────────────┘└────────────────────────────────────────────────┘
+                                                                                      &lt;BS&gt; back to Files</pre>
+  </div>
+
+  <div data-spec="state-4">
+    <h3>STATE 4 - Use case 2, level 1: pull requests</h3>
+<pre class="mock">┌─ Pull Requests - loctvl842/jarvix ─────────────────┐
+│ &gt; is:pr is:merged hub                          3/3 │
+├────────────────────────────────────────────────────┤
+│▌● #11  fix: publish each package with its own ..   │
+│ ● #3   feat: hub state tracking @loctvl842         │
+└────────────────────────────────────────────────────┘
+                            &lt;C-g&gt; files changed in #11</pre>
+  </div>
+
+  <div data-spec="state-5">
+    <h3>STATE 5 - Use case 2, level 2: files changed in PR #11 (paths only, diff in the preview)</h3>
+<pre class="mock">┌─ PR fix: publish each pack... › Files Changed (5) ─┐┌─ preview: lua/hub/state.lua ───────────────────┐
+│ &gt; █                                            5/5 ││ M  +42 -3                                      │
+├────────────────────────────────────────────────────┤│ @@ -12,6 +12,9 @@ function M.track(node)        │
+│▌ ● state.lua  lua/hub                              ││    local st = hubs[node.hub]                   │
+│  ● track.lua  lua/hub                              ││ -  st.last = os.time()                         │
+│  ● README.md                                       ││ +  st.last = clock.now()                       │
+│  ● old.lua    lua/hub                              ││ +  st.seen[node.id] = true                     │
+│  ● b.lua      lua/hub  (was a.lua)                 ││                                                │
+└────────────────────────────────────────────────────┘└────────────────────────────────────────────────┘
+                                                                              &lt;BS&gt; back to Pull Requests</pre>
+  </div>
+
+    <div data-spec="state-6">
+    <h3>STATE 6 - Use case 3, level 3: grep inside the files changed by the PR</h3>
+<pre class="mock">┌─ 4 PR Files › Live Grep ───────────────────────────┐┌─ preview ──────────────────────────────────────┐
+│ &gt; seen                                         2/2 ││ 29 │ local st = hubs[node.hub]                 │
+├────────────────────────────────────────────────────┤│ 30 │ st.last = clock.now()                     │
+│  ● state.lua  lua/hub                              ││ 31 │ st.seen[node.id] = true                   │
+│▌ 31:2     st.seen[node.id] = true                  ││                                                │
+│  ● track.lua  lua/hub                              ││                                                │
+│  17:3     self.seen = {}                           ││                                                │
+└────────────────────────────────────────────────────┘└────────────────────────────────────────────────┘
+                                                                           &lt;BS&gt; back to Files Changed</pre>
+  </div>
+
+  <div data-spec="state-7">
+    <h3>STATE 7 - Use case 4: Issues, then grep inside the issue text</h3>
+<pre class="mock">┌─ 3 Issues › Live Grep ─────────────────────────────┐┌─ preview ──────────────────────────────────────┐
+│ &gt; dot                                          2/2 ││ Hub crashes when a node name has a dot   #41   │
+├────────────────────────────────────────────────────┤│                                                │
+│  ○ #41  Hub crashes when a node name has a dot     ││ `jarvix node run --node a.b` exits silently    │
+│▌ 3:12   a name like a.b is split on the dot        ││ when a name like a.b is split on the dot.      │
+│  ○ #35  Pane labels are lost after restart         ││                                                │
+│  5:20   labels with a dot are dropped              ││                                                │
+└────────────────────────────────────────────────────┘└────────────────────────────────────────────────┘
+                                                                                &lt;BS&gt; back to Issues</pre>
+  </div>
+
+  <ul data-spec="target-notes">
+    <li>Key hints are dim tooltip-like text on a line just below the picker's bottom border, right-aligned to its right edge (outside the frame, never a list row): the key that goes deeper (only with a next step) and, below level 1, the key that goes back, naming the destination. Hidden when there is no room below.</li>
+    <li>Title reads "scope › this picker": "38 Files › Live Grep", "PR &lt;title&gt; › Files Changed (5)". A long PR title is cut with <code>...</code>.</li>
+    <li>Rows use the Live grep list look: file name plus dim parent folder; in Grep the matching lines sit indented under their file with <code>line:col</code>.</li>
+    <li>PR level 2 is only the changed file paths; the diff and +/- counts are in the preview.</li>
+    <li>Diff preview: added lines green, removed red, hunk headers dim.</li>
+  </ul>
+</section>
+
+<section data-spec="scenarios">
+  <h2>Scenarios</h2>
+
+  <details open data-spec="scenario-1"><summary>1 - Files, then grep inside them (happy path)</summary>
+<pre class="step">Step 1: &lt;leader&gt;f, type "lua/finder".  38 of 912 files match.
+Step 2: Press &lt;C-g&gt;.  Title "38 Files › Live Grep", empty prompt,
+        quiet line "type to search inside the 38 files".
+Step 3: Type "preview".  Only matches inside those 38 files appear.
+Step 4: &lt;Enter&gt; on a match.  File opens at that line; the chain closes.</pre>
+  </details>
+
+  <details data-spec="scenario-2"><summary>2 - Go back and change the first query</summary>
+<pre class="step">Step 1: Clear the prompt (&lt;C-u&gt;) and press &lt;BS&gt; on the empty prompt (or &lt;C-o&gt; any time).
+        Back on "Files": prompt "lua/finder", same highlighted row.
+Step 2: Change it to "lua/explorer".  List updates as usual.
+Step 3: &lt;C-g&gt; again.  New level 2 over the new file set; old grep text is gone.</pre>
+  </details>
+
+  <details open data-spec="scenario-3"><summary>3 - Pull request, then its changed files (use case 2)</summary>
+<pre class="step">Step 1: &lt;leader&gt;ghp, move to #11.
+Step 2: &lt;C-g&gt;.  Title "PR fix: publish each pack... › Files Changed (5)". Spinner while loading (no count yet), then the
+        changed file paths (name, dim folder). Preview: that file's diff with status, +/- counts.
+Step 3: &lt;C-j&gt; moves down, preview follows. Type "state": list is fuzzy-filtered by path.
+Step 4: &lt;BS&gt; on empty prompt (or &lt;C-o&gt;).  Back on the PR list: same text, same
+        results, #11 highlighted. No new GitHub search.
+Step 5: Move to #3, &lt;C-g&gt;.  Files changed in #3.</pre>
+  </details>
+
+  <details data-spec="scenario-4"><summary>4 - Open a changed file's diff</summary>
+<pre class="step">Step 1: &lt;Enter&gt; on lua/hub/state.lua.  Chain closes; its changes open in a read-only
+        buffer with diff colors, cursor on the first change.</pre>
+  </details>
+
+  <details data-spec="scenario-5"><summary>5 - Nothing to go deeper into</summary>
+<pre class="step">Step 1: &lt;C-g&gt; on Live Grep or any picker without a next step.
+        Toast "Nothing to open from here"; picker unchanged; no hint shown.
+Step 2: &lt;C-g&gt; on an empty list.  Same toast.</pre>
+  </details>
+
+  <details data-spec="scenario-6"><summary>6 - Still scanning</summary>
+<pre class="step">Step 1: &lt;C-g&gt; while the Files spinner is still running.
+        Toast "Still searching - try again in a moment"; picker unchanged.</pre>
+  </details>
+
+  <details data-spec="scenario-7"><summary>7 - Cancel</summary>
+<pre class="step">Step 1: &lt;Esc&gt; or &lt;C-c&gt; at level 2.  The whole chain closes.
+Step 2: &lt;BS&gt; on an empty prompt at level 1.  Nothing happens.</pre>
+  </details>
+
+  <details data-spec="scenario-8"><summary>8 - PR files cannot load</summary>
+<pre class="step">Step 1: &lt;C-g&gt; on a PR with network down or PR gone.
+        Level 2 opens with one quiet line "Could not load the changed files: &lt;reason&gt;".
+        &lt;BS&gt; still goes back.</pre>
+  </details>
+
+  <details data-spec="scenario-9"><summary>9 - Large PR</summary>
+<pre class="step">Step 1: &lt;C-g&gt; on a PR with a very large diff.
+        Only the first 300 changed files are listed (our cap); title ends "(partial)", count reads "300+".</pre>
+  </details>
+  <details data-spec="scenario-10"><summary>10 - Buffers, then grep inside them</summary>
+<pre class="step">Step 1: &lt;leader&gt;b, type "lua".  Matching open buffers are listed.
+Step 2: &lt;C-g&gt;.  Title "6 Buffers › Live Grep", empty prompt, hint "&lt;BS&gt; back to Buffers".
+Step 3: Type "preview".  Matches only from those buffers' files. Buffers with no file
+        (scratch) are not in scope. Grep reads the saved file, so unsaved edits are not searched.</pre>
+  </details>
+
+  <details data-spec="scenario-11"><summary>11 - Help, then grep inside the matching help pages</summary>
+<pre class="step">Step 1: &lt;leader&gt;h, type "window".  Matching help tags are listed.
+Step 2: &lt;C-g&gt;.  Title "4 Help Files › Live Grep". Scope = the help pages those tags live in
+        (each page once), not only the tag lines.
+Step 3: Type "split".  Matching lines inside those help pages.</pre>
+  </details>
+
+  <details open data-spec="scenario-12"><summary>12 - Pull request, then its files, then grep inside them (three levels)</summary>
+<pre class="step">Step 1: &lt;leader&gt;ghp, move to #11, &lt;C-g&gt;.  "PR ... › Files Changed (5)".
+Step 2: &lt;C-g&gt; again.  Title "4 PR Files › Live Grep", quiet line
+        "type to search your local copies of the 4 files". Files deleted by the PR or
+        missing from your working tree are left out (4, not 5).
+Step 3: Type "seen".  Matches grouped by file (STATE 6).
+Step 4: &lt;BS&gt; goes to "Files Changed", &lt;BS&gt; again to the PR list, each as left.
+Step 5: None of the files exist locally: toast "None of these files exist in your working tree"; picker stays.</pre>
+  </details>
+  <details data-spec="scenario-13"><summary>13 - Issues, then grep inside the issue text</summary>
+<pre class="step">Step 1: &lt;leader&gt;ghi.  Issues open as usual.
+Step 2: &lt;C-g&gt;.  Title "3 Issues › Live Grep", quiet line "type to search the text of the 3 issues",
+        hint "&lt;BS&gt; back to Issues".
+Step 3: Type "dot".  Matching lines of each issue's title and description appear under an issue
+        row (number, title) with line:col. Issues without a match disappear. Preview: the whole issue.
+Step 4: &lt;Enter&gt; opens the issue in the browser; &lt;BS&gt; returns to the list as left.
+        Comments are not searched.</pre>
+  </details>
+</section>
+
+<section data-spec="behavior-rules">
+  <h2>Behavior rules</h2>
+  <ul>
+    <li data-spec="rule-one-key"><b>One key goes deeper:</b> <code>&lt;C-g&gt;</code>, meaning "continue inside what I see".
+      <ul><li>Files, Buffers, Help and a PR's changed files -&gt; <b>grep inside</b> the files currently matching (Help: the help pages of the matching tags).</li>
+      <li>Pull Requests -&gt; the files changed by the highlighted PR.</li>
+      <li>Issues -&gt; <b>grep inside the text</b> (title and description) of the listed issues. Issues are not files, so this is the closest meaning of "grep" there.</li>
+      <li>Pickers with no next step (Live Grep itself) show no hint.</li></ul></li>
+    <li data-spec="rule-disk"><b>Grep reads files on disk in your working tree.</b> Buffers with no file, files deleted by a PR and files missing locally are left out; the title count reflects what is left.</li>
+    <li data-spec="rule-scope"><b>Scope</b> for Files = everything that currently matches (not only the highlighted row); empty prompt = whole file list. For PRs = the highlighted PR.</li>
+    <li data-spec="rule-row-look">Files and Buffers rows use the grep file look (icon, name, dim folder) everywhere, chain or not. The buffer number is no longer shown in the row.</li>
+    <li data-spec="rule-empty-prompt">A follow-up picker always starts with an empty prompt.</li>
+    <li data-spec="rule-back-stack"><b>Back is a stack, not a history.</b> <code>&lt;BS&gt;</code> on an empty prompt, or <code>&lt;C-o&gt;</code> any time, goes one level up. Going deeper again starts fresh.</li>
+    <li data-spec="rule-restore">Going back restores prompt text, results and highlighted row. GitHub lists are not searched again; file lists are re-run (cheap) and the row is restored by name.</li>
+    <li data-spec="rule-close"><code>&lt;Esc&gt;</code> / <code>&lt;C-c&gt;</code> close the whole chain. <code>&lt;Enter&gt;</code>, <code>&lt;C-s&gt;</code>, <code>&lt;C-v&gt;</code> act on the result and close it. <code>&lt;C-y&gt;</code> copies path (URL for PRs) at any level.</li>
+    <li data-spec="rule-depth">Depth is not limited. Today's longest chain has three levels (PR &gt; Files Changed &gt; Live Grep).</li>
+    <li data-spec="rule-no-partial">No partial scope: <code>&lt;C-g&gt;</code> while results are still being collected gives a toast.</li>
+    <li data-spec="rule-title-hint">Title and hint below the picker always show the chain and where <code>&lt;BS&gt;</code> goes.</li>
+    <li data-spec="rule-level2-error">Level 2 can fail alone, in-list, and <code>&lt;BS&gt;</code> still works.</li>
+  </ul>
+</section>
+
+<section data-spec="decisions">
+  <h2>Decisions for you</h2>
+  <div class="choice" data-spec="decision-key">
+    <b>Deeper key.</b> <code>&lt;C-g&gt;</code> ("go"). It is free in the finder and works in insert and normal mode of the prompt. <span class="rec">Recommended</span>
+    <br><span class="muted">Alternatives: <code>&lt;C-o&gt;</code> deeper and <code>&lt;C-i&gt;</code> back (collides with Tab in terminals), or a per-picker key (more to remember).</span>
+  </div>
+  <div class="choice" data-spec="decision-back">
+    <b>Back key.</b> <code>&lt;BS&gt;</code> on an empty prompt, plus <code>&lt;C-o&gt;</code> that always works (because GitHub-style prompts are rarely empty, and level 2 prompts you typed into need a way out without clearing). <span class="rec">Recommended</span>
+  </div>
+  <div class="choice" data-spec="decision-pr-child">
+    <b>PR level 2 shows</b> only the changed file paths; the diff lives in the preview (your request). Searching inside the diff text can be a later level. <span class="rec">Recommended</span>
+  </div>
+  <div class="choice" data-spec="decision-pr-enter">
+    <b>Enter on a changed file</b> opens its diff in a read-only buffer (the local file may be a different version than the PR). <span class="rec">Recommended</span>
+  </div>
+  <div class="choice" data-spec="decision-esc">
+    <b>Esc closes the whole chain</b> (not one level), so Esc always means "I am done". <span class="rec">Recommended</span>
+  </div>
+</section>
+
+<section data-spec="success-criteria">
+  <h2>Success criteria</h2>
+  <ul class="check">
+    <li>Files, Buffers, Help <code>&lt;C-g&gt;</code>: grep only returns matches inside the files (or help pages) that matched the prompt.</li>
+    <li>In Issues, <code>&lt;C-g&gt;</code> greps title and description of the listed issues, matches shown under each issue.</li>
+    <li>From a PR's changed files, <code>&lt;C-g&gt;</code> greps the local copies; deleted or missing ones are left out and the title count says how many remain.</li>
+    <li>Pull Requests <code>&lt;C-g&gt;</code>: files changed by the highlighted PR (paths only), diff with status and +/- counts in the preview; typing filters by path.</li>
+    <li><code>&lt;BS&gt;</code> on empty prompt and <code>&lt;C-o&gt;</code> restore the earlier prompt, results and highlighted row.</li>
+    <li>Going back to the PR list makes no GitHub search.</li>
+    <li><code>&lt;Esc&gt;</code> closes the whole chain; <code>&lt;Enter&gt;</code> on a result closes it too.</li>
+    <li>Title shows the chain; hint shows <code>&lt;C-g&gt;</code> only with a next step and <code>&lt;BS&gt;</code> only below level 1.</li>
+    <li><code>&lt;C-g&gt;</code> with no next step, an empty list, or a still-scanning list shows a toast and changes nothing.</li>
+    <li>Failed or huge changed-files listings are handled in-list.</li>
+    <li>Files and Buffers rows show icon, file name and dim folder (STATE 0); Buffers still marks modified buffers with <code>[+]</code>.</li>
+    <li>Files and Buffers rows show icon, file name and dim folder (STATE 0); Buffers still marks modified buffers with <code>[+]</code>.</li>
+    <li>Apart from that row look, a picker opened normally looks and behaves exactly as before.</li>
+  </ul>
+</section>
+
+<section data-spec="out-of-scope">
+  <h2>Out of scope</h2>
+  <ul>
+    <li>Forward navigation / full history (browser-style).</li>
+    <li>More chains (Grep -&gt; files with matches, Issues -&gt; linked PRs, PR -&gt; grep inside the diff text, LSP references -&gt; grep).</li>
+    <li>Hand-picking several rows as a scope.</li>
+    <li>Whole-PR diff as one document, reviewing or commenting.</li>
+    <li>GitLab, deferred.</li>
+  </ul>
+</section>
+
+</main>
+<script>
+(function(){
+var FILES={
+"lua/beast/libs/finder/init.lua":["local M = {}","function M.open(source, opts)","  local preview = require(\"beast.libs.finder.render\")","return M"],
+"lua/beast/libs/finder/state.lua":["local State = {}","function State:reset()","  self.preview = nil","  -- preview follows the cursor"],
+"lua/beast/libs/finder/render.lua":["local M = {}","function M.show(view, item)","  -- preview the item","  local st = state_of(view)"],
+"lua/beast/libs/finder/keymaps.lua":["local function lmap(mode, lhs, fn)","  lmap(\"n\", \"<Esc>\", function() state:reset() end)"],
+"lua/beast/libs/finder/ui/list.lua":["local List = {}","function List.render(view)","  -- no preview here"],
+"lua/beast/libs/finder/ui/input.lua":["local InputView = View:extend()","function M.set_count(view, text)"],
+"lua/beast/libs/explorer/init.lua":["local M = {}","function M.toggle()","  -- preview of a file under cursor"],
+"lua/beast/libs/git/init.lua":["local M = {}","function M.preview_hunk()","  -- open the hunk preview float"],
+"lua/beast/libs/git/highlights.lua":["PreviewNormal = { bg = p.dark1 }","PreviewAdd = { bg = blend(p.green) }"],
+"lua/beast/init.lua":["local M = {}","packer.lazy(\"beast.libs.finder\", {","  { \"<leader>f\", function() open(\"files\") end }"],
+"tests/test-finder-gh-query.lua":["local query = require(\"beast.libs.finder.source.gh.query\")","assert_test(\"default text\", ...)"],
+"docs/CODEMAP/libraries.md":["## finder - Fuzzy Finder","preview pane for gh sources"],
+"README.md":["# BeastVim","A fast Neovim config"],
+"scripts/bench-ux.sh":["# <leader>gp preview hunk","km git_preview_hunk"]};
+var PATHS=Object.keys(FILES);
+var BUFFERS=["lua/beast/libs/finder/init.lua","lua/beast/libs/finder/render.lua","lua/beast/libs/git/init.lua","lua/beast/init.lua","README.md","scripts/bench-ux.sh"];
+FILES["doc/windows.txt"]=["*windows.txt*  Editing with multiple windows","Use :split to open a window and preview it","CTRL-W s splits the window"];
+FILES["doc/options.txt"]=["*options.txt*  Options","'splitbelow' controls where a split goes","'previewheight' sets the preview window height"];
+FILES["doc/motion.txt"]=["*motion.txt*  Cursor motions","w moves to the next word"];
+var HELP=[{tag:"windows",file:"doc/windows.txt"},{tag:"split",file:"doc/windows.txt"},{tag:"'splitbelow'",file:"doc/options.txt"},{tag:"'previewheight'",file:"doc/options.txt"},{tag:"word-motions",file:"doc/motion.txt"}];
+FILES["lua/hub/state.lua"]=["local st = hubs[node.hub]","st.last = clock.now()","st.seen[node.id] = true"];
+FILES["lua/hub/track.lua"]=["local M = {}","self.seen = {}"];
+FILES["lua/hub/hub.lua"]=["local Hub = {}","hub.seen = true"];
+FILES["lua/mux/tmux.lua"]=["local tmux = {}","tmux.seen = {}"];
+FILES["lua/mux/init.lua"]=["local M = {}"];
+FILES["lua/m4/init.lua"]=["local M = {}"];
+// lua/hub/old.lua is deleted by its PR, so it has no local copy
+var IB={41:["`jarvix node run --node a.b` exits silently","when a name like a.b is split on the dot.","Reproduced on main."],39:["The mesh down flag is not documented."],35:["Pane labels are lost after restart.","labels with a dot are dropped"]};
+var PRS=[{n:32,t:"Refactor m4",s:"open"},{n:11,t:"fix: publish each package with its own version",s:"merged"},{n:3,t:"feat: hub state tracking",s:"merged"},{n:2,t:"feat(mux): tmux integration",s:"merged"}];
+var ISSUES=[{n:41,t:"Hub crashes when a node name has a dot"},{n:39,t:"Document the mesh down flag"},{n:35,t:"Pane labels are lost after restart"}];
+var PRF={11:["lua/hub/state.lua","lua/hub/track.lua","README.md","lua/hub/old.lua"],3:["lua/hub/state.lua","lua/hub/hub.lua"],2:["lua/mux/tmux.lua","lua/mux/init.lua","README.md"],32:["lua/m4/init.lua"]};
+var ST={"lua/hub/state.lua":["M",42,3],"lua/hub/track.lua":["A",120,0],"README.md":["M",6,1],"lua/hub/old.lua":["D",0,88],"lua/hub/hub.lua":["M",9,2],"lua/mux/tmux.lua":["A",75,0],"lua/mux/init.lua":["M",4,1],"lua/m4/init.lua":["M",12,12]};
+var el=document.getElementById("sim"),toast=document.getElementById("sim-toast");
+var stack=[],closed=true;
+function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+function fuzzy(q,s){q=q.toLowerCase();s=s.toLowerCase();var i=0;for(var c=0;c<s.length&&i<q.length;c++)if(s[c]===q[i])i++;return i===q.length;}
+function base(p){return p.split("/").pop();} function dir(p){var a=p.split("/");a.pop();return a.join("/");}
+function say(m){toast.textContent=m;}
+function open(kind){closed=false;say("");stack=[{kind:kind,q:kind==="prs"?"":"",sel:0}];draw();el.focus();}
+function cur(){return stack[stack.length-1];}
+function words(q){return q.split(/\s+/).filter(function(w){return w&&w.indexOf(":")<0;});}
+function rowsOf(L){
+  var rows=[],q=L.q;
+  if(L.kind==="buffers"){BUFFERS.filter(function(p){return fuzzy(q,p);}).forEach(function(p){rows.push({t:"file",p:p,sel:1});});}
+  else if(L.kind==="help"){HELP.filter(function(h){return fuzzy(q,h.tag);}).forEach(function(h){rows.push({t:"file",p:h.file,tag:h.tag,sel:1});});}
+  else if(L.kind==="files"){PATHS.filter(function(p){return fuzzy(q,p);}).forEach(function(p){rows.push({t:"file",p:p,sel:1});});}
+  else if(L.kind==="grep"){
+    if(!q){rows.push({t:"msg",x:L.local?"(type to search your local copies of the "+pl(L.scope.length)+")":"(type to search inside the "+pl(L.scope.length)+")"});}
+    else L.scope.forEach(function(p){var hits=[];FILES[p].forEach(function(x,i){if(x.toLowerCase().indexOf(q.toLowerCase())>=0)hits.push({t:"line",p:p,ln:i*13+1,col:x.toLowerCase().indexOf(q.toLowerCase())+1,x:x,sel:1});});
+      if(hits.length){rows.push({t:"head",p:p});rows=rows.concat(hits);}});
+    if(q&&!rows.length)rows.push({t:"msg",x:"No results for this search"});}
+  else if(L.kind==="prs"){PRS.filter(function(p){return words(q).every(function(w){return (p.t+" #"+p.n).toLowerCase().indexOf(w.toLowerCase())>=0;});}).forEach(function(p){rows.push({t:"pr",pr:p,sel:1});});}
+  else if(L.kind==="igrep"){
+    if(!q)rows.push({t:"msg",x:"(type to search the text of the "+L.scope.length+" issues)"});
+    else{L.scope.forEach(function(is){var ls=[is.t].concat(IB[is.n]||[]),hits=[];ls.forEach(function(x,i){var k=x.toLowerCase().indexOf(q.toLowerCase());if(k>=0)hits.push({t:"line",issue:is,ln:i+1,col:k+1,x:x,sel:1});});if(hits.length){rows.push({t:"head",issue:is});rows=rows.concat(hits);}});
+      if(!rows.length)rows.push({t:"msg",x:"No results for this search"});}}
+  else if(L.kind==="issues"){ISSUES.forEach(function(p){rows.push({t:"issue",pr:p,sel:1});});}
+  else if(L.kind==="prfiles"){PRF[L.pr].filter(function(p){return fuzzy(q,p);}).forEach(function(p){rows.push({t:"file",p:p,sel:1,st:ST[p][0]});});}
+  return rows;}
+function grepScope(L,sels){
+  var paths=[],label;
+  if(L.kind==="files"){label="Files";}else if(L.kind==="buffers"){label="Buffers";}else if(L.kind==="help"){label="Help Files";}else if(L.kind==="prfiles"){label="PR Files";}else return null;
+  sels.forEach(function(r){if(paths.indexOf(r.p)<0&&FILES[r.p])paths.push(r.p);});
+  return {paths:paths,label:label,local:L.kind==="prfiles"};}
+function pl(n){return n+(n===1?" file":" files");}
+function igrep(L){return L.kind==="issues"?ISSUES:null;}
+function selectable(rows){return rows.filter(function(r){return r.sel;});}
+function crumb(L){if(L.kind==="igrep")return L.scope.length+" Issues › Live Grep";if(L.kind==="grep")return L.scope.length+" "+L.label+" › Live Grep";if(L.kind==="prfiles"){var pt=PRS.filter(function(p){return p.n===L.pr;})[0].t;if(pt.length>22)pt=pt.slice(0,22)+"...";return "PR "+pt+" › Files Changed ("+PRF[L.pr].length+")";}return {files:"Files",buffers:"Buffers",help:"Help",prs:"Pull Requests - loctvl842/jarvix",issues:"Issues - loctvl842/jarvix"}[L.kind];}
+function title(){return crumb(cur());}
+var NAME={igrep:"Live Grep",files:"Files",buffers:"Buffers",help:"Help",prs:"Pull Requests",grep:"Grep",prfiles:"Files Changed",issues:"Issues"};
+function preview(L,s){
+  if(!s)return "";
+  if(L.kind==="files")return FILES[s.p].map(esc).join("\n");
+  if(L.kind==="igrep"){var is=s.issue;return "<b>"+esc(is.t)+"</b>  #"+is.n+"\n\n"+(IB[is.n]||[]).map(esc).join("\n");}
+  if(L.kind==="grep"){var a=FILES[s.p];return a.map(function(x,i){var h=x===s.x;return (i+1)+" │ "+(h?'<span class="hit">'+esc(x)+"</span>":esc(x));}).join("\n");}
+  if(L.kind==="prs"){return "<b>"+esc(s.pr.t)+"</b>  #"+s.pr.n+"\n\nStatus:  "+s.pr.s+"\nRepo:    loctvl842/jarvix\nAuthor:  loctvl842\n"+'<span class="hunk">────────────────────</span>\n## Summary\n(description loads here)';}
+  if(L.kind==="issues")return "<b>"+esc(s.pr.t)+"</b>  #"+s.pr.n+"\n\nStatus:  Open";
+  if(L.kind==="prfiles"){var m=ST[s.p];return '<span class="dim">'+m[0]+"  +"+m[1]+" -"+m[2]+'</span>\n<span class="hunk">@@ -12,6 +12,9 @@ function M.track(node)</span>\n   local st = hubs[node.hub]\n<span class="del">-  st.last = os.time()</span>\n<span class="add">+  st.last = clock.now()</span>\n<span class="add">+  st.seen[node.id] = true</span>';}
+  return "";}
+function draw(){
+  if(closed){el.innerHTML='<div class="dim" style="padding:20px">Picker closed. Press a button above to open one.</div>';return;}
+  var L=cur(),rows=rowsOf(L),sels=selectable(rows);
+  if(L.sel>=sels.length)L.sel=Math.max(0,sels.length-1);
+  var s=sels[L.sel],out="";
+  rows.forEach(function(r){var on=r===s,cls="row"+(on?" sel":""),h="";
+    if(r.t==="file")h='<span class="dim">'+(on?"▌":" ")+"</span> ● "+esc(r.tag||base(r.p))+(dir(r.p)?'  <span class="dim">'+esc(dir(r.p))+"</span>":"")+(r.st?'  <span class="dim">'+r.st+"</span>":"");
+    else if(r.t==="head"&&r.issue)h="  ○ #"+r.issue.n+"  "+esc(r.issue.t);
+    else if(r.t==="head")h="  ● "+esc(base(r.p))+'  <span class="dim">'+esc(dir(r.p))+"</span>";
+    else if(r.t==="line"){var i=r.x.toLowerCase().indexOf(L.q.toLowerCase());h='<span class="dim">'+(on?"▌":" ")+" "+r.ln+":"+r.col+"</span>   "+esc(r.x.slice(0,i))+'<span class="hit">'+esc(r.x.slice(i,i+L.q.length))+"</span>"+esc(r.x.slice(i+L.q.length));}
+    else if(r.t==="pr")h=(on?"▌":" ")+" "+(r.pr.s==="open"?"○":"●")+" #"+r.pr.n+"  "+esc(r.pr.t)+' <span class="dim">@loctvl842</span>';
+    else if(r.t==="issue")h=(on?"▌":" ")+" ○ #"+r.pr.n+"  "+esc(r.pr.t);
+    else h='<span class="dim">  '+esc(r.x)+"</span>";
+    out+='<span class="'+cls+'">'+h+"</span>";});
+  var hint=[];
+  if(L.kind==="issues"&&sels.length)hint.push("&lt;C-g&gt; grep "+(sels.length===1?"1 issue":sels.length+" issues"));
+  var g=grepScope(L,sels);if(g&&g.paths.length)hint.push("&lt;C-g&gt; grep "+pl(g.paths.length));
+  if(L.kind==="prs"&&s)hint.push("&lt;C-g&gt; files changed in #"+s.pr.n);
+  if(stack.length>1)hint.push("&lt;BS&gt; back to "+NAME[stack[stack.length-2].kind]);
+  var cnt=L.kind==="files"?sels.length+"/"+PATHS.length:L.kind==="buffers"?sels.length+"/"+BUFFERS.length:L.kind==="help"?sels.length+"/"+HELP.length:(L.kind==="grep"||L.kind==="igrep"?(L.q?sels.length+"/"+sels.length:""):sels.length+"/"+sels.length);
+  var shown=L.kind==="prs"?"is:pr state:open "+L.q:L.kind==="issues"?"is:issue state:open "+L.q:L.q;
+  el.innerHTML='<div class="panes"><div class="pane"><div class="ttl">'+esc(title())+'</div><span class="row"><span class="prompt">&gt; </span>'+esc(shown)+'<span class="caret"> </span><span class="cnt">'+cnt+"</span></span>"+out+'</div><div class="pane"><div class="ttl">preview</div>'+preview(L,s)+'</div></div><span class="hint">'+(hint.join("    ")||"&nbsp;")+"</span>";
+}
+function back(){if(stack.length>1){stack.pop();say("");draw();}else say("Nothing to go back to");}
+function key(k){
+  if(closed)return;
+  var L=cur(),rows=rowsOf(L),sels=selectable(rows);
+  if(k==="Esc"){closed=true;say("Whole chain closed");draw();return;}
+  if(k==="Enter"){var s=sels[L.sel];if(!s){return;}closed=true;say(L.kind==="igrep"?"Opens #"+s.issue.n+" in the browser. Chain closed.":L.kind==="prfiles"?"Opens the diff of "+s.p+" in a read-only buffer. Chain closed.":L.kind==="prs"||L.kind==="issues"?"Opens #"+s.pr.n+" in the browser. Chain closed.":"Opens "+s.p+(s.ln?":"+s.ln:"")+". Chain closed.");draw();return;}
+  if(k==="C-o"){back();return;}
+  if(k==="BS"){if(L.q===""&&stack.length>1)back();else{L.q=L.q.slice(0,-1);L.sel=0;draw();}return;}
+  if(k==="Down"){L.sel=Math.min(L.sel+1,sels.length-1);draw();return;}
+  if(k==="Up"){L.sel=Math.max(L.sel-1,0);draw();return;}
+  if(k==="C-g"){
+    if(L.kind==="issues"&&sels.length){stack.push({kind:"igrep",q:"",sel:0,scope:sels.map(function(r){return r.pr;})});say("");draw();return;}
+    var g=grepScope(L,sels);
+    if(g){if(!g.paths.length){say(L.kind==="prfiles"&&sels.length?"None of these files exist in your working tree":"Nothing to open from here");return;}
+      stack.push({kind:"grep",q:"",sel:0,scope:g.paths,label:g.label,local:g.local});say("");draw();return;}
+    if(L.kind==="prs"&&sels[L.sel]){stack.push({kind:"prfiles",q:"",sel:0,pr:sels[L.sel].pr.n});say("");draw();return;}
+    say("Nothing to open from here");return;}
+  if(k.length===1){L.q+=k;L.sel=0;draw();}
+}
+el.addEventListener("keydown",function(e){
+  var k=null;
+  if(e.key==="Escape")k="Esc";else if(e.key==="Enter")k="Enter";else if(e.key==="Backspace")k="BS";
+  else if(e.key==="ArrowDown"||e.key==="Tab"&&!e.shiftKey)k="Down";else if(e.key==="ArrowUp"||e.key==="Tab")k="Up";
+  else if(e.ctrlKey&&!e.metaKey&&!e.altKey){var m={g:"C-g",o:"C-o",j:"Down",n:"Down",k:"Up",p:"Up"}[e.key.toLowerCase()];if(m)k=m;}
+  else if(e.key.length===1&&!e.ctrlKey&&!e.metaKey&&!e.altKey)k=e.key;
+  if(k){e.preventDefault();key(k);}
+});
+document.getElementById("sim-keys").addEventListener("click",function(e){var k=e.target.getAttribute("data-k");if(k){key(k);el.focus();}});
+document.getElementById("sim-open").addEventListener("click",function(e){var k=e.target.getAttribute("data-open");if(k)open(k);});
+draw();
+})();
+</script>
+
+</body>
+</html>

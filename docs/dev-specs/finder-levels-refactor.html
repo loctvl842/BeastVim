@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dev spec: Finder levels refactor</title>
+<style>
+  :root { --bg:#fbfaf7; --fg:#1c1b19; --muted:#6b675f; --line:#dcd8cf; --card:#fff; --accent:#b4540a; --code:#1e1f26; --codefg:#d8dae5; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#161513; --fg:#ece8df; --muted:#a29d92; --line:#3a3732; --card:#1f1d1a; --accent:#e08a3c; }
+  }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, sans-serif; }
+  main { max-width:900px; margin:0 auto; padding:24px 16px 80px; }
+  section { margin:32px 0; }
+  h1 { margin:0 0 8px; } h2 { margin:0 0 10px; } h3 { margin:16px 0 6px; font-size:1rem; }
+  .muted { color:var(--muted); }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px 16px; margin:12px 0; }
+  .card h3 { margin-top:0; }
+  .tag { font:12px ui-monospace,Menlo,monospace; border:1px solid var(--line); border-radius:999px; padding:1px 8px; margin-left:6px; color:var(--muted); }
+  .risk-h { color:#c0392b; border-color:#c0392b; } .risk-m { color:var(--accent); border-color:var(--accent); }
+  pre.code { background:var(--code); color:var(--codefg); border-radius:10px; padding:12px 14px; font:12.5px/1.45 ui-monospace,Menlo,monospace; overflow-x:auto; margin:8px 0; white-space:pre; }
+  table { border-collapse:collapse; width:100%; font-size:.92rem; }
+  th, td { border-bottom:1px solid var(--line); padding:6px 8px; text-align:left; vertical-align:top; }
+  code { font:0.88em ui-monospace,Menlo,monospace; background:var(--card); border:1px solid var(--line); border-radius:4px; padding:0 4px; }
+  ul, ol { padding-left:20px; } li { margin:4px 0; }
+  ul.check { list-style:none; padding-left:0; } ul.check li::before { content:"\2610  "; color:var(--accent); }
+  .choice { border-left:3px solid var(--accent); padding:6px 12px; margin:12px 0; background:var(--card); border-radius:0 8px 8px 0; }
+  .rec { color:var(--accent); font-weight:600; font-size:.85em; }
+  svg { width:100%; height:auto; color:var(--fg); }
+  .tablewrap { overflow-x:auto; }
+</style>
+</head>
+<body>
+<main>
+
+<header data-spec="summary">
+  <h1>Finder levels refactor - dev spec</h1>
+  <p>No user-visible change. Split the finder's <code>State</code> into a <b>Session</b> (windows, keys) and a <b>Level</b> (one search), make the pipelines UI-free behind a small <b>host</b>, move format/open/reload behavior onto the <b>source</b>, write the keymaps once, and let the explorer's headless <code>search.lua</code> reuse the same engine. After this, a chained picker is <code>session:push(level)</code> and a new source is one file.</p>
+  <p class="muted">Prerequisite for <code>finder-continuous</code>. Source of truth: <code>docs/dev-specs/finder-levels-refactor.md</code>. Scope you chose: R0 to R5, migrate all sources.</p>
+</header>
+
+<section data-spec="problem">
+  <h2>Why refactor first</h2>
+  <div class="tablewrap"><table>
+    <tr><th>#</th><th>Problem (evidence)</th><th>Effect on the chain</th></tr>
+    <tr><td>1</td><td><code>State</code> builds windows <i>and</i> the search in one constructor (<code>state.lua:56-97</code>)</td><td>one window set can show only one search</td></tr>
+    <tr><td>2</td><td>Pipelines read <code>state.query</code> at call time and call the UI directly (<code>match.lua:39,105,116</code>, <code>stream.lua:61-104</code>)</td><td>swapping the query lets a late callback corrupt the new one; engine unusable headless</td></tr>
+    <tr><td>3</td><td>Behavior chosen by source <i>name</i> in 5 central files (<code>render.lua:40,75,76</code>, <code>action.lua:8,10</code>, <code>autocmds.lua:99</code>, <code>keymaps.lua:15</code>)</td><td>each new source edits ~12 core files</td></tr>
+    <tr><td>4</td><td>Match results are a top-1000 display list, no total, no full set</td><td>"grep all matching files" has no clean source of truth</td></tr>
+    <tr><td>5</td><td>Enter / C-s / C-v written once per pane; copies drifted (list-pane C-v does a split)</td><td>every new key must be added three times</td></tr>
+    <tr><td>6</td><td><code>search.lua</code> re-implements load + score + generation guard for the explorer</td><td>two engines to keep in sync</td></tr>
+    <tr><td>7</td><td>Two singletons; only 4 tests open a real finder; none cover reset/reopen</td><td>no safety net for a lifecycle refactor</td></tr>
+  </table></div>
+</section>
+
+<section data-spec="architecture">
+  <h2>Target shape</h2>
+  <svg viewBox="0 0 800 300" role="img" aria-label="architecture" data-spec="architecture-diagram">
+    <title>Session owns windows and a stack of Levels; a Level owns source, query, engine; the engine talks to a Host</title>
+    <defs><marker id="a" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="currentColor"/></marker></defs>
+    <g fill="none" stroke="currentColor" stroke-width="1.5">
+      <rect x="10" y="10" width="250" height="200" rx="8"/>
+      <rect x="300" y="10" width="250" height="200" rx="8"/>
+      <rect x="590" y="10" width="200" height="90" rx="8"/>
+      <rect x="590" y="120" width="200" height="90" rx="8"/>
+      <path d="M260 60 H298" marker-end="url(#a)"/>
+      <path d="M550 55 H588" marker-end="url(#a)"/>
+      <path d="M550 150 H588" marker-end="url(#a)"/>
+      <path d="M690 100 V118" stroke-dasharray="4 3" marker-end="url(#a)"/>
+      <rect x="10" y="235" width="780" height="55" rx="8" stroke-dasharray="5 4"/>
+    </g>
+    <g fill="currentColor" font-size="12" font-family="ui-monospace,Menlo,monospace">
+      <text x="24" y="34" font-weight="bold">Session (singleton)</text>
+      <text x="24" y="58">windows: input list preview</text><text x="24" y="76">backdrop (+ hint later)</text>
+      <text x="24" y="100">key table, autocmds</text><text x="24" y="118">picker opts, on_close</text>
+      <text x="24" y="146">level   -&gt; current</text><text x="24" y="164">stack   -&gt; parents</text><text x="24" y="190">push() pop() close()</text>
+      <text x="314" y="34" font-weight="bold">Level</text>
+      <text x="314" y="58">source</text><text x="314" y="76">query: items matched total</text><text x="314" y="94">       loading matching limit</text>
+      <text x="314" y="118">engine: match | stream</text><text x="314" y="146">prompt text, title</text><text x="314" y="164">cursor, offset</text><text x="314" y="190">start run reload stop</text>
+      <text x="604" y="34" font-weight="bold">Source</text>
+      <text x="604" y="58">get format header group</text><text x="604" y="76">open preview reload_on</text>
+      <text x="604" y="144" font-weight="bold">Host (interface)</text>
+      <text x="604" y="164">alive render busy</text><text x="604" y="182">count title rows</text>
+      <text x="24" y="258">Engine = pipeline/match.lua or stream.lua: start / run / reload / abort / matches(query, host).</text>
+      <text x="24" y="278">No UI imports. Session builds a Host per Level; search.lua builds a headless Host.</text>
+    </g>
+  </svg>
+</section>
+
+<section data-spec="research">
+  <h2>Research</h2>
+  <ul>
+    <li><b>Searched:</b> state/query/view usage per file, name-based dispatch, every <code>finder.open</code> caller (incl. colorscheme cards options and LSP auto-select), <code>search.lua</code> and its single consumer (explorer, 50-assertion test, bench), existing finder tests, earlier finder design docs.</li>
+    <li><b>Found:</b> engines already key their state by <code>query</code> in weak tables, so they are closer to level-ready than <code>State</code>; gh sources already use the closure-per-<code>create</code> pattern to follow; explorer needs "final scored results only" plus <code>{capped, loading}</code>.</li>
+    <li><b>Decision:</b> Reuse engines, Query, Filter, matcher, views. Build Session, Level, Host, results fields, source contract + normalizer, key table, test helper.</li>
+  </ul>
+</section>
+
+<section data-spec="usage-pseudocode">
+  <h2>Intended usage (pseudo code)</h2>
+  <p class="muted">This is what we align on: names and shapes, not final code.</p>
+
+  <div data-spec="pseudo-source">
+    <h3>1. Source contract: a source is one file</h3>
+    <pre class="code">---@class Beast.Finder.ASource
+-- data
+name, live, async, auto_select, label                          -- unchanged
+get(filter, cb)  cancel?()  check?()                           -- unchanged
+initial_query?  retain_results?  run_when_empty?  debounce_ms?
+title?(filter)  count?(items)  preview?(view, item)            -- unchanged opt-ins
+-- NEW: presentation
+format(item, width)  -&gt; Highlight[]        -- default: format.filename
+header?(item, width) -&gt; Highlight[]        -- grouped lists (grep, LSP); replaces format[name .. &quot;_header&quot;]
+group?(item)         -&gt; any                -- rows with the same value share one header; default item.file
+preview_highlight?   -&gt; &quot;match&quot; | &quot;range&quot;  -- replaces query.highlight_preview + name:match(&quot;^lsp_&quot;)
+-- NEW: behavior
+open(session, item)                        -- default: item.url and open_url or open_file
+reload_on?  -&gt; string[]                    -- User events that re-run it; default { &quot;BeastVisibilityChanged&quot; }</pre><pre class="code">-- source/help_tags.lua  (after)
+local format, action = require(&quot;beast.libs.finder.format&quot;), require(&quot;beast.libs.finder.action&quot;)
+local M = {}
+M.format = format.help_tags
+function M.open(session, item) action.open_help(session.main_win, item) end
+function M.get() ... end            -- unchanged
+return M
+
+-- source/colorschemes.lua  (after)
+M.format = format.colorschemes
+M.reload_on = { &quot;BeastFinderSwatchesReady&quot; }
+function M.open(_, item) if vim.g.colors_name ~= item.text then pcall(vim.cmd.colorscheme, item.text) end end
+
+-- source/live_grep/init.lua  (after)
+M.format, M.header, M.preview_highlight = format.live_grep, format.live_grep_header, &quot;match&quot;
+
+-- source/init.lua: normalize(mod) after require fills defaults
+mod.name        = k
+mod.format      = mod.format or format.filename
+mod.open        = mod.open   or default_open        -- url -&gt; open_url, else open_file
+mod.reload_on   = mod.reload_on or { &quot;BeastVisibilityChanged&quot; }</pre>
+    <p>Central files stop looking at <code>source.name</code>. Gate: <code>grep -rn 'source\.name' finder/</code> only matches <code>source/init.lua</code>.</p>
+  </div>
+
+  <div data-spec="pseudo-engine">
+    <h3>2. Engine and host: pipelines without a UI</h3>
+    <pre class="code">---@class Beast.Finder.Host
+alive() -&gt; boolean       -- false once its level is stopped / not shown: engines drop late work
+render()                 -- query.matched changed
+busy(on)                 -- spinner
+count(text?)             -- prompt count label
+title(text)              -- prompt title
+rows() -&gt; integer        -- visible list rows (stream render budget)
+
+-- engine interface, same for match and stream
+engine = source.live and pipeline.stream or pipeline.match
+engine.start(query, host)     -- match: load items; stream: run once if source.initial_query
+engine.run(query, host)       -- prompt changed
+engine.reload(query, host)    -- source data changed
+engine.abort(query)
+engine.matches(query)         -- full match set, nil while still working   (NEW: not just the top 1000)
+
+-- results state on the query (written by the engine, read by anyone)
+query.items        -- everything the source produced
+query.matched      -- what the list shows (top `query.limit`, default 1000)
+query.total        -- how many items match (NEW)
+query.loading      -- source still delivering (NEW)
+query.matching     -- scorer still running (NEW)
+
+-- inside an engine every deferred callback captures its own query and checks the host
+local function stale(s) return s.aborted or not host.alive() end
+vim.schedule(function() if stale(s) then return end; query.matched = ...; host.render() end)</pre>
+  </div>
+
+  <div data-spec="pseudo-session">
+    <h3>3. Session and Level</h3>
+    <pre class="code">-- level.lua: one search, no windows
+local level = Level.new(&quot;live_grep&quot;, {
+  cwd = root, preloaded_items = nil, files = nil,          -- level-scoped opts
+  title = &quot;Live grep&quot;,
+})
+level.source, level.query, level.engine                    -- fixed at creation
+level.text, level.cursor, level.offset, level.title        -- what a stack must restore
+level:start(host)   level:run(text, host)   level:reload(host)   level:stop()
+
+-- session.lua: windows + keys + autocmds; owns the stack
+local session = Session.open(&quot;files&quot;, { preview = true, layout = nil,
+                                        on_preview = fn, on_close = fn, initial_text = &quot;init&quot; })
+session.level                 -- current Level (state.query -&gt; session.level.query)
+session:push(Level.new(&quot;live_grep&quot;, { files = paths }))   -- save current, attach new in the SAME windows
+session:pop()                 -- stop child, restore parent exactly (prompt, cursor, offset), no search
+session:close()               -- one place: aborts every level in the stack, closes windows
+
+-- how a level is bound to the windows (the staleness guard lives here)
+function Session:attach(level)
+  self.level = level
+  local host = {
+    alive  = function() return self.level == level and not self.closed end,
+    render = function() if self.level == level then render.render(self) end end,
+    busy   = function(on) if self.level == level then (on and ui.input.start_spinner or ui.input.stop_spinner)(self.view.input) end end,
+    count  = function(t) if self.level == level then ui.input.set_count(self.view.input, t) end end,
+    title  = function(t) if self.level == level then ui.input.set_title(self.view.input, t) end end,
+    rows   = function() return self.view.list._win_height end,
+  }
+  level.host = host
+  ui.input.set_text(self.view.input, level.text)           -- echo-skipped, no double search
+  level:start(host)
+end</pre>
+  </div>
+
+  <div data-spec="pseudo-keys">
+    <h3>4. One key table</h3>
+    <pre class="code">-- keymaps.lua: written once
+local actions = {
+  down = function(s) s:move(1) end,           up = function(s) s:move(-1) end,
+  confirm = function(s) s:confirm() end,      split = function(s) s:open_in(&quot;split&quot;) end,
+  vsplit  = function(s) s:open_in(&quot;vsplit&quot;) end,   copy = function(s) s:copy() end,
+  close = function(s) s:close() end,          focus_input = ..., focus_preview = ...,
+}
+local common = {
+  { &quot;&lt;C-j&gt;&quot;, &quot;down&quot; }, { &quot;&lt;C-k&gt;&quot;, &quot;up&quot; }, { &quot;&lt;C-n&gt;&quot;, &quot;down&quot; }, { &quot;&lt;C-p&gt;&quot;, &quot;up&quot; }, { &quot;&lt;Down&gt;&quot;, &quot;down&quot; }, { &quot;&lt;Up&gt;&quot;, &quot;up&quot; },
+  { &quot;&lt;Tab&gt;&quot;, &quot;down&quot; }, { &quot;&lt;S-Tab&gt;&quot;, &quot;up&quot; }, { &quot;&lt;CR&gt;&quot;, &quot;confirm&quot; }, { &quot;&lt;C-s&gt;&quot;, &quot;split&quot; }, { &quot;&lt;C-v&gt;&quot;, &quot;vsplit&quot; },
+  { &quot;&lt;C-y&gt;&quot;, &quot;copy&quot; }, { &quot;&lt;C-c&gt;&quot;, &quot;close&quot; }, { &quot;&lt;Esc&gt;&quot;, &quot;close&quot;, modes = { &quot;n&quot; } },
+}
+local panes = {
+  input   = { modes = { &quot;i&quot;, &quot;n&quot; }, extra = { { &quot;&lt;C-h&gt;&quot;, &quot;noop&quot; }, { &quot;&lt;C-l&gt;&quot;, &quot;focus_preview&quot; } } },
+  list    = { modes = { &quot;n&quot; },      extra = { { &quot;&lt;C-h&gt;&quot;, &quot;focus_input&quot; }, { &quot;&lt;C-l&gt;&quot;, &quot;focus_preview&quot; } }, redirect_printable = true },
+  preview = { modes = { &quot;n&quot; },      extra = { { &quot;&lt;C-h&gt;&quot;, &quot;focus_input&quot; }, { &quot;&lt;C-l&gt;&quot;, &quot;noop&quot; } },         redirect_printable = true },
+}
+function M.mount(session) for pane, spec in pairs(panes) do bind(session.view[pane].buf, spec, common, actions) end end
+-- a new key (e.g. &lt;C-g&gt;) is one line in `common` and works from every pane</pre>
+  </div>
+
+  <div data-spec="pseudo-search">
+    <h3>5. Headless search on the same engine (explorer client, API unchanged)</h3>
+    <pre class="code">-- search.lua (explorer client) after the refactor
+function M.files(opts)
+  local query = Query(sources.files, { cwd = opts.cwd, limit = (opts.limit or 1000) + 1 })
+  local self  = { query = query, closed = false }
+  local host  = { alive = function() return not self.closed end,
+                  render = function()
+                    if self.cb and not query.matching then       -- only final scored results
+                      local matched, capped = trim(query.matched, limit)
+                      self.cb(matched, { capped = capped, loading = query.loading })
+                    end
+                  end,
+                  busy = noop, count = noop, title = noop, rows = function() return 1 end }
+  match.start(query, host)
+  function self:query(pattern, cb) query.filter:update(pattern); self.cb = cb; match.run(query, host) end
+  function self:refresh() match.reload(query, host) end
+  function self:close() self.closed = true; match.abort(query) end
+  return self
+end
+-- explorer code is unchanged: files({cwd}), :query, :refresh, :close</pre>
+  </div>
+</section>
+
+<section data-spec="architecture-changes">
+  <h2>Files</h2>
+  <div class="tablewrap"><table>
+    <tr><th>Path (under lua/beast/libs/finder)</th><th></th><th>What</th></tr>
+    <tr><td><code>state.lua</code> -&gt; <code>session.lua</code></td><td>rename + slim</td><td>windows, keys, autocmds, picker opts, level, stack, push/pop; type <code>State</code> -&gt; <code>Session</code></td></tr>
+    <tr><td><code>level.lua</code>, <code>host.lua</code></td><td>new</td><td>one search; host type + headless helper</td></tr>
+    <tr><td><code>pipeline/match.lua</code>, <code>pipeline/stream.lua</code>, <code>pipeline/init.lua</code></td><td>mod</td><td><code>(query, host)</code> API, captured query, staleness checks, <code>matches</code>, results fields</td></tr>
+    <tr><td><code>query.lua</code>, <code>matcher.lua</code></td><td>mod</td><td><code>limit loading matching total</code>; <code>MatchState.total</code>; drop <code>highlight_preview</code></td></tr>
+    <tr><td><code>source/init.lua</code> + <code>files buffers help_tags colorschemes live_grep lsp gh</code></td><td>mod</td><td>contract, normalizer, every source declares its behavior</td></tr>
+    <tr><td><code>render.lua action.lua autocmds.lua ui/list.lua ui/input.lua init.lua</code></td><td>mod</td><td>use <code>session.level</code> and source methods; <code>set_text</code>; group by <code>source.group</code></td></tr>
+    <tr><td><code>keymaps.lua</code></td><td>rewrite</td><td>one action table on three panes</td></tr>
+    <tr><td><code>search.lua</code></td><td>rewrite</td><td>thin client of the match engine</td></tr>
+    <tr><td><code>tests/helpers/finder.lua</code>, <code>tests/test-finder-*.lua</code></td><td>new</td><td>harness + tests per phase</td></tr>
+    <tr><td><code>docs/CODEMAP/*</code>, finder docs, <code>docs/dev-specs/finder-continuous.md</code></td><td>mod</td><td>updated in the last phase</td></tr>
+  </table></div>
+</section>
+
+<section data-spec="phases">
+  <h2>Phases</h2>
+  <p class="muted">Each phase is mergeable alone; behavior unchanged; Phase 0 suite stays green. R2 and R3 come before R1 because Level uses them.</p>
+
+  <div class="card" data-spec="phase-0">
+    <h3>Phase 0 - Safety net (R0) <span class="tag">risk: low</span></h3>
+    <ol>
+      <li><code>tests/helpers/finder.lua</code>: shared boilerplate, <code>fake_source</code>, <code>open</code>, <code>press</code> (drives real mappings), <code>rows</code>, <code>wait</code>, <code>windows</code>.</li>
+      <li>Lifecycle tests: reopen, idempotent close, WinEnter close, reentrant open from <code>on_close</code>, <code>confirmed</code>, <code>initial_text</code>.</li>
+      <li>Engine tests: match (load, filter, subset, abort) and stream (per-keystroke run, retain, run_when_empty, cancelled callbacks dropped).</li>
+      <li>Behavior tests: key matrix per pane (today's behavior), per-source formatting/grouping/open/preview, colorscheme cards options, visibility reload.</li>
+      <li>Baselines: matcher bench, explorer bench, <code>bench-ux.sh all</code> on the starting commit.</li>
+    </ol>
+  </div>
+
+  <div class="card" data-spec="phase-1">
+    <h3>Phase 1 - Engines without a UI (R2) <span class="tag risk-h">risk: high</span></h3>
+    <ol>
+      <li>Query results fields (<code>limit loading matching total</code>), <code>MatchState.total</code> (O(1) counter).</li>
+      <li><code>host.lua</code>: <code>Beast.Finder.Host</code> + <code>headless()</code>.</li>
+      <li>Match engine: <code>start/run/reload/abort/matches(query, host)</code>, captured query, <code>s.aborted</code> + <code>host.alive()</code> in every deferred callback.</li>
+      <li>Stream engine: same API; <code>run_id</code> kept; <code>host.busy/count/title/rows</code>.</li>
+      <li>Old <code>State</code> builds a host and passes <code>(query, host)</code>.</li>
+      <li>Tests with <code>host.headless()</code>: results beyond 1000, late callback ignored, abort mid-load, <code>limit</code>.</li>
+    </ol>
+  </div>
+
+  <div class="card" data-spec="phase-2">
+    <h3>Phase 2 - Behavior on the source (R3) <span class="tag risk-m">risk: medium</span></h3>
+    <ol>
+      <li>Contract + <code>normalize()</code> defaults in <code>source/init.lua</code>.</li>
+      <li>Migrate all sources: files, buffers, help_tags, colorschemes, live_grep, lsp (x4), gh (x2). <code>format.lua</code> stays the formatter library; the <code>&lt;name&gt;_header</code> and <code>lsp_*</code> aliases go away.</li>
+      <li>Remove name dispatch from render, action, autocmds, keymaps; list groups by <code>source.group</code>.</li>
+      <li>Source-contract test over every registered source + static "no name dispatch" gate.</li>
+    </ol>
+  </div>
+
+  <div class="card" data-spec="phase-3">
+    <h3>Phase 3 - Session + Level (R1) <span class="tag risk-h">risk: high</span></h3>
+    <ol>
+      <li><code>level.lua</code> per pseudo code.</li>
+      <li><code>session.lua</code> replaces <code>state.lua</code>: one singleton, <code>attach/push/pop/close</code>, reentrancy guard kept.</li>
+      <li>Mechanical rename <code>State</code> -&gt; <code>Session</code>, <code>state.query</code> -&gt; <code>session.level.query</code>.</li>
+      <li><code>ui/input.set_text</code> (echo-skipped).</li>
+      <li>Tests: push keeps the same window ids, pop restores prompt/cursor/offset/results without a source call, late callbacks of a popped level ignored, close aborts the stack.</li>
+    </ol>
+  </div>
+
+  <div class="card" data-spec="phase-4">
+    <h3>Phase 4 - One key table (R4) <span class="tag risk-m">risk: medium</span></h3>
+    <ol>
+      <li>Rewrite <code>keymaps.lua</code> as actions + common bindings + per-pane extras.</li>
+      <li><b>Only behavior change:</b> list-pane <code>&lt;C-v&gt;</code> opens a vertical split (was a horizontal one). Test updated and called out in the commit.</li>
+    </ol>
+  </div>
+
+  <div class="card" data-spec="phase-5">
+    <h3>Phase 5 - Headless search on the engine (R5) <span class="tag risk-m">risk: medium</span></h3>
+    <ol>
+      <li>Rewrite <code>search.lua</code>; explorer API unchanged; duplicate load/score/generation code deleted.</li>
+      <li>Verify: <code>test-explorer-search.lua</code> (50 assertions) green, <code>bench-explorer.lua</code> at baseline, manual explorer search on a large repo.</li>
+    </ol>
+  </div>
+
+  <div class="card" data-spec="phase-6">
+    <h3>Phase 6 - Docs and wrap-up <span class="tag">risk: low</span></h3>
+    <ol>
+      <li>Codemap and finder docs.</li>
+      <li>Shrink <code>finder-continuous</code> dev spec: its "chain core" phase becomes scoped grep, hint window, keys and the <code>drill</code> field.</li>
+      <li>Final verification.</li>
+    </ol>
+  </div>
+</section>
+
+<section data-spec="decisions">
+  <h2>Decisions for you</h2>
+  <div class="choice" data-spec="decision-rename">
+    <b>Rename <code>state.lua</code> / <code>State</code> to <code>session.lua</code> / <code>Session</code>.</b> A mechanical but wide rename (annotations in ~8 files). It makes the Session-vs-Level split readable instead of "State, but only half of it". <span class="rec">Recommended</span>
+  </div>
+  <div class="choice" data-spec="decision-pushpop">
+    <b>Ship <code>push/pop</code> inside the refactor</b> (tested with fake sources, bound to no key). It is the reason for the split and keeps the chain spec small, at the cost of one capability that is not user-visible yet. <span class="rec">Recommended</span>
+  </div>
+  <div class="choice" data-spec="decision-cv">
+    <b>Fix list-pane <code>&lt;C-v&gt;</code></b> (vertical split) as part of the key-table phase. It is a one-line consequence of writing the key once. <span class="rec">Recommended</span>
+  </div>
+  <div class="choice" data-spec="decision-format">
+    <b>Keep <code>format.lua</code> as the library of formatters</b>; sources point at them (<code>M.format = format.help_tags</code>) instead of moving 350 lines into each source. <span class="rec">Recommended</span>
+  </div>
+</section>
+
+<section data-spec="testing-strategy">
+  <h2>Testing</h2>
+  <ul>
+    <li><b>Headless:</b> Phase 0 suite first and unchanged after every phase; new tests per phase; <code>test-explorer-search.lua</code>; stylua and luals clean.</li>
+    <li><b>Bench:</b> matcher (Phase 1), explorer (Phase 5), <code>bench-ux.sh all</code> (end), all vs the Phase 0 baseline.</li>
+    <li><b>Manual in wezterm:</b> files, buffers, grep, help, colorscheme cards, LSP, GitHub pickers, explorer search, visibility toggle with a picker open, resize.</li>
+  </ul>
+</section>
+
+<section data-spec="success-criteria">
+  <h2>Success criteria</h2>
+  <ul class="check">
+    <li>Looks and behaves as before everywhere; only difference: list-pane <code>&lt;C-v&gt;</code> is a vertical split.</li>
+    <li>All existing and new tests pass; stylua and luals clean.</li>
+    <li>No <code>source.name</code> dispatch outside <code>source/init.lua</code>.</li>
+    <li>Engines run headless; a late callback of a stopped level changes nothing.</li>
+    <li><code>engine.matches</code> returns the full match set; <code>query.total</code> is correct.</li>
+    <li><code>push/pop</code> swap levels in the same windows and restore prompt, cursor, offset, results with no source call.</li>
+    <li>One key table for all panes.</li>
+    <li><code>search.lua</code> has no private load/score loop; explorer tests and bench unchanged.</li>
+    <li>Benches within noise of baseline.</li>
+    <li>A new source needs no edit outside its own file.</li>
+  </ul>
+</section>
+
+</main>
+</body>
+</html>

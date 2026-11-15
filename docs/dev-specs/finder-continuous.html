@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dev spec: Continuous finder</title>
+<style>
+  :root { --bg:#fbfaf7; --fg:#1c1b19; --muted:#6b675f; --line:#dcd8cf; --card:#fff; --accent:#b4540a; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#161513; --fg:#ece8df; --muted:#a29d92; --line:#3a3732; --card:#1f1d1a; --accent:#e08a3c; }
+  }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, sans-serif; }
+  main { max-width:880px; margin:0 auto; padding:24px 16px 80px; }
+  section { margin:32px 0; }
+  h1 { margin:0 0 8px; } h2 { margin:0 0 10px; } h3 { margin:14px 0 6px; font-size:1rem; }
+  .muted { color:var(--muted); }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px 16px; margin:12px 0; }
+  .card h3 { margin-top:0; }
+  .tag { font:12px ui-monospace,Menlo,monospace; border:1px solid var(--line); border-radius:999px; padding:1px 8px; margin-left:6px; color:var(--muted); }
+  .risk-h { color:#c0392b; border-color:#c0392b; } .risk-m { color:var(--accent); border-color:var(--accent); }
+  table { border-collapse:collapse; width:100%; font-size:.92rem; }
+  th, td { border-bottom:1px solid var(--line); padding:6px 8px; text-align:left; vertical-align:top; }
+  code { font:0.88em ui-monospace,Menlo,monospace; background:var(--card); border:1px solid var(--line); border-radius:4px; padding:0 4px; }
+  ul { padding-left:20px; } li { margin:4px 0; }
+  ul.check { list-style:none; padding-left:0; } ul.check li::before { content:"\2610  "; color:var(--accent); }
+  .choice { border-left:3px solid var(--accent); padding:6px 12px; margin:12px 0; background:var(--card); border-radius:0 8px 8px 0; }
+  .rec { color:var(--accent); font-weight:600; font-size:.85em; }
+  svg { width:100%; height:auto; color:var(--fg); }
+  .tablewrap { overflow-x:auto; }
+</style>
+</head>
+<body>
+<main>
+
+<header data-spec="summary">
+  <h1>Continuous finder - dev spec</h1>
+  <p>The finder keeps its three windows and swaps what they show: a <b>level stack</b> inside the one picker state. <code>&lt;C-g&gt;</code> asks the current source for its next level and pushes; <code>&lt;BS&gt;</code> on an empty prompt or <code>&lt;C-o&gt;</code> pops back with no re-search. Scoped grep is the existing grep source given a file list. Files and Buffers rows are restyled first, because the chain depends on that look.</p>
+  <p class="muted">PM spec: <code>docs/pm-specs/finder-continuous.md</code> (approved). Source of truth for implementation: <code>docs/dev-specs/finder-continuous.md</code>.</p>
+</header>
+
+<section data-spec="context">
+  <h2>How it works</h2>
+  <svg viewBox="0 0 780 250" role="img" aria-label="level stack" data-spec="level-model">
+    <title>Level stack: push saves the current level, pop restores it</title>
+    <defs><marker id="a" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="currentColor"/></marker></defs>
+    <g fill="none" stroke="currentColor" stroke-width="1.5">
+      <rect x="10" y="20" width="230" height="130" rx="8"/>
+      <rect x="290" y="20" width="230" height="130" rx="8"/>
+      <rect x="570" y="20" width="200" height="130" rx="8"/>
+      <path d="M240 60 H288" marker-end="url(#a)"/><path d="M520 60 H568" marker-end="url(#a)"/>
+      <path d="M288 120 H242" stroke-dasharray="4 3" marker-end="url(#a)"/><path d="M568 120 H522" stroke-dasharray="4 3" marker-end="url(#a)"/>
+      <rect x="10" y="175" width="760" height="60" rx="8" stroke-dasharray="5 4"/>
+    </g>
+    <g fill="currentColor" font-size="12" font-family="ui-monospace,Menlo,monospace">
+      <text x="24" y="42" font-weight="bold">Level 1: gh_pr</text>
+      <text x="24" y="66">query + items kept</text><text x="24" y="84">prompt "is:pr is:merged"</text><text x="24" y="102">cursor, offset</text><text x="24" y="120">drill.open -&gt; spec</text>
+      <text x="304" y="42" font-weight="bold">Level 2: gh_pr_files</text>
+      <text x="304" y="66">ctx.pr = #11</text><text x="304" y="84">GitHub REST, 1 call/page</text><text x="304" y="102">preview = patch</text><text x="304" y="120">drill.open -&gt; spec</text>
+      <text x="584" y="42" font-weight="bold">Level 3: live_grep</text>
+      <text x="584" y="66">filter.files = N paths</text><text x="584" y="84">placeholder row</text><text x="584" y="102">stream pipeline</text>
+      <text x="246" y="52">C-g</text><text x="526" y="52">C-g</text>
+      <text x="246" y="114">BS</text><text x="526" y="114">BS</text>
+      <text x="24" y="198">Same 3 windows + backdrop throughout. push(): snapshot, swap query/pipeline/prompt/title, load or run.</text>
+      <text x="24" y="218">pop(): abort child, restore snapshot, render - no search. reset(): aborts every stacked query.</text>
+    </g>
+  </svg>
+  <h3>Source opt-in</h3>
+  <div class="card"><code>source.drill = { hint(total, selected) -&gt; string?, open(ctx) -&gt; spec | toast-string | nil }</code>, where <code>ctx.items</code> is the <b>full</b> match set (nil while still working). Refused with a toast while loading, empty, or no <code>drill</code>.</div>
+  <h3>Why the full match set needs work</h3>
+  <p>The fuzzy matcher keeps only the top 1000 matches for display. The scope for "grep these files" must be all of them, so the matcher's score table (already built for subset elimination) is used: <code>matches(state)</code> = items with score &gt; 0, <code>count(state)</code> = a counter added to the final pass (O(1) per item, benched).</p>
+</section>
+
+<section data-spec="research">
+  <h2>Research</h2>
+  <ul>
+    <li><b>Searched:</b> state/pipeline/query/filter lifecycle, source hooks, grouped list rendering, match highlighting, gh api wrapper, keymaps, autocmds, tests, benches.</li>
+    <li><b>Reuse:</b> initial-query echo skip, <code>preview/title/count/check</code> hooks, message rows, grep batching of file lists, <code>live_grep_header</code>, gh error classification, Toast.</li>
+    <li><b>Build:</b> level stack, hint window, <code>gh_pr_files</code>, <code>gh_issue_grep</code>, highlight position mapping, full-match accessors.</li>
+    <li><b>Verified externally:</b> GitHub REST <code>pulls/{n}/files</code> returns filename, status, +/- counts, previous name and the patch in one call (patch absent for binary/huge diffs).</li>
+  </ul>
+  <h3>Corrections to the PM spec found while researching</h3>
+  <ol>
+    <li>The 300-file limit is ours (GitHub allows 3000). PM wording already fixed.</li>
+    <li>The mocks show a count (<code>38/912</code>) in Files, Buffers and Help; none exists today. Added in Phase 2.</li>
+    <li>Fuzzy highlight assumes the path is contiguous in the row; the new row look needs a position mapping (Phase 1).</li>
+  </ol>
+</section>
+
+<section data-spec="architecture-changes">
+  <h2>Files</h2>
+  <div class="tablewrap"><table>
+    <tr><th>Path (under lua/beast/libs/finder)</th><th></th><th>What</th></tr>
+    <tr><td><code>format.lua</code></td><td>mod</td><td>shared file row, Files/Buffers look, count helper, new source formats</td></tr>
+    <tr><td><code>match_hl.lua</code></td><td>mod</td><td>position mapping through <code>src</code> ranges</td></tr>
+    <tr><td><code>matcher.lua</code>, <code>pipeline/match.lua</code>, <code>pipeline/stream.lua</code></td><td>mod</td><td>total counter, <code>count</code>/<code>matches</code>, settled count label, placeholder row</td></tr>
+    <tr><td><code>state.lua</code></td><td>mod</td><td>stack, push/pop, closure refactor, reset cleans stack, hint wiring</td></tr>
+    <tr><td><code>chain.lua</code></td><td>new</td><td>drill, back, hint text, level spec types</td></tr>
+    <tr><td><code>ui/hint.lua</code></td><td>new</td><td>tooltip float below the frame</td></tr>
+    <tr><td><code>ui/input.lua</code>, <code>ui/list.lua</code>, <code>ui/init.lua</code>, <code>layout.lua</code>, <code>highlights.lua</code>, <code>keymaps.lua</code></td><td>mod</td><td><code>set_text</code>, group key, hint geometry and colors, <code>&lt;C-g&gt; &lt;BS&gt; &lt;C-o&gt;</code></td></tr>
+    <tr><td><code>query.lua</code>, <code>filter.lua</code>, <code>source/init.lua</code></td><td>mod</td><td><code>files</code>/<code>ctx</code> options; <code>drill</code>/<code>crumb</code>/<code>placeholder</code> fields</td></tr>
+    <tr><td><code>source/{files,buffers,help_tags}.lua</code>, <code>source/live_grep/init.lua</code></td><td>mod</td><td>drills, counts, scoped grep</td></tr>
+    <tr><td><code>source/gh/api.lua</code>, <code>source/gh.lua</code>, <code>source/gh/preview.lua</code>, <code>action.lua</code></td><td>mod</td><td>paged files API, issue body, PR/issue drills, diff preview, open diff buffer</td></tr>
+    <tr><td><code>source/gh_pr_files.lua</code>, <code>source/gh_issue_grep.lua</code></td><td>new</td><td>changed-files source, issue-text grep source</td></tr>
+    <tr><td><code>tests/test-finder-*.lua</code>, <code>docs/CODEMAP/*</code></td><td>new/mod</td><td>tests per phase, codemap at the end</td></tr>
+  </table></div>
+</section>
+
+<section data-spec="phases">
+  <h2>Phases</h2>
+  <p class="muted">Each phase is mergeable and verified on its own. Phase 1 changes how normal Files/Buffers look.</p>
+
+  <div class="card" data-spec="phase-1">
+    <h3>Phase 1 - Row look <span class="tag">prerequisite</span><span class="tag risk-m">risk: medium</span></h3>
+    <ol>
+      <li>Extract <code>file_row</code> (icon, base, dim dir, <code>src</code> ranges) from <code>live_grep_header</code>; the header calls it unchanged.</li>
+      <li><code>format.filename</code> and <code>format.buffers</code> use it; <code>[+]</code> kept at the end, <code>[n]</code> dropped.</li>
+      <li><code>match_hl</code> maps match positions through <code>src</code> ranges (base, dir, boundary, trimmed dir).</li>
+      <li>Tests: <code>test-finder-format.lua</code>, <code>test-finder-match-hl.lua</code>; fix any old row assertions.</li>
+    </ol>
+  </div>
+
+  <div class="card" data-spec="phase-2">
+    <h3>Phase 2 - Chain core + Files to grep <span class="tag risk-h">risk: high</span></h3>
+    <ol>
+      <li>Matcher total; <code>match.count/matches</code>; count label after each settled run; title refresh on load.</li>
+      <li>Stream <code>count/matches</code> and empty-prompt placeholder row.</li>
+      <li><b>State stack</b>: closure uses <code>instance.query/pipeline</code>; <code>push</code>/<code>pop</code> in place; <code>reset</code> cleans stacked queries.</li>
+      <li><code>ui/input.set_text</code> (echo skip, no double search).</li>
+      <li><code>ui/hint.lua</code>: borderless, non-focusable float under the frame, right-aligned, hidden when no room, backdrop-matched colors.</li>
+      <li><code>chain.lua</code> + keys: <code>&lt;C-g&gt;</code>, <code>&lt;C-o&gt;</code>, <code>&lt;BS&gt;</code> as an <code>expr</code> mapping (pop only when the prompt is empty).</li>
+      <li>Scoped <code>live_grep</code> (<code>filter.files</code> as survivors) and its placeholder.</li>
+      <li><code>files.drill</code> + count.</li>
+      <li>Tests: <code>test-finder-chain.lua</code>, <code>test-finder-chain-grep.lua</code> (incl. &gt;1000 matches).</li>
+    </ol>
+  </div>
+
+  <div class="card" data-spec="phase-3">
+    <h3>Phase 3 - Buffers and Help to grep <span class="tag">risk: low</span></h3>
+    <ol>
+      <li><code>buffers.drill</code> (nameless skipped), <code>help_tags.drill</code> (distinct help pages), counts.</li>
+      <li>Test: <code>test-finder-chain-sources.lua</code>.</li>
+    </ol>
+  </div>
+
+  <div class="card" data-spec="phase-4">
+    <h3>Phase 4 - Pull requests to Files Changed <span class="tag risk-m">risk: medium</span></h3>
+    <ol>
+      <li><code>api.files</code>: <code>gh api repos/{slug}/pulls/{n}/files</code>, up to 3 pages of 100, truncation flag, error classification, killable.</li>
+      <li><code>gh_pr_files</code> source: match pipeline, fuzzy by path, title <code>PR &lt;title...&gt; › Files Changed (N)</code>, diff preview from <code>patch</code> ("too large or binary" when absent).</li>
+      <li><code>action</code>: Enter opens the file's diff in a read-only scratch buffer.</li>
+      <li>PR <code>drill</code> in <code>gh.lua</code>; tests: <code>test-finder-gh-files-api.lua</code>, <code>test-finder-gh-pr-files.lua</code>.</li>
+    </ol>
+  </div>
+
+  <div class="card" data-spec="phase-5">
+    <h3>Phase 5 - PR files to grep (local copies) <span class="tag">risk: low</span></h3>
+    <ol>
+      <li><code>gh_pr_files.drill</code>: drop removed and non-existing paths; none left means a toast; title <code>N PR Files › Live Grep</code>.</li>
+      <li>Test: <code>test-finder-chain-pr-grep.lua</code> (three-level back chain).</li>
+    </ol>
+  </div>
+
+  <div class="card" data-spec="phase-6">
+    <h3>Phase 6 - Issues to grep <span class="tag risk-m">risk: medium</span></h3>
+    <ol>
+      <li>Keep issue <code>body</code> in <code>normalize</code>.</li>
+      <li><code>gh_issue_grep</code> live source (title + body lines), grouped by issue via <code>item.group or item.file</code> in <code>ui/list.lua</code>, header format, preview, Enter opens the URL, <code>gh_issue</code> drill.</li>
+      <li>Test: <code>test-finder-gh-issue-grep.lua</code>; existing grouping/separator tests must stay green.</li>
+    </ol>
+  </div>
+
+  <div class="card" data-spec="phase-7">
+    <h3>Phase 7 - Docs and wrap-up <span class="tag">risk: low</span></h3>
+    <ol><li>Codemap (<code>libraries.md</code>, <code>INDEX.md</code>), dev spec Completed section, final verification.</li></ol>
+  </div>
+</section>
+
+<section data-spec="decisions">
+  <h2>Decisions for you</h2>
+  <div class="choice" data-spec="decision-swap">
+    <b>Swap levels in place</b> (keep windows, replace query/pipeline) rather than close and reopen the picker for each level. No flicker, backdrop stays, parent keeps its results so back is instant and makes no GitHub call. Cost: a careful refactor of the picker state (Phase 2, the one high-risk step). <span class="rec">Recommended</span>
+  </div>
+  <div class="choice" data-spec="decision-count">
+    <b>Show a match count</b> (<code>38/912</code>) in the prompt row for Files, Buffers and Help. The approved mocks show it and the hint needs the number anyway. This is a small visible change to those pickers. <span class="rec">Recommended</span>
+  </div>
+  <div class="choice" data-spec="decision-insert-o">
+    <b><code>&lt;C-o&gt;</code> in insert mode</b> becomes "back" inside the finder prompt (it is normally "one normal command"). Nothing in the finder uses it today. <span class="rec">Recommended</span>
+  </div>
+  <div class="choice" data-spec="decision-bigram">
+    <b>Scoped grep skips the bigram index</b> and greps the given files directly (batched, killable). Large scopes (whole project) are slower than the indexed path; an optional follow-up can intersect with the index. <span class="rec">Recommended for v1</span>
+  </div>
+</section>
+
+<section data-spec="testing-strategy">
+  <h2>Testing</h2>
+  <ul>
+    <li><b>Headless:</b> new <code>tests/test-finder-*.lua</code> per phase plus all existing finder tests; stylua and luals clean.</li>
+    <li><b>Bench:</b> <code>bench-finder-matcher.lua</code> before/after Phase 2; <code>bench-ux.sh all</code> against a baseline worktree.</li>
+    <li><b>Manual in a real wezterm pane:</b> PM scenarios 1-13 and STATE 0, hint in dark and light, short terminal height.</li>
+    <li><b>Not testable offline:</b> live GitHub paging beyond stubs, browser open, clipboard (reported at the end).</li>
+  </ul>
+</section>
+
+<section data-spec="success-criteria">
+  <h2>Success criteria</h2>
+  <ul class="check">
+    <li>Files and Buffers rows: icon, name, dim folder; <code>[+]</code>; fuzzy highlight correct.</li>
+    <li>Files, Buffers, Help <code>&lt;C-g&gt;</code> greps only the matching files, also with more than 1000 matches.</li>
+    <li>PR <code>&lt;C-g&gt;</code>: changed files with diff preview, filter by path, 300 cap with "(partial)".</li>
+    <li>PR files <code>&lt;C-g&gt;</code> greps local copies; Issues <code>&lt;C-g&gt;</code> greps title and description.</li>
+    <li><code>&lt;BS&gt;</code> (empty prompt) / <code>&lt;C-o&gt;</code> restore prompt, results, row with no new search.</li>
+    <li><code>&lt;Esc&gt;</code> closes the whole chain; Enter closes it too.</li>
+    <li>Titles and below-the-frame hint as in the PM spec; hidden when no room.</li>
+    <li>Refusals toast and change nothing; windows never close and reopen on push/pop.</li>
+    <li>Technical gates: tests, luals, stylua, benches at baseline, Toast and <code>packer.lazy</code> conventions.</li>
+  </ul>
+</section>
+
+</main>
+</body>
+</html>
