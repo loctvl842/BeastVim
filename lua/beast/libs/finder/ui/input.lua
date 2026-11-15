@@ -148,6 +148,20 @@ function M.get_text(view)
 	return text
 end
 
+--- Replace the prompt text (the prefix stays), cursor at its end.
+--- The write can echo back as a change event: the caller skips the search for it.
+---@param view Beast.Finder.InputView
+---@param text string
+function M.set_text(view, text)
+	-- stylua: ignore
+	if not view:is_valid() then return end
+	local prefix = config.prompt_prefix
+	vim.api.nvim_buf_set_lines(view.buf, 0, 1, false, { prefix .. text })
+	if vim.api.nvim_get_current_win() == view.win then
+		pcall(vim.api.nvim_win_set_cursor, view.win, { 1, #prefix + #text })
+	end
+end
+
 --- Replace the title shown in the prompt border.
 ---@param view Beast.Finder.InputView
 ---@param title string

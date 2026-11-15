@@ -20,7 +20,7 @@
 ---@field header? fun(item: Beast.Finder.Item, width?: integer): Beast.Finder.Highlight[] grouped lists: the header drawn above the first row of each group
 ---@field group fun(item: Beast.Finder.Item): any rows with an equal group share one header (default: `item.file`)
 ---@field preview_highlight? "match"|"range" what the default file preview highlights: the grep match text, or the exact range an LSP server returned
----@field open fun(session: Beast.Finder.State, item: Beast.Finder.Item) what Enter does with an item (default: open its url, else its file)
+---@field open fun(session: Beast.Finder.Session, item: Beast.Finder.Item) what Enter does with an item (default: open its url, else its file)
 ---@field reload_on string[] `User` events that load the source again while the picker is open (default: `{ "BeastVisibilityChanged" }`)
 
 ---@alias Beast.Finder.Source "files"|"buffers"|"live_grep"|"colorschemes"|"help_tags"|"lsp_definitions"|"lsp_references"|"lsp_declarations"|"lsp_implementations"|"gh_pr"|"gh_issue"

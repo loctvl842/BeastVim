@@ -5,30 +5,30 @@ local ui = require("beast.libs.finder.ui")
 
 local M = {}
 
----@param state Beast.Finder.State
+---@param session Beast.Finder.Session
 ---@param delta integer positive = down, negative = up
-local function move_cursor(state, delta)
-	local old_offset = state.view.list._offset
-	ui.list.move(state.view.list, delta)
+local function move_cursor(session, delta)
+	local old_offset = session.view.list._offset
+	ui.list.move(session.view.list, delta)
 	-- Re-apply match highlights when viewport scrolled to new rows
-	if state.view.list._offset ~= old_offset and not state.query.source.live and state.view.list:is_valid() then
-		local format_fn = render.formatters(state)
-		local from, to = ui.list.visible_range(state.view.list)
-		match_hl.apply_list(state.view.list.buf, state.query.matched, format_fn, from, to, state.view.list._separators and 2 or 1)
+	if session.view.list._offset ~= old_offset and not session.level.query.source.live and session.view.list:is_valid() then
+		local format_fn = render.formatters(session)
+		local from, to = ui.list.visible_range(session.view.list)
+		match_hl.apply_list(session.view.list.buf, session.level.query.matched, format_fn, from, to, session.view.list._separators and 2 or 1)
 	end
 	vim.cmd("redraw")
-	render.schedule_preview(state)
+	render.schedule_preview(session)
 end
 
 -- -----------------------------------------------------------------------
 -- List window keymaps
 -- -----------------------------------------------------------------------
----@param state Beast.Finder.State
-local function mount_list_keymaps(state)
+---@param session Beast.Finder.Session
+local function mount_list_keymaps(session)
   -- stylua: ignore
-  if not state.view.list:is_valid() then return end
+  if not session.view.list:is_valid() then return end
 
-	local lbuf = state.view.list.buf
+	local lbuf = session.view.list.buf
 	local lopts = { buffer = lbuf, nowait = true }
 
   -- stylua: ignore
@@ -36,65 +36,65 @@ local function mount_list_keymaps(state)
 
 	-- Focus navigation between finder panes
 	lmap("n", "<C-h>", function()
-		vim.api.nvim_set_current_win(state.view.input.win)
+		vim.api.nvim_set_current_win(session.view.input.win)
 		vim.cmd("startinsert!")
 	end)
 	lmap("n", "<C-j>", function()
-		move_cursor(state, 1)
+		move_cursor(session, 1)
 	end)
 	lmap("n", "<C-k>", function()
-		move_cursor(state, -1)
+		move_cursor(session, -1)
 	end)
 	lmap("n", "<C-l>", function()
-		if state.view.preview and state.view.preview:is_valid() then
-			vim.api.nvim_set_current_win(state.view.preview.win)
+		if session.view.preview and session.view.preview:is_valid() then
+			vim.api.nvim_set_current_win(session.view.preview.win)
 		end
 	end)
 
 	-- Special keys (non-printable)
   -- stylua: ignore start
-	lmap("n", "<C-n>", function() move_cursor(state, 1) end)
-	lmap("n", "<C-p>", function() move_cursor(state, -1) end)
-	lmap("n", "<Down>", function() move_cursor(state, 1) end)
-	lmap("n", "<Up>", function() move_cursor(state, -1) end)
-  lmap("n", "<Tab>", function() move_cursor(state, 1) end)
-  lmap("n", "<S-Tab>", function() move_cursor(state, -1) end)
+	lmap("n", "<C-n>", function() move_cursor(session, 1) end)
+	lmap("n", "<C-p>", function() move_cursor(session, -1) end)
+	lmap("n", "<Down>", function() move_cursor(session, 1) end)
+	lmap("n", "<Up>", function() move_cursor(session, -1) end)
+  lmap("n", "<Tab>", function() move_cursor(session, 1) end)
+  lmap("n", "<S-Tab>", function() move_cursor(session, -1) end)
 	-- Mouse wheel: drive selection (the buffer only holds the visible slice, so
 	-- native scrolling reveals nothing — move the cursor to re-render instead).
-	lmap("n", "<ScrollWheelDown>", function() move_cursor(state, 3) end)
-	lmap("n", "<ScrollWheelUp>", function() move_cursor(state, -3) end)
+	lmap("n", "<ScrollWheelDown>", function() move_cursor(session, 3) end)
+	lmap("n", "<ScrollWheelUp>", function() move_cursor(session, -3) end)
 	-- Close
-	lmap({ "n" }, "<Esc>", function() state:reset() end)
-	lmap({ "i", "n" }, "<C-c>", function() state:reset() end)
+	lmap({ "n" }, "<Esc>", function() session:close() end)
+	lmap({ "i", "n" }, "<C-c>", function() session:close() end)
 	-- stylua: ignore end
 
 	lmap("n", "<CR>", function()
-		local item = ui.list.selected(state.view.list)
+		local item = ui.list.selected(session.view.list)
 		if item and not item.message then
-			state.confirmed = true
-			state:reset()
+			session.confirmed = true
+			session:close()
 			vim.schedule(function()
-				action.open(state, item)
+				action.open(session, item)
 			end)
 		end
 	end)
 
 	-- Open in split / vsplit
 	lmap({ "i", "n" }, "<C-s>", function()
-		local item = ui.list.selected(state.view.list)
+		local item = ui.list.selected(session.view.list)
 		if item and item.file then
-			state:reset()
+			session:close()
 			vim.schedule(function()
-				action.open_split(state.main_win, item)
+				action.open_split(session.main_win, item)
 			end)
 		end
 	end)
 	lmap({ "i", "n" }, "<C-v>", function()
-		local item = ui.list.selected(state.view.list)
+		local item = ui.list.selected(session.view.list)
 		if item and item.file then
-			state:reset()
+			session:close()
 			vim.schedule(function()
-				action.open_split(state.main_win, item)
+				action.open_split(session.main_win, item)
 			end)
 		end
 	end)
@@ -105,7 +105,7 @@ local function mount_list_keymaps(state)
 	for byte = ASCII_PRINTABLE_START, ASCII_PRINTABLE_END do
 		local char = string.char(byte)
 		lmap("n", char, function()
-			vim.api.nvim_set_current_win(state.view.input.win)
+			vim.api.nvim_set_current_win(session.view.input.win)
 			vim.cmd("startinsert!")
 			vim.api.nvim_feedkeys(char, "n", false)
 		end)
@@ -115,11 +115,11 @@ local function mount_list_keymaps(state)
 	lmap("n", "V", function() end)
 end
 
----@param state Beast.Finder.State
-local function mount_preview_keymaps(state)
+---@param session Beast.Finder.Session
+local function mount_preview_keymaps(session)
   -- stylua: ignore
-  if not state.view.preview or not state.view.preview:is_valid() then return end
-	local pbuf = state.view.preview.buf
+  if not session.view.preview or not session.view.preview:is_valid() then return end
+	local pbuf = session.view.preview.buf
 	local popts = { buffer = pbuf, nowait = true }
 	-- stylua: ignore
 	local function pmap(mode, lhs, fn)
@@ -127,19 +127,19 @@ local function mount_preview_keymaps(state)
 	end
 
 	pmap("n", "<Esc>", function()
-		state:reset()
+		session:close()
 	end)
 
 	-- Focus navigation between finder panes
 	pmap("n", "<C-h>", function()
-		vim.api.nvim_set_current_win(state.view.input.win)
+		vim.api.nvim_set_current_win(session.view.input.win)
 		vim.cmd("startinsert!")
 	end)
 	pmap("n", "<C-j>", function()
-		move_cursor(state, 1)
+		move_cursor(session, 1)
 	end)
 	pmap("n", "<C-k>", function()
-		move_cursor(state, -1)
+		move_cursor(session, -1)
 	end)
 	pmap("n", "<C-l>", function() end) -- no-op: nothing to the right of preview
 
@@ -167,7 +167,7 @@ local function mount_preview_keymaps(state)
 	}
 	for _, key in ipairs(redirect_keys) do
 		pmap("n", key, function()
-			vim.api.nvim_set_current_win(state.view.input.win)
+			vim.api.nvim_set_current_win(session.view.input.win)
 			vim.cmd("startinsert!")
 			if key ~= "/" then
 				vim.api.nvim_feedkeys(key, "n", false)
@@ -177,14 +177,14 @@ local function mount_preview_keymaps(state)
 
 	-- Block <leader> from triggering global mappings — redirect to input
 	pmap("n", "<leader>", function()
-		vim.api.nvim_set_current_win(state.view.input.win)
+		vim.api.nvim_set_current_win(session.view.input.win)
 		vim.cmd("startinsert!")
 	end)
 end
 
----@param state Beast.Finder.State
-function M.mount(state)
-	local buf = state.view.input.buf
+---@param session Beast.Finder.Session
+function M.mount(session)
+	local buf = session.view.input.buf
 
 	local opts = { buffer = buf, nowait = true }
 
@@ -193,57 +193,57 @@ function M.mount(state)
 
 	-- Navigation
   -- stylua: ignore start
-	map({ "i", "n" }, "<C-j>", function() move_cursor(state, 1) end)
-	map({ "i", "n" }, "<C-k>", function() move_cursor(state, -1) end)
-	map({ "i", "n" }, "<C-n>", function() move_cursor(state, 1) end)
-	map({ "i", "n" }, "<C-p>", function() move_cursor(state, -1) end)
-	map({ "i", "n" }, "<Down>", function() move_cursor(state, 1) end)
-	map({ "i", "n" }, "<Up>", function() move_cursor(state, -1) end)
-	map({ "i", "n" }, "<Tab>", function() move_cursor(state, 1) end)
-	map({ "i", "n" }, "<S-Tab>", function() move_cursor(state, -1) end)
+	map({ "i", "n" }, "<C-j>", function() move_cursor(session, 1) end)
+	map({ "i", "n" }, "<C-k>", function() move_cursor(session, -1) end)
+	map({ "i", "n" }, "<C-n>", function() move_cursor(session, 1) end)
+	map({ "i", "n" }, "<C-p>", function() move_cursor(session, -1) end)
+	map({ "i", "n" }, "<Down>", function() move_cursor(session, 1) end)
+	map({ "i", "n" }, "<Up>", function() move_cursor(session, -1) end)
+	map({ "i", "n" }, "<Tab>", function() move_cursor(session, 1) end)
+	map({ "i", "n" }, "<S-Tab>", function() move_cursor(session, -1) end)
 	-- Mouse wheel: drive selection (virtual rendering — native scroll can't
 	-- reveal off-screen items, so move the cursor to re-render).
-	map({ "i", "n" }, "<ScrollWheelDown>", function() move_cursor(state, 3) end)
-	map({ "i", "n" }, "<ScrollWheelUp>", function() move_cursor(state, -3) end)
+	map({ "i", "n" }, "<ScrollWheelDown>", function() move_cursor(session, 3) end)
+	map({ "i", "n" }, "<ScrollWheelUp>", function() move_cursor(session, -3) end)
 	-- Close
-	map({ "n" }, "<Esc>", function() state:reset() end)
-	map({ "i", "n" }, "<C-c>", function() state:reset() end)
+	map({ "n" }, "<Esc>", function() session:close() end)
+	map({ "i", "n" }, "<C-c>", function() session:close() end)
 	-- stylua: ignore end
 
 	-- Confirm
 	map({ "i", "n" }, "<CR>", function()
-		local item = ui.list.selected(state.view.list)
+		local item = ui.list.selected(session.view.list)
 		if item and not item.message then
-			state.confirmed = true
-			state:reset()
+			session.confirmed = true
+			session:close()
 			vim.schedule(function()
-				action.open(state, item)
+				action.open(session, item)
 			end)
 		end
 	end)
 
 	-- Open in split / vsplit
 	map({ "i", "n" }, "<C-s>", function()
-		local item = ui.list.selected(state.view.list)
+		local item = ui.list.selected(session.view.list)
 		if item and item.file then
-			state:reset()
+			session:close()
 			vim.schedule(function()
-				action.open_split(state.main_win, item)
+				action.open_split(session.main_win, item)
 			end)
 		end
 	end)
 	map({ "i", "n" }, "<C-v>", function()
-		local item = ui.list.selected(state.view.list)
+		local item = ui.list.selected(session.view.list)
 		if item and item.file then
-			state:reset()
+			session:close()
 			vim.schedule(function()
-				action.open_vsplit(state.main_win, item)
+				action.open_vsplit(session.main_win, item)
 			end)
 		end
 	end)
 	-- Copy path
 	map({ "i", "n" }, "<C-y>", function()
-		local item = ui.list.selected(state.view.list)
+		local item = ui.list.selected(session.view.list)
 		if item then
 			action.copy_path(item)
 		end
@@ -252,13 +252,13 @@ function M.mount(state)
 	-- Focus navigation between finder panes (traps C-h/j/k/l inside finder)
 	map({ "i", "n" }, "<C-h>", function() end) -- no-op: nothing to the left of input
 	map({ "i", "n" }, "<C-l>", function()
-		if state.view.preview and state.view.preview:is_valid() then
-			vim.api.nvim_set_current_win(state.view.preview.win)
+		if session.view.preview and session.view.preview:is_valid() then
+			vim.api.nvim_set_current_win(session.view.preview.win)
 		end
 	end)
 
-	mount_list_keymaps(state)
-	mount_preview_keymaps(state)
+	mount_list_keymaps(session)
+	mount_preview_keymaps(session)
 end
 
 return M

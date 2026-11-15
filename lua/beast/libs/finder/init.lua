@@ -1,5 +1,5 @@
 local Filter = require("beast.libs.finder.filter")
-local State = require("beast.libs.finder.state")
+local Session = require("beast.libs.finder.session")
 local source_registry = require("beast.libs.finder.source")
 
 local M = {}
@@ -8,8 +8,6 @@ local M = {}
 M.meta = { name = "finder", description = "Fuzzy finder picker (files, grep, LSP, commands)" }
 
 local initialized = false
----@type Beast.Finder.State?
-local state = nil
 
 ---@param opts? Beast.Finder.Config
 function M.setup(opts)
@@ -17,14 +15,6 @@ function M.setup(opts)
 	require("beast").apply_highlights("beast.libs.finder.highlights")
 	require("beast.libs.finder.source.live_grep.engine.index").setup()
 	initialized = true
-end
-
----@param source_name Beast.Finder.Source
----@param opts Beast.Finder.Opts
-local function open_finder(source_name, opts)
-	state = State(source_name, opts)
-	require("beast.libs.finder.keymaps").mount(state)
-	require("beast.libs.finder.autocmds").mount(state)
 end
 
 ---@param source_name Beast.Finder.Source
@@ -38,9 +28,8 @@ function M.open(source_name, opts)
 		M.setup()
 	end
 
-	-- State:new() used to guarantee any open picker resets on every open()
-	-- call; the auto_select branch below can skip State entirely, so that
-	-- guarantee is made explicit here instead.
+	-- Session.open() closes any open picker; the auto_select branch below can skip
+	-- the Session entirely, so that guarantee is made explicit here instead.
 	M.close()
 
 	local source = source_registry[source_name]
@@ -61,19 +50,17 @@ function M.open(source_name, opts)
 				require("beast.libs.finder.action").open_file(main_win, items[1])
 			elseif #items > 1 then
 				opts.preloaded_items = items
-				open_finder(source_name, opts)
+				Session.open(source_name, opts)
 			end
 		end)
 		return
 	end
 
-	open_finder(source_name, opts)
+	Session.open(source_name, opts)
 end
 
 function M.close()
-	if state then
-		state:reset()
-	end
+	Session.close_current()
 end
 
 return M

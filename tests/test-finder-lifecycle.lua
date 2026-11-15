@@ -92,21 +92,27 @@ t.eq("preview follows the requested item", previewed[#previewed], "b.lua")
 H.close()
 
 t.section("opening a picker from on_close (reentrancy)")
--- KNOWN LIMITATION (today): the picker opened inside on_close is closed again when the first
--- picker finishes closing its windows (focus returns to the main window -> WinEnter), and the
--- first close raises E367 deleting the autocmd group both pickers share. Nothing in the config
--- does this. Phase 3 of the levels refactor gives each Session its own group; revisit then.
+-- The first picker is completely gone (windows, autocmds) before on_close runs, so the picker
+-- opened from it is not closed by the first one's teardown and does not share its autocmd group.
 H.open("fake_a", {
 	on_close = function()
 		finder.open("fake_b")
 	end,
 })
-local outer_ok = pcall(H.close)
+t.ok("closing the first picker works", pcall(H.close))
 H.settle()
-io.write("  NOTE: closing the first picker " .. (outer_ok and "works" or "raises (known limitation)") .. "\n")
-t.eq("no picker survives (current behavior)", H.window_count(), 0)
-local again = pcall(H.close)
-t.ok("closing again never errors", again)
+t.eq("the picker opened from on_close survives", H.window_count(), 4)
+t.ok("and shows its own rows", H.has_row("x.lua") and not H.has_row("a.lua"))
+t.ok(
+	"it still closes when focus leaves it (its autocmds are intact)",
+	(function()
+		vim.api.nvim_set_current_win(main)
+		H.settle()
+		return H.window_count() == 0
+	end)()
+)
+H.open("fake_b")
+t.ok("and closing it works", pcall(H.close))
 t.eq("nothing left open", H.window_count(), 0)
 
 t.section("closing returns focus to the window the picker was opened from")

@@ -1,20 +1,20 @@
 local M = {}
 
 --- What Enter does: whatever the item's source says.
----@param state Beast.Finder.State
+---@param session Beast.Finder.Session
 ---@param item Beast.Finder.Item
-function M.open(state, item)
-	return state.query.source.open(state, item)
+function M.open(session, item)
+	return session.level.query.source.open(session, item)
 end
 
 --- The default for a source that does not declare `open`: the item's web address, else its file.
----@param state Beast.Finder.State
+---@param session Beast.Finder.Session
 ---@param item Beast.Finder.Item
-function M.open_default(state, item)
+function M.open_default(session, item)
 	if item.url then
 		return M.open_url(item)
 	end
-	M.open_file(state.main_win, item)
+	M.open_file(session.main_win, item)
 end
 
 --- Open an item's web address in the default browser.

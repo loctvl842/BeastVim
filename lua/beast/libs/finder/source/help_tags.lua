@@ -3,10 +3,10 @@ local M = {}
 
 M.format = require("beast.libs.finder.format").help_tags
 
----@param state Beast.Finder.State
+---@param session Beast.Finder.Session
 ---@param item Beast.Finder.Item
-function M.open(state, item)
-	require("beast.libs.finder.action").open_help(state.main_win, item)
+function M.open(session, item)
+	require("beast.libs.finder.action").open_help(session.main_win, item)
 end
 
 function M.get()

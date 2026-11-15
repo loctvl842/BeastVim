@@ -30,82 +30,82 @@ local function restore_cursor()
 	cursor_hidden = false
 end
 
----@param state Beast.Finder.State
-function M.mount(state)
-	-- Autocmds augroup for picker lifetime
-	state.augroup = vim.api.nvim_create_augroup("BeastFinderPicker", { clear = true })
+---@param session Beast.Finder.Session
+function M.mount(session)
+	-- Autocmds augroup for picker lifetime (one per session: a picker opened while another one closes must not share it)
+	session.augroup = vim.api.nvim_create_augroup("BeastFinderPicker" .. session.id, { clear = true })
 	-- Hide cursor when entering the list buffer
 	vim.api.nvim_create_autocmd("BufEnter", {
-		group = state.augroup,
-		buffer = state.view.list.buf,
+		group = session.augroup,
+		buffer = session.view.list.buf,
 		callback = hide_cursor,
 	})
 	-- Restore cursor when leaving the list buffer
 	vim.api.nvim_create_autocmd("BufLeave", {
-		group = state.augroup,
-		buffer = state.view.list.buf,
+		group = session.augroup,
+		buffer = session.view.list.buf,
 		callback = restore_cursor,
 	})
 
 	-- Sync view.cursor when user moves cursor natively in the list window
 	vim.api.nvim_create_autocmd("CursorMoved", {
-		group = state.augroup,
-		buffer = state.view.list.buf,
+		group = session.augroup,
+		buffer = session.view.list.buf,
 		callback = function()
 			-- stylua: ignore
-			if not state.view.list:is_valid() then return end
-			local buf_row = vim.api.nvim_win_get_cursor(state.view.list.win)[1]
+			if not session.view.list:is_valid() then return end
+			local buf_row = vim.api.nvim_win_get_cursor(session.view.list.win)[1]
 			-- Translate buffer row to item index (accounts for group header rows)
-			local item_idx = ui.list.item_at_row(state.view.list, buf_row)
-			if item_idx and item_idx ~= state.view.list.cursor then
-				ui.list.set_cursor(state.view.list, item_idx)
+			local item_idx = ui.list.item_at_row(session.view.list, buf_row)
+			if item_idx and item_idx ~= session.view.list.cursor then
+				ui.list.set_cursor(session.view.list, item_idx)
 				vim.cmd("redraw")
-				render.schedule_preview(state)
+				render.schedule_preview(session)
 			end
 		end,
 	})
 
 	-- Relayout on terminal resize
 	vim.api.nvim_create_autocmd("VimResized", {
-		group = state.augroup,
+		group = session.augroup,
 		callback = function()
-			state:relayout()
+			session:relayout()
 		end,
 	})
 
 	-- Load the source again when one of the events it listens to (`source.reload_on`) fires:
-	-- by default the shared visibility state (hidden/gitignored) changing, whether toggled from
+	-- by default the shared visibility session (hidden/gitignored) changing, whether toggled from
 	-- Explorer, the tabline buttons or the global keymaps. Match-pipeline sources (files,
 	-- buffers, ...) reload from source; the stream pipeline (live_grep) re-runs against the
-	-- current pattern. A picker has one source for its whole life, so the events are read once here.
-	for _, event in ipairs(state.query.source.reload_on) do
+	-- current pattern. The events are those of the level shown at open; a level pushed later with other `reload_on` events must register its own (not needed until a key pushes levels).
+	for _, event in ipairs(session.level.query.source.reload_on) do
 		vim.api.nvim_create_autocmd("User", {
-			group = state.augroup,
+			group = session.augroup,
 			pattern = event,
 			callback = function()
-				state.pipeline.reload(state.query, state.host)
+				session.level:reload()
 			end,
 		})
 	end
 
 	-- Close when focus moves to a window outside the finder
 	vim.api.nvim_create_autocmd("WinEnter", {
-		group = state.augroup,
+		group = session.augroup,
 		callback = function()
 			local current = vim.api.nvim_get_current_win()
 			local finder_wins = {
-				state.view.input.win,
-				state.view.list.win,
+				session.view.input.win,
+				session.view.list.win,
 			}
-			if state.view.preview then
-				finder_wins[#finder_wins + 1] = state.view.preview.win
+			if session.view.preview then
+				finder_wins[#finder_wins + 1] = session.view.preview.win
 			end
 			for _, w in ipairs(finder_wins) do
 				if current == w then
 					return
 				end
 			end
-			state:reset()
+			session:close()
 		end,
 	})
 end
