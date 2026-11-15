@@ -251,6 +251,96 @@ function M.search(q, host, cb)
 end
 
 -- ---------------------------------------------------------------------------
+-- Files changed by a pull request
+-- ---------------------------------------------------------------------------
+
+---@class Beast.Finder.Gh.File
+---@field path string
+---@field previous? string path before a rename
+---@field status string added|removed|modified|renamed|copied|changed|unchanged
+---@field additions integer
+---@field deletions integer
+---@field patch? string unified diff; absent for binary or very large diffs
+
+---@class Beast.Finder.Gh.FilesResult
+---@field files? Beast.Finder.Gh.File[]
+---@field truncated? boolean the pull request changes more files than `FILES_PAGES` pages hold
+---@field error? Beast.Finder.Gh.Error
+
+--- GitHub lists up to 3000 files; we ask for this many pages of `PER_PAGE` and say when there are more.
+M.FILES_PAGES = 3
+
+---@param raw table one element of `pulls/{n}/files`
+---@return Beast.Finder.Gh.File
+function M.normalize_file(raw)
+	return {
+		path = raw.filename,
+		previous = raw.previous_filename,
+		status = raw.status or "modified",
+		additions = raw.additions or 0,
+		deletions = raw.deletions or 0,
+		patch = raw.patch,
+	}
+end
+
+--- The files a pull request changes, read page by page. `cb` runs on the main loop, also after
+--- `kill()`; callers that cancel must ignore it.
+---@param item Beast.Finder.Gh.Item the pull request
+---@param cb fun(result: Beast.Finder.Gh.FilesResult)
+---@return Beast.Finder.Gh.Handle
+function M.files(item, cb)
+	local files, killed = {}, false
+	local proc ---@type vim.SystemObj?
+
+	local function fetch(page)
+		proc = vim.system({
+			"gh",
+			"api",
+			"-X",
+			"GET",
+			("repos/%s/pulls/%d/files"):format(item.repo, item.number),
+			"--hostname",
+			item.host,
+			"-f",
+			"per_page=" .. M.PER_PAGE,
+			"-f",
+			"page=" .. page,
+		}, { text = true }, function(res)
+			vim.schedule(function()
+				if res.code ~= 0 then
+					return cb({ error = classify(res) })
+				end
+				local ok, list = pcall(vim.json.decode, res.stdout or "", { luanil = { object = true, array = true } })
+				if not ok or type(list) ~= "table" then
+					return cb({ error = { kind = "other", message = "unexpected response from GitHub" } })
+				end
+				-- The page after the last one we keep only tells whether the list was cut short.
+				if page > M.FILES_PAGES then
+					return cb({ files = files, truncated = #list > 0 })
+				end
+				for _, raw in ipairs(list) do
+					files[#files + 1] = M.normalize_file(raw)
+				end
+				if #list < M.PER_PAGE or killed then
+					return cb({ files = files })
+				end
+				fetch(page + 1)
+			end)
+		end)
+	end
+	fetch(1)
+
+	return {
+		kill = function()
+			killed = true
+			if proc then
+				pcall(proc.kill, proc, 15)
+			end
+		end,
+	}
+end
+
+-- ---------------------------------------------------------------------------
 -- Detail (preview pane)
 -- ---------------------------------------------------------------------------
 

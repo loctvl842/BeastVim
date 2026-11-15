@@ -6,7 +6,7 @@
 --- `hint(ctx)` is the text shown after the key in the hint line under the picker; nil hides it.
 ---@class Beast.Finder.ChainCtx
 ---@field items? Beast.Finder.Item[] every item that matches the prompt (only given to `open`; nil while the picker is still working)
----@field selected? Beast.Finder.Item the highlighted item
+---@field selected? Beast.Finder.Item|Beast.Finder.Gh.Item the highlighted item
 ---@field total integer how many items match the prompt
 ---@field filter Beast.Finder.Filter
 
@@ -57,9 +57,30 @@ local function grep_help(ctx)
 	return ctx.total > 0 and "grep the matching help pages" or nil
 end
 
+---@param ctx Beast.Finder.ChainCtx
+---@return string?
+local function files_in_pr(ctx)
+	local pr = ctx.selected ---@cast pr Beast.Finder.Gh.Item?
+	return pr and not pr.message and ("files changed in #" .. pr.number) or nil
+end
+
+---@param ctx Beast.Finder.ChainCtx
+---@return Beast.Finder.LevelOpts?
+local function pr_files(ctx)
+	local pr = ctx.selected
+	if not pr or pr.message then
+		return nil
+	end
+	return {
+		ctx = { pr = pr },
+		title = require("beast.libs.finder.source.gh_pr_files").title({ ctx = { pr = pr } }),
+	}
+end
+
 ---@type Beast.Finder.Edge[]
 return {
 	{ from = "files", to = "live_grep", crumb = "Files", hint = grep_files, open = scope_files("Files") },
 	{ from = "buffers", to = "live_grep", crumb = "Buffers", hint = grep_files, open = scope_files("Buffers") },
+	{ from = "gh_pr", to = "gh_pr_files", crumb = "Pull Requests", hint = files_in_pr, open = pr_files },
 	{ from = "help_tags", to = "live_grep", crumb = "Help", hint = grep_help, open = scope_files("Help Files") },
 }

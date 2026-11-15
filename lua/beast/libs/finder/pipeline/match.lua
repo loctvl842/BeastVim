@@ -215,6 +215,10 @@ function M.start(query, host)
 				host.busy(false)
 				restart_gc(s)
 			end
+			-- A title that depends on what was found ("Files Changed (12)") is known now.
+			if query.source.title then
+				host.title(query.source.title(query.filter, query.items))
+			end
 			if query.filter.pattern ~= "" then
 				M.run(query, host)
 			else

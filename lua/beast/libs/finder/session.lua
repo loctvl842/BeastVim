@@ -207,6 +207,7 @@ function M:_enter(level, text)
 		ui.input.set_title(input, level.title)
 	end
 	ui.input.set_count(input, level.count)
+	ui.input.set_debounce(input, level.debounce_ms)
 	-- A level that was still working when it was left (or is popped back to) shows its spinner again.
 	if level.query.loading then
 		ui.input.start_spinner(input)

@@ -12,6 +12,7 @@ local SPINNER_INTERVAL_MS = 80
 ---@class Beast.Finder.InputView : Beast.View.Instance
 ---@field ns integer
 ---@field _debounced Beast.Util.Debouncer|nil
+---@field _on_change fun() reads the prompt and hands its text to the level
 ---@field _spinner_timer uv.uv_timer_t|nil
 ---@field _spinner_frame integer
 ---@field _spinner_extmark integer|nil
@@ -97,13 +98,12 @@ function M.create(on_change, total_w, total_h, win_row, win_col, title, debounce
 		vim.api.nvim_buf_set_extmark(buf, ns, 0, 0, { virt_text = { { "  " } }, virt_text_pos = "inline" })
 	end
 
-	local db_ms = debounce_ms or config.debounce.normal_ms
-	view._debounced = Util.debounce(db_ms, function()
+	view._on_change = function()
 		-- stylua: ignore
 		if not view:is_valid() then return end
-		local text = M.get_text(view)
-		on_change(text)
-	end)
+		on_change(M.get_text(view))
+	end
+	M.set_debounce(view, debounce_ms)
 	vim.api.nvim_create_autocmd({ "TextChangedI", "TextChanged" }, {
 		buffer = buf,
 		callback = function()
@@ -169,6 +169,17 @@ function M.set_title(view, title)
 	-- stylua: ignore
 	if not view:is_valid() then return end
 	pcall(vim.api.nvim_win_set_config, view.win, { title = " " .. title .. " ", title_pos = "center" })
+end
+
+--- How long typing must pause before the prompt's text is searched (nil: the default). A change still
+--- waiting out the old interval is dropped: the caller reads the prompt itself when it switches levels.
+---@param view Beast.Finder.InputView
+---@param debounce_ms? integer
+function M.set_debounce(view, debounce_ms)
+	if view._debounced then
+		view._debounced:close()
+	end
+	view._debounced = Util.debounce(debounce_ms or config.debounce.normal_ms, view._on_change)
 end
 
 --- Show (or with nil, clear) a right-aligned dim label in the prompt row, e.g. the result count.

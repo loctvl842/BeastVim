@@ -75,6 +75,37 @@ function M.open_file(win, item)
 	end
 end
 
+--- Show the diff of a changed file of a pull request in a read-only scratch buffer.
+---@param win? integer window to show it in; falls back to the current window
+---@param item Beast.Finder.Gh.FileItem
+function M.open_diff(win, item)
+	if win and vim.api.nvim_win_is_valid(win) then
+		vim.api.nvim_set_current_win(win)
+	end
+	local lines = item.patch and vim.split(item.patch, "\n", { plain = true }) or { "(diff too large or binary)" }
+	local buf = vim.api.nvim_create_buf(true, true)
+	vim.bo[buf].buftype = "nofile"
+	vim.bo[buf].bufhidden = "wipe"
+	-- A second diff of the same file would collide on the name: the old buffer goes first.
+	local name = ("%s#%d: %s"):format(item.pr.repo, item.pr.number, item.file)
+	local existing = vim.fn.bufnr("^" .. vim.fn.escape(name, "\\[].*~") .. "$")
+	if existing ~= -1 then
+		pcall(vim.api.nvim_buf_delete, existing, { force = true })
+	end
+	vim.api.nvim_buf_set_name(buf, name)
+	vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+	vim.bo[buf].modifiable = false
+	vim.bo[buf].filetype = "diff"
+	vim.cmd("normal! m'")
+	vim.api.nvim_win_set_buf(0, buf)
+	for lnum, line in ipairs(lines) do
+		if line:sub(1, 2) == "@@" then
+			vim.api.nvim_win_set_cursor(0, { lnum, 0 })
+			break
+		end
+	end
+end
+
 ---@param win? integer window to focus before opening; falls back to the current window
 ---@param item Beast.Finder.Item
 function M.open_split(win, item)
