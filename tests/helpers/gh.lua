@@ -62,6 +62,25 @@ function M.files(n, prefix, from)
 	return out
 end
 
+--- `n` commits as `pulls/{n}/commits` returns them (oldest first).
+---@param n integer
+---@param from? integer
+---@return table[]
+function M.commits(n, from)
+	local out = {}
+	for i = (from or 1), (from or 1) + n - 1 do
+		out[#out + 1] = {
+			sha = ("%07dabcdef0123456789abcdef0123456789"):format(i):sub(1, 40),
+			commit = {
+				message = "Commit " .. i .. " subject\n\nBody of commit " .. i,
+				author = { name = "Author " .. i, date = "2026-11-1" .. (i % 9) .. "T10:00:00Z" },
+			},
+			author = { login = "dev" .. i },
+		}
+	end
+	return out
+end
+
 function M.install()
 	orig_system, orig_executable = vim.system, vim.fn.executable
 	M.calls, M.script = {}, {

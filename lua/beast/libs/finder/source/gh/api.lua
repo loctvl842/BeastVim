@@ -285,13 +285,16 @@ function M.normalize_file(raw)
 	}
 end
 
---- The files a pull request changes, read page by page. `cb` runs on the main loop, also after
---- `kill()`; callers that cancel must ignore it.
+--- Read a list endpoint of a pull request page by page: `FILES_PAGES` pages are kept, and one more is read
+--- only to tell whether the list was cut short. `cb` runs on the main loop, also after `kill()`.
+---@generic T
 ---@param item Beast.Finder.Gh.Item the pull request
----@param cb fun(result: Beast.Finder.Gh.FilesResult)
+---@param endpoint string "files" or "commits"
+---@param normalize fun(raw: table): T
+---@param cb fun(result: { items?: T[], truncated?: boolean, error?: Beast.Finder.Gh.Error })
 ---@return Beast.Finder.Gh.Handle
-function M.files(item, cb)
-	local files, killed = {}, false
+local function pages(item, endpoint, normalize, cb)
+	local out, killed = {}, false
 	local proc ---@type vim.SystemObj?
 
 	local function fetch(page)
@@ -300,7 +303,7 @@ function M.files(item, cb)
 			"api",
 			"-X",
 			"GET",
-			("repos/%s/pulls/%d/files"):format(item.repo, item.number),
+			("repos/%s/pulls/%d/%s"):format(item.repo, item.number, endpoint),
 			"--hostname",
 			item.host,
 			"-f",
@@ -318,13 +321,13 @@ function M.files(item, cb)
 				end
 				-- The page after the last one we keep only tells whether the list was cut short.
 				if page > M.FILES_PAGES then
-					return cb({ files = files, truncated = #list > 0 })
+					return cb({ items = out, truncated = #list > 0 })
 				end
 				for _, raw in ipairs(list) do
-					files[#files + 1] = M.normalize_file(raw)
+					out[#out + 1] = normalize(raw)
 				end
 				if #list < M.PER_PAGE or killed then
-					return cb({ files = files })
+					return cb({ items = out })
 				end
 				fetch(page + 1)
 			end)
@@ -338,6 +341,100 @@ function M.files(item, cb)
 			if proc then
 				pcall(proc.kill, proc, 15)
 			end
+		end,
+	}
+end
+
+--- The files a pull request changes. `cb` runs on the main loop, also after `kill()`; callers that cancel must ignore it.
+---@param item Beast.Finder.Gh.Item the pull request
+---@param cb fun(result: Beast.Finder.Gh.FilesResult)
+---@return Beast.Finder.Gh.Handle
+function M.files(item, cb)
+	return pages(item, "files", M.normalize_file, function(result)
+		cb({ files = result.items, truncated = result.truncated, error = result.error })
+	end)
+end
+
+---@class Beast.Finder.Gh.Commit
+---@field sha string
+---@field short string first 7 characters of `sha`
+---@field subject string first line of the message
+---@field message string
+---@field author string login, else the name in the commit
+---@field date string ISO timestamp
+
+---@param raw table one element of `pulls/{n}/commits`
+---@return Beast.Finder.Gh.Commit
+function M.normalize_commit(raw)
+	local message = raw.commit and raw.commit.message or ""
+	local author = raw.commit and raw.commit.author or {}
+	return {
+		sha = raw.sha,
+		short = raw.sha:sub(1, 7),
+		subject = message:match("^[^\r\n]*"),
+		message = message,
+		author = raw.author and raw.author.login or author.name or "",
+		date = author.date or "",
+	}
+end
+
+---@class Beast.Finder.Gh.CommitsResult
+---@field commits? Beast.Finder.Gh.Commit[]
+---@field truncated? boolean the pull request has more commits than `FILES_PAGES` pages hold
+---@field error? Beast.Finder.Gh.Error
+
+--- The commits of a pull request, oldest first (the order GitHub shows).
+---@param item Beast.Finder.Gh.Item the pull request
+---@param cb fun(result: Beast.Finder.Gh.CommitsResult)
+---@return Beast.Finder.Gh.Handle
+function M.commits(item, cb)
+	return pages(item, "commits", M.normalize_commit, function(result)
+		cb({ commits = result.items, truncated = result.truncated, error = result.error })
+	end)
+end
+
+---@class Beast.Finder.Gh.CommitDetail
+---@field message string
+---@field files Beast.Finder.Gh.File[]
+---@field truncated boolean GitHub lists at most 300 files of a commit
+
+---@class Beast.Finder.Gh.CommitDetailResult
+---@field detail? Beast.Finder.Gh.CommitDetail
+---@field error? Beast.Finder.Gh.Error
+
+--- One commit with the files it changed. `cb` runs on the main loop, also after `kill()`.
+---@param item Beast.Finder.Gh.Item the pull request (for the repository)
+---@param sha string
+---@param cb fun(result: Beast.Finder.Gh.CommitDetailResult)
+---@return Beast.Finder.Gh.Handle
+function M.commit(item, sha, cb)
+	local proc = vim.system({
+		"gh",
+		"api",
+		"-X",
+		"GET",
+		("repos/%s/commits/%s"):format(item.repo, sha),
+		"--hostname",
+		item.host,
+	}, { text = true }, function(res)
+		vim.schedule(function()
+			if res.code ~= 0 then
+				return cb({ error = classify(res) })
+			end
+			local ok, raw = pcall(vim.json.decode, res.stdout or "", { luanil = { object = true, array = true } })
+			if not ok or type(raw) ~= "table" then
+				return cb({ error = { kind = "other", message = "unexpected response from GitHub" } })
+			end
+			local files = {}
+			for _, file in ipairs(raw.files or {}) do
+				files[#files + 1] = M.normalize_file(file)
+			end
+			cb({ detail = { message = raw.commit and raw.commit.message or "", files = files, truncated = #files >= 300 } })
+		end)
+	end)
+	return {
+		kill = function()
+			pcall(proc.kill, proc, 15)
 		end,
 	}
 end
