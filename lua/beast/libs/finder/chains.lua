@@ -128,10 +128,11 @@ local function scope_local_copies(ctx)
 	if #paths == 0 then
 		return "None of these files exist in your working tree"
 	end
+	local commit = ctx.filter.ctx and ctx.filter.ctx.commit
 	return {
 		files = paths,
-		ctx = { local_copies = true },
-		title = ("%d PR Files › Live Grep"):format(#paths),
+		ctx = { local_copies = true, commit = commit and commit.short },
+		title = commit and ("%d Files in %s › Live Grep"):format(#paths, commit.short) or ("%d PR Files › Live Grep"):format(#paths),
 	}
 end
 
@@ -155,9 +156,26 @@ end
 
 ---@param ctx Beast.Finder.ChainCtx
 ---@return string?
+local function files_in_commit(ctx)
+	local commit = ctx.selected
+	return commit and not commit.message and "files changed" or nil
+end
+
+---@param ctx Beast.Finder.ChainCtx
+---@return Beast.Finder.LevelOpts?
+local function commit_files(ctx)
+	local commit = ctx.selected
+	if not commit or commit.message then
+		return nil
+	end
+	return { ctx = { commit = commit }, title = require("beast.libs.finder.source.gh_commit_files").title({ ctx = { commit = commit } }) }
+end
+
+---@param ctx Beast.Finder.ChainCtx
+---@return string?
 local function grep_commit_files(ctx)
 	local commit = ctx.selected
-	return commit and not commit.message and ("grep the files changed in " .. commit.short) or nil
+	return commit and not commit.message and "grep its files" or nil
 end
 
 --- The grep over the local copies of the files one commit changed. The commit's files are only known after
@@ -203,7 +221,9 @@ local edges = {
 	{ from = "buffers", to = "live_grep", crumb = "Buffers", hint = grep_files, open = scope_files("Buffers") },
 	{ from = "gh_pr", to = "gh_pr_files", crumb = "Pull Requests", hint = files_in_pr, open = pr_files },
 	{ from = "gh_pr", to = "gh_commits", key = "<C-t>", crumb = "Pull Requests", hint = commits_in_pr, open = pr_commits },
-	{ from = "gh_commits", to = "live_grep", crumb = "Commits", hint = grep_commit_files, open = scope_commit_files },
+	{ from = "gh_commits", to = "gh_commit_files", crumb = "Commits", hint = files_in_commit, open = commit_files },
+	{ from = "gh_commits", to = "live_grep", key = "<C-f>", crumb = "Commits", hint = grep_commit_files, open = scope_commit_files },
+	{ from = "gh_commit_files", to = "live_grep", crumb = "Files Changed", hint = grep_local_copies, open = scope_local_copies },
 	{ from = "gh_pr_files", to = "live_grep", crumb = "Files Changed", hint = grep_local_copies, open = scope_local_copies },
 	{ from = "gh_issue", to = "gh_issue_grep", crumb = "Issues", hint = grep_issues, open = scope_issues },
 	{ from = "help_tags", to = "live_grep", crumb = "Help", hint = grep_help, open = scope_files("Help Files") },

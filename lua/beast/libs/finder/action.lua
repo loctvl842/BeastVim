@@ -87,7 +87,8 @@ function M.open_diff(win, item)
 	vim.bo[buf].buftype = "nofile"
 	vim.bo[buf].bufhidden = "wipe"
 	-- A second diff of the same file would collide on the name: the old buffer goes first.
-	local name = ("%s#%d: %s"):format(item.pr.repo, item.pr.number, item.file)
+	local name = item.commit and ("%s@%s: %s"):format(item.pr.repo, item.commit.short, item.file)
+		or ("%s#%d: %s"):format(item.pr.repo, item.pr.number, item.file)
 	local existing = vim.fn.bufnr("^" .. vim.fn.escape(name, "\\[].*~") .. "$")
 	if existing ~= -1 then
 		pcall(vim.api.nvim_buf_delete, existing, { force = true })

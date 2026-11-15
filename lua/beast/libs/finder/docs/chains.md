@@ -25,7 +25,9 @@ finder = {
 | `files\|live_grep`, `buffers\|live_grep`, `help_tags\|live_grep` | `<C-g>` |
 | `gh_pr\|gh_pr_files` | `<C-g>` |
 | `gh_pr\|gh_commits` | `<C-t>` |
-| `gh_pr_files\|live_grep`, `gh_commits\|live_grep` | `<C-g>` |
+| `gh_pr_files\|live_grep`, `gh_commit_files\|live_grep` | `<C-g>` |
+| `gh_commits\|gh_commit_files` | `<C-g>` |
+| `gh_commits\|live_grep` | `<C-f>` |
 | `gh_issue\|gh_issue_grep` | `<C-g>` |
 
 `finder.setup` raises, naming the problem, for an unknown edge id, a value that is not `false` or `{ key = "..." }`,
