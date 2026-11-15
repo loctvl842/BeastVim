@@ -2,6 +2,18 @@ local swatches = require("beast.libs.finder.source.colorscheme_swatches")
 
 local M = {}
 
+M.format = require("beast.libs.finder.format").colorschemes
+-- The picker only shows what the swatch worker has computed, so it reloads when that finishes.
+M.reload_on = { "BeastFinderSwatchesReady" }
+
+--- Apply the theme. The live preview has usually applied it already; re-applying would repaint the editor again.
+---@param item Beast.Finder.Item
+function M.open(_, item)
+	if vim.g.colors_name ~= item.text then
+		pcall(vim.cmd.colorscheme, item.text)
+	end
+end
+
 ---Rank by origin, mirroring beast.theme.sources precedence:
 ---1 = BeastVim config `colors/`, 2 = Neovim builtin, 3 = plugin.
 ---@param fullpath string

@@ -1,18 +1,18 @@
 local M = {}
 
+--- What Enter does: whatever the item's source says.
 ---@param state Beast.Finder.State
 ---@param item Beast.Finder.Item
 function M.open(state, item)
+	return state.query.source.open(state, item)
+end
+
+--- The default for a source that does not declare `open`: the item's web address, else its file.
+---@param state Beast.Finder.State
+---@param item Beast.Finder.Item
+function M.open_default(state, item)
 	if item.url then
 		return M.open_url(item)
-	elseif state.query.source.name == "help_tags" then
-		return M.open_help(state.main_win, item)
-	elseif state.query.source.name == "colorschemes" then
-		-- Live preview has usually applied it already; re-applying would repaint the editor again.
-		if vim.g.colors_name ~= item.text then
-			pcall(vim.cmd.colorscheme, item.text)
-		end
-		return
 	end
 	M.open_file(state.main_win, item)
 end

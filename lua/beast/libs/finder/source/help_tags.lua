@@ -1,6 +1,14 @@
 ---@class Beast.Finder.Source.HelpTags: Beast.Finder.ASource
 local M = {}
 
+M.format = require("beast.libs.finder.format").help_tags
+
+---@param state Beast.Finder.State
+---@param item Beast.Finder.Item
+function M.open(state, item)
+	require("beast.libs.finder.action").open_help(state.main_win, item)
+end
+
 function M.get()
 	local rtp = vim.o.runtimepath
 

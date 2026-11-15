@@ -11,8 +11,8 @@ local function move_cursor(state, delta)
 	local old_offset = state.view.list._offset
 	ui.list.move(state.view.list, delta)
 	-- Re-apply match highlights when viewport scrolled to new rows
-	if state.view.list._offset ~= old_offset and not state.query.highlight_preview and state.view.list:is_valid() then
-		local format_fn = require("beast.libs.finder.format")[state.query.source.name] or require("beast.libs.finder.format").filename
+	if state.view.list._offset ~= old_offset and not state.query.source.live and state.view.list:is_valid() then
+		local format_fn = render.formatters(state)
 		local from, to = ui.list.visible_range(state.view.list)
 		match_hl.apply_list(state.view.list.buf, state.query.matched, format_fn, from, to, state.view.list._separators and 2 or 1)
 	end

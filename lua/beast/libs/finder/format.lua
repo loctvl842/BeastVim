@@ -291,18 +291,6 @@ function M.live_grep_header(item, max_width)
 	return result
 end
 
--- LSP sources surface file:line + snippet, identical to live_grep.
-M.lsp_definitions = M.live_grep
-M.lsp_references = M.live_grep
-M.lsp_declarations = M.live_grep
-M.lsp_implementations = M.live_grep
-
--- Grouped-list headers for grep + LSP sources.
-M.lsp_definitions_header = M.live_grep_header
-M.lsp_references_header = M.live_grep_header
-M.lsp_declarations_header = M.live_grep_header
-M.lsp_implementations_header = M.live_grep_header
-
 -- GitHub sources: Nerd Font git icons (octicons) and the highlight each state is drawn in.
 local GH_STATES = {
 	pr = {
@@ -349,8 +337,5 @@ function M.gh(item)
 	end
 	return result
 end
-
-M.gh_pr = M.gh
-M.gh_issue = M.gh
 
 return M

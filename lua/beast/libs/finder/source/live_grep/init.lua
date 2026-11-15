@@ -9,6 +9,9 @@ local M = {}
 
 M.async = true
 M.live = true
+M.format = require("beast.libs.finder.format").live_grep
+M.header = require("beast.libs.finder.format").live_grep_header
+M.preview_highlight = "match"
 M.cmd = nil
 M.args = {}
 

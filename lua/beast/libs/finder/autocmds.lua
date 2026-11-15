@@ -73,30 +73,20 @@ function M.mount(state)
 		end,
 	})
 
-	-- Re-run the active query when the shared visibility state (hidden/
-	-- gitignored) changes, whether toggled from Explorer, the tabline buttons,
-	-- or the global keymaps. Match-pipeline sources (files, buffers, ...) reload
-	-- from source; the stream pipeline (live_grep) re-runs against the current
-	-- pattern — same calls `state.lua:new()` already makes on initial load.
-	local function reload()
-		state.pipeline.reload(state.query, state.host)
+	-- Load the source again when one of the events it listens to (`source.reload_on`) fires:
+	-- by default the shared visibility state (hidden/gitignored) changing, whether toggled from
+	-- Explorer, the tabline buttons or the global keymaps. Match-pipeline sources (files,
+	-- buffers, ...) reload from source; the stream pipeline (live_grep) re-runs against the
+	-- current pattern. A picker has one source for its whole life, so the events are read once here.
+	for _, event in ipairs(state.query.source.reload_on) do
+		vim.api.nvim_create_autocmd("User", {
+			group = state.augroup,
+			pattern = event,
+			callback = function()
+				state.pipeline.reload(state.query, state.host)
+			end,
+		})
 	end
-	vim.api.nvim_create_autocmd("User", {
-		group = state.augroup,
-		pattern = "BeastVisibilityChanged",
-		callback = reload,
-	})
-
-	-- Swatch colors finished computing in the background: reload the theme list.
-	vim.api.nvim_create_autocmd("User", {
-		group = state.augroup,
-		pattern = "BeastFinderSwatchesReady",
-		callback = function()
-			if state.query.source.name == "colorschemes" then
-				reload()
-			end
-		end,
-	})
 
 	-- Close when focus moves to a window outside the finder
 	vim.api.nvim_create_autocmd("WinEnter", {

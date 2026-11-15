@@ -43,6 +43,7 @@ function M.create(kind)
 		debounce_ms = 400,
 		initial_query = query.default_text(kind),
 		cancel = stop,
+		format = require("beast.libs.finder.format").gh,
 	}
 
 	source.preview = function(view, item)

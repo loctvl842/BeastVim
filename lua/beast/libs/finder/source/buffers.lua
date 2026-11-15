@@ -1,5 +1,7 @@
 local M = {}
 
+M.format = require("beast.libs.finder.format").buffers
+
 ---@param filter Beast.Finder.Filter
 ---@return Beast.Finder.Item[]
 function M.get(filter)

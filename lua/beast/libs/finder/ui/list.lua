@@ -1,6 +1,12 @@
 local View = require("beast.libs.view")
 local config = require("beast.libs.finder.config")
 
+---@param item Beast.Finder.Item
+---@return any
+local function default_group(item)
+	return item.file
+end
+
 ---@class Beast.Finder.ListView : Beast.View.Instance
 ---@field ns integer
 ---@field prefix_ns integer namespace for selection prefix extmarks
@@ -10,6 +16,7 @@ local config = require("beast.libs.finder.config")
 ---@field _on_message boolean the selected row is a message row (no selection marker or cursorline)
 ---@field _separators boolean card style: a slot row above every item and below the last (dashed between items, solid around the selected one)
 ---@field _header_fn? fun(item: Beast.Finder.Item): Beast.Finder.Highlight[] optional group header (grouped sources)
+---@field _group_fn fun(item: Beast.Finder.Item): any rows with an equal group share one header
 ---@field _offset integer 0-based index of the first visible item
 ---@field _win_height integer height of the window (viewport size)
 ---@field _item_to_row table<integer, integer> visible item index -> 1-based buffer row of its match line
@@ -25,6 +32,7 @@ local ListView = View:extend(
 		obj.cursor = 1
 		obj._format_fn = nil
 		obj._header_fn = nil
+		obj._group_fn = default_group
 		obj._separators = false
 		obj._on_message = false
 		obj._offset = 0
@@ -95,7 +103,7 @@ local function item_cost(view, idx)
 		return 1
 	end
 	local items = view.items
-	if idx == 1 or items[idx].file ~= items[idx - 1].file then
+	if idx == 1 or view._group_fn(items[idx]) ~= view._group_fn(items[idx - 1]) then
 		return 2
 	end
 	return 1
@@ -269,7 +277,7 @@ local function render_visible(view)
 	local rows = 0
 	local idx = offset + 1
 	while idx <= total and rows < win_height do
-		local needs_header = header_fn ~= nil and (idx == 1 or items[idx].file ~= items[idx - 1].file)
+		local needs_header = header_fn ~= nil and (idx == 1 or view._group_fn(items[idx]) ~= view._group_fn(items[idx - 1]))
 		local cost = (needs_header or separators) and 2 or 1
 		-- Card style keeps one row free for the slot below the last item.
 		if rows + cost + (separators and 1 or 0) > win_height and rows > 0 then
@@ -371,12 +379,14 @@ end
 ---@param items Beast.Finder.Item[]
 ---@param format_fn fun(item: Beast.Finder.Item): Beast.Finder.Highlight[]
 ---@param header_fn? fun(item: Beast.Finder.Item): Beast.Finder.Highlight[] group header (grouped sources)
-function M.render(view, items, format_fn, header_fn)
+---@param group_fn? fun(item: Beast.Finder.Item): any rows with an equal group share one header (default: `item.file`)
+function M.render(view, items, format_fn, header_fn, group_fn)
 	-- stylua: ignore
 	if not view:is_valid() then return end
 	view.items = items
 	view._format_fn = format_fn
 	view._header_fn = header_fn
+	view._group_fn = group_fn or default_group
 	view._win_height = vim.api.nvim_win_get_height(view.win)
 	view.cursor = math.min(view.cursor, math.max(1, #items))
 	view._offset = clamp_offset(view, view.cursor, view._offset)

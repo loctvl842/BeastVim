@@ -5,6 +5,8 @@
 --- The early single-result jump is handled by `finder/preflight.lua` (via the
 --- `auto_select` flag), not here — the source is a pure data producer.
 
+local format = require("beast.libs.finder.format")
+
 local M = {}
 
 ---@param cwd string
@@ -28,6 +30,10 @@ function M.create(method, label)
 		async = true,
 		auto_select = true,
 		label = label,
+		-- LSP sources surface file:line + snippet, grouped by file like live_grep.
+		format = format.live_grep,
+		header = format.live_grep_header,
+		preview_highlight = "range",
 	}
 
 	---@param filter Beast.Finder.Filter

@@ -193,29 +193,29 @@ local function hls(chunks)
 	end, chunks)
 end
 
-local row = format.gh_pr(gh_item(30, { labels = { { name = "bug", color = "d73a4a" } } }))
+local row = format.gh(gh_item(30, { labels = { { name = "bug", color = "d73a4a" } } }))
 assert_test(
 	"row has number, title, author and label",
 	texts(row):find("#30", 1, true) and texts(row):find("title 30", 1, true) and texts(row):find("@dana", 1, true) and texts(row):find(" bug ", 1, true),
 	texts(row)
 )
 assert_eq("open pr icon color", row[1].hl, "BeastFinderGhOpen")
-assert_eq("draft pr icon color", format.gh_pr(gh_item(1, { state = "draft" }))[1].hl, "BeastFinderGhDraft")
-assert_eq("merged pr icon color", format.gh_pr(gh_item(1, { state = "merged" }))[1].hl, "BeastFinderGhMerged")
-assert_eq("closed pr icon color", format.gh_pr(gh_item(1, { state = "closed" }))[1].hl, "BeastFinderGhClosed")
-assert_eq("closed issue is purple", format.gh_issue(gh_item(1, { kind = "issue", state = "closed" }))[1].hl, "BeastFinderGhMerged")
-assert_eq("not planned issue is grey", format.gh_issue(gh_item(1, { kind = "issue", state = "not_planned" }))[1].hl, "BeastFinderGhDraft")
-assert_test("issue and pr icons differ", format.gh_pr(gh_item(1))[1].text ~= format.gh_issue(gh_item(1, { kind = "issue" }))[1].text)
+assert_eq("draft pr icon color", format.gh(gh_item(1, { state = "draft" }))[1].hl, "BeastFinderGhDraft")
+assert_eq("merged pr icon color", format.gh(gh_item(1, { state = "merged" }))[1].hl, "BeastFinderGhMerged")
+assert_eq("closed pr icon color", format.gh(gh_item(1, { state = "closed" }))[1].hl, "BeastFinderGhClosed")
+assert_eq("closed issue is purple", format.gh(gh_item(1, { kind = "issue", state = "closed" }))[1].hl, "BeastFinderGhMerged")
+assert_eq("not planned issue is grey", format.gh(gh_item(1, { kind = "issue", state = "not_planned" }))[1].hl, "BeastFinderGhDraft")
+assert_test("issue and pr icons differ", format.gh(gh_item(1))[1].text ~= format.gh(gh_item(1, { kind = "issue" }))[1].text)
 assert_test("label badge uses its own group", hls(row)[#row]:find("^BeastFinderGhLabel") ~= nil, vim.inspect(hls(row)))
 local ghost = gh_item(1)
 ghost.author = nil
-local no_author = format.gh_pr(ghost)
+local no_author = format.gh(ghost)
 assert_test("no author, no @", not texts(no_author):find("@", 1, true))
 
-local msg = format.gh_pr({ message = true, text = "No results for this search" })
+local msg = format.gh({ message = true, text = "No results for this search" })
 assert_eq("message row text", texts(msg), "No results for this search")
 assert_eq("message row dim", msg[1].hl, "BeastFinderGhMessage")
-assert_eq("error row color", format.gh_pr({ message = true, is_error = true, text = "x" })[1].hl, "BeastFinderGhError")
+assert_eq("error row color", format.gh({ message = true, is_error = true, text = "x" })[1].hl, "BeastFinderGhError")
 
 io.write(string.format("\n=== %d passed, %d failed ===\n", passed, failed))
 os.exit(failed > 0 and 1 or 0)

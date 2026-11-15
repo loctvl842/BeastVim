@@ -25,7 +25,6 @@ local Filter = require("beast.libs.finder.filter")
 ---@field matched Beast.Finder.Item[]
 ---@field filter Beast.Finder.Filter
 ---@field source Beast.Finder.ASource
----@field highlight_preview boolean -- true for stream sources (grep) — highlights pattern in preview
 ---@field limit integer how many matches `matched` keeps (best first); the match pipeline's TopK capacity
 ---@field loading boolean the source is still delivering items
 ---@field matching boolean the scorer is still running over the items
@@ -53,14 +52,11 @@ M.DEFAULT_LIMIT = 1000
 function M:new(source, opts)
 	opts = opts or {}
 
-	local is_live = source and source.live or false
-
 	local query = setmetatable({
 		items = opts.preloaded_items or {},
 		matched = {},
 		filter = Filter({ cwd = opts.cwd }),
 		source = source,
-		highlight_preview = is_live,
 		limit = opts.limit or M.DEFAULT_LIMIT,
 		loading = false,
 		matching = false,
