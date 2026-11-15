@@ -38,12 +38,18 @@ function M.get(filter, cb)
 	end
 	local count = 0
 	for _, issue in ipairs(filter.ctx.issues) do
+		if count >= RESULT_LIMIT then
+			break
+		end
 		local lnum = 0
 		for line in (issue.title .. "\n" .. (issue.body or "")):gmatch("([^\n]*)\n?") do
+			if count >= RESULT_LIMIT then
+				break
+			end
 			lnum = lnum + 1
 			line = line:gsub("\r$", "")
 			local at = (sensitive and line or line:lower()):find(needle, 1, true)
-			if at and count < RESULT_LIMIT then
+			if at then
 				count = count + 1
 				cb({
 					idx = count,

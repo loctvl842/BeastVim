@@ -59,6 +59,14 @@ function M.open(source_name, opts)
 	Session.open(source_name, opts)
 end
 
+--- The built-in chain from one source to another; raises for any other pair.
+---@param from Beast.Finder.Source
+---@param to Beast.Finder.Source
+---@return Beast.Finder.Edge
+function M.chain(from, to)
+	return require("beast.libs.finder.chain").edge(from, to)
+end
+
 --- Every chain the finder supports: the pickers a picker can lead to (see chains.lua).
 ---@return Beast.Finder.Edge[]
 function M.chains()

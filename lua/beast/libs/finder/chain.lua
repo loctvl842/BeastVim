@@ -61,6 +61,11 @@ function M.drill(session)
 		Toast("Nothing to open from here", vim.log.levels.INFO)
 		return false
 	end
+	-- A change still waiting out its debounce has not been searched: the results are not the prompt's.
+	if require("beast.libs.finder.ui").input.get_text(session.view.input) ~= session.level.query.filter.pattern then
+		Toast("Still searching - try again in a moment", vim.log.levels.INFO)
+		return false
+	end
 	local ctx = context(session, true)
 	if not ctx.items then
 		Toast("Still searching - try again in a moment", vim.log.levels.INFO)

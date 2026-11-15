@@ -77,12 +77,15 @@ function M.mount(session)
 	-- by default the shared visibility session (hidden/gitignored) changing, whether toggled from
 	-- Explorer, the tabline buttons or the global keymaps. Match-pipeline sources (files,
 	-- buffers, ...) reload from source; the stream pipeline (live_grep) re-runs against the
-	-- current pattern. The events are those of the level shown at open; a level pushed later with other `reload_on` events must register its own (not needed until a key pushes levels).
+	-- current pattern. The events are those of the level shown at open (every chain of `chains.lua` shares the default); levels parked under the shown one load again when they are shown (`stale`).
 	for _, event in ipairs(session.level.query.source.reload_on) do
 		vim.api.nvim_create_autocmd("User", {
 			group = session.augroup,
 			pattern = event,
 			callback = function()
+				for _, parked in ipairs(session.stack) do
+					parked.stale = true
+				end
 				session.level:reload()
 			end,
 		})

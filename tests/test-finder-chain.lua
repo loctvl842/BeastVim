@@ -139,6 +139,44 @@ H.settle(200)
 t.eq("help: back to the tags", H.title(), "Help tags")
 H.close()
 
+t.section("hint comes back after it was hidden")
+H.open("files", { cwd = dir })
+H.settle(500)
+H.type("lua")
+t.ok("hint shown", H.hint() ~= "", H.hint())
+H.type("zzzzqq")
+t.eq("hint hidden when nothing matches", H.hint(), "")
+H.type("lua")
+t.ok("hint is back", H.hint():find("<C-g> grep", 1, true) ~= nil, H.hint())
+
+t.section("drill before the typed text was searched")
+local toasts0 = #(rawget(_G, "__toasts") or {})
+local seen = {}
+_G.Toast = function(msg)
+	seen[#seen + 1] = msg
+end
+local input = H.panes().input
+local prefix = require("beast.libs.finder.config").prompt_prefix
+vim.api.nvim_buf_set_lines(input.buf, 0, 1, false, { prefix .. "b" }) -- typed, debounce not fired
+H.press("<C-g>")
+t.eq("refused while the text is not searched yet", { seen[#seen], H.title() }, { "Still searching - try again in a moment", "Files" })
+H.close()
+
+t.section("a parked level reloads when hidden files are toggled")
+H.open("files", { cwd = dir })
+H.settle(500)
+H.press("<C-g>")
+H.settle(200)
+local before = #H.rows()
+vim.api.nvim_exec_autocmds("User", { pattern = "BeastVisibilityChanged" })
+H.settle(300)
+local session = require("beast.libs.finder.session").current()
+t.ok("the parked level is marked", session.stack[1].stale == true)
+H.press("<C-o>")
+H.settle(500)
+t.ok("and loaded again when shown", session.level.stale ~= true and H.title() == "Files")
+H.close()
+
 t.section("refusals")
 local toasts = {}
 _G.Toast = function(msg)

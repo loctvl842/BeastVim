@@ -15,7 +15,8 @@ local NS = vim.api.nvim_create_namespace("beast-finder-hint")
 ---@return Beast.Finder.HintView
 function M.create()
 	local buf = vim.api.nvim_create_buf(false, true)
-	vim.bo[buf].bufhidden = "wipe"
+	-- Hiding closes the window only: the buffer is reused when the hint comes back (`close` deletes it).
+	vim.bo[buf].bufhidden = "hide"
 	return { buf = buf }
 end
 

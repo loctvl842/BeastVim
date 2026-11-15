@@ -18,6 +18,7 @@ local source_registry = require("beast.libs.finder.source")
 ---@field offset integer list scroll offset to restore
 ---@field initial_query? string live sources: prompt text the level opens with, searched at once
 ---@field debounce_ms? integer how long typing must pause before this level searches
+---@field stale? boolean the source's data changed while the level was parked; it loads again when shown
 ---@field crumb? string name of the picker this level was opened from ("<BS> back to <crumb>")
 ---@field host? Beast.Finder.Host set by the Session that shows the level
 local M = {}

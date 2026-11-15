@@ -89,7 +89,9 @@ end
 ---@return Beast.Finder.LevelOpts|string|nil
 local function scope_local_copies(ctx)
 	local paths, listed = {}, 0
-	for _, item in ipairs(ctx.items) do
+	for _, item in
+		ipairs(ctx.items --[[@as Beast.Finder.Gh.FileItem[] ]])
+	do
 		-- A message row (an error, no files) is not a file.
 		if not item.message then
 			listed = listed + 1

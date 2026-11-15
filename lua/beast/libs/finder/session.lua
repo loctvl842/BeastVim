@@ -245,6 +245,11 @@ function M:pop()
 	self.level = parent
 	self:_enter(parent, parent.text)
 	require("beast.libs.finder.render").render(self)
+	-- Its data changed while it was parked (e.g. hidden files were toggled): load it again now.
+	if parent.stale then
+		parent.stale = false
+		parent:reload()
+	end
 	return true
 end
 
