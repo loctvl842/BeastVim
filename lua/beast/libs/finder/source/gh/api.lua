@@ -17,7 +17,6 @@
 ---@field number integer
 ---@field title string
 ---@field author? string
----@field is_bot boolean
 ---@field labels Beast.Finder.Gh.Label[]
 ---@field url string
 ---@field repo string "owner/name"
@@ -139,7 +138,6 @@ function M.normalize(raw, host)
 		number = raw.number,
 		title = raw.title or "",
 		author = raw.user and raw.user.login or nil,
-		is_bot = raw.user ~= nil and raw.user.type == "Bot",
 		labels = labels,
 		url = raw.html_url,
 		repo = (raw.repository_url or ""):match("/repos/(.+)$") or "",

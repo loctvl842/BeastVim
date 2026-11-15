@@ -69,5 +69,11 @@ assert_eq(
 )
 assert_eq("surrounding whitespace trimmed", query.build("  is:pr  ", REPO), "is:pr repo:loctvl842/jarvix sort:created-desc")
 
+assert_eq("scope defaults to the repo", query.scope("is:pr state:open ", REPO), REPO)
+assert_eq("scope follows repo:", query.scope("repo:neovim/neovim is:issue", REPO), "neovim/neovim")
+assert_eq("scope follows org:", query.scope("is:pr org:neovim", REPO), "neovim")
+assert_eq("empty value is not a scope", query.scope("repo: is:pr", REPO), REPO)
+assert_eq("negated repo is not a scope for the title", query.scope("-repo:foo/bar", REPO), REPO)
+
 io.write(string.format("\n=== %d passed, %d failed ===\n", passed, failed))
 os.exit(failed > 0 and 1 or 0)

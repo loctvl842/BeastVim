@@ -14,6 +14,7 @@ local Filter = require("beast.libs.finder.filter")
 ---@field match_text? string  literal text grep actually matched (for preview highlight)
 ---@field url? string web address (GitHub sources); Enter opens it, copy copies it
 ---@field message? boolean informational row (empty result, error); not an actionable item
+---@field is_error? boolean message rows only: draw in the error color
 ---@field help_tag? string
 ---@field is_readme? boolean
 ---@field swatches? (string|false)[] colorschemes: ten hex colors in role order, nil until computed

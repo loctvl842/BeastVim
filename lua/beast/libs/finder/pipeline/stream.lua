@@ -106,6 +106,9 @@ function M.run(state)
 	end
 
 	ui.input.set_count(state.view.input, nil)
+	if source.title and state.layout ~= "cards" then
+		ui.input.set_title(state.view.input, source.title(state.query.filter))
+	end
 	ui.input.start_spinner(state.view.input)
 	collectgarbage("stop")
 

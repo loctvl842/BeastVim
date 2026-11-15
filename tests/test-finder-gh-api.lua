@@ -155,7 +155,6 @@ assert_eq("url", pr.url, "https://github.com/o/n/pull/30")
 assert_eq("label color", pr.labels[1].color, "d73a4a")
 assert_eq("text", pr.text, "#30 feat(cli): nodes")
 assert_eq("comments", pr.comments, 3)
-assert_eq("not a bot", pr.is_bot, false)
 
 assert_eq("draft pr", api.normalize(raw({ pull_request = {}, draft = true }), "github.com").state, "draft")
 assert_eq("merged pr", api.normalize(raw({ pull_request = { merged_at = "2026-11-02T00:00:00Z" }, state = "closed" }), "github.com").state, "merged")
@@ -168,8 +167,6 @@ assert_eq("open issue", issue.state, "open")
 assert_eq("closed issue", api.normalize(raw({ state = "closed", state_reason = "completed" }), "github.com").state, "closed")
 assert_eq("not planned issue", api.normalize(raw({ state = "closed", state_reason = "not_planned" }), "github.com").state, "not_planned")
 
-local bot = api.normalize(raw({ user = { login = "dependabot[bot]", type = "Bot" } }), "github.com")
-assert_eq("bot author flagged", bot.is_bot, true)
 assert_eq("no labels is an empty list", #api.normalize(raw({ labels = {} }), "github.com").labels, 0)
 
 -- ---------------------------------------------------------------------------

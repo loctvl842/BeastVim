@@ -12,7 +12,7 @@
 ---@field retain_results? boolean live sources: keep the previous list on screen until the new results arrive
 ---@field run_when_empty? boolean live sources: search even when the prompt is empty
 ---@field debounce_ms? integer live sources: overrides `config.debounce.live_ms`
----@field title? fun(): string overrides the title derived from the source name
+---@field title? fun(filter?: Beast.Finder.Filter): string overrides the title derived from the source name; asked again at the start of every live search
 ---@field count? fun(items: Beast.Finder.Item[]): string text shown right-aligned in the prompt row once a search finishes
 ---@field check? fun(): boolean runs before the picker opens; false aborts (the source has already told the user why)
 ---@field preview? fun(view: Beast.Finder.PreviewView, item: Beast.Finder.Item) replaces the file preview

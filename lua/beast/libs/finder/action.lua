@@ -3,7 +3,9 @@ local M = {}
 ---@param state Beast.Finder.State
 ---@param item Beast.Finder.Item
 function M.open(state, item)
-	if state.query.source.name == "help_tags" then
+	if item.url then
+		return M.open_url(item)
+	elseif state.query.source.name == "help_tags" then
 		return M.open_help(state.main_win, item)
 	elseif state.query.source.name == "colorschemes" then
 		-- Live preview has usually applied it already; re-applying would repaint the editor again.
@@ -13,6 +15,15 @@ function M.open(state, item)
 		return
 	end
 	M.open_file(state.main_win, item)
+end
+
+--- Open an item's web address in the default browser.
+---@param item Beast.Finder.Item
+function M.open_url(item)
+	local _, err = vim.ui.open(item.url)
+	if err then
+		Toast("Could not open " .. item.url .. ": " .. err, vim.log.levels.ERROR)
+	end
 end
 
 ---@param win? integer window to focus before opening; falls back to the current window
@@ -88,10 +99,11 @@ end
 
 ---@param item Beast.Finder.Item
 function M.copy_path(item)
+	local target = item and (item.url or item.file)
 	-- stylua: ignore
-	if not item or not item.file then return end
-	vim.fn.setreg("+", item.file)
-	vim.notify("Copied: " .. item.file, vim.log.levels.INFO)
+	if not target then return end
+	vim.fn.setreg("+", target)
+	Toast("Copied: " .. target, vim.log.levels.INFO)
 end
 
 return M

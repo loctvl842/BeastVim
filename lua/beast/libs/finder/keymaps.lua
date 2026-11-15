@@ -70,7 +70,7 @@ local function mount_list_keymaps(state)
 
 	lmap("n", "<CR>", function()
 		local item = ui.list.selected(state.view.list)
-		if item then
+		if item and not item.message then
 			state.confirmed = true
 			state:reset()
 			vim.schedule(function()
@@ -82,7 +82,7 @@ local function mount_list_keymaps(state)
 	-- Open in split / vsplit
 	lmap({ "i", "n" }, "<C-s>", function()
 		local item = ui.list.selected(state.view.list)
-		if item then
+		if item and item.file then
 			state:reset()
 			vim.schedule(function()
 				action.open_split(state.main_win, item)
@@ -91,7 +91,7 @@ local function mount_list_keymaps(state)
 	end)
 	lmap({ "i", "n" }, "<C-v>", function()
 		local item = ui.list.selected(state.view.list)
-		if item then
+		if item and item.file then
 			state:reset()
 			vim.schedule(function()
 				action.open_split(state.main_win, item)
@@ -213,7 +213,7 @@ function M.mount(state)
 	-- Confirm
 	map({ "i", "n" }, "<CR>", function()
 		local item = ui.list.selected(state.view.list)
-		if item then
+		if item and not item.message then
 			state.confirmed = true
 			state:reset()
 			vim.schedule(function()
@@ -225,7 +225,7 @@ function M.mount(state)
 	-- Open in split / vsplit
 	map({ "i", "n" }, "<C-s>", function()
 		local item = ui.list.selected(state.view.list)
-		if item then
+		if item and item.file then
 			state:reset()
 			vim.schedule(function()
 				action.open_split(state.main_win, item)
@@ -234,7 +234,7 @@ function M.mount(state)
 	end)
 	map({ "i", "n" }, "<C-v>", function()
 		local item = ui.list.selected(state.view.list)
-		if item then
+		if item and item.file then
 			state:reset()
 			vim.schedule(function()
 				action.open_vsplit(state.main_win, item)

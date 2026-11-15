@@ -34,6 +34,15 @@ function M.get()
 		CardInputPrefix = { bg = p.dark1, fg = p.accent2 },
 		SwatchEmpty = { fg = p.dimmed4 },
 		ListCursor = { blend = 100, nocombine = true },
+		-- GitHub sources: state icons, row text
+		GhOpen = { fg = p.green },
+		GhDraft = { fg = p.dimmed3 },
+		GhMerged = { fg = p.accent6 },
+		GhClosed = { fg = p.red },
+		GhNumber = { fg = p.dimmed3 },
+		GhAuthor = { fg = p.accent2 },
+		GhMessage = { fg = p.dimmed3, italic = true },
+		GhError = { fg = p.red },
 		-- Preview
 		PreviewBorder = { fg = p.dimmed3, bg = bg },
 		PreviewTitle = { bg = bg, fg = p.accent3, bold = true },
@@ -89,6 +98,21 @@ end
 function M.swatch(hex)
 	local name = "BeastFinderSwatch" .. hex:sub(2)
 	vim.api.nvim_set_hl(frozen_list_ns or 0, name, { fg = hex })
+	return name
+end
+
+--- Highlight group painting a GitHub label badge: the label's own color as background, text in
+--- whichever of dark/light reads better on it. Defined like swatches (frozen namespace when frozen).
+---@param hex string "rrggbb" as GitHub reports it, without "#"
+---@return string group
+function M.badge(hex)
+	if not hex:match("^%x%x%x%x%x%x$") then
+		hex = "888888"
+	end
+	local r, g, b = tonumber(hex:sub(1, 2), 16), tonumber(hex:sub(3, 4), 16), tonumber(hex:sub(5, 6), 16)
+	local luma = 0.299 * r + 0.587 * g + 0.114 * b
+	local name = "BeastFinderGhLabel" .. hex
+	vim.api.nvim_set_hl(frozen_list_ns or 0, name, { bg = "#" .. hex, fg = luma > 140 and "#1e1f26" or "#f5f5f5" })
 	return name
 end
 

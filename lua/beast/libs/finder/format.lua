@@ -303,4 +303,45 @@ M.lsp_references_header = M.live_grep_header
 M.lsp_declarations_header = M.live_grep_header
 M.lsp_implementations_header = M.live_grep_header
 
+-- GitHub sources: Nerd Font git icons (octicons) and the highlight each state is drawn in.
+local GH_STATES = {
+	pr = {
+		open = { "\u{f407}", "BeastFinderGhOpen" },
+		draft = { "\u{f4dd}", "BeastFinderGhDraft" },
+		merged = { "\u{f419}", "BeastFinderGhMerged" },
+		closed = { "\u{f4dc}", "BeastFinderGhClosed" },
+	},
+	issue = {
+		open = { "\u{f41b}", "BeastFinderGhOpen" },
+		closed = { "\u{f41d}", "BeastFinderGhMerged" },
+		not_planned = { "\u{f4a7}", "BeastFinderGhDraft" },
+	},
+}
+
+---@param item Beast.Finder.Gh.Item|Beast.Finder.Item
+---@return Beast.Finder.Highlight[]
+function M.gh(item)
+	if item.message then
+		return { { text = item.text, hl = item.is_error and "BeastFinderGhError" or "BeastFinderGhMessage" } }
+	end
+
+	local icon = GH_STATES[item.kind][item.state]
+	local result = {
+		{ text = icon[1] .. "  ", hl = icon[2] },
+		{ text = ("%-6s"):format("#" .. item.number), hl = "BeastFinderGhNumber" },
+		{ text = item.title, hl = "BeastFinderListFile" },
+	}
+	if item.author then
+		result[#result + 1] = { text = " @" .. item.author, hl = "BeastFinderGhAuthor" }
+	end
+	for _, label in ipairs(item.labels) do
+		result[#result + 1] = { text = " " }
+		result[#result + 1] = { text = " " .. label.name .. " ", hl = require("beast.libs.finder.highlights").badge(label.color) }
+	end
+	return result
+end
+
+M.gh_pr = M.gh
+M.gh_issue = M.gh
+
 return M

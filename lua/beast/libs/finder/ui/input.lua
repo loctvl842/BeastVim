@@ -148,6 +148,15 @@ function M.get_text(view)
 	return text
 end
 
+--- Replace the title shown in the prompt border.
+---@param view Beast.Finder.InputView
+---@param title string
+function M.set_title(view, title)
+	-- stylua: ignore
+	if not view:is_valid() then return end
+	pcall(vim.api.nvim_win_set_config, view.win, { title = " " .. title .. " ", title_pos = "center" })
+end
+
 --- Show (or with nil, clear) a right-aligned dim label in the prompt row, e.g. the result count.
 ---@param view Beast.Finder.InputView
 ---@param text? string
