@@ -24,6 +24,7 @@
 ---@field created string ISO timestamp
 ---@field updated string ISO timestamp
 ---@field comments integer
+---@field body? string description (search results carry it; used by the issue grep)
 
 ---@class Beast.Finder.Gh.Error
 ---@field kind "not_found"|"rate_limit"|"auth"|"network"|"other"
@@ -145,6 +146,7 @@ function M.normalize(raw, host)
 		created = raw.created_at,
 		updated = raw.updated_at,
 		comments = raw.comments or 0,
+		body = raw.body,
 	}
 end
 

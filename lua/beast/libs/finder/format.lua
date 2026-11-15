@@ -314,6 +314,19 @@ function M.gh_state(item)
 	return state[1], state[2]
 end
 
+--- Header of an issue in the issue grep: "<state icon> #N title", shown once above its matching lines.
+---@param item Beast.Finder.Item a grep item whose `issue` is the issue it was found in
+---@return Beast.Finder.Highlight[]
+function M.gh_issue_grep_header(item)
+	local issue = item.issue ---@type Beast.Finder.Gh.Item
+	local icon, icon_hl = M.gh_state(issue)
+	return {
+		{ text = icon .. "  ", hl = icon_hl },
+		{ text = ("%-6s"):format("#" .. issue.number), hl = "BeastFinderGhNumber" },
+		{ text = issue.title, hl = "BeastFinderListFile" },
+	}
+end
+
 ---@param item Beast.Finder.Gh.Item|Beast.Finder.Item
 ---@return Beast.Finder.Highlight[]
 function M.gh(item)

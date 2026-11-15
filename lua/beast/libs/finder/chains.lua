@@ -88,12 +88,19 @@ end
 ---@param ctx Beast.Finder.ChainCtx
 ---@return Beast.Finder.LevelOpts|string|nil
 local function scope_local_copies(ctx)
-	local paths = {}
+	local paths, listed = {}, 0
 	for _, item in ipairs(ctx.items) do
-		local abs = ctx.filter.cwd .. "/" .. item.file
-		if item.status ~= "removed" and vim.uv.fs_stat(abs) then
-			paths[#paths + 1] = abs
+		-- A message row (an error, no files) is not a file.
+		if not item.message then
+			listed = listed + 1
+			local abs = ctx.filter.cwd .. "/" .. item.file
+			if item.status ~= "removed" and vim.uv.fs_stat(abs) then
+				paths[#paths + 1] = abs
+			end
 		end
+	end
+	if listed == 0 then
+		return nil
 	end
 	if #paths == 0 then
 		return "None of these files exist in your working tree"
@@ -105,11 +112,30 @@ local function scope_local_copies(ctx)
 	}
 end
 
+---@param ctx Beast.Finder.ChainCtx
+---@return string?
+local function grep_issues(ctx)
+	return ctx.selected and not ctx.selected.message and ("grep " .. ctx.total .. " issues") or nil
+end
+
+---@param ctx Beast.Finder.ChainCtx
+---@return Beast.Finder.LevelOpts?
+local function scope_issues(ctx)
+	local issues = vim.tbl_filter(function(item)
+		return not item.message
+	end, ctx.items)
+	if #issues == 0 then
+		return nil
+	end
+	return { ctx = { issues = issues }, title = ("%d Issues › Live Grep"):format(#issues) }
+end
+
 ---@type Beast.Finder.Edge[]
 return {
 	{ from = "files", to = "live_grep", crumb = "Files", hint = grep_files, open = scope_files("Files") },
 	{ from = "buffers", to = "live_grep", crumb = "Buffers", hint = grep_files, open = scope_files("Buffers") },
 	{ from = "gh_pr", to = "gh_pr_files", crumb = "Pull Requests", hint = files_in_pr, open = pr_files },
 	{ from = "gh_pr_files", to = "live_grep", crumb = "Files Changed", hint = grep_local_copies, open = scope_local_copies },
+	{ from = "gh_issue", to = "gh_issue_grep", crumb = "Issues", hint = grep_issues, open = scope_issues },
 	{ from = "help_tags", to = "live_grep", crumb = "Help", hint = grep_help, open = scope_files("Help Files") },
 }
