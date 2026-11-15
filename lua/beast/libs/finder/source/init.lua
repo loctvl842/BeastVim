@@ -15,7 +15,7 @@
 ---@field title? fun(filter?: Beast.Finder.Filter): string overrides the title derived from the source name; asked again at the start of every live search
 ---@field count? fun(items: Beast.Finder.Item[]): string text shown right-aligned in the prompt row once a search finishes
 ---@field check? fun(): boolean runs before the picker opens; false aborts (the source has already told the user why)
----@field preview? fun(view: Beast.Finder.PreviewView, item: Beast.Finder.Item) replaces the file preview
+---@field preview? fun(view: Beast.Finder.PreviewView, item?: Beast.Finder.Item) replaces the file preview; item is nil when the list is empty
 
 ---@alias Beast.Finder.Source "files"|"buffers"|"live_grep"|"colorschemes"|"help_tags"|"lsp_definitions"|"lsp_references"|"lsp_declarations"|"lsp_implementations"|"gh_pr"|"gh_issue"
 

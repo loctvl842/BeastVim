@@ -45,6 +45,10 @@ function M.create(kind)
 		cancel = stop,
 	}
 
+	source.preview = function(view, item)
+		require("beast.libs.finder.source.gh.preview").show(view, item)
+	end
+
 	function source.check()
 		local found, err = api.check(Util.root())
 		if not found then

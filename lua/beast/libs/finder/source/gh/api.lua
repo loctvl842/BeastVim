@@ -250,4 +250,123 @@ function M.search(q, host, cb)
 	}
 end
 
+-- ---------------------------------------------------------------------------
+-- Detail (preview pane)
+-- ---------------------------------------------------------------------------
+
+---@class Beast.Finder.Gh.Checks
+---@field passed integer
+---@field failed integer
+---@field pending integer
+
+---@class Beast.Finder.Gh.ConversationEntry
+---@field author? string
+---@field body string
+---@field created string
+---@field state? string review verdict (APPROVED, CHANGES_REQUESTED, ...), nil for plain comments
+
+---@class Beast.Finder.Gh.Detail
+---@field body string
+---@field closed? string
+---@field merged? string
+---@field base? string
+---@field head? string
+---@field mergeable? string
+---@field additions integer
+---@field deletions integer
+---@field files integer
+---@field checks Beast.Finder.Gh.Checks
+---@field conversation Beast.Finder.Gh.ConversationEntry[] oldest first
+
+local DETAIL_FIELDS = {
+	pr = "body,comments,reviews,statusCheckRollup,mergeable,baseRefName,headRefName,additions,deletions,changedFiles,closedAt,mergedAt",
+	issue = "body,comments,closedAt",
+}
+
+local CHECK_PASSED = { SUCCESS = true, NEUTRAL = true, SKIPPED = true }
+local CHECK_FAILED = { FAILURE = true, ERROR = true, TIMED_OUT = true, CANCELLED = true, ACTION_REQUIRED = true, STARTUP_FAILURE = true }
+
+---@param kind Beast.Finder.Gh.Kind
+---@param raw table decoded `gh pr|issue view --json` output
+---@return Beast.Finder.Gh.Detail
+function M.normalize_detail(kind, raw)
+	local checks = { passed = 0, failed = 0, pending = 0 }
+	for _, check in ipairs(raw.statusCheckRollup or {}) do
+		-- a CheckRun reports `conclusion` (empty while running), a commit status reports `state`
+		local verdict = (check.conclusion or check.state or ""):upper()
+		if CHECK_PASSED[verdict] then
+			checks.passed = checks.passed + 1
+		elseif CHECK_FAILED[verdict] then
+			checks.failed = checks.failed + 1
+		else
+			checks.pending = checks.pending + 1
+		end
+	end
+
+	local conversation = {}
+	for _, c in ipairs(raw.comments or {}) do
+		conversation[#conversation + 1] = { author = c.author and c.author.login, body = c.body or "", created = c.createdAt or "" }
+	end
+	for _, r in ipairs(raw.reviews or {}) do
+		-- a bare "commented" review with no text adds nothing next to its inline comments
+		local verdict = r.state ~= "COMMENTED" and r.state or nil
+		if (r.body or "") ~= "" or verdict then
+			conversation[#conversation + 1] = { author = r.author and r.author.login, body = r.body or "", created = r.submittedAt or "", state = verdict }
+		end
+	end
+	table.sort(conversation, function(a, b)
+		return a.created < b.created
+	end)
+
+	return {
+		body = raw.body or "",
+		closed = raw.closedAt,
+		merged = raw.mergedAt,
+		base = raw.baseRefName,
+		head = raw.headRefName,
+		mergeable = raw.mergeable,
+		additions = raw.additions or 0,
+		deletions = raw.deletions or 0,
+		files = raw.changedFiles or 0,
+		checks = checks,
+		conversation = conversation,
+	}
+end
+
+--- Fetch what the preview pane needs beyond the search result. `cb` runs on the main loop, also after
+--- `kill()`; callers that cancel must ignore it.
+---@param item Beast.Finder.Gh.Item
+---@param cb fun(result: { detail?: Beast.Finder.Gh.Detail, error?: string })
+---@return Beast.Finder.Gh.Handle
+function M.detail(item, cb)
+	local proc = vim.system({
+		"gh",
+		item.kind == "pr" and "pr" or "issue",
+		"view",
+		tostring(item.number),
+		"--repo",
+		item.host .. "/" .. item.repo,
+		"--json",
+		DETAIL_FIELDS[item.kind],
+	}, { text = true }, function(res)
+		vim.schedule(function()
+			if res.code ~= 0 then
+				cb({ error = (res.stderr or ""):match("[^\r\n]+") or ("gh exited with code " .. res.code) })
+				return
+			end
+			local ok, raw = pcall(vim.json.decode, res.stdout or "", { luanil = { object = true, array = true } })
+			if not ok or type(raw) ~= "table" then
+				cb({ error = "unexpected response from GitHub" })
+				return
+			end
+			cb({ detail = M.normalize_detail(item.kind, raw) })
+		end)
+	end)
+	return {
+		kill = function()
+			pcall(proc.kill, proc, 15)
+		end,
+	}
+end
+
 return M

@@ -318,6 +318,15 @@ local GH_STATES = {
 	},
 }
 
+--- State icon and its highlight group for a GitHub item.
+---@param item Beast.Finder.Gh.Item
+---@return string icon
+---@return string hl
+function M.gh_state(item)
+	local state = GH_STATES[item.kind][item.state]
+	return state[1], state[2]
+end
+
 ---@param item Beast.Finder.Gh.Item|Beast.Finder.Item
 ---@return Beast.Finder.Highlight[]
 function M.gh(item)
@@ -325,9 +334,9 @@ function M.gh(item)
 		return { { text = item.text, hl = item.is_error and "BeastFinderGhError" or "BeastFinderGhMessage" } }
 	end
 
-	local icon = GH_STATES[item.kind][item.state]
+	local icon, icon_hl = M.gh_state(item)
 	local result = {
-		{ text = icon[1] .. "  ", hl = icon[2] },
+		{ text = icon .. "  ", hl = icon_hl },
 		{ text = ("%-6s"):format("#" .. item.number), hl = "BeastFinderGhNumber" },
 		{ text = item.title, hl = "BeastFinderListFile" },
 	}

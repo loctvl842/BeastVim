@@ -47,7 +47,9 @@ function M.schedule_preview(state)
 					state.on_preview(item)
 				end
 			else
-				if state.view.preview then
+				if state.view.preview and state.query.source.preview then
+					state.query.source.preview(state.view.preview, nil)
+				elseif state.view.preview then
 					ui.preview.clear(state.view.preview)
 				end
 			end

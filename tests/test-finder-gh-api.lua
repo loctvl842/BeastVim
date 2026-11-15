@@ -296,6 +296,107 @@ wait_for(function()
 end)
 assert_eq("rate limit without hint still reported", got and got.error and got.error.message, "GitHub search rate limit reached")
 
+-- ---------------------------------------------------------------------------
+-- detail: normalization and the gh call
+-- ---------------------------------------------------------------------------
+local pr_raw = {
+	body = "Highlight other occurrences",
+	baseRefName = "main",
+	headRefName = "feat/x",
+	additions = 97,
+	deletions = 6,
+	changedFiles = 7,
+	mergeable = "MERGEABLE",
+	mergedAt = "2026-08-08T10:29:43Z",
+	closedAt = "2026-08-08T10:29:44Z",
+	statusCheckRollup = {
+		{ __typename = "CheckRun", status = "COMPLETED", conclusion = "SUCCESS" },
+		{ __typename = "CheckRun", status = "COMPLETED", conclusion = "SKIPPED" },
+		{ __typename = "CheckRun", status = "COMPLETED", conclusion = "FAILURE" },
+		{ __typename = "CheckRun", status = "IN_PROGRESS", conclusion = "" },
+		{ __typename = "StatusContext", state = "SUCCESS" },
+		{ __typename = "StatusContext", state = "PENDING" },
+	},
+	comments = {
+		{ author = { login = "sam" }, body = "second", createdAt = "2026-08-09T00:00:00Z" },
+	},
+	reviews = {
+		{ author = { login = "dana" }, body = "", state = "APPROVED", submittedAt = "2026-08-08T12:00:00Z" },
+		{ author = { login = "bot" }, body = "", state = "COMMENTED", submittedAt = "2026-08-08T11:00:00Z" },
+		{ author = { login = "lee" }, body = "see inline", state = "COMMENTED", submittedAt = "2026-08-08T13:00:00Z" },
+	},
+}
+local d = api.normalize_detail("pr", pr_raw)
+assert_eq("detail body", d.body, "Highlight other occurrences")
+assert_eq("detail branches", d.base .. "<-" .. d.head, "main<-feat/x")
+assert_eq("detail changes", d.files .. "/" .. d.additions .. "/" .. d.deletions, "7/97/6")
+assert_eq("detail mergeable", d.mergeable, "MERGEABLE")
+assert_eq("detail merged and closed", d.merged .. "|" .. d.closed, "2026-08-08T10:29:43Z|2026-08-08T10:29:44Z")
+assert_eq("checks passed (success, skipped, status success)", d.checks.passed, 3)
+assert_eq("checks failed", d.checks.failed, 1)
+assert_eq("checks pending (running, pending status)", d.checks.pending, 2)
+assert_eq("empty plain review is dropped", #d.conversation, 3)
+assert_eq("conversation is oldest first", d.conversation[1].author .. d.conversation[2].author .. d.conversation[3].author, "danaleesam")
+assert_eq("verdict kept for approvals", d.conversation[1].state, "APPROVED")
+assert_eq("plain review with text has no verdict", d.conversation[2].state, nil)
+assert_eq("comment has no verdict", d.conversation[3].state, nil)
+
+local bare = api.normalize_detail("issue", {})
+assert_eq("missing fields default", bare.body .. "|" .. bare.files .. "|" .. #bare.conversation .. "|" .. bare.checks.passed, "|0|0|0")
+
+reset()
+script["gh pr view 30"] = { code = 0, stdout = vim.json.encode(pr_raw), stderr = "" }
+local item = { kind = "pr", number = 30, host = "github.com", repo = "o/n" }
+got = nil
+api.detail(item, function(r)
+	got = r
+end)
+wait_for(function()
+	return got ~= nil
+end)
+argv = table.concat(calls[1], "\0")
+assert_test("detail runs gh pr view", argv:find("gh\0pr\0view\0" .. "30", 1, true) ~= nil, vim.inspect(calls[1]))
+assert_test("detail targets host/owner/name", argv:find("--repo\0github.com/o/n", 1, true) ~= nil, vim.inspect(calls[1]))
+assert_test("detail asks for pr fields", argv:find("statusCheckRollup", 1, true) ~= nil, vim.inspect(calls[1]))
+assert_eq("detail result", got and got.detail and got.detail.base, "main")
+
+reset()
+script["gh issue view 41"] = { code = 0, stdout = vim.json.encode({ body = "x", comments = {} }), stderr = "" }
+got = nil
+api.detail({ kind = "issue", number = 41, host = "github.com", repo = "o/n" }, function(r)
+	got = r
+end)
+wait_for(function()
+	return got ~= nil
+end)
+argv = table.concat(calls[1], "\0")
+assert_test("issue detail runs gh issue view", argv:find("gh\0issue\0view\0" .. "41", 1, true) ~= nil, vim.inspect(calls[1]))
+assert_test("issue detail skips PR-only fields", argv:find("statusCheckRollup", 1, true) == nil, vim.inspect(calls[1]))
+
+reset()
+script["gh pr view 30"] = { code = 1, stdout = "", stderr = "GraphQL: Could not resolve to a PullRequest\nmore" }
+got = nil
+api.detail(item, function(r)
+	got = r
+end)
+wait_for(function()
+	return got ~= nil
+end)
+assert_eq("detail failure carries the first stderr line", got and got.error, "GraphQL: Could not resolve to a PullRequest")
+
+reset()
+script["gh pr view 30"] = { code = 0, stdout = "not json", stderr = "" }
+got = nil
+local detail_handle = api.detail(item, function(r)
+	got = r
+end)
+wait_for(function()
+	return got ~= nil
+end)
+assert_eq("detail with garbage output is an error", got and got.error, "unexpected response from GitHub")
+detail_handle.kill()
+assert_eq("detail kill reaches the process", killed, 1)
+
 vim.system = orig_system
 
 io.write(string.format("\n=== %d passed, %d failed ===\n", passed, failed))
