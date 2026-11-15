@@ -44,6 +44,8 @@ local expected = {
 	"gh_commits|gh_commit_files",
 	"gh_commits|live_grep",
 	"gh_issue|gh_issue_grep",
+	"git_commit_files|live_grep",
+	"git_commits|git_commit_files",
 	"gh_pr|gh_commits",
 	"gh_pr|gh_pr_files",
 	"gh_pr_files|live_grep",

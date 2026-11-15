@@ -94,7 +94,7 @@ finder/
 │                     open/close_current/current, push(level)/pop() swap levels in the SAME windows (pop restores
 │                     prompt, results, cursor, scroll without searching); one autocmd group per session; on_close runs last
 ├── level.lua      ← Level: one search (source, query, engine, prompt text, title, count, cursor, offset); start/run/reload/stop
-├── chains.lua     ← the closed map of chains: one edge per row (id "from|to", key, crumb, hint(ctx), open(ctx)); files/buffers/help → live_grep, gh_pr → gh_pr_files (`<C-g>`) / gh_commits (`<C-t>`), gh_commits → gh_commit_files (`<C-g>`) / live_grep (`<C-f>`), gh_pr_files and gh_commit_files → live_grep, gh_issue → gh_issue_grep. `open` may return a function (waiting edge: a request first, see drill)
+├── chains.lua     ← the closed map of chains: one edge per row (id "from|to", key, crumb, hint(ctx), open(ctx)); files/buffers/help → live_grep, gh_pr → gh_pr_files (`<C-g>`) / gh_commits (`<C-t>`), gh_commits → gh_commit_files (`<C-g>`) / live_grep (`<C-f>`), gh_pr_files and gh_commit_files → live_grep, git_commits → git_commit_files → live_grep (local history, `<leader>gc`), gh_issue → gh_issue_grep. `open` may return a function (waiting edge: a request first, see drill)
 ├── chain.lua      ← enabled()/from(source)/find(source,key)/keys(session) (edges after `config.chains`), drill(session,key) [push the level the edge opens; waiting edges show the spinner and are dropped on pop/close], back(session), edge(from,to) (raises for a pair not in chains.lua), validate(cfg) (raises at setup), hint_text(session)
 ├── host.lua       ← Host interface engines talk to (alive, render, busy, rewind, count, title, rows) + headless()
 ├── search.lua     ← headless file search session: Query + match pipeline through a headless host (explorer's client; no UI)
@@ -135,6 +135,8 @@ finder/
 │   │       └── index.lua      ← spawns headless builder subprocess, loads via ffi.copy, fs_event refresh, query→paths
 │   ├── gh_commits.lua ← match source over `filter.ctx.pr`: the commits of a pull request (id, subject, author, age; newest first via `keep_order`), diff preview (`gh/commit_preview.lua`, per-commit cache), Enter opens the commit in a scratch buffer
 │   ├── gh_commit_files.lua ← match source over `filter.ctx.commit`: the files one commit changes (rows/preview/Enter as gh_pr_files); title "Commit <id> › Files Changed (N)"
+│   ├── git_commits.lua ← match source: the latest 500 commits of the local repo (`git log`, newest first); reuses the gh commit row/preview/open; `git/log.lua` runs `git log` / `git show` and parses them into the GitHub commit/file shapes
+│   ├── git_commit_files.lua ← match source over `filter.ctx.commit`: the files a local commit changed; title "<id> <subject> › Files Changed (N)"
 │   ├── gh_pr_files.lua ← match source over `filter.ctx.pr`: the files a pull request changes (paths), diff preview, Enter opens the diff in a scratch buffer; title "PR <title> › Files Changed (N)"
 │   ├── gh_issue_grep.lua ← live source over `filter.ctx.issues`: plain smart-case search in their title and description, grouped by issue
 │   ├── lsp.lua        ← factory: create(method, label) → async LSP source (auto_select)

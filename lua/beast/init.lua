@@ -380,6 +380,7 @@ function M.setup(opts)
 			{ "<leader>b", function() require("beast.libs.finder").open("buffers") end, desc = "Find buffers" },
 			{ "<leader>F", function() require("beast.libs.finder").open("live_grep") end, desc = "Live grep" },
 			{ "<leader>h", function() require("beast.libs.finder").open("help_tags") end, desc = "Help tags" },
+			{ "<leader>gc", function() require("beast.libs.finder").open("git_commits") end, desc = "Git commits" },
 			{ "<leader>ghp", function() require("beast.libs.finder").open("gh_pr") end, desc = "GitHub pull requests" },
 			{ "<leader>ghi", function() require("beast.libs.finder").open("gh_issue") end, desc = "GitHub issues" },
 			{

@@ -18,8 +18,8 @@ local Filter = require("beast.libs.finder.filter")
 ---@field body? string commit items: the whole message
 ---@field author? string commit items
 ---@field date? string commit items: ISO timestamp
----@field pr? Beast.Finder.Gh.Item gh_pr_files / gh_commits items: the pull request they belong to
----@field commit? Beast.Finder.Item gh_commit_files items: the commit they belong to
+---@field pr? Beast.Finder.Gh.Item gh_pr_files / gh_commits items: the pull request they belong to (none for a local commit)
+---@field commit? Beast.Finder.Item gh_commit_files / git_commit_files items: the commit they belong to
 ---@field issue? Beast.Finder.Gh.Item issue grep: the issue the line was found in
 ---@field url? string web address (GitHub sources); Enter opens it, copy copies it
 ---@field message? boolean informational row (empty result, error); not an actionable item

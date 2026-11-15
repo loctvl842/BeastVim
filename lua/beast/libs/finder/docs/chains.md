@@ -27,6 +27,7 @@ finder = {
 | `gh_pr\|gh_commits` | `<C-t>` |
 | `gh_pr_files\|live_grep`, `gh_commit_files\|live_grep` | `<C-g>` |
 | `gh_commits\|gh_commit_files` | `<C-g>` |
+| `git_commits\|git_commit_files`, `git_commit_files\|live_grep` | `<C-g>` (local commits: `<leader>gc` → files changed → grep) |
 | `gh_commits\|live_grep` | `<C-f>` |
 | `gh_issue\|gh_issue_grep` | `<C-g>` |
 

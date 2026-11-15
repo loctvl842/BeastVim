@@ -75,9 +75,16 @@ function M.open_file(win, item)
 	end
 end
 
+--- The repository a commit belongs to, as a buffer name shows it: "owner/name", or the directory of a local repository.
+---@param commit Beast.Finder.Item a commit item
+---@return string
+local function repo_name(commit)
+	return commit.pr and commit.pr.repo or vim.fn.fnamemodify(commit.cwd, ":t")
+end
+
 --- Show the diff of a changed file of a pull request in a read-only scratch buffer.
 ---@param win? integer window to show it in; falls back to the current window
----@param item Beast.Finder.Gh.FileItem
+---@param item Beast.Finder.Gh.FileItem a changed file of a pull request, or of a commit (`commit`)
 function M.open_diff(win, item)
 	if win and vim.api.nvim_win_is_valid(win) then
 		vim.api.nvim_set_current_win(win)
@@ -87,7 +94,7 @@ function M.open_diff(win, item)
 	vim.bo[buf].buftype = "nofile"
 	vim.bo[buf].bufhidden = "wipe"
 	-- A second diff of the same file would collide on the name: the old buffer goes first.
-	local name = item.commit and ("%s@%s: %s"):format(item.pr.repo, item.commit.short, item.file)
+	local name = item.commit and ("%s@%s: %s"):format(repo_name(item.commit), item.commit.short, item.file)
 		or ("%s#%d: %s"):format(item.pr.repo, item.pr.number, item.file)
 	local existing = vim.fn.bufnr("^" .. vim.fn.escape(name, "\\[].*~") .. "$")
 	if existing ~= -1 then
@@ -124,7 +131,7 @@ function M.open_commit(win, item)
 		local buf = vim.api.nvim_create_buf(true, true)
 		vim.bo[buf].buftype = "nofile"
 		vim.bo[buf].bufhidden = "wipe"
-		local name = ("%s@%s"):format(item.pr.repo, item.short)
+		local name = ("%s@%s"):format(repo_name(item), item.short)
 		local existing = vim.fn.bufnr("^" .. vim.fn.escape(name, "\\[].*~") .. "$")
 		if existing ~= -1 then
 			pcall(vim.api.nvim_buf_delete, existing, { force = true })

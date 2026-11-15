@@ -352,6 +352,15 @@ function M.commit_label(commit)
 	return commit.short .. " " .. subject
 end
 
+--- A commit as the title of a level names it: "PR <title> › <id> <subject>" for a commit of a pull request,
+--- "<id> <subject>" for a local one.
+---@param commit Beast.Finder.Item a commit item
+---@return string
+function M.commit_trail(commit)
+	local label = M.commit_label(commit)
+	return commit.pr and (M.pr_label(commit.pr) .. " › " .. label) or label
+end
+
 --- "PR <title>", the title shortened with "..." when it is long (the title bar of the levels opened from a pull request).
 ---@param pr Beast.Finder.Gh.Item
 ---@return string

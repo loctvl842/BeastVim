@@ -134,8 +134,7 @@ local function scope_local_copies(ctx)
 	return {
 		files = paths,
 		ctx = { local_copies = true, commit = commit and commit.short },
-		title = commit and ("%s › %s › %d Files › Live Grep"):format(format.pr_label(commit.pr), format.commit_label(commit), #paths)
-			or ("%d PR Files › Live Grep"):format(#paths),
+		title = commit and ("%s › %d Files › Live Grep"):format(format.commit_trail(commit), #paths) or ("%d PR Files › Live Grep"):format(#paths),
 	}
 end
 
@@ -164,14 +163,17 @@ local function files_in_commit(ctx)
 	return commit and not commit.message and "files changed" or nil
 end
 
----@param ctx Beast.Finder.ChainCtx
----@return Beast.Finder.LevelOpts?
-local function commit_files(ctx)
-	local commit = ctx.selected
-	if not commit or commit.message then
-		return nil
+--- The files one commit changed, titled by `source` ("gh_commit_files" or "git_commit_files").
+---@param source string
+---@return fun(ctx: Beast.Finder.ChainCtx): Beast.Finder.LevelOpts?
+local function commit_files(source)
+	return function(ctx)
+		local commit = ctx.selected
+		if not commit or commit.message then
+			return nil
+		end
+		return { ctx = { commit = commit }, title = require("beast.libs.finder.source." .. source).title({ ctx = { commit = commit } }) }
 	end
-	return { ctx = { commit = commit }, title = require("beast.libs.finder.source.gh_commit_files").title({ ctx = { commit = commit } }) }
 end
 
 ---@param ctx Beast.Finder.ChainCtx
@@ -213,12 +215,7 @@ local function scope_commit_files(ctx)
 			resume({
 				files = paths,
 				ctx = { local_copies = true, commit = commit.short },
-				title = ("%s › %s › %d Files%s › Live Grep"):format(
-					format.pr_label(commit.pr),
-					format.commit_label(commit),
-					#paths,
-					result.detail.truncated and " (partial)" or ""
-				),
+				title = ("%s › %d Files%s › Live Grep"):format(format.commit_trail(commit), #paths, result.detail.truncated and " (partial)" or ""),
 			})
 		end)
 	end
@@ -229,8 +226,10 @@ local edges = {
 	{ from = "buffers", to = "live_grep", crumb = "Buffers", hint = grep_files, open = scope_files("Buffers") },
 	{ from = "gh_pr", to = "gh_pr_files", crumb = "Pull Requests", hint = files_in_pr, open = pr_files },
 	{ from = "gh_pr", to = "gh_commits", key = "<C-t>", crumb = "Pull Requests", hint = commits_in_pr, open = pr_commits },
-	{ from = "gh_commits", to = "gh_commit_files", crumb = "Commits", hint = files_in_commit, open = commit_files },
+	{ from = "gh_commits", to = "gh_commit_files", crumb = "Commits", hint = files_in_commit, open = commit_files("gh_commit_files") },
 	{ from = "gh_commits", to = "live_grep", key = "<C-f>", crumb = "Commits", hint = grep_commit_files, open = scope_commit_files },
+	{ from = "git_commits", to = "git_commit_files", crumb = "Commits", hint = files_in_commit, open = commit_files("git_commit_files") },
+	{ from = "git_commit_files", to = "live_grep", crumb = "Files Changed", hint = grep_local_copies, open = scope_local_copies },
 	{ from = "gh_commit_files", to = "live_grep", crumb = "Files Changed", hint = grep_local_copies, open = scope_local_copies },
 	{ from = "gh_pr_files", to = "live_grep", crumb = "Files Changed", hint = grep_local_copies, open = scope_local_copies },
 	{ from = "gh_issue", to = "gh_issue_grep", crumb = "Issues", hint = grep_issues, open = scope_issues },

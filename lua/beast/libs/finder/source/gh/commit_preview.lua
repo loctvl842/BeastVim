@@ -20,14 +20,21 @@ function M.reset()
 	cache, cached = {}, 0
 end
 
+--- The repository a commit belongs to: its pull request's, else the directory of the local repository.
+---@param item Beast.Finder.Item a commit item
+---@return string
+function M.repo(item)
+	return item.pr and item.pr.repo or item.cwd
+end
+
 ---@param item Beast.Finder.Item a commit item
 ---@return string
 local function key(item)
-	return item.pr.repo .. "@" .. item.sha
+	return M.repo(item) .. "@" .. item.sha
 end
 
 --- The commit's detail: from the cache at once (returns nil), else after a request (returns its handle).
----@param item Beast.Finder.Item a commit item (`pr`, `sha`)
+---@param item Beast.Finder.Item a commit item (`sha`, and `pr` for a pull request's commit or `cwd` for a local one)
 ---@param cb fun(result: Beast.Finder.Gh.CommitDetailResult)
 ---@return Beast.Finder.Gh.Handle?
 function M.detail(item, cb)
@@ -36,7 +43,7 @@ function M.detail(item, cb)
 		cb({ detail = hit })
 		return nil
 	end
-	return api.commit(item.pr, item.sha, function(result)
+	local function answer(result)
 		if result.detail then
 			-- Patches can be large: when the cache is full it starts over instead of growing.
 			if cached >= MAX_CACHED then
@@ -46,7 +53,11 @@ function M.detail(item, cb)
 			cached = cached + 1
 		end
 		cb(result)
-	end)
+	end
+	if item.pr then
+		return api.commit(item.pr, item.sha, answer)
+	end
+	return require("beast.libs.finder.source.git.log").show(item.cwd, item.sha, answer)
 end
 
 ---@param file Beast.Finder.Gh.File

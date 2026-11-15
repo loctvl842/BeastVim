@@ -64,7 +64,7 @@ function M.title(filter, items)
 	if not commit then
 		return "Files Changed"
 	end
-	local out = ("%s › %s › Files Changed"):format(format.pr_label(commit.pr), format.commit_label(commit))
+	local out = format.commit_trail(commit) .. " › Files Changed"
 	if items and #items > 0 and not items[1].message then
 		out = out .. (" (%d%s)"):format(#items, filter.ctx.truncated and ", partial" or "")
 	end
