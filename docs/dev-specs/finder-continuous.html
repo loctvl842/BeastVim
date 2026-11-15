@@ -55,9 +55,9 @@
     </g>
     <g fill="currentColor" font-size="12" font-family="ui-monospace,Menlo,monospace">
       <text x="24" y="42" font-weight="bold">Level 1: gh_pr</text>
-      <text x="24" y="66">query + items kept</text><text x="24" y="84">prompt "is:pr is:merged"</text><text x="24" y="102">cursor, offset</text><text x="24" y="120">drill.open -&gt; spec</text>
+      <text x="24" y="66">query + items kept</text><text x="24" y="84">prompt "is:pr is:merged"</text><text x="24" y="102">cursor, offset</text><text x="24" y="120">edge.open -&gt; spec</text>
       <text x="304" y="42" font-weight="bold">Level 2: gh_pr_files</text>
-      <text x="304" y="66">ctx.pr = #11</text><text x="304" y="84">GitHub REST, 1 call/page</text><text x="304" y="102">preview = patch</text><text x="304" y="120">drill.open -&gt; spec</text>
+      <text x="304" y="66">ctx.pr = #11</text><text x="304" y="84">GitHub REST, 1 call/page</text><text x="304" y="102">preview = patch</text><text x="304" y="120">edge.open -&gt; spec</text>
       <text x="584" y="42" font-weight="bold">Level 3: live_grep</text>
       <text x="584" y="66">filter.files = N paths</text><text x="584" y="84">placeholder row</text><text x="584" y="102">stream pipeline</text>
       <text x="246" y="52">C-g</text><text x="526" y="52">C-g</text>
@@ -66,10 +66,20 @@
       <text x="24" y="218">pop(): abort child, restore snapshot, render - no search. reset(): aborts every stacked query.</text>
     </g>
   </svg>
-  <h3>Source opt-in</h3>
-  <div class="card"><code>source.drill = { hint(total, selected) -&gt; string?, open(ctx) -&gt; spec | toast-string | nil }</code>, where <code>ctx.items</code> is the <b>full</b> match set (nil while still working). Refused with a toast while loading, empty, or no <code>drill</code>.</div>
-  <h3>Why the full match set needs work</h3>
-  <p>The fuzzy matcher keeps only the top 1000 matches for display. The scope for "grep these files" must be all of them, so the matcher's score table (already built for subset elimination) is used: <code>matches(state)</code> = items with score &gt; 0, <code>count(state)</code> = a counter added to the final pass (O(1) per item, benched).</p>
+  <h3>Chains: one table of edges</h3>
+  <div class="card">A chain is a path through <code>chains.lua</code>, the single map of "what can follow what". One edge per row: <code>{ from, to, key = "&lt;C-g&gt;", hint(ctx), open(ctx) -&gt; spec | toast-string | nil, crumb }</code>. Sources do not know their successors; <code>chain.lua</code> only looks the edge up by the current source. <code>ctx.items</code> is the <b>full</b> match set (nil while still working).</div>
+<pre><code>return {
+  { from = "files",       to = "live_grep",     hint = grep_files,  open = scope_files },  -- Phase 2
+  { from = "buffers",     to = "live_grep",     hint = grep_files,  open = scope_files },  -- Phase 3
+  { from = "help_tags",   to = "live_grep",     hint = grep_pages,  open = scope_help },   -- Phase 3
+  { from = "gh_pr",       to = "gh_pr_files",   hint = files_in_pr, open = pr_files },     -- Phase 4
+  { from = "gh_pr_files", to = "live_grep",     hint = grep_files,  open = scope_local },  -- Phase 5
+  { from = "gh_issue",    to = "gh_issue_grep", hint = grep_issues, open = scope_issues }, -- Phase 6
+}</code></pre>
+  <div class="card"><b>Built in and closed.</b> Only these six edges exist; users cannot add their own. Any other pair <b>raises</b> (<code>finder: unsupported chain 'live_grep -&gt; files'</code>) via <code>chain.edge(from, to)</code>. Invalid examples that must raise: <code>live_grep -&gt; files</code>, <code>live_grep -&gt; gh_pr</code>, <code>gh_pr_files -&gt; gh_pr</code>, <code>colorschemes -&gt; files</code>. A test checks every ordered pair of sources: exactly the six succeed. Pressing <code>&lt;C-g&gt;</code> on a level with no edge just toasts; only a programmatic request for an unsupported pair raises.</div>
+  <div class="card"><b>Your mappings stay valid.</b> <code>&lt;leader&gt;f / b / F / h / ghp / ghi</code> only choose the <b>first</b> level; a chain is what happens after. <b>Where you see the chains:</b> the hint line always shows the edge from the current level (<code>&lt;C-g&gt; grep 38 files</code>, deeper also <code>&lt;BS&gt; back to Files</code>); <code>chains.lua</code> is the one short commented table; <code>require("beast.libs.finder").chains()</code> returns it, so <code>:lua =require("beast.libs.finder").chains()</code> lists every chain. Adding a chain is a code change in this repo, not user configuration.</div>
+  <h3>Already built by the refactor</h3>
+  <p><code>Session:push/pop</code> swap levels in the same windows; <code>engine.matches(query)</code> returns every match (not only the best 1000) and <code>query.total</code> counts them; sources declare <code>format</code>/<code>open</code>/<code>group</code>; the key table takes a new key in one line. This spec adds only the chain-specific parts.</p>
 </section>
 
 <section data-spec="research">
@@ -94,12 +104,13 @@
     <tr><th>Path (under lua/beast/libs/finder)</th><th></th><th>What</th></tr>
     <tr><td><code>format.lua</code></td><td>mod</td><td>shared file row, Files/Buffers look, count helper, new source formats</td></tr>
     <tr><td><code>match_hl.lua</code></td><td>mod</td><td>position mapping through <code>src</code> ranges</td></tr>
-    <tr><td><code>matcher.lua</code>, <code>pipeline/match.lua</code>, <code>pipeline/stream.lua</code></td><td>mod</td><td>total counter, <code>count</code>/<code>matches</code>, settled count label, placeholder row</td></tr>
-    <tr><td><code>state.lua</code></td><td>mod</td><td>stack, push/pop, closure refactor, reset cleans stack, hint wiring</td></tr>
-    <tr><td><code>chain.lua</code></td><td>new</td><td>drill, back, hint text, level spec types</td></tr>
+    <tr><td><code>pipeline/match.lua</code>, <code>pipeline/stream.lua</code></td><td>mod</td><td>count label via <code>source.count(items, total)</code>, title refresh, empty-prompt placeholder row (results fields already exist)</td></tr>
+    <tr><td><code>session.lua</code>, <code>autocmds.lua</code></td><td>mod</td><td>hint wiring; <code>reload_on</code> events per pushed level (stack, push/pop exist)</td></tr>
+    <tr><td><code>chains.lua</code></td><td>new</td><td>the table of edges (the map of chains), exposed as <code>finder.chains()</code></td></tr>
+    <tr><td><code>chain.lua</code></td><td>new</td><td>drill, back, hint text; looks edges up in <code>chains.lua</code></td></tr>
     <tr><td><code>ui/hint.lua</code></td><td>new</td><td>tooltip float below the frame</td></tr>
     <tr><td><code>ui/input.lua</code>, <code>ui/list.lua</code>, <code>ui/init.lua</code>, <code>layout.lua</code>, <code>highlights.lua</code>, <code>keymaps.lua</code></td><td>mod</td><td><code>set_text</code>, group key, hint geometry and colors, <code>&lt;C-g&gt; &lt;BS&gt; &lt;C-o&gt;</code></td></tr>
-    <tr><td><code>query.lua</code>, <code>filter.lua</code>, <code>source/init.lua</code></td><td>mod</td><td><code>files</code>/<code>ctx</code> options; <code>drill</code>/<code>crumb</code>/<code>placeholder</code> fields</td></tr>
+    <tr><td><code>query.lua</code>, <code>filter.lua</code>, <code>source/init.lua</code></td><td>mod</td><td><code>files</code>/<code>ctx</code> options; <code>placeholder</code> fields</td></tr>
     <tr><td><code>source/{files,buffers,help_tags}.lua</code>, <code>source/live_grep/init.lua</code></td><td>mod</td><td>drills, counts, scoped grep</td></tr>
     <tr><td><code>source/gh/api.lua</code>, <code>source/gh.lua</code>, <code>source/gh/preview.lua</code>, <code>action.lua</code></td><td>mod</td><td>paged files API, issue body, PR/issue drills, diff preview, open diff buffer</td></tr>
     <tr><td><code>source/gh_pr_files.lua</code>, <code>source/gh_issue_grep.lua</code></td><td>new</td><td>changed-files source, issue-text grep source</td></tr>
@@ -122,16 +133,14 @@
   </div>
 
   <div class="card" data-spec="phase-2">
-    <h3>Phase 2 - Chain core + Files to grep <span class="tag risk-h">risk: high</span></h3>
+    <h3>Phase 2 - Chain core + Files to grep <span class="tag risk-m">risk: medium</span></h3>
+    <p class="muted">The level stack, host, results (<code>query.total</code>, <code>engine.matches</code>) and <code>set_text</code> already exist from the refactor.</p>
     <ol>
-      <li>Matcher total; <code>match.count/matches</code>; count label after each settled run; title refresh on load.</li>
-      <li>Stream <code>count/matches</code> and empty-prompt placeholder row.</li>
-      <li><b>State stack</b>: closure uses <code>instance.query/pipeline</code>; <code>push</code>/<code>pop</code> in place; <code>reset</code> cleans stacked queries.</li>
-      <li><code>ui/input.set_text</code> (echo skip, no double search).</li>
-      <li><code>ui/hint.lua</code>: borderless, non-focusable float under the frame, right-aligned, hidden when no room, backdrop-matched colors.</li>
-      <li><code>chain.lua</code> + keys: <code>&lt;C-g&gt;</code>, <code>&lt;C-o&gt;</code>, <code>&lt;BS&gt;</code> as an <code>expr</code> mapping (pop only when the prompt is empty).</li>
-      <li>Scoped <code>live_grep</code> (<code>filter.files</code> as survivors) and its placeholder.</li>
-      <li><code>files.drill</code> + count.</li>
+      <li>Count label (<code>38/912</code>) for Files, Buffers, Help via <code>format.ratio</code> and <code>source.count(items, total)</code>; title refresh when loading ends.</li>
+      <li><code>ui/hint.lua</code>: borderless, non-focusable float under the frame, right-aligned, hidden when no room, backdrop-matched colors (<code>layout</code>, <code>highlights</code>, <code>session</code> wiring).</li>
+      <li><code>chain.lua</code> (<code>drill</code>, <code>back</code>, <code>hint_text</code>) + three lines in the key table: <code>&lt;C-g&gt;</code>, <code>&lt;C-o&gt;</code>, <code>&lt;BS&gt;</code> as an <code>expr</code> mapping (pop only on an empty prompt). Reload events registered per pushed level.</li>
+      <li>Scoped <code>live_grep</code> (<code>filter.files</code> as survivors) and its empty-prompt placeholder row.</li>
+      <li>the <code>files -&gt; live_grep</code> edge in <code>chains.lua</code> + count.</li>
       <li>Tests: <code>test-finder-chain.lua</code>, <code>test-finder-chain-grep.lua</code> (incl. &gt;1000 matches).</li>
     </ol>
   </div>
@@ -139,7 +148,7 @@
   <div class="card" data-spec="phase-3">
     <h3>Phase 3 - Buffers and Help to grep <span class="tag">risk: low</span></h3>
     <ol>
-      <li><code>buffers.drill</code> (nameless skipped), <code>help_tags.drill</code> (distinct help pages), counts.</li>
+      <li>edges <code>buffers -&gt; live_grep</code> (nameless skipped) and <code>help_tags -&gt; live_grep</code> (distinct help pages), counts.</li>
       <li>Test: <code>test-finder-chain-sources.lua</code>.</li>
     </ol>
   </div>
@@ -150,14 +159,14 @@
       <li><code>api.files</code>: <code>gh api repos/{slug}/pulls/{n}/files</code>, up to 3 pages of 100, truncation flag, error classification, killable.</li>
       <li><code>gh_pr_files</code> source: match pipeline, fuzzy by path, title <code>PR &lt;title...&gt; › Files Changed (N)</code>, diff preview from <code>patch</code> ("too large or binary" when absent).</li>
       <li><code>action</code>: Enter opens the file's diff in a read-only scratch buffer.</li>
-      <li>PR <code>drill</code> in <code>gh.lua</code>; tests: <code>test-finder-gh-files-api.lua</code>, <code>test-finder-gh-pr-files.lua</code>.</li>
+      <li>edge <code>gh_pr -&gt; gh_pr_files</code>; tests: <code>test-finder-gh-files-api.lua</code>, <code>test-finder-gh-pr-files.lua</code>.</li>
     </ol>
   </div>
 
   <div class="card" data-spec="phase-5">
     <h3>Phase 5 - PR files to grep (local copies) <span class="tag">risk: low</span></h3>
     <ol>
-      <li><code>gh_pr_files.drill</code>: drop removed and non-existing paths; none left means a toast; title <code>N PR Files › Live Grep</code>.</li>
+      <li>edge <code>gh_pr_files -&gt; live_grep</code>: drop removed and non-existing paths; none left means a toast; title <code>N PR Files › Live Grep</code>.</li>
       <li>Test: <code>test-finder-chain-pr-grep.lua</code> (three-level back chain).</li>
     </ol>
   </div>
@@ -180,7 +189,7 @@
 <section data-spec="decisions">
   <h2>Decisions for you</h2>
   <div class="choice" data-spec="decision-swap">
-    <b>Swap levels in place</b> (keep windows, replace query/pipeline) rather than close and reopen the picker for each level. No flicker, backdrop stays, parent keeps its results so back is instant and makes no GitHub call. Cost: a careful refactor of the picker state (Phase 2, the one high-risk step). <span class="rec">Recommended</span>
+    <b>Levels swap in place</b> (same windows, no flicker, parent keeps its results so back is instant). Decided and done in the refactor; listed here only for context.
   </div>
   <div class="choice" data-spec="decision-count">
     <b>Show a match count</b> (<code>38/912</code>) in the prompt row for Files, Buffers and Help. The approved mocks show it and the hint needs the number anyway. This is a small visible change to those pickers. <span class="rec">Recommended</span>
@@ -197,7 +206,7 @@
   <h2>Testing</h2>
   <ul>
     <li><b>Headless:</b> new <code>tests/test-finder-*.lua</code> per phase plus all existing finder tests; stylua and luals clean.</li>
-    <li><b>Bench:</b> <code>bench-finder-matcher.lua</code> before/after Phase 2; <code>bench-ux.sh all</code> against a baseline worktree.</li>
+    <li><b>Bench:</b> <code>bench-finder-matcher.lua</code> (count label), <code>bench-ux.sh all</code> against a baseline commit (setup used for the refactor: a worktree plus symlinked app data dirs).</li>
     <li><b>Manual in a real wezterm pane:</b> PM scenarios 1-13 and STATE 0, hint in dark and light, short terminal height.</li>
     <li><b>Not testable offline:</b> live GitHub paging beyond stubs, browser open, clipboard (reported at the end).</li>
   </ul>

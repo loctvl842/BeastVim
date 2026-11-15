@@ -9,17 +9,17 @@ generated: 2026-11-15
 > **Builds on the finished levels refactor** ([finder-levels-refactor.md](finder-levels-refactor.md)): `Session` / `Level` with `push` / `pop` in the same windows, UI-free engines behind a `Host`, `query.total` / `engine.matches(query)` (the full match set), behavior declared on the source (`format`, `header`, `group`, `open`, `reload_on`), one key table, and `ui.input.set_text` already exist. This spec only adds what is specific to chained pickers. Steps of the original plan that the refactor delivered are marked *(done by the refactor)*.
 
 # Summary
-The finder keeps its three windows and swaps what they show with the Session's **level stack** (`push` / `pop`, already built by the refactor). `<C-g>` asks the current source for its next level (`source.drill`) and pushes it; `<BS>` on an empty prompt or `<C-o>` pops it back with no re-search. Scoped grep is the existing `live_grep` source given a file list. The key hint is a small borderless float under the picker. Files and Buffers rows are first moved to the grep file look, because the chain relies on it.
+The finder keeps its three windows and swaps what they show with the Session's **level stack** (`push` / `pop`, already built by the refactor). `<C-g>` looks up the current source's edge in `chains.lua` and pushes the level it opens; `<BS>` on an empty prompt or `<C-o>` pops it back with no re-search. Scoped grep is the existing `live_grep` source given a file list. The key hint is a small borderless float under the picker. Files and Buffers rows are first moved to the grep file look, because the chain relies on it.
 
 ---
 
 # Context
 
 ## Problem
-Even with Session / Level in place, nothing yet *asks* a picker for its next level: sources have no `drill`, there is no key for it, no hint line, and `live_grep` cannot be limited to a list of files. Files and Buffers rows still show the whole path folder-first (Buffers: `[n] path`), unlike grep results (icon, name, dim folder), and the fuzzy-match highlight assumes the rendered row contains the relative path contiguously, which breaks as soon as the row is reordered.
+Even with Session / Level in place, nothing yet *asks* a picker for its next level: no edge map exists, there is no key for it, no hint line, and `live_grep` cannot be limited to a list of files. Files and Buffers rows still show the whole path folder-first (Buffers: `[n] path`), unlike grep results (icon, name, dim folder), and the fuzzy-match highlight assumes the rendered row contains the relative path contiguously, which breaks as soon as the row is reordered.
 
 ### Solution
-Sources opt in through `drill = { hint, open }`; a small `chain.lua` turns `<C-g>` into `session:push(Level.new(...))` and `<BS>` / `<C-o>` into `session:pop()`. `live_grep` accepts `filter.files`. New sources `gh_pr_files` and `gh_issue_grep` complete the GitHub chains. A new `ui/hint.lua` draws the tooltip line. Counts come from `query.total`.
+Next steps are declared as edges in one table, `chains.lua`; a small `chain.lua` turns `<C-g>` into `session:push(Level.new(...))` and `<BS>` / `<C-o>` into `session:pop()`. `live_grep` accepts `filter.files`. New sources `gh_pr_files` and `gh_issue_grep` complete the GitHub chains. A new `ui/hint.lua` draws the tooltip line. Counts come from `query.total`.
 
 ---
 
@@ -62,17 +62,18 @@ Sources opt in through `drill = { hint, open }`; a small `chain.lua` turns `<C-g
 - `lua/beast/libs/finder/pipeline/match.lua` - modified: settled count label via `source.count(items, total)`, title refresh when loading ends (`count` / `matches` exist).
 - `lua/beast/libs/finder/pipeline/stream.lua` - modified: `count`, `matches`, empty-prompt placeholder row, export `update_count` use.
 - `lua/beast/libs/finder/session.lua` - modified: hint wiring only (stack, push/pop, cleanup exist).
-- `lua/beast/libs/finder/chain.lua` - **new**: `drill(state)`, `back(state)`, `hint_text(state)`, level spec types.
+- `lua/beast/libs/finder/chains.lua` - **new**: the declarative edge table (the single map of chains); `finder.chains()` exposes it.
+- `lua/beast/libs/finder/chain.lua` - **new**: `drill(session)`, `back(session)`, `hint_text(session)`; looks edges up in `chains.lua`.
 - `lua/beast/libs/finder/ui/hint.lua` - **new**: the below-the-frame tooltip window.
 - `lua/beast/libs/finder/ui/input.lua` - modified: `set_text`.
 - `lua/beast/libs/finder/ui/list.lua` - modified: group key `item.group or item.file`.
 - `lua/beast/libs/finder/layout.lua`, `highlights.lua`, `ui/init.lua` - modified: hint geometry, `BeastFinderHint`, registry.
 - `lua/beast/libs/finder/keymaps.lua` - modified: `<C-g>`, `<BS>` (expr), `<C-o>`.
-- `lua/beast/libs/finder/query.lua`, `filter.lua`, `source/init.lua` - modified: `files`, `ctx` options and the `drill` / `crumb` / `placeholder` source fields.
-- `lua/beast/libs/finder/source/{files,buffers,help_tags}.lua` - modified: `drill`, `count`.
+- `lua/beast/libs/finder/query.lua`, `filter.lua`, `source/init.lua` - modified: `files`, `ctx` options and the `placeholder` source field.
+- `lua/beast/libs/finder/source/{files,buffers,help_tags}.lua` - modified: `count` (their edges live in `chains.lua`).
 - `lua/beast/libs/finder/source/live_grep/init.lua` - modified: scoped `filter.files`, `placeholder`.
 - `lua/beast/libs/finder/source/gh/api.lua` - modified: `files()` (paged REST), `normalize_files`, issue `body`.
-- `lua/beast/libs/finder/source/gh_pr_files.lua`, `source/gh_issue_grep.lua` - **new** sources; `source/gh.lua` - modified: `drill` for PRs and issues; `source/gh/preview.lua` - modified or sibling for diff preview.
+- `lua/beast/libs/finder/source/gh_pr_files.lua`, `source/gh_issue_grep.lua` - **new** sources; `source/gh.lua` - modified: nothing for chains (edges live in `chains.lua`); `source/gh/preview.lua` - modified or sibling for diff preview.
 - `lua/beast/libs/finder/action.lua` - modified: open a changed file's diff in a read-only buffer.
 - `tests/test-finder-*.lua` - new tests (see Testing Strategy); `docs/CODEMAP/libraries.md`, `INDEX.md` - updated at the end.
 
@@ -83,15 +84,36 @@ Level snapshot (what push() saves, pop() restores)
   source_name, query (kept alive: items, matched, filter), pipeline,
   text (prompt), title, cursor, list offset, crumb ("Files"), count label
 
-source.drill = {
-  hint = function(total, selected) -> string?     -- text after "<C-g> ", nil hides the hint
-  open = function(ctx) -> spec | string | nil     -- spec = new level; string = toast; nil = "Nothing to open from here"
-}
-ctx = { items = full match set (nil while still working), selected = item, filter = filter }
-spec = { source = "live_grep", files = {...}?, ctx = {...}?, title = string|fun, crumb = "Files" }
+chains.lua - the one table that says what can follow what (an edge = one next step)
+  { from = "files", to = "live_grep", key = "<C-g>",
+    hint  = function(ctx) -> string?        -- text after the key in the hint line; nil hides the edge
+    open  = function(ctx) -> spec | string | nil   -- spec = new level; string = toast; nil = "Nothing to open from here"
+    crumb = "Files" }                        -- name used by "<BS> back to Files"
+ctx = { items = full match set (nil while still working), selected = item, filter = filter, total = n }
+spec = { source = "live_grep", files = {...}?, ctx = {...}?, title = string|fun }
 ```
 
-Drill is refused (toast, nothing changes) while the pipeline is not settled (`Task:running()` / spinner active), with an empty list, or when `source.drill` is missing.
+Chain = a path through the edges, built one key press at a time (`gh_pr` -> `gh_pr_files` -> `live_grep`). Nothing else decides what follows what: sources do not know their successors, `chain.lua` only looks the edge up by `(session.level.source.name, key)`.
+
+```lua
+-- chains.lua (the whole map; every phase adds rows here)
+return {
+  { from = "files",          to = "live_grep",   hint = grep_files,   open = scope_files },   -- Phase 2
+  { from = "buffers",        to = "live_grep",   hint = grep_files,   open = scope_files },   -- Phase 3
+  { from = "help_tags",      to = "live_grep",   hint = grep_pages,   open = scope_help },    -- Phase 3
+  { from = "gh_pr",          to = "gh_pr_files", hint = files_in_pr,  open = pr_files },      -- Phase 4
+  { from = "gh_pr_files",    to = "live_grep",   hint = grep_files,   open = scope_local },   -- Phase 5
+  { from = "gh_issue",       to = "gh_issue_grep", hint = grep_issues, open = scope_issues }, -- Phase 6
+}
+```
+
+The existing entry mappings (`<leader>f`, `<leader>b`, `<leader>F`, `<leader>h`, `<leader>ghp`, `<leader>ghi`) stay as they are: they only choose the **first** level. A chain is what happens after. Pressing `<C-g>` on a level with no edge toasts "Nothing to open from here".
+
+The edges are **built in and closed**: only the rows in `chains.lua` exist, users cannot add their own. Anything else is unsupported and **raises** (`error("finder: unsupported chain 'grep -> files' (supported from 'live_grep': none)")`): `chain.edge(from, to)` is the one lookup, used by `drill` and by `finder.chain(from, to)`. Valid: `files -> live_grep`, `buffers -> live_grep`, `help_tags -> live_grep`, `gh_pr -> gh_pr_files`, `gh_pr_files -> live_grep`, `gh_issue -> gh_issue_grep`. Invalid, must raise: `live_grep -> files`, `live_grep -> gh_pr`, `gh_pr_files -> gh_pr`, `colorschemes -> files`. A test walks every ordered pair of sources and asserts that exactly the six rows succeed and every other pair raises with a message naming both ends. Pressing `<C-g>` on a level with no edge is not a programming error, so it toasts (no raise); only a programmatic request for a pair that is not built in raises.
+
+Where a user sees it: (1) the hint line under the picker always shows the edge available from the current level (`<C-g> grep 38 files`) and, deeper, `<BS> back to Files`; (2) `chains.lua` is one short, commented table, the only place to read or change the map; (3) `require("beast.libs.finder").chains()` returns the same table, so `:lua =require("beast.libs.finder").chains()` lists every chain. Adding a chain is one row plus its `open`; no source file changes.
+
+A drill (`<C-g>`) is refused (toast, nothing changes) while the pipeline is not settled (spinner active), with an empty list, or when `chains.lua` has no edge for the current source.
 
 ## Implementation Phases
 
@@ -116,23 +138,23 @@ Drill is refused (toast, nothing changes) while the pipeline is not settled (`Ta
    - Risk: Low
 2. **Level stack in the Session** *(done by the refactor: `Session:push/pop`, `ui.input.set_text`, echo guard)*.
 3. **Hint window** (Files: `ui/hint.lua` new, `ui/init.lua`, `layout.lua`, `highlights.lua`, `session.lua`)
-   - Action: borderless `focusable = false` float, `zindex` above the three panels, one line, right edge aligned to the picker's right edge, row just under the bottom border; hidden when `row + 1 > vim.o.lines - vim.o.cmdheight` or the layout is `cards`; `BeastFinderHint` (dim fg, bg and blend taken from the backdrop). `relayout` repositions it; `close` closes it. Text from `chain.hint_text(session)`: `<C-g> <drill.hint>` and, below level 1, `<BS> back to <crumb>`; refreshed from `render.render` (O(1)).
+   - Action: borderless `focusable = false` float, `zindex` above the three panels, one line, right edge aligned to the picker's right edge, row just under the bottom border; hidden when `row + 1 > vim.o.lines - vim.o.cmdheight` or the layout is `cards`; `BeastFinderHint` (dim fg, bg and blend taken from the backdrop). `relayout` repositions it; `close` closes it. Text from `chain.hint_text(session)`: `<C-g> <edge.hint>` and, below level 1, `<BS> back to <edge.crumb>`; refreshed from `render.render` (O(1)).
    - Risk: Medium (visual match with the backdrop: verify in wezterm light and dark)
 4. **Orchestration and keys** (Files: `chain.lua` new, `keymaps.lua`)
-   - Action: `chain.drill(session)` (refusals as toasts: "Nothing to open from here", "Still searching - try again in a moment") builds `Level.new(spec.source, spec)` and calls `session:push`; `chain.back(session)` calls `session:pop`. In the key table: `<C-g>` -> `drill` (all panes), `<C-o>` -> `back` (input), `<BS>` as an `expr` mapping in the input that pops when the prompt is empty and depth > 1, else returns a real `<BS>`. One line each in `common`.
+   - Action: `chain.drill(session)` (refusals as toasts: "Nothing to open from here", "Still searching - try again in a moment") builds `Level.new(spec.source, spec)` and calls `session:push`; `chain.back(session)` calls `session:pop`. In the key table: `<C-g>` -> `drill` (all panes; the key of an edge is its `key`, default `<C-g>`), `<C-o>` -> `back` (input), `<BS>` as an `expr` mapping in the input that pops when the prompt is empty and depth > 1, else returns a real `<BS>`. One line each in `common`.
    - Also: the `reload_on` autocmds are registered for the first level only; register per pushed level (`autocmds.lua` comment marks this).
    - Risk: Medium (insert-mode `<C-o>` is normally "one normal command")
 5. **Scoped live grep** (Files: `source/live_grep/init.lua`, `filter.lua`, `query.lua`)
    - Action: `Filter` carries `files` (absolute paths); `M.get` uses them as survivors (skipping the bigram index); `M.placeholder(filter)` returns "(type to search inside the N files)" only when `filter.files`; the stream engine renders it as one message row on an empty prompt. Level spec: `{ source = "live_grep", files = {...}, title = N .. " Files › Live Grep", crumb = "Files" }`.
    - Risk: Medium
-6. **Files drill** (Files: `source/files.lua`): `count`; `drill.hint = grep N files`, `drill.open(ctx)` builds the spec from `engine.matches(query)` (nil while working -> the "still searching" toast).
+6. **Files drill** (Files: `source/files.lua`): `count`; the edge `files -> live_grep` in `chains.lua` (`hint` = grep N files, `open(ctx)` builds the spec from `engine.matches(query)` (nil while working -> the "still searching" toast)).
    - Risk: Low
-7. **Tests** (Files: `tests/test-finder-chain.lua`, `tests/test-finder-chain-grep.lua` new, using `tests/helpers/finder.lua`): refusals, push/pop through the keys, `<BS>` empty vs non-empty prompt, more than 1000 matches scoped fully, hint text and visibility, scoped real `live_grep` over a temp directory.
+7. **Tests** (Files: `tests/test-finder-chain.lua`, `tests/test-finder-chain-grep.lua` new, using `tests/helpers/finder.lua`): every source pair (only the six built-in edges succeed, all others raise), refusals, push/pop through the keys, `<BS>` empty vs non-empty prompt, more than 1000 matches scoped fully, hint text and visibility, scoped real `live_grep` over a temp directory.
    - Risk: Low
 
 ## Phase 3: Buffers and Help -> grep
-1. **Buffers drill** (File: `source/buffers.lua`): scope = matched items with a `file` (nameless skipped); `count`; hint `grep N files`; crumb "Buffers"; title `N Buffers › Live Grep`. Risk: Low
-2. **Help drill** (File: `source/help_tags.lua`): scope = distinct `item.file` of matched tags; `count`; title `N Help Files › Live Grep`; crumb "Help". Risk: Low
+1. **Buffers edge** (`chains.lua` row `buffers -> live_grep`; `count` in `source/buffers.lua`): scope = matched items with a `file` (nameless skipped); `count`; hint `grep N files`; crumb "Buffers"; title `N Buffers › Live Grep`. Risk: Low
+2. **Help edge** (`chains.lua` row `help_tags -> live_grep`; `count` in `source/help_tags.lua`): scope = distinct `item.file` of matched tags; `count`; title `N Help Files › Live Grep`; crumb "Help". Risk: Low
 3. **Tests** (File: `tests/test-finder-chain-sources.lua` new): scope derivation for both. Risk: Low
 
 ## Phase 4: Pull requests -> Files Changed
@@ -145,7 +167,7 @@ Drill is refused (toast, nothing changes) while the pipeline is not settled (`Ta
 3. **Open diff** (File: `action.lua`)
    - Action: for `gh_pr_files` items open a read-only scratch buffer (`buftype=nofile`, `filetype=diff`, name `owner/name#N: path`) in the main window, cursor on the first hunk.
    - Risk: Low
-4. **PR drill** (File: `source/gh.lua`): `kind == "pr"`: hint `files changed in #N` (needs `selected`), `open` returns `{ source = "gh_pr_files", ctx = { pr = selected }, crumb = "Pull Requests" }`; refuse on message rows. Risk: Low
+4. **PR edge** (`chains.lua` row `gh_pr -> gh_pr_files`): on PR rows only: hint `files changed in #N` (needs `selected`), `open` returns `{ source = "gh_pr_files", ctx = { pr = selected }, crumb = "Pull Requests" }`; refuse on message rows. Risk: Low
 5. **Tests** (Files: `tests/test-finder-gh-files-api.lua`, `test-finder-gh-pr-files.lua` new): paging and truncation, error mapping, row/preview content, title trimming, chain push/pop from the PR list with no new search. Risk: Low
 
 ## Phase 5: PR files -> grep (local copies)
@@ -155,7 +177,7 @@ Drill is refused (toast, nothing changes) while the pipeline is not settled (`Ta
 ## Phase 6: Issues -> grep (title and description)
 1. **Keep the body** (File: `source/gh/api.lua`): `normalize` keeps `body` on items. Risk: Low
 2. **Source** (Files: `source/gh_issue_grep.lua` new, `format.lua`, `ui/list.lua`)
-   - Action: live source over `filter.ctx.issues`: for the prompt text (smartcase literal match) emit one item per matching line of `title` + `body` with `group` = issue url, `pos`, `url`; `format.gh_issue_grep_header` (icon, `#N`, title); `ui/list.lua` groups by `item.group or item.file`; preview shows the issue; `Enter` opens `url`; placeholder "(type to search the text of the N issues)"; `drill` on `gh_issue`: hint `grep N issues`.
+   - Action: live source over `filter.ctx.issues`: for the prompt text (smartcase literal match) emit one item per matching line of `title` + `body` with `group` = issue url, `pos`, `url`; `format.gh_issue_grep_header` (icon, `#N`, title); `ui/list.lua` groups by `item.group or item.file`; preview shows the issue; `Enter` opens `url`; placeholder "(type to search the text of the N issues)"; `chains.lua` row `gh_issue -> gh_issue_grep`: hint `grep N issues`.
    - Risk: Medium (list grouping change touches a shared renderer: covered by the existing separator/grouping tests)
 3. **Tests** (File: `tests/test-finder-gh-issue-grep.lua` new). Risk: Low
 
