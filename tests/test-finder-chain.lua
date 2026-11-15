@@ -177,6 +177,19 @@ H.settle(500)
 t.ok("and loaded again when shown", session.level.stale ~= true and H.title() == "Files")
 H.close()
 
+t.section("fuzzy highlights of the files do not leak into the grep")
+H.open("files", { cwd = dir })
+H.settle(500)
+H.type("lua")
+local list_buf = H.panes().list.buf
+t.ok("files rows are highlighted", next(require("beast.libs.finder.match_hl").list_ranges(list_buf)) ~= nil)
+H.press("<C-g>")
+H.settle(300)
+t.eq("placeholder row has no highlight", next(require("beast.libs.finder.match_hl").list_ranges(list_buf)), nil)
+H.type("hello", 600)
+t.eq("grep rows have no leftover highlight", next(require("beast.libs.finder.match_hl").list_ranges(list_buf)), nil)
+H.close()
+
 t.section("refusals")
 local toasts = {}
 _G.Toast = function(msg)

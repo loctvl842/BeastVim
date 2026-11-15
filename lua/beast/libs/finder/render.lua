@@ -117,6 +117,10 @@ function M.render(session)
 		local from, to = ui.list.visible_range(session.view.list)
 		match_hl.apply_list(session.view.list.buf, session.level.query.matched, format_fn, from, to, session.view.list._separators and 2 or 1)
 	end
+	-- A live level has no fuzzy positions; drop the ones of a level shown before it in these windows.
+	if session.level.query.source.live and session.view.list:is_valid() then
+		match_hl.clear(session.view.list.buf)
+	end
 	M.hint(session)
 	M.schedule_preview(session)
 	vim.cmd("redraw")
