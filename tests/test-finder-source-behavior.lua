@@ -28,7 +28,7 @@ local function open_file_spy()
 end
 
 -- ---------------------------------------------------------------------------
-t.section("buffers: [number] name, modified marker, Enter opens the file")
+t.section("buffers: file row, modified marker, Enter opens the file")
 local b1 = vim.api.nvim_create_buf(true, false)
 vim.api.nvim_buf_set_name(b1, cwd .. "/zz_buf_clean.lua")
 local b2 = vim.api.nvim_create_buf(true, false)
@@ -37,7 +37,7 @@ vim.api.nvim_buf_set_lines(b2, 0, -1, false, { "changed" })
 local calls, restore = open_file_spy()
 H.open("buffers")
 t.ok("lists the buffers by path relative to cwd", H.has_row("zz_buf_clean.lua") and H.has_row("zz_buf_dirty.lua"), vim.inspect(H.rows()))
-t.ok("shows the buffer number", H.has_row("[" .. b1 .. "]"))
+t.ok("shows the file name, not the buffer number", H.has_row("zz_buf_clean.lua") and not H.has_row("[" .. b1 .. "]"))
 local dirty
 for _, row in ipairs(H.rows()) do
 	if row:find("zz_buf_dirty", 1, true) then

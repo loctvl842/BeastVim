@@ -1,5 +1,6 @@
 ---@class Beast.Finder.Highlight
 ---@field text string
+---@field src? { [1]: integer, [2]: integer } 1-based byte range of the item's relative path this text shows (the part of a file row that a fuzzy match can land on)
 ---@field hl string?
 ---@field right_align boolean?
 ---@field chunks? { [1]: string, [2]: string }[] right_align only: several highlighted chunks; `text` is ignored
@@ -77,64 +78,76 @@ local function trim_path(rel, max_width)
 	return ellipsis, base
 end
 
+--- Path of `item.file` relative to `cwd`.
+---@param path string
+---@param cwd string
+---@return string
+local function relative(path, cwd)
+	if path:sub(1, #cwd) == cwd then
+		return path:sub(#cwd + 2)
+	end
+	return path
+end
+
+--- The file look shared by Files, Buffers and grep headers: "<icon> base  dir" (dir dim, trimmed).
+--- Each part that shows a piece of `rel` carries `src = { from, to }` (1-based bytes of `rel`), so a
+--- fuzzy match on `rel` can be drawn on the right column; a trimmed dir has no `src`.
+---@param rel string path relative to cwd
+---@param max_width? integer available column width for trimming
+---@return Beast.Finder.Highlight[]
+local function file_row(rel, max_width)
+	local base = rel:match("[^/]+$") or rel
+	local dir = rel:match("^(.+)/[^/]+$")
+
+	local result = {}
+	local icon, icon_hl = get_icon(base)
+	if icon then
+		result[#result + 1] = { text = icon .. " ", hl = icon_hl }
+	end
+	local base_from = #rel - #base + 1
+	result[#result + 1] = { text = base, hl = "BeastFinderListFile", src = { base_from, #rel } }
+	if dir and dir ~= "" then
+		local src = { 1, #dir }
+		if max_width then
+			local used = (icon and 2 or 0) + vim.fn.strdisplaywidth(base) + 2
+			local budget = math.max(1, max_width - used)
+			if #dir > budget then
+				local trimmed = trim_path(dir, budget)
+				if trimmed ~= "" then
+					dir = trimmed
+					src = nil
+				end
+			end
+		end
+		result[#result + 1] = { text = "  " }
+		result[#result + 1] = { text = dir, hl = "BeastFinderListDir", src = src }
+	end
+	return result
+end
+
 ---@param item Beast.Finder.Item
 ---@param max_width? integer available column width for trimming
 ---@return Beast.Finder.Highlight[]
 function M.filename(item, max_width)
 	local path = item.file or item.text or ""
-	local cwd = item.cwd or vim.fn.getcwd()
-
-	-- Make relative to cwd
-	local rel = path
-	if path:sub(1, #cwd) == cwd then
-		rel = path:sub(#cwd + 2) -- skip trailing /
-	end
-
-	local dir, base
-	if max_width then
-		-- Reserve space for icon (2 chars) + dir separator (1 char)
-		dir, base = trim_path(rel, max_width - 3)
-	else
-		dir = rel:match("^(.+)/[^/]+$")
-		base = rel:match("[^/]+$") or rel
-	end
-
-	local result = {}
-
-	local icon, icon_hl = get_icon(base)
-	if icon then
-		result[#result + 1] = { text = icon .. " ", hl = icon_hl }
-	end
-
-	if dir and dir ~= "" then
-		result[#result + 1] = { text = dir .. "/", hl = "BeastFinderListDir" }
-	end
-	result[#result + 1] = { text = base, hl = "BeastFinderListFile" }
-
-	return result
+	return file_row(relative(path, item.cwd or vim.fn.getcwd()), max_width)
 end
 
 ---@param item Beast.Finder.Item
+---@param max_width? integer available column width for trimming
 ---@return Beast.Finder.Highlight[]
-function M.buffers(item)
-	local name = item.file or ""
-	if name == "" then
-		name = "[No Name]"
+function M.buffers(item, max_width)
+	local modified = item.buf and vim.bo[item.buf].modified
+	local result
+	if not item.file or item.file == "" then
+		result = { { text = "[No Name]", hl = "BeastFinderListFile" } }
 	else
-		local cwd = vim.fn.getcwd()
-		if name:sub(1, #cwd) == cwd then
-			name = name:sub(#cwd + 2)
-		end
+		result = file_row(relative(item.file, item.cwd or vim.fn.getcwd()), max_width and max_width - (modified and 4 or 0))
 	end
-
-	local modified = item.buf and vim.bo[item.buf].modified and " [+]" or ""
-	local bufnr_str = item.buf and ("[" .. item.buf .. "] ") or ""
-
-	return {
-		{ text = bufnr_str, hl = "BeastFinderListDir" },
-		{ text = name, hl = "BeastFinderListFile" },
-		{ text = modified, hl = "BeastFinderListMatch" },
-	}
+	if modified then
+		result[#result + 1] = { text = " [+]", hl = "BeastFinderListMatch" }
+	end
+	return result
 end
 
 ---@param item Beast.Finder.Item
@@ -260,35 +273,7 @@ end
 ---@param max_width? integer available column width for trimming
 ---@return Beast.Finder.Highlight[]
 function M.live_grep_header(item, max_width)
-	local path = item.file or ""
-	local cwd = item.cwd or vim.fn.getcwd()
-	local rel = path
-	if path:sub(1, #cwd) == cwd then
-		rel = path:sub(#cwd + 2)
-	end
-	local base = rel:match("[^/]+$") or rel
-	local dir = rel:match("^(.+)/[^/]+$")
-
-	local result = {}
-	local icon, icon_hl = get_icon(base)
-	if icon then
-		result[#result + 1] = { text = icon .. " ", hl = icon_hl }
-	end
-	result[#result + 1] = { text = base, hl = "BeastFinderListFile" }
-	if dir and dir ~= "" then
-		if max_width then
-			local used = (icon and 2 or 0) + vim.fn.strdisplaywidth(base) + 2
-			local budget = math.max(1, max_width - used)
-			if #dir > budget then
-				local trimmed = trim_path(dir, budget)
-				if trimmed ~= "" then
-					dir = trimmed
-				end
-			end
-		end
-		result[#result + 1] = { text = "  " .. dir, hl = "BeastFinderListDir" }
-	end
-	return result
+	return file_row(relative(item.file or "", item.cwd or vim.fn.getcwd()), max_width)
 end
 
 -- GitHub sources: Nerd Font git icons (octicons) and the highlight each state is drawn in.

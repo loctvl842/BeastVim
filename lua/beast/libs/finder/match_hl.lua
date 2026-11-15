@@ -59,6 +59,22 @@ local function positions_to_ranges(positions)
 	return ranges
 end
 
+--- Join touching 0-indexed {start_col, end_col} ranges (input sorted by start).
+---@param ranges {[1]: integer, [2]: integer}[]
+---@return {[1]: integer, [2]: integer}[]
+local function merge_ranges(ranges)
+	local out = {}
+	for _, r in ipairs(ranges) do
+		local last = out[#out]
+		if last and r[1] <= last[2] then
+			last[2] = math.max(last[2], r[2])
+		else
+			out[#out + 1] = { r[1], r[2] }
+		end
+	end
+	return out
+end
+
 --- Compute {buf_row → ranges} for the visible item slice. Mirrors the
 --- offset arithmetic of the old `apply_list` body verbatim.
 ---@param items Beast.Finder.Item[]
@@ -75,46 +91,73 @@ local function compute_list_ranges(items, format_fn, from, to, stride)
 			goto continue
 		end
 
-		-- Calculate the byte offset added by the format prefix (icon + space, etc.)
 		local highlights = format_fn(item)
 		local item_text = item.text or ""
-		local rendered_parts = {}
-		for _, h in ipairs(highlights) do
-			if not h.right_align then
-				rendered_parts[#rendered_parts + 1] = h.text
-			end
-		end
-		local rendered = table.concat(rendered_parts)
-		local rel_text = item_text
 		local cwd = item.cwd or vim.fn.getcwd()
-		if rel_text:sub(1, #cwd) == cwd then
-			rel_text = rel_text:sub(#cwd + 2)
-		end
-		local offset = rendered:find(rel_text, 1, true)
-		if not offset then
-			offset = 1
-		else
-			offset = offset - 1
-		end
-
+		-- Positions index `item.text`; a part's `src` indexes the path relative to cwd.
+		local strip = item_text:sub(1, #cwd) == cwd and #cwd + 1 or 0
 		local sorted_pos = {}
 		for _, p in ipairs(item.positions) do
 			sorted_pos[#sorted_pos + 1] = p
 		end
 		table.sort(sorted_pos)
-		local ranges = positions_to_ranges(sorted_pos)
+
+		local rendered_len = 0
+		local has_src = false
+		for _, h in ipairs(highlights) do
+			if not h.right_align then
+				rendered_len = rendered_len + #h.text
+			end
+			has_src = has_src or h.src ~= nil
+		end
+
+		local row_ranges = {}
+		if has_src then
+			-- Rows made of parts that show pieces of the path (file rows): map each position to the part holding it.
+			local positions = {}
+			for _, p in ipairs(sorted_pos) do
+				positions[#positions + 1] = p - strip
+			end
+			local col = 0
+			for _, h in ipairs(highlights) do
+				if not h.right_align then
+					if h.src then
+						for _, p in ipairs(positions) do
+							if p >= h.src[1] and p <= h.src[2] then
+								local c = col + (p - h.src[1])
+								row_ranges[#row_ranges + 1] = { c, c + 1 }
+							end
+						end
+					end
+					col = col + #h.text
+				end
+			end
+			row_ranges = merge_ranges(row_ranges)
+		else
+			local rendered_parts = {}
+			for _, h in ipairs(highlights) do
+				if not h.right_align then
+					rendered_parts[#rendered_parts + 1] = h.text
+				end
+			end
+			local rendered = table.concat(rendered_parts)
+			local rel_text = item_text
+			if strip > 0 then
+				rel_text = rel_text:sub(strip + 1)
+			end
+			local offset = rendered:find(rel_text, 1, true)
+			offset = offset and offset - 1 or 1
+			for _, range in ipairs(positions_to_ranges(sorted_pos)) do
+				local start_col = range[1] + offset
+				local end_col = range[2] + offset
+				if start_col < rendered_len and end_col <= rendered_len then
+					row_ranges[#row_ranges + 1] = { start_col, end_col }
+				end
+			end
+		end
 
 		-- With stride 2 each item has a separator slot above it, so its row is the second of the pair.
 		local buf_row = (i - from) * stride + (stride - 1)
-		local rendered_len = #rendered
-		local row_ranges = {}
-		for _, range in ipairs(ranges) do
-			local start_col = range[1] + offset
-			local end_col = range[2] + offset
-			if start_col < rendered_len and end_col <= rendered_len then
-				row_ranges[#row_ranges + 1] = { start_col, end_col }
-			end
-		end
 		if #row_ranges > 0 then
 			ranges_by_row[buf_row] = row_ranges
 		end
@@ -199,6 +242,13 @@ end
 -- =========================================================================
 -- Public API
 -- =========================================================================
+
+--- The match ranges drawn for the list `buf`, by 0-indexed buffer row (for tests).
+---@param buf integer
+---@return table<integer, {[1]: integer, [2]: integer}[]>
+function M.list_ranges(buf)
+	return list_state[buf] and list_state[buf].ranges_by_row or {}
+end
 
 --- Apply fuzzy match highlights to the list buffer using item.positions.
 --- Only processes items in the visible range [from, to] (1-based into items).
