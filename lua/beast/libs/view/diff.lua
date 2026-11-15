@@ -168,6 +168,9 @@ end
 ---@field old? integer line number on the old side
 ---@field new? integer line number on the new side
 ---@field spans? integer[][] byte ranges {s, e} (0-based, end exclusive) of the words that changed
+---@field plain? boolean not code (a header, a band, a note): blank gutter, tinted by `hl` instead of `sign`
+---@field hl? string background group of a plain row
+---@field marks? { [1]: integer, [2]: integer, [3]: string }[] extra highlights {s, e, group} inside the line
 
 ---@class Beast.View.DiffChunk
 ---@field text string
@@ -177,6 +180,7 @@ end
 ---@field body string[] one buffer line per row
 ---@field hls table<integer, string> row → background group of its whole line
 ---@field spans table<integer, { hl: string, ranges: integer[][] }> row → changed-word ranges
+---@field marks table<integer, { [1]: integer, [2]: integer, [3]: string }[]> row → extra highlights
 ---@field gutters Beast.View.DiffChunk[][] row → the chunks the statuscolumn draws
 ---@field width integer display width of the gutter
 
@@ -201,18 +205,24 @@ function M.render(rows, opts)
 		return string.rep(" ", w - #s) .. s
 	end
 
-	local body, hls, spans, gutters = {}, {}, {}, {}
+	local body, hls, spans, marks, gutters = {}, {}, {}, {}, {}
 	for i, r in ipairs(rows) do
-		local sign_hl = SIGN_HL[r.sign] or "LineNr"
-		local numbers = two and (num(r.old) .. " " .. num(r.new) .. " ") or (num(r.new) .. " ")
-		gutters[i] = { { text = numbers, hl = sign_hl }, { text = r.sign .. " ", hl = sign_hl } }
 		body[i] = r.text
-		hls[i] = LINE_HL[r.sign]
-		if r.spans and #r.spans > 0 then
-			spans[i] = { hl = LINE_HL[r.sign] .. "Word", ranges = r.spans }
+		marks[i] = r.marks
+		if r.plain then
+			gutters[i] = { { text = string.rep(" ", width), hl = r.hl or "Normal" } }
+			hls[i] = r.hl
+		else
+			local sign_hl = SIGN_HL[r.sign] or "LineNr"
+			local numbers = two and (num(r.old) .. " " .. num(r.new) .. " ") or (num(r.new) .. " ")
+			gutters[i] = { { text = numbers, hl = sign_hl }, { text = r.sign .. " ", hl = sign_hl } }
+			hls[i] = LINE_HL[r.sign]
+			if r.spans and #r.spans > 0 then
+				spans[i] = { hl = LINE_HL[r.sign] .. "Word", ranges = r.spans }
+			end
 		end
 	end
-	return { body = body, hls = hls, spans = spans, gutters = gutters, width = width }
+	return { body = body, hls = hls, spans = spans, marks = marks, gutters = gutters, width = width }
 end
 
 -- ---------------------------------------------------------------------------
@@ -250,6 +260,9 @@ function M.paint(buf, rendered)
 		for _, range in ipairs(span and span.ranges or {}) do
 			api.nvim_buf_set_extmark(buf, ns, i - 1, range[1], { end_col = range[2], hl_group = span.hl, priority = 200 })
 		end
+		for _, m in ipairs(rendered.marks[i] or {}) do
+			api.nvim_buf_set_extmark(buf, ns, i - 1, m[1], { end_col = m[2], hl_group = m[3], priority = 150 })
+		end
 	end
 end
 
@@ -259,12 +272,21 @@ function M.clear(buf)
 	gutters[buf] = nil
 end
 
---- The text the statuscolumn shows for one row.
+--- The text the statuscolumn shows for one screen row. The rows a long line wraps onto (`virtnum` > 0) show
+--- no numbers, only the same width in the color of the row's mark, so its tint carries on.
 ---@param chunks Beast.View.DiffChunk[]?
+---@param virtnum? integer
 ---@return string
-function M.gutter_text(chunks)
+function M.gutter_text(chunks, virtnum)
 	if not chunks then
 		return ""
+	end
+	if virtnum and virtnum ~= 0 then
+		local width = 0
+		for _, c in ipairs(chunks) do
+			width = width + #c.text
+		end
+		return ("%%#%s#%s"):format(chunks[#chunks].hl, string.rep(" ", width))
 	end
 	local out = {}
 	for _, c in ipairs(chunks) do
@@ -281,8 +303,25 @@ function M.statuscol()
 	-- gutter data from the window's buffer, not whatever buffer is current.
 	local winid = vim.g.statusline_winid or 0
 	local buf = winid ~= 0 and api.nvim_win_get_buf(winid) or api.nvim_get_current_buf()
-	return M.gutter_text(gutters[buf] and gutters[buf][vim.v.lnum])
+	return M.gutter_text(gutters[buf] and gutters[buf][vim.v.lnum], vim.v.virtnum)
 end
+
+local OPTIONS = {
+	number = true,
+	relativenumber = false,
+	cursorline = false,
+	cursorcolumn = false,
+	foldcolumn = "0",
+	spell = false,
+	list = false,
+	signcolumn = "no",
+	colorcolumn = "",
+	statuscolumn = "%!v:lua.require'beast.libs.view.diff'.statuscol()",
+}
+
+--- What each attached window had before, for `detach`.
+---@type table<integer, table<string, any>>
+local before = {}
 
 --- Give `win` the options its gutter needs. 'statuscolumn' only allocates width when 'number' (or a sign
 --- column) is on, so 'number' is turned on (the statuscolumn replaces the real number display) and its
@@ -290,26 +329,42 @@ end
 ---@param win integer
 ---@param width integer gutter width, from `render`
 function M.attach(win, width)
-	local function set(name, value)
+	local saved = before[win]
+	if not saved then
+		saved = {}
+		for name in pairs(OPTIONS) do
+			saved[name] = api.nvim_get_option_value(name, { win = win })
+		end
+		saved.numberwidth = api.nvim_get_option_value("numberwidth", { win = win })
+		before[win] = saved
+		api.nvim_create_autocmd("WinClosed", {
+			pattern = tostring(win),
+			once = true,
+			callback = function()
+				before[win] = nil
+			end,
+		})
+	end
+	for name, value in pairs(OPTIONS) do
 		api.nvim_set_option_value(name, value, { win = win })
 	end
-	set("number", true)
-	set("relativenumber", false)
-	set("numberwidth", math.max(1, width))
-	set("cursorline", false)
-	set("cursorcolumn", false)
-	set("foldcolumn", "0")
-	set("spell", false)
-	set("list", false)
-	set("signcolumn", "no")
-	set("colorcolumn", "")
-	set("statuscolumn", "%!v:lua.require'beast.libs.view.diff'.statuscol()")
+	api.nvim_set_option_value("numberwidth", math.max(1, width), { win = win })
 end
 
+--- Give `win` back the options it had before `attach`.
 ---@param win integer
 function M.detach(win)
-	api.nvim_set_option_value("statuscolumn", "", { win = win })
-	api.nvim_set_option_value("numberwidth", 4, { win = win })
+	local saved = before[win]
+	if not saved then
+		return
+	end
+	before[win] = nil
+	if not api.nvim_win_is_valid(win) then
+		return
+	end
+	for name, value in pairs(saved) do
+		api.nvim_set_option_value(name, value, { win = win })
+	end
 end
 
 return M

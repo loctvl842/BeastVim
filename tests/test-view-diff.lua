@@ -153,6 +153,46 @@ do
 	assert_eq("no chunks, no text", diff.gutter_text(nil), "")
 end
 
+io.write("\n== plain rows (headers, bands, notes) ==\n")
+do
+	local rows = {
+		{ plain = true, sign = " ", text = "modified  +1 -1", hl = "BeastViewDiffHead", marks = { { 0, 8, "BeastViewDiffStatAdd" } } },
+		{ old = 7, new = 7, sign = " ", text = "ctx" },
+	}
+	local r = diff.render(rows, { columns = 2 })
+	assert_eq("a plain row has a blank gutter as wide as the numbers", r.gutters[1], { { text = string.rep(" ", r.width), hl = "BeastViewDiffHead" } })
+	assert_eq("a plain row is tinted by its own group", r.hls[1], "BeastViewDiffHead")
+	assert_eq("its extra highlights are kept", r.marks[1], { { 0, 8, "BeastViewDiffStatAdd" } })
+	assert_eq("it does not count for the number width", r.width, 8)
+end
+
+io.write("\n== wrapped rows ==\n")
+do
+	local chunks = { { text = " 1 ", hl = "A" }, { text = "+ ", hl = "B" } }
+	assert_eq("a continuation row shows only blanks in the mark's color", diff.gutter_text(chunks, 1), "%#B#     ")
+	assert_eq("a virtual line shows blanks too", diff.gutter_text(chunks, -1), "%#B#     ")
+	assert_eq("the first screen row of a line has its numbers", diff.gutter_text(chunks, 0), "%#A# 1 %#B#+ ")
+end
+
+io.write("\n== attach / detach ==\n")
+do
+	local buf = vim.api.nvim_create_buf(false, true)
+	local win = vim.api.nvim_open_win(buf, false, { relative = "editor", row = 0, col = 0, width = 20, height = 3, style = "minimal" })
+	local function opts()
+		return { vim.wo[win].number, vim.wo[win].signcolumn, vim.wo[win].statuscolumn, vim.wo[win].numberwidth }
+	end
+	local original = opts()
+	diff.attach(win, 9)
+	assert_eq("attach turns the gutter on", { vim.wo[win].number, vim.wo[win].statuscolumn ~= "", vim.wo[win].numberwidth }, { true, true, 9 })
+	diff.attach(win, 6)
+	assert_eq("attaching again only changes the width", vim.wo[win].numberwidth, 6)
+	diff.detach(win)
+	assert_eq("detach gives back what the window had", opts(), original)
+	diff.detach(win)
+	assert_eq("a second detach changes nothing", opts(), original)
+	vim.api.nvim_win_close(win, true)
+end
+
 io.write("\n== paint / clear ==\n")
 do
 	local buf = vim.api.nvim_create_buf(false, true)

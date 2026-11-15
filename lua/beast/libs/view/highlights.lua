@@ -18,6 +18,14 @@ function M.get()
 		-- so the tint stays continuous across the gutter.
 		DiffAddSign = { fg = Util.colors.blend(p.green, 0.6, bg), bg = Util.colors.blend(p.green, 0.15, bg), bold = true },
 		DiffDeleteSign = { fg = Util.colors.blend(p.red, 0.6, bg), bg = Util.colors.blend(p.red, 0.15, bg), bold = true },
+
+		-- The finder's diff: the file's header row, the band of a hunk, the rows that only say something
+		-- ("13 unchanged lines"), and the +/- bar of the header.
+		DiffHead = { fg = p.text, bold = true },
+		DiffHunk = { fg = Util.colors.blend(p.accent5, 0.8, bg), bg = Util.colors.blend(p.accent5, 0.1, bg) },
+		DiffGap = { fg = p.dimmed3 },
+		DiffStatAdd = { fg = Util.colors.blend(p.green, 0.8, bg) },
+		DiffStatDelete = { fg = Util.colors.blend(p.red, 0.8, bg) },
 	})
 end
 
