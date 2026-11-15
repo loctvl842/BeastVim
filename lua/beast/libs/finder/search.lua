@@ -21,9 +21,9 @@ local M = {}
 ---@field cwd string
 ---@field limit integer
 ---@field loading boolean
----@field private q Beast.Finder.Query
----@field private host Beast.Finder.Host
----@field private closed boolean
+---@field q Beast.Finder.Query
+---@field host Beast.Finder.Host
+---@field closed boolean
 ---@field private cb? fun(matched: Beast.Finder.Item[], result: Beast.Finder.Search.Result)
 local Session = {}
 Session.__index = Session
