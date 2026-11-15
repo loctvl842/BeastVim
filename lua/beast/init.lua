@@ -381,8 +381,6 @@ function M.setup(opts)
 			{ "<leader>F", function() require("beast.libs.finder").open("live_grep") end, desc = "Live grep" },
 			{ "<leader>h", function() require("beast.libs.finder").open("help_tags") end, desc = "Help tags" },
 			{ "<leader>gc", function() require("beast.libs.finder").open("git_commits") end, desc = "Git commits" },
-			{ "<leader>ghp", function() require("beast.libs.finder").open("gh_pr") end, desc = "GitHub pull requests" },
-			{ "<leader>ghi", function() require("beast.libs.finder").open("gh_issue") end, desc = "GitHub issues" },
 			{
 				"<leader>c",
 				function()
@@ -410,6 +408,42 @@ function M.setup(opts)
 				desc = "Colorschemes",
 			},
 		},
+	})
+
+	-- The GitHub pickers have keys only where the project's `origin` points at GitHub (checked at startup, when
+	-- the directory changes and when a buffer of another project is entered; a host that merely looks like
+	-- GitHub still gets the picker's own check).
+	local gh_keys = {
+		{ "<leader>ghp", "gh_pr", "GitHub pull requests" },
+		{ "<leader>ghi", "gh_issue", "GitHub issues" },
+	}
+	local gh_root ---@type string? the project the keys were last decided for
+	local function sync_gh_keys()
+		local root = Util.root()
+		-- stylua: ignore
+		if root == gh_root then return end
+		gh_root = root
+		vim.system({ "git", "-C", root, "remote", "get-url", "origin" }, { text = true }, function(res)
+			vim.schedule(function()
+				local repo = res.code == 0 and require("beast.libs.finder.source.gh.api").parse_remote(res.stdout or "")
+				local on_github = repo and repo.host:find("github", 1, true) ~= nil
+				for _, key in ipairs(gh_keys) do
+					local lhs, source, desc = key[1], key[2], key[3]
+					if on_github then
+						vim.keymap.set("n", lhs, function()
+							require("beast.libs.packer.state").load_lib("beast.libs.finder")
+							require("beast.libs.finder").open(source)
+						end, { desc = desc })
+					else
+						pcall(vim.keymap.del, "n", lhs)
+					end
+				end
+			end)
+		end)
+	end
+	vim.api.nvim_create_autocmd({ "VimEnter", "DirChanged", "BufEnter" }, {
+		group = vim.api.nvim_create_augroup("BeastGithubKeys", { clear = true }),
+		callback = sync_gh_keys,
 	})
 
 	-- Smooth viewport scrolling (lazy — activate after first buffer read)
