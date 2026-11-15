@@ -127,9 +127,25 @@ Validation (`chain.validate`, run by `finder.setup`, raises with the offending i
 - Manual (real nvim in tmux, `NVIM_APPNAME=BeastVim`; a public repo with a multi-commit PR): PM spec scenarios 1-7; plus the default keys, a remapped key, a disabled edge, an invalid config message at startup. Not testable offline: live GitHub paging beyond the scripted fixtures.
 
 # Success Criteria
-- [ ] Every PM spec success criterion (PR -> commits with diff, filter, grep in the commit's local files, back at each step, Enter opens the diff, refusals, `(partial)` caps, hint keys).
-- [ ] With no configuration, every existing chain key behaves exactly as before; `<C-t>` is the new commits key.
-- [ ] `chains.edges[id] = false` removes the edge (key, hint, behavior); `{ key = ... }` rebinds it; `chains.back` changes the back keys.
-- [ ] An unknown edge id, a key clash, or a malformed value raises at setup with a message naming it; no way to define a new pair.
-- [ ] A slow commit request never opens a level after the user went back or closed the picker.
-- [ ] Technical gates: all finder tests pass, luals and stylua clean, matcher bench and `bench-ux.sh all` within noise, Toast (no `vim.notify`).
+- [x] Every PM spec success criterion (PR -> commits with diff, filter, grep in the commit's local files, back at each step, Enter opens the diff, refusals, `(partial)` caps, hint keys).
+- [x] With no configuration, every existing chain key behaves exactly as before; `<C-t>` is the new commits key.
+- [x] `chains.edges[id] = false` removes the edge (key, hint, behavior); `{ key = ... }` rebinds it; `chains.back` changes the back keys.
+- [x] An unknown edge id, a key clash, or a malformed value raises at setup with a message naming it; no way to define a new pair.
+- [x] A slow commit request never opens a level after the user went back or closed the picker.
+- [x] Technical gates: all finder tests pass, luals and stylua clean, matcher bench and `bench-ux.sh all` within noise, Toast (no `vim.notify`).
+
+## Completed
+
+2026-11-15. Phases 1-4 done: configurable chains (`config.chains`: edge ids `from|to`, switch off, change key, back keys; `chain.validate` raises at setup), `gh_commits` (list, diff preview with a per-commit cache, Enter opens the commit), the `gh_pr|gh_commits` edge (`<C-t>`), waiting edges (`open` may return a function; the answer is dropped on back, close, or a moved selection/prompt) and the `gh_commits|live_grep` edge, docs.
+
+- `95b47aa` feat(finder): chain edges and keys are configurable among the built-in edges
+- `0a3aa46` feat(finder): gh api reads the commits of a pull request and one commit with its files
+- `8a7829a` feat(finder): pull requests lead to their commits with a diff preview
+- `7e3a9c8` feat(finder): a commit leads to a grep in its local files; chain edges can finish asynchronously
+- `205a4fc` docs(finder): codemap and notes for configurable chains and the commits chain
+- `75ab31b` fix(finder): the preview of an informational row is empty and drops the previous title
+- `6dd84e3` fix(finder): commit preview redraws after going back; partial title for big commits; pending chain request tied to the selection; bounded commit cache
+
+Deviations and additions: `keep_order` (source flag, `TopK` option) so the commits list stays oldest first with an empty prompt (`gh_pr_files` uses it too, so files keep GitHub's order); commit items carry the message in `body` (`message` is the informational-row flag); `chain.keys(session)` binds only the keys of edges reachable from the picker's first source; the gh preview modules mark the pane (`view.loaded_file`) so a push/pop cannot leave a stale or blank preview; message rows clear the preview. A commit with exactly 300 files is shown as partial (GitHub cannot tell it apart from a longer one).
+
+Verification: every `tests/test-finder-*.lua` and `test-preflight*` pass (new: chain-config, gh-commits-api 11, gh-commits, chain-commit-grep 24); stylua and lua-language-server clean; `bench-finder-matcher` 18.0 ms full scan / 18.4 ms subset (unchanged); `bench-ux.sh all` PASS on all five scenarios; real nvim in tmux with the default config: files, scoped grep, hint and back checked. A code review found a blank commit preview after going back (fixed with a regression test), the missing "(partial)" in the grep title, the unbounded cache and a late answer opening for another selection (all fixed). Not done: live GitHub (all `gh` calls are scripted), dark/light colour check in wezterm.
