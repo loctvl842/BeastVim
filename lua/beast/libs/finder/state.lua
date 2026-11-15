@@ -23,6 +23,7 @@ local ui = require("beast.libs.finder.ui")
 ---@field initial_done? boolean the initial selection has been applied
 ---@field initial_query? string prompt text the source opened with, searched already; the first change event for the same text is skipped
 ---@field frozen? boolean panels use frozen highlight namespaces
+---@field host Beast.Finder.Host what the pipelines may ask of this picker's windows
 ---@field main_win? integer
 ---@field augroup? integer
 local M = setmetatable({}, {
@@ -44,6 +45,44 @@ local instance
 ---@field backdrop? boolean false skips the dimming overlay (default true)
 ---@field initial_text? string start with the item whose text matches selected (instead of the first one)
 ---@field freeze_colors? boolean keep the panels in the colors they had at open, ignoring `:colorscheme`
+
+--- The pipelines' only way to reach this picker (see host.lua).
+---@param state Beast.Finder.State
+---@return Beast.Finder.Host
+local function make_host(state)
+	local render = require("beast.libs.finder.render")
+	return {
+		alive = function()
+			return not state.closed and state.view ~= nil and state.view.list:is_valid()
+		end,
+		render = function()
+			render.render(state)
+		end,
+		busy = function(on)
+			if on then
+				ui.input.start_spinner(state.view.input)
+			else
+				ui.input.stop_spinner(state.view.input)
+			end
+		end,
+		rewind = function()
+			state.view.list.cursor = 1
+			state.view.list._offset = 0
+		end,
+		count = function(text)
+			ui.input.set_count(state.view.input, text)
+		end,
+		title = function(text)
+			-- The cards layout has no title.
+			if state.layout ~= "cards" then
+				ui.input.set_title(state.view.input, text)
+			end
+		end,
+		rows = function()
+			return state.view.list._win_height or 50
+		end,
+	}
+end
 
 ---@param source_name Beast.Finder.Source
 ---@param opts? Beast.Finder.Opts
@@ -91,7 +130,7 @@ function M:new(source_name, opts)
 			end
 			instance.initial_query = nil
 			query.filter:update(text)
-			pipeline.run(instance)
+			pipeline.run(query, instance.host)
 		end, geo.input.w, geo.input.h, geo.input.row, geo.input.col, title, input_debounce, geo.input.border, opts.layout == "cards", initial_query),
 		list = ui.list.create(geo.list.row, geo.list.col, geo.list.w, geo.list.h, geo.list.border, opts.separators),
 		backdrop = opts.backdrop ~= false and ui.backdrop.create(config.backdrop) or nil,
@@ -104,18 +143,13 @@ function M:new(source_name, opts)
 		instance.view.preview = ui.preview.create(geo.preview.row, geo.preview.col, geo.preview.w, geo.preview.h)
 	end
 
-	-- Match pipeline loads items immediately; stream waits for user input
-	-- Initial load if 'load' is defined
-	if pipeline.load ~= nil then
-		pipeline.load(instance)
-	end
+	instance.host = make_host(instance)
 
-	-- A live source with a default query searches right away, without waiting for typing.
-	if initial_query then
-		instance.initial_query = initial_query
-		query.filter:update(initial_query)
-		pipeline.run(instance)
-	end
+	-- Match pipeline loads items immediately; stream waits for user input, except a live
+	-- source with a default query, which searches right away (the echo of that text in the
+	-- prompt must not search again).
+	instance.initial_query = initial_query
+	pipeline.start(query, instance.host)
 
 	return instance
 end

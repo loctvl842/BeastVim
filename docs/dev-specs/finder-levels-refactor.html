@@ -259,7 +259,7 @@ end
     <tr><td><code>state.lua</code> -&gt; <code>session.lua</code></td><td>rename + slim</td><td>windows, keys, autocmds, picker opts, level, stack, push/pop; type <code>State</code> -&gt; <code>Session</code></td></tr>
     <tr><td><code>level.lua</code>, <code>host.lua</code></td><td>new</td><td>one search; host type + headless helper</td></tr>
     <tr><td><code>pipeline/match.lua</code>, <code>pipeline/stream.lua</code>, <code>pipeline/init.lua</code></td><td>mod</td><td><code>(query, host)</code> API, captured query, staleness checks, <code>matches</code>, results fields</td></tr>
-    <tr><td><code>query.lua</code>, <code>matcher.lua</code></td><td>mod</td><td><code>limit loading matching total</code>; <code>MatchState.total</code>; drop <code>highlight_preview</code></td></tr>
+    <tr><td><code>query.lua</code>, <code>matcher.lua</code></td><td>mod</td><td><code>limit loading matching total</code>; <code>MatchState.total</code>; <code>highlight_preview</code> stays until Phase 2</td></tr>
     <tr><td><code>source/init.lua</code> + <code>files buffers help_tags colorschemes live_grep lsp gh</code></td><td>mod</td><td>contract, normalizer, every source declares its behavior</td></tr>
     <tr><td><code>render.lua action.lua autocmds.lua ui/list.lua ui/input.lua init.lua</code></td><td>mod</td><td>use <code>session.level</code> and source methods; <code>set_text</code>; group by <code>source.group</code></td></tr>
     <tr><td><code>keymaps.lua</code></td><td>rewrite</td><td>one action table on three panes</td></tr>
@@ -329,7 +329,7 @@ end
     <h3>Phase 5 - Headless search on the engine (R5) <span class="tag risk-m">risk: medium</span></h3>
     <ol>
       <li>Rewrite <code>search.lua</code>; explorer API unchanged; duplicate load/score/generation code deleted.</li>
-      <li>Verify: <code>test-explorer-search.lua</code> (50 assertions) green, <code>bench-explorer.lua</code> at baseline, manual explorer search on a large repo.</li>
+      <li>Verify: <code>test-explorer-search.lua</code> (47 assertions) green, <code>bench-explorer.lua</code> at baseline, manual explorer search on a large repo.</li>
     </ol>
   </div>
 

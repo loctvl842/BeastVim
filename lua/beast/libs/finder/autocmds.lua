@@ -79,11 +79,7 @@ function M.mount(state)
 	-- from source; the stream pipeline (live_grep) re-runs against the current
 	-- pattern — same calls `state.lua:new()` already makes on initial load.
 	local function reload()
-		if state.pipeline.load then
-			state.pipeline.load(state)
-		else
-			state.pipeline.run(state)
-		end
+		state.pipeline.reload(state.query, state.host)
 	end
 	vim.api.nvim_create_autocmd("User", {
 		group = state.augroup,

@@ -48,7 +48,7 @@ No behavior changes; each phase leaves the finder working and the suite green.
 - Found:
   - Name dispatch: `render.lua:40,75,76`, `action.lua:8,10`, `autocmds.lua:99`, `keymaps.lua:15`.
   - Callers of `finder.open`: `init.lua` keys (`files`, `buffers`, `live_grep`, `help_tags`, `gh_pr`, `gh_issue`, `colorschemes` with `preview=false, layout="cards", separators, backdrop=false, freeze_colors, initial_text, on_preview, on_close`) and LSP keymaps (`auto_select` through `preflight.lua`).
-  - `search.lua` is used only by `libs/explorer/search/init.lua:119` (`files({cwd})`, `query`, `refresh`, `close`; reports only final scored results, with `{capped, loading}`), covered by `tests/test-explorer-search.lua` (50 assertions) and `scripts/bench-explorer.lua`.
+  - `search.lua` is used only by `libs/explorer/search/init.lua:119` (`files({cwd})`, `query`, `refresh`, `close`; reports only final scored results, with `{capped, loading}`), covered by `tests/test-explorer-search.lua` (47 assertions) and `scripts/bench-explorer.lua`.
   - Existing precedent: `docs/pm-specs/finder-query-split.md` (earlier split of query into pipelines) and `lua/beast/libs/finder/docs/pipeline-overhaul.md` (scoring/queue/async design the engines keep).
   - Per-query registries in both pipelines are keyed by `query` (weak tables): several queries can coexist - the engines are closer to "level-ready" than `State` is.
   - Per-source module state: `live_grep` (`M.cmd`, `current_procs`, `building`), `colorscheme_swatches` (`running`); gh sources are closure-per-`create` (the pattern to follow).
@@ -268,7 +268,7 @@ Each phase is mergeable on its own: finder behavior unchanged, whole test suite 
 
 ## Phase 1: Engines without a UI (R2)
 1. **Results fields** (Files: `query.lua`, `matcher.lua`)
-   - Action: `Query` gets `limit` (TopK capacity, default `1000`), `loading`, `matching`, `total`; `MatchState.total` counted in the final pass (empty pattern: `#items`); remove `highlight_preview` (its two uses move in Phase 2).
+   - Action: `Query` gets `limit` (TopK capacity, default `1000`), `loading`, `matching`, `total`; `MatchState.total` counted in the final pass (empty pattern: `#items`); keep `highlight_preview` for now (its three uses, in `keymaps.lua`, and twice in `render.lua`, move to source fields in Phase 2, where it is removed).
    - Risk: Medium (matcher hot path: O(1) counter only)
 2. **Host contract** (File: `host.lua`)
    - Action: the `Beast.Finder.Host` type and a `headless(overrides)` constructor with no-op methods.
@@ -329,7 +329,7 @@ Each phase is mergeable on its own: finder behavior unchanged, whole test suite 
 ## Phase 5: Headless search on the engine (R5)
 1. **Rewrite `search.lua`** per pseudo code (explorer API unchanged: `available`, `files`, `:query`, `:refresh`, `:close`); delete the duplicated load/score/generation code.
    - Depends on: Phase 1. Risk: Medium
-2. **Verify**: `tests/test-explorer-search.lua` (50 assertions) unchanged and green; `scripts/bench-explorer.lua` equal to baseline within noise; manual: explorer search mode on a large repo (typing, hidden/gitignored toggle refresh, close).
+2. **Verify**: `tests/test-explorer-search.lua` (47 assertions) unchanged and green; `scripts/bench-explorer.lua` equal to baseline within noise; manual: explorer search mode on a large repo (typing, hidden/gitignored toggle refresh, close).
    - Risk: Medium (final-result-only reporting and `capped`/`loading` semantics must match)
 
 ## Phase 6: Docs and wrap-up

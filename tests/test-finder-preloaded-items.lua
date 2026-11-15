@@ -28,18 +28,8 @@ local function assert_eq(name, got, expected)
 	assert_test(name, got == expected, "expected " .. vim.inspect(expected) .. ", got " .. vim.inspect(got))
 end
 
--- render.render() and ui.input's spinner need real floating windows this test
--- doesn't set up; match.lua only needs them callable, so stub both before
--- match.lua requires them (the not-preloaded control case below still runs
--- the spinner start/stop calls, just against a no-op).
-package.loaded["beast.libs.finder.render"] = { render = function() end }
-package.loaded["beast.libs.finder.ui"] = {
-	input = {
-		start_spinner = function() end,
-		stop_spinner = function() end,
-	},
-}
-
+local Query = require("beast.libs.finder.query")
+local host = require("beast.libs.finder.host")
 local match_pipeline = require("beast.libs.finder.pipeline.match")
 
 ---@param items table[]
@@ -63,44 +53,36 @@ end
 
 ---@param source Beast.Finder.ASource
 ---@param preloaded_items? table[]
-local function make_state(source, preloaded_items)
-	return {
-		query = {
-			source = source,
-			items = preloaded_items or {},
-			filter = { pattern = "", cwd = "/tmp", cur_win = 0 },
-			matched = {},
-		},
-		view = {},
-	}
+local function make_query(source, preloaded_items)
+	return Query(source, { cwd = "/tmp", preloaded_items = preloaded_items })
 end
 
 io.write("\n--- preloaded items: source.get is never called ---\n")
 do
 	local source, get_call_count = fake_source({ { text = "a" }, { text = "b" } })
-	local state = make_state(source, { { text = "a" }, { text = "b" } })
+	local query = make_query(source, { { text = "a" }, { text = "b" } })
 
-	match_pipeline.load(state)
+	match_pipeline.start(query, host.headless())
 	vim.wait(200, function()
-		return #state.query.matched > 0
+		return #query.matched > 0
 	end)
 
 	assert_eq("source.get was not called", get_call_count(), 0)
-	assert_eq("matched has both preloaded items", #state.query.matched, 2)
+	assert_eq("matched has both preloaded items", #query.matched, 2)
 end
 
 io.write("\n--- no preloaded items: source.get is called exactly once ---\n")
 do
 	local source, get_call_count = fake_source({ { text = "a" }, { text = "b" } })
-	local state = make_state(source, nil)
+	local query = make_query(source, nil)
 
-	match_pipeline.load(state)
+	match_pipeline.start(query, host.headless())
 	vim.wait(200, function()
-		return #state.query.matched > 0
+		return #query.matched > 0
 	end)
 
 	assert_eq("source.get was called once", get_call_count(), 1)
-	assert_eq("matched has both streamed items", #state.query.matched, 2)
+	assert_eq("matched has both streamed items", #query.matched, 2)
 end
 
 io.write(string.format("\n=== %d passed, %d failed ===\n", passed, failed))

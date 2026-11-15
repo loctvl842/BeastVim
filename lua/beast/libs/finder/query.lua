@@ -26,6 +26,10 @@ local Filter = require("beast.libs.finder.filter")
 ---@field filter Beast.Finder.Filter
 ---@field source Beast.Finder.ASource
 ---@field highlight_preview boolean -- true for stream sources (grep) — highlights pattern in preview
+---@field limit integer how many matches `matched` keeps (best first); the match pipeline's TopK capacity
+---@field loading boolean the source is still delivering items
+---@field matching boolean the scorer is still running over the items
+---@field total integer how many items match the pattern (`matched` holds at most `limit` of them)
 local M = setmetatable({}, {
 	__call = function(t, ...)
 		return t:new(...)
@@ -33,12 +37,15 @@ local M = setmetatable({}, {
 })
 M.__index = M
 
+M.DEFAULT_LIMIT = 1000
+
 -- ---------------------------------------------------------------------------
 -- Constructor / public methods
 -- ---------------------------------------------------------------------------
 ---@class Beast.Finder.QueryOpts
 ---@field cwd? string
 ---@field preloaded_items? Beast.Finder.Item[]  Already-fetched items (e.g. from finder/preflight.lua); skips the source re-fetch in pipeline/match.lua
+---@field limit? integer defaults to `M.DEFAULT_LIMIT`
 
 ---@param source Beast.Finder.ASource
 ---@param opts? Beast.Finder.QueryOpts
@@ -54,6 +61,10 @@ function M:new(source, opts)
 		filter = Filter({ cwd = opts.cwd }),
 		source = source,
 		highlight_preview = is_live,
+		limit = opts.limit or M.DEFAULT_LIMIT,
+		loading = false,
+		matching = false,
+		total = 0,
 	}, self)
 
 	return query

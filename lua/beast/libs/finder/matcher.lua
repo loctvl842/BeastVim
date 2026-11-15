@@ -309,6 +309,7 @@ end
 ---@class Beast.Finder.MatchState
 ---@field pattern string the pattern used in the last run
 ---@field scores table<integer, number> map of item.idx → score from last run
+---@field total integer how many items matched (score > 0); `matched` only holds the best `topk_capacity` of them
 
 ---@param items Beast.Finder.Item[]
 ---@param filter Beast.Finder.Filter
@@ -335,7 +336,7 @@ function M.run(items, filter, cfg, on_done, prev_state, topk_capacity)
 				end
 			end
 			vim.schedule(function()
-				on_done(result, { pattern = pattern, scores = scores })
+				on_done(result, { pattern = pattern, scores = scores, total = #items })
 			end)
 			return
 		end
@@ -343,6 +344,7 @@ function M.run(items, filter, cfg, on_done, prev_state, topk_capacity)
 		local groups = parse_pattern(pattern, cfg.ignorecase, cfg.smartcase)
 		local capacity = topk_capacity or 1000
 		local topk = TopK(capacity)
+		local total = 0
 		local yield = async.yielder(1)
 
 		-- Determine if we can use subset elimination
@@ -370,6 +372,7 @@ function M.run(items, filter, cfg, on_done, prev_state, topk_capacity)
 				scores[item.idx] = s
 				if s > 0 then
 					topk:push(item)
+					total = total + 1
 				end
 			end
 
@@ -387,7 +390,7 @@ function M.run(items, filter, cfg, on_done, prev_state, topk_capacity)
 
 		local matched = topk:sorted()
 		vim.schedule(function()
-			on_done(matched, { pattern = pattern, scores = scores })
+			on_done(matched, { pattern = pattern, scores = scores, total = total })
 		end)
 	end)
 end

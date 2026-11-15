@@ -78,6 +78,28 @@ t.eq("the late answer arrived after the picker was gone", closed_early, 1)
 t.eq("and opened nothing", H.window_count(), 0)
 
 -- ---------------------------------------------------------------------------
+t.section("match pipeline: a visibility change re-reads an async source")
+local reload_gets = 0
+H.fake_source("fake_async_reload", {
+	live = false,
+	async = true,
+	get = function(_, cb)
+		reload_gets = reload_gets + 1
+		cb({ idx = 1, score = 0, text = "gen" .. reload_gets .. ".lua", file = "gen" .. reload_gets .. ".lua" })
+		cb(nil)
+	end,
+})
+H.open("fake_async_reload")
+t.ok("first load", H.has_row("gen1.lua"))
+vim.api.nvim_exec_autocmds("User", { pattern = "BeastVisibilityChanged", modeline = false })
+H.wait(function()
+	return H.has_row("gen2.lua")
+end, 2000)
+t.eq("the source was asked again", reload_gets, 2)
+t.ok("the list shows the new items only", H.has_row("gen2.lua") and not H.has_row("gen1.lua"), vim.inspect(H.rows()))
+H.close()
+
+-- ---------------------------------------------------------------------------
 t.section("stream pipeline: one search per prompt change")
 local calls, cancels = {}, 0
 H.fake_source("fake_live", {
