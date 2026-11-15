@@ -18,11 +18,14 @@ local source_registry = require("beast.libs.finder.source")
 ---@field offset integer list scroll offset to restore
 ---@field initial_query? string live sources: prompt text the level opens with, searched at once
 ---@field debounce_ms? integer how long typing must pause before this level searches
+---@field crumb? string name of the picker this level was opened from ("<BS> back to <crumb>")
 ---@field host? Beast.Finder.Host set by the Session that shows the level
 local M = {}
 M.__index = M
 
 ---@class Beast.Finder.LevelOpts: Beast.Finder.QueryOpts
+---@field title? string overrides the source's title
+---@field crumb? string
 
 ---@param source_name Beast.Finder.Source
 ---@param opts? Beast.Finder.LevelOpts
@@ -33,9 +36,10 @@ function M.new(source_name, opts)
 	local readable = source_name:gsub("_", " ")
 	return setmetatable({
 		source = source,
-		query = Query(source, { cwd = opts.cwd, preloaded_items = opts.preloaded_items, limit = opts.limit }),
+		query = Query(source, { cwd = opts.cwd, preloaded_items = opts.preloaded_items, limit = opts.limit, files = opts.files, ctx = opts.ctx }),
 		engine = source.live and pipeline_registry.stream or pipeline_registry.match,
-		title = source.title and source.title() or (readable:sub(1, 1):upper() .. readable:sub(2)),
+		title = opts.title or (source.title and source.title() or (readable:sub(1, 1):upper() .. readable:sub(2))),
+		crumb = opts.crumb,
 		text = "",
 		cursor = 1,
 		offset = 0,

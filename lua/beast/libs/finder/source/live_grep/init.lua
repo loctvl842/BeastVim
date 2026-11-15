@@ -229,6 +229,15 @@ local function parse_line(line)
 	}
 end
 
+--- Shown instead of results while the prompt is empty (nil: nothing to say).
+---@param filter Beast.Finder.Filter
+---@return string?
+function M.placeholder(filter)
+	if filter.files then
+		return ("(type to search inside the %d files)"):format(#filter.files)
+	end
+end
+
 ---@type { handle: uv.uv_process_t, stdout: uv.uv_pipe_t }[]
 local current_procs = {}
 
@@ -246,7 +255,8 @@ function M.get(filter, cb)
 	-- Bigram prefilter: empty survivor list = no file can match → done early.
 	-- nil = grep the whole tree (engine off/not ready). Survivors → grep only
 	-- those files (rg/ug still verifies, so results are byte-identical).
-	local survivors = prefilter(filter.pattern, filter.cwd)
+	-- A scoped search (opened from a list of files) greps exactly those files.
+	local survivors = filter.files or prefilter(filter.pattern, filter.cwd)
 	if survivors and #survivors == 0 then
 		vim.schedule(function()
 			cb(nil)

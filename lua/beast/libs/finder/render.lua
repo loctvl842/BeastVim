@@ -87,6 +87,16 @@ function M.formatters(session)
 	return format_fn, header_fn
 end
 
+--- Show the key hints under the picker for the level shown (or hide them).
+---@param session Beast.Finder.Session
+function M.hint(session)
+	local view = session.view
+	-- stylua: ignore
+	if not view or not view.hint then return end
+	local geo = require("beast.libs.finder.layout").calc(view.preview ~= nil, session.layout).hint
+	ui.hint.set(view.hint, require("beast.libs.finder.chain").hint_text(session), geo)
+end
+
 --- Format items → write to list buffer → apply match highlights → trigger preview → redraw.
 ---@param session Beast.Finder.Session
 function M.render(session)
@@ -107,6 +117,7 @@ function M.render(session)
 		local from, to = ui.list.visible_range(session.view.list)
 		match_hl.apply_list(session.view.list.buf, session.level.query.matched, format_fn, from, to, session.view.list._separators and 2 or 1)
 	end
+	M.hint(session)
 	M.schedule_preview(session)
 	vim.cmd("redraw")
 end

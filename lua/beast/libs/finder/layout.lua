@@ -13,6 +13,7 @@ local config = require("beast.libs.finder.config")
 ---@field input Beast.Finder.Layout.Geometry
 ---@field list Beast.Finder.Layout.Geometry
 ---@field preview? Beast.Finder.Layout.Geometry
+---@field hint? { row: integer, right: integer } where the key hints go: the row under the picker and the column its right edge ends at
 
 local M = {}
 
@@ -47,6 +48,12 @@ function M.calc(has_preview, kind)
 	local top = math.floor((vim.o.lines - total_h) / 2)
 	local left = math.floor((vim.o.columns - total_w) / 2)
 
+	-- The hints sit just under the bottom border, right-aligned with the picker; none when the screen has no row left.
+	local hint = nil
+	if top + total_h + 1 <= vim.o.lines - vim.o.cmdheight then
+		hint = { row = top + total_h, right = left + total_w }
+	end
+
 	if not has_preview then
 		local content_w = total_w - 2 -- left + right border
 		local input_h = 1
@@ -67,6 +74,7 @@ function M.calc(has_preview, kind)
 				h = list_content_h,
 				border = { "", "", "", "│", "╯", "─", "╰", "│" },
 			},
+			hint = hint,
 		}
 	end
 
@@ -100,6 +108,7 @@ function M.calc(has_preview, kind)
 			border = { "", "", "", "│", "┘", "─", "╰", "│" },
 		},
 		preview = { row = top, col = left + left_content_w + 1, w = preview_content_w, h = preview_content_h },
+		hint = hint,
 	}
 end
 

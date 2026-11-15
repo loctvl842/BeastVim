@@ -1,6 +1,7 @@
 --- Picker keys. Every key is written once: an action table says what a key does, a binding table
 --- says which keys exist in which pane (input, list, preview). Adding a key is one line in `common`.
 local action = require("beast.libs.finder.action")
+local chain = require("beast.libs.finder.chain")
 local match_hl = require("beast.libs.finder.match_hl")
 local render = require("beast.libs.finder.render")
 local ui = require("beast.libs.finder.ui")
@@ -43,7 +44,7 @@ local function focus_input(session)
 	vim.cmd("startinsert!")
 end
 
----@type table<string, fun(session: Beast.Finder.Session)>
+---@type table<string, fun(session: Beast.Finder.Session): string?>
 local actions = {
 	down = function(s)
 		move_cursor(s, 1)
@@ -89,6 +90,24 @@ local actions = {
 	close = function(s)
 		s:close()
 	end,
+	-- Chains: open the next picker / come back to the previous one.
+	drill = function(s)
+		chain.drill(s)
+	end,
+	back = function(s)
+		chain.back(s)
+	end,
+	-- `<BS>` on an empty prompt goes back (when there is somewhere to go); otherwise it is a normal backspace.
+	-- Runs as an `expr` mapping: the windows may not change inside it, so the pop is scheduled.
+	backspace = function(s)
+		if #s.stack > 0 and ui.input.get_text(s.view.input) == "" then
+			vim.schedule(function()
+				chain.back(s)
+			end)
+			return ""
+		end
+		return "<BS>"
+	end,
 	focus_input = focus_input,
 	focus_preview = function(s)
 		if s.view.preview and s.view.preview:is_valid() then
@@ -99,7 +118,7 @@ local actions = {
 	noop = function() end,
 }
 
----@alias Beast.Finder.KeyBinding { [1]: string, [2]: string, modes?: string[] } lhs, action name, modes (default: the pane's)
+---@alias Beast.Finder.KeyBinding { [1]: string, [2]: string, modes?: string[], expr?: boolean } lhs, action name, modes (default: the pane's), `expr` = the action returns the keys to feed
 
 ---@type Beast.Finder.KeyBinding[]
 local move = {
@@ -122,6 +141,10 @@ local pick = {
 	{ "<CR>", "confirm" },
 	{ "<C-s>", "split" },
 	{ "<C-v>", "vsplit" },
+}
+---@type Beast.Finder.KeyBinding[]
+local chains = {
+	{ chain.KEY, "drill" },
 }
 ---@type Beast.Finder.KeyBinding[]
 local leave = {
@@ -147,6 +170,11 @@ local panes = {
 			move_more,
 			leave,
 			pick,
+			chains,
+			{
+				{ "<C-o>", "back", modes = { "i" } },
+				{ "<BS>", "backspace", modes = { "i" }, expr = true },
+			},
 			{ { "<C-y>", "copy" }, { "<C-h>", "noop" }, { "<C-l>", "focus_preview" } },
 		},
 	},
@@ -157,6 +185,7 @@ local panes = {
 			move_more,
 			leave,
 			pick,
+			chains,
 			{ { "<C-h>", "focus_input" }, { "<C-l>", "focus_preview" } },
 		},
 		redirect = "printable",
@@ -165,6 +194,7 @@ local panes = {
 		modes = { "n" },
 		keys = {
 			move,
+			chains,
 			{ { "<Esc>", "close" } },
 			{ { "<C-h>", "focus_input" }, { "<C-l>", "noop" } },
 		},
@@ -185,9 +215,10 @@ local function mount_pane(session, role, spec)
 	for _, group in ipairs(spec.keys) do
 		for _, binding in ipairs(group) do
 			local run = actions[binding[2]]
+			local map_opts = binding.expr and vim.tbl_extend("force", opts, { expr = true }) or opts
 			vim.keymap.set(binding.modes or spec.modes, binding[1], function()
-				run(session)
-			end, opts)
+				return run(session)
+			end, map_opts)
 		end
 	end
 

@@ -252,6 +252,9 @@ end
 ---@param max_width? integer unused (kept for the shared formatter signature)
 ---@return Beast.Finder.Highlight[]
 function M.live_grep(item, max_width)
+	if item.message then
+		return { { text = item.text, hl = "BeastFinderGhMessage" } }
+	end
 	local lnum = item.pos and item.pos[1] or 0
 	local col = (item.pos and item.pos[2] or 0) + 1 -- col is 0-based byte; show 1-based
 	local text = item.grep_text or ""

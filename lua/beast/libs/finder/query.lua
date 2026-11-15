@@ -45,6 +45,8 @@ M.DEFAULT_LIMIT = 1000
 ---@field cwd? string
 ---@field preloaded_items? Beast.Finder.Item[]  Already-fetched items (e.g. from finder/preflight.lua); skips the source re-fetch in pipeline/match.lua
 ---@field limit? integer defaults to `M.DEFAULT_LIMIT`
+---@field files? string[] live sources: search only inside these files
+---@field ctx? table what a source needs from the level it was opened from
 
 ---@param source Beast.Finder.ASource
 ---@param opts? Beast.Finder.QueryOpts
@@ -55,7 +57,7 @@ function M:new(source, opts)
 	local query = setmetatable({
 		items = opts.preloaded_items or {},
 		matched = {},
-		filter = Filter({ cwd = opts.cwd }),
+		filter = Filter({ cwd = opts.cwd, files = opts.files, ctx = opts.ctx }),
 		source = source,
 		limit = opts.limit or M.DEFAULT_LIMIT,
 		loading = false,

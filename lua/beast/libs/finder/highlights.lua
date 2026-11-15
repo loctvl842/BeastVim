@@ -43,6 +43,9 @@ function M.get()
 		GhAuthor = { fg = p.accent2 },
 		GhMessage = { fg = p.dimmed3, italic = true },
 		GhError = { fg = p.red },
+		-- Key hints under the picker (drawn over the backdrop)
+		Hint = { fg = p.dimmed3, bg = bg },
+		HintKey = { fg = p.accent2, bg = bg },
 		-- Preview
 		PreviewBorder = { fg = p.dimmed3, bg = bg },
 		PreviewTitle = { bg = bg, fg = p.accent3, bold = true },

@@ -103,7 +103,7 @@ local function item_cost(view, idx)
 		return 1
 	end
 	local items = view.items
-	if idx == 1 or view._group_fn(items[idx]) ~= view._group_fn(items[idx - 1]) then
+	if not items[idx].message and (idx == 1 or view._group_fn(items[idx]) ~= view._group_fn(items[idx - 1])) then
 		return 2
 	end
 	return 1
@@ -277,7 +277,7 @@ local function render_visible(view)
 	local rows = 0
 	local idx = offset + 1
 	while idx <= total and rows < win_height do
-		local needs_header = header_fn ~= nil and (idx == 1 or view._group_fn(items[idx]) ~= view._group_fn(items[idx - 1]))
+		local needs_header = header_fn ~= nil and not items[idx].message and (idx == 1 or view._group_fn(items[idx]) ~= view._group_fn(items[idx - 1]))
 		local cost = (needs_header or separators) and 2 or 1
 		-- Card style keeps one row free for the slot below the last item.
 		if rows + cost + (separators and 1 or 0) > win_height and rows > 0 then

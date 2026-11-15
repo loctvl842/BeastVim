@@ -236,6 +236,31 @@ function H.count()
 	return ""
 end
 
+--- The key hint line under the picker ("" when hidden).
+---@return string
+function H.hint()
+	for _, win in ipairs(vim.api.nvim_list_wins()) do
+		local cfg = vim.api.nvim_win_get_config(win)
+		if cfg.relative ~= "" and cfg.zindex == 102 and not cfg.focusable then
+			return vim.api.nvim_buf_get_lines(vim.api.nvim_win_get_buf(win), 0, 1, false)[1] or ""
+		end
+	end
+	return ""
+end
+
+--- The prompt window's title, trimmed ("" when it has none).
+---@return string
+function H.title()
+	local input = H.panes().input
+	-- stylua: ignore
+	if not input then return "" end
+	local title = vim.api.nvim_win_get_config(input.win).title
+	if type(title) == "table" then
+		title = title[1] and title[1][1] or ""
+	end
+	return vim.trim(title or "")
+end
+
 --- Text of the list rows as drawn (headers included), trimmed.
 ---@return string[]
 function H.rows()

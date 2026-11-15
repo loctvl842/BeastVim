@@ -59,6 +59,12 @@ function M.open(source_name, opts)
 	Session.open(source_name, opts)
 end
 
+--- Every chain the finder supports: the pickers a picker can lead to (see chains.lua).
+---@return Beast.Finder.Edge[]
+function M.chains()
+	return require("beast.libs.finder.chains")
+end
+
 function M.close()
 	Session.close_current()
 end

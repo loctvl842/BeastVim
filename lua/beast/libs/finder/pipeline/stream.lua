@@ -130,9 +130,14 @@ function M.run(query, host)
 	-- Empty query → clear results (unless the source searches on an empty prompt too)
 	if query.filter.pattern == "" and not source.run_when_empty then
 		clear_list(query)
+		local placeholder = source.placeholder and source.placeholder(query.filter)
+		if placeholder then
+			query.matched = { { idx = 1, score = 0, text = placeholder, message = true } }
+		end
 		s.batch = {}
 		query.loading = false
 		host.busy(false)
+		host.count(nil)
 		restart_gc(s)
 		host.render()
 		return
@@ -207,9 +212,13 @@ end
 ---@param query Beast.Finder.Query
 ---@param host Beast.Finder.Host
 function M.start(query, host)
-	local initial = query.source.initial_query
+	local source = query.source
+	local initial = source.initial_query
 	if initial then
 		query.filter:update(initial)
+		M.run(query, host)
+	elseif source.placeholder and source.placeholder(query.filter) then
+		-- Nothing to search yet, but the source has something to say about the empty prompt.
 		M.run(query, host)
 	end
 end

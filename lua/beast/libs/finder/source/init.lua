@@ -21,6 +21,7 @@
 ---@field group fun(item: Beast.Finder.Item): any rows with an equal group share one header (default: `item.file`)
 ---@field preview_highlight? "match"|"range" what the default file preview highlights: the grep match text, or the exact range an LSP server returned
 ---@field open fun(session: Beast.Finder.Session, item: Beast.Finder.Item) what Enter does with an item (default: open its url, else its file)
+---@field placeholder? fun(filter: Beast.Finder.Filter): string? live sources: a message shown instead of results while the prompt is empty
 ---@field reload_on string[] `User` events that load the source again while the picker is open (default: `{ "BeastVisibilityChanged" }`)
 
 ---@alias Beast.Finder.Source "files"|"buffers"|"live_grep"|"colorschemes"|"help_tags"|"lsp_definitions"|"lsp_references"|"lsp_declarations"|"lsp_implementations"|"gh_pr"|"gh_issue"

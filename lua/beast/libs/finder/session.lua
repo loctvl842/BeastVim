@@ -11,6 +11,7 @@ local ui = require("beast.libs.finder.ui")
 ---@field list Beast.Finder.ListView
 ---@field preview? Beast.Finder.PreviewView
 ---@field backdrop? Beast.Finder.BackdropView
+---@field hint Beast.Finder.HintView key hints under the picker
 
 ---@class Beast.Finder.Session
 ---@field id integer
@@ -149,6 +150,7 @@ function M.open(source_name, opts)
 		),
 		list = ui.list.create(geo.list.row, geo.list.col, geo.list.w, geo.list.h, geo.list.border, opts.separators),
 		backdrop = opts.backdrop ~= false and ui.backdrop.create(config.backdrop) or nil,
+		hint = ui.hint.create(),
 	}
 	if frozen then
 		vim.api.nvim_win_set_hl_ns(session.view.input.win, frozen.input)
@@ -263,6 +265,7 @@ function M:close()
 		if self.view.preview and self.view.preview.loaded_image then
 			require("beast.libs.image").clear()
 		end
+		ui.hint.close(self.view.hint)
 		self.view.input:close()
 		self.view.list:close()
 		if self.view.preview then
@@ -300,6 +303,7 @@ end
 function M:relayout()
   -- stylua: ignore
   if not self.view then return end
+	local render = require("beast.libs.finder.render")
 
 	local geo = require("beast.libs.finder.layout").calc(self.view.preview ~= nil, self.layout)
 
@@ -350,9 +354,11 @@ function M:relayout()
 		require("beast.libs.finder.ui.preview").refresh(self.view.preview)
 	end
 
+	render.hint(self)
+
 	-- Separator rows are as wide as the list window, so redraw them at the new width
 	if self.view.list._separators then
-		require("beast.libs.finder.render").render(self)
+		render.render(self)
 	end
 end
 
