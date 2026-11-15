@@ -7,6 +7,7 @@ local config = require("beast.libs.finder.config")
 ---@field items Beast.Finder.Item[]
 ---@field cursor integer 1-based index into items
 ---@field _format_fn fun(item: Beast.Finder.Item): Beast.Finder.Highlight[]
+---@field _on_message boolean the selected row is a message row (no selection marker or cursorline)
 ---@field _separators boolean card style: a slot row above every item and below the last (dashed between items, solid around the selected one)
 ---@field _header_fn? fun(item: Beast.Finder.Item): Beast.Finder.Highlight[] optional group header (grouped sources)
 ---@field _offset integer 0-based index of the first visible item
@@ -25,6 +26,7 @@ local ListView = View:extend(
 		obj._format_fn = nil
 		obj._header_fn = nil
 		obj._separators = false
+		obj._on_message = false
 		obj._offset = 0
 		obj._win_height = 0
 		obj._item_to_row = {}
@@ -202,6 +204,20 @@ local function apply_row_highlights(view, row0, highlights)
 	end
 end
 
+--- Message rows (empty result, error) explain the list; they are not something to select, so the
+--- selection marker and cursorline are dropped while one is selected. Only touches the window on change.
+---@param view Beast.Finder.ListView
+---@return boolean on_message
+local function sync_message_state(view)
+	local item = view.items[view.cursor]
+	local on_message = item ~= nil and item.message == true
+	if on_message ~= view._on_message then
+		view._on_message = on_message
+		View.win.wo(view.win, "cursorline", not on_message and not view._separators)
+	end
+	return on_message
+end
+
 --- Write the visible slice of items to the buffer with extmarks. When grouping
 --- is active, a file-group header line is inserted above the first match of each
 --- file; the logical cursor always targets the match line, never a header.
@@ -310,12 +326,13 @@ local function render_visible(view)
 	vim.api.nvim_buf_clear_namespace(view.buf, view.prefix_ns, 0, -1)
 
 	local cursor_row = item_to_row[view.cursor]
+	local on_message = sync_message_state(view)
 
 	for r = 1, rows do
 		-- Selection prefix on match rows (selected on the cursor's match line);
 		-- headers get the pad so their text aligns with the match column.
 		local prefix_text = pad
-		if row_is_match[r] and r == cursor_row and not separators then
+		if row_is_match[r] and r == cursor_row and not separators and not on_message then
 			prefix_text = sel_prefix
 		end
 		if not edge_rows[r] then
@@ -385,8 +402,9 @@ function M.set_cursor(view, idx)
 		local visible_count = math.min(view._win_height, #view.items - view._offset)
 		vim.api.nvim_buf_clear_namespace(view.buf, view.prefix_ns, 0, -1)
 		local cursor_buf_row = view.cursor - view._offset
+		local on_message = sync_message_state(view)
 		for vi = 1, visible_count do
-			local prefix_text = (vi == cursor_buf_row) and sel_prefix or pad
+			local prefix_text = (vi == cursor_buf_row and not on_message) and sel_prefix or pad
 			vim.api.nvim_buf_set_extmark(view.buf, view.prefix_ns, vi - 1, 0, {
 				virt_text = { { prefix_text, "BeastFinderListSelectionPrefix" } },
 				virt_text_pos = "inline",

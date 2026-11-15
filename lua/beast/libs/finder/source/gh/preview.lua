@@ -255,6 +255,7 @@ local function clear(view)
 	end
 	-- stylua: ignore
 	if not view:is_valid() then return end
+	View.win.wo(view.win, "number", false)
 	vim.bo[view.buf].modifiable = true
 	vim.api.nvim_buf_set_lines(view.buf, 0, -1, false, {})
 	vim.bo[view.buf].modifiable = false

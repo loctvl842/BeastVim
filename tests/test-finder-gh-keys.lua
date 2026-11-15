@@ -116,6 +116,37 @@ local pr = { idx = 1, score = 1, text = "#1 t", url = "https://github.com/o/n/pu
 local msg = { idx = 1, score = 1, text = "No results for this search", message = true }
 local file = { idx = 1, score = 1, text = "a.lua", file = "/tmp/a.lua" }
 
+io.write("\n--- message rows are not selectable-looking ---\n")
+local function list_state()
+	for _, win in ipairs(vim.api.nvim_list_wins()) do
+		local buf = vim.api.nvim_win_get_buf(win)
+		if vim.bo[buf].filetype == "beast-finder-list" then
+			local marker = false
+			for _, m in ipairs(vim.api.nvim_buf_get_extmarks(buf, -1, 0, -1, { details = true })) do
+				local vt = m[4].virt_text
+				if vt and vt[1] and vt[1][1]:find("▌", 1, true) then
+					marker = true
+				end
+			end
+			return { cursorline = vim.wo[win].cursorline, marker = marker }
+		end
+	end
+end
+row = msg
+finder.close()
+finder.open("fake_keys")
+settle()
+local st = list_state()
+assert_eq("no selection marker on a message row", st and st.marker, false)
+assert_eq("no cursorline on a message row", st and st.cursorline, false)
+row = pr
+finder.close()
+finder.open("fake_keys")
+settle()
+st = list_state()
+assert_eq("selection marker on a normal row", st and st.marker, true)
+assert_eq("cursorline on a normal row", st and st.cursorline, true)
+
 io.write("\n--- Enter ---\n")
 assert_eq("Enter on a message row keeps the picker open", press(msg, "<CR>"), true)
 assert_eq("and opens nothing", #opened_urls, 0)
