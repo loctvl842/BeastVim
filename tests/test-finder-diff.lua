@@ -153,6 +153,51 @@ do
 	eq("unrelated lines", { rows[3].spans, rows[4].spans }, { nil, nil })
 end
 
+io.write("\n== syntax ==\n")
+do
+	local patch = "@@ -1,2 +1,2 @@\n local a = 1\n-return a\n+return a + 2"
+	local function has_capture(row, name)
+		for _, m in ipairs(row.marks or {}) do
+			if m[3]:find(name, 1, true) then
+				return true
+			end
+		end
+		return false
+	end
+	local rows = diff.rows({ status = "modified", additions = 1, deletions = 1, path = "lib/a.lua", patch = patch })
+	-- header, band, context, removed, added
+	eq("context code is colored", has_capture(rows[3], "@keyword.lua"), true)
+	eq("a removed line is colored from the old side", has_capture(rows[4], "@keyword.return.lua") or has_capture(rows[4], "@keyword.lua"), true)
+	eq("an added line is colored from the new side", has_capture(rows[5], "@keyword.return.lua") or has_capture(rows[5], "@keyword.lua"), true)
+	eq("the header keeps only its bar", has_capture(rows[1], "@keyword"), false)
+	eq("the band and notes are not colored", rows[2].marks, nil)
+
+	rows = diff.rows({ status = "modified", additions = 1, deletions = 1, file = "notes.unknownext", patch = patch })
+	eq("an unknown language stays plain", rows[3].marks, nil)
+
+	local cap = diff.MAX_SYNTAX_ROWS
+	diff.MAX_SYNTAX_ROWS = 2
+	rows = diff.rows({ status = "modified", additions = 1, deletions = 1, path = "lib/a.lua", patch = patch })
+	diff.MAX_SYNTAX_ROWS = cap
+	eq("a diff over the cap stays plain", rows[3].marks, nil)
+
+	local long = "@@ -1 +1 @@\n-local a = '" .. string.rep("x", 1100) .. "'\n+local a = 1"
+	rows = diff.rows({ status = "modified", additions = 1, deletions = 1, path = "lib/a.lua", patch = long })
+	eq("a very long line keeps the file plain", { rows[3].marks, rows[4].marks }, { nil, nil })
+
+	local lines = { "@@ -1,2000 +1,2000 @@" }
+	for i = 1, 2000 do
+		lines[#lines + 1] = " local x" .. i .. " = " .. i
+	end
+	local t0 = vim.uv.hrtime()
+	diff.MAX_SYNTAX_ROWS = 5000
+	diff.rows({ status = "modified", additions = 0, deletions = 0, path = "lib/a.lua", patch = table.concat(lines, "\n") })
+	diff.MAX_SYNTAX_ROWS = cap
+	local ms = (vim.uv.hrtime() - t0) / 1e6
+	io.write(("  colored 2000 rows in %.1f ms\n"):format(ms))
+	eq("coloring 2000 rows takes well under a frame budget of 100 ms", ms < 100, true)
+end
+
 io.write("\n== Summary ==\n")
 io.write(("  Passed: %d\n  Failed: %d\n"):format(passed, failed))
 os.exit(failed == 0 and 0 or 1)

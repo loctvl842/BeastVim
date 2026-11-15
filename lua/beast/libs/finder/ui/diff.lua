@@ -9,13 +9,12 @@ local M = {}
 
 --- A file shows at most this many diff lines; the rest is counted in a note.
 M.MAX_ROWS = 3000
+--- Code is colored for its language only up to this many rows (and lines up to MAX_SYNTAX_BYTES long).
+M.MAX_SYNTAX_ROWS = 1500
+local MAX_SYNTAX_BYTES = 1000
 
----@class Beast.Finder.Diff.File
----@field status string added|removed|modified|renamed|...
----@field previous? string path before a rename
----@field additions integer
----@field deletions integer
----@field patch? string unified diff; absent for binary or very large diffs
+--- A changed file: a file of a commit (`path`) or an item of the Files Changed list (`file`).
+---@alias Beast.Finder.Diff.File Beast.Finder.Gh.File|Beast.Finder.Gh.FileItem
 
 local NO_DIFF = "(diff too large or binary)"
 local BAR = 5 -- blocks in the +/- bar of the header
@@ -126,6 +125,91 @@ local function head_row(file)
 	return row
 end
 
+--- The treesitter highlights of `texts` (one string per line) as marks: line index -> { {s, e, group} }.
+---@param lang string
+---@param texts string[]
+---@return table<integer, { [1]: integer, [2]: integer, [3]: string }[]>
+local function capture_marks(lang, texts)
+	local marks = {}
+	local query = vim.treesitter.query.get(lang, "highlights")
+	if not query then
+		return marks
+	end
+	local source = table.concat(texts, "\n")
+	local root = vim.treesitter.get_string_parser(source, lang):parse()[1]:root()
+	for id, node in query:iter_captures(root, source) do
+		local name = query.captures[id]
+		if name:sub(1, 1) ~= "_" then
+			local group = "@" .. name .. "." .. lang
+			local first, col, last, end_col = node:range()
+			for line = first, last do
+				local s = line == first and col or 0
+				local e = line == last and end_col or #texts[line + 1]
+				if e > s then
+					marks[line + 1] = marks[line + 1] or {}
+					table.insert(marks[line + 1], { s, e, group })
+				end
+			end
+		end
+	end
+	return marks
+end
+
+--- Color the code rows of one hunk. Its old side (context and removed lines) and its new side (context and
+--- added lines) are each parsed on their own: parsed together, the two versions would not read as one file.
+---@param lang string
+---@param hunk Beast.View.DiffRow[] the code rows of the hunk
+local function color_hunk(lang, hunk)
+	local passes = {
+		{ keep = { ["-"] = true, [" "] = true }, mark = { ["-"] = true } },
+		{ keep = { ["+"] = true, [" "] = true }, mark = { ["+"] = true, [" "] = true } },
+	}
+	for _, pass in ipairs(passes) do
+		local side, texts = {}, {}
+		for _, row in ipairs(hunk) do
+			if pass.keep[row.sign] then
+				side[#side + 1] = row
+				texts[#texts + 1] = row.text
+			end
+		end
+		local marks = capture_marks(lang, texts)
+		for i, row in ipairs(side) do
+			if pass.mark[row.sign] and marks[i] then
+				row.marks = vim.list_extend(row.marks or {}, marks[i])
+			end
+		end
+	end
+end
+
+--- Color the code of `rows` for the language of `path`, when there is one and the diff is not too big.
+--- Anything that goes wrong leaves the rows as they are.
+---@param path? string
+---@param rows Beast.View.DiffRow[]
+local function color(path, rows)
+	local ft = path and vim.filetype.match({ filename = path })
+	local lang = ft and vim.treesitter.language.get_lang(ft)
+	if not lang or #rows > M.MAX_SYNTAX_ROWS then
+		return
+	end
+	local hunks, hunk = {}, nil
+	for _, row in ipairs(rows) do
+		if row.hl == "BeastViewDiffHunk" then
+			hunk = {}
+			hunks[#hunks + 1] = hunk
+		elseif hunk and not row.plain then
+			if #row.text > MAX_SYNTAX_BYTES then
+				return
+			end
+			hunk[#hunk + 1] = row
+		end
+	end
+	for _, rows_of_hunk in ipairs(hunks) do
+		if not pcall(color_hunk, lang, rows_of_hunk) then
+			return
+		end
+	end
+end
+
 --- The rows of one changed file: its header, then every hunk (a band, the lines with their numbers, the
 --- unchanged lines hidden between hunks counted in a row of their own).
 ---@param file Beast.Finder.Diff.File
@@ -199,6 +283,7 @@ function M.rows(file)
 			hl = "BeastViewDiffGap",
 		}
 	end
+	color(file.path or file.file, rows)
 	return rows
 end
 
