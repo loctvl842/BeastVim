@@ -185,13 +185,12 @@ function H.press(lhs, opts)
 	-- stylua: ignore
 	if not pane then return false end
 	local mode = opts.mode or (opts.pane == "list" or opts.pane == "preview") and "n" or "i"
-	local map
-	vim.api.nvim_buf_call(pane.buf, function()
-		map = vim.fn.maparg(lhs, mode, false, true)
-		if map and map.callback then
-			map.callback()
-		end
-	end)
+	-- Focus the pane (not nvim_buf_call, which would undo a focus change made by the mapping).
+	vim.api.nvim_set_current_win(pane.win)
+	local map = vim.fn.maparg(lhs, mode, false, true)
+	if map and map.callback then
+		map.callback()
+	end
 	H.settle(60)
 	return map ~= nil and map.callback ~= nil
 end
