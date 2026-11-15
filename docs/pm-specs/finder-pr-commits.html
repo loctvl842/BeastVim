@@ -95,7 +95,7 @@ STATE 3 — Grep inside the files that commit changed (your local copies):
 
 Step 2: press &lt;C-t&gt;
   Title: &quot;PR Refactor the finder so every pic… › Commits (4)&quot;. The 4 commits are listed,
-  oldest first (the order GitHub shows). The first commit&#x27;s diff is on the right.
+  newest first. The first commit&#x27;s diff is on the right.
 
 Step 3: move to the third commit
   The right side shows that commit&#x27;s message, its changed files and the diff of each.
@@ -144,7 +144,7 @@ A merge commit with no files of its own: &lt;C-g&gt; says &quot;Nothing to open 
 <section data-spec="open-decisions"><h2>Open decisions</h2>
 <div class="choice"><b>Key for commits.</b> The PR list already uses <code>&lt;C-g&gt;</code> for Files Changed. Recommended: <code>&lt;C-t&gt;</code> for commits (the hint line shows both). Alternative: <code>&lt;C-g&gt;</code> opens a small choice (Files changed / Commits).</div>
 <div class="choice"><b>What &quot;grep&quot; searches after a commit.</b> Recommended: your local copies of the files the commit changed (jumpable results, same as after Files Changed). Alternative: only the changed lines of the commit&#x27;s diff (results would open the diff, not your file).</div>
-<div class="choice"><b>Order.</b> Recommended: oldest first, like GitHub&#x27;s page. Alternative: newest first.</div>
+<div class="choice"><b>Order.</b> Decided: newest first (the latest commit on top). Alternative: oldest first, like GitHub&#x27;s page.</div>
 </section>
 <section data-spec="success-criteria"><h2>Success Criteria</h2>
 <ul class="check">

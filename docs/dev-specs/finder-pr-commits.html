@@ -141,7 +141,7 @@ end end</pre>
 <li>Action: <code>gh_pr|gh_commits</code>, key <code>&lt;C-t&gt;</code>, crumb &quot;Pull Requests&quot;, hint <code>commits in #N</code> (real PR row only), <code>open</code> returns <code>{ ctx = { pr = selected }, title = ... }</code>.</li>
 <li>Risk: Low</li>
 <li><b>Tests</b> (Files: <code>test-finder-gh-commits-api.lua</code>, <code>test-finder-gh-commits.lua</code> new)</li>
-<li>Action: paging/truncation/errors; the picker through the real keys with scripted <code>gh</code>: both hints on a PR, <code>&lt;C-t&gt;</code> lists commits oldest first, filter by subject/author/sha with <code>n/total</code>, diff preview and its cache (one fetch per sha), Enter opens the commit buffer, <code>&lt;BS&gt;</code> back with no new request, message row refuses. Risk: Low</li>
+<li>Action: paging/truncation/errors; the picker through the real keys with scripted <code>gh</code>: both hints on a PR, <code>&lt;C-t&gt;</code> lists commits newest first, filter by subject/author/sha with <code>n/total</code>, diff preview and its cache (one fetch per sha), Enter opens the commit buffer, <code>&lt;BS&gt;</code> back with no new request, message row refuses. Risk: Low</li>
 </ul>
 <h3 data-spec="phase-3-">Phase 3: Commit to grep (async edge)</h3>
 <ul>

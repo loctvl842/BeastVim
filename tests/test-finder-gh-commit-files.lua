@@ -23,7 +23,7 @@ end
 gh.install()
 gh.script["gh api -X GET search/issues"] = gh.ok(vim.json.encode({ total_count = 1, items = { gh.pr(1, "Touch things") } }))
 local commits = gh.commits(3)
-gh.script["gh api -X GET repos/o/n/pulls/1/commits --hostname github.com -f per_page=100 -f page=1"] = gh.ok(vim.json.encode(commits))
+gh.script["gh api -X GET repos/o/n/pulls/1/commits --hostname github.com -f per_page=100 -f page=1"] = gh.ok(vim.json.encode(gh.reversed(commits)))
 local files = gh.files(2, "lib/c") -- c1 exists, c2 does not
 gh.script["gh api -X GET repos/o/n/commits/" .. commits[1].sha] = gh.ok(vim.json.encode({ commit = { message = "m" }, files = files }))
 gh.script["gh api -X GET repos/o/n/commits/" .. commits[2].sha] = gh.ok(vim.json.encode({ commit = { message = "merge" } }))

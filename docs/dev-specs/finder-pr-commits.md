@@ -105,7 +105,7 @@ Validation (`chain.validate`, run by `finder.setup`, raises with the offending i
    - Action: `gh_pr|gh_commits`, key `<C-t>`, crumb "Pull Requests", hint `commits in #N` (real PR row only), `open` returns `{ ctx = { pr = selected }, title = ... }`.
    - Risk: Low
 5. **Tests** (Files: `test-finder-gh-commits-api.lua`, `test-finder-gh-commits.lua` new)
-   - Action: paging/truncation/errors; the picker through the real keys with scripted `gh`: both hints on a PR, `<C-t>` lists commits oldest first, filter by subject/author/sha with `n/total`, diff preview and its cache (one fetch per sha), Enter opens the commit buffer, `<BS>` back with no new request, message row refuses. Risk: Low
+   - Action: paging/truncation/errors; the picker through the real keys with scripted `gh`: both hints on a PR, `<C-t>` lists commits newest first, filter by subject/author/sha with `n/total`, diff preview and its cache (one fetch per sha), Enter opens the commit buffer, `<BS>` back with no new request, message row refuses. Risk: Low
 
 ## Phase 3: Commit to grep (async edge)
 1. **Waiting edges** (File: `chain.lua`)
@@ -146,7 +146,7 @@ Validation (`chain.validate`, run by `finder.setup`, raises with the offending i
 - `75ab31b` fix(finder): the preview of an informational row is empty and drops the previous title
 - `6dd84e3` fix(finder): commit preview redraws after going back; partial title for big commits; pending chain request tied to the selection; bounded commit cache
 
-Deviations and additions: `keep_order` (source flag, `TopK` option) so the commits list stays oldest first with an empty prompt (`gh_pr_files` uses it too, so files keep GitHub's order); commit items carry the message in `body` (`message` is the informational-row flag); `chain.keys(session)` binds only the keys of edges reachable from the picker's first source; the gh preview modules mark the pane (`view.loaded_file`) so a push/pop cannot leave a stale or blank preview; message rows clear the preview. A commit with exactly 300 files is shown as partial (GitHub cannot tell it apart from a longer one).
+Deviations and additions: `keep_order` (source flag, `TopK` option) so the commits list stays newest first with an empty prompt (`gh_pr_files` uses it too, so files keep GitHub's order); commit items carry the message in `body` (`message` is the informational-row flag); `chain.keys(session)` binds only the keys of edges reachable from the picker's first source; the gh preview modules mark the pane (`view.loaded_file`) so a push/pop cannot leave a stale or blank preview; message rows clear the preview. A commit with exactly 300 files is shown as partial (GitHub cannot tell it apart from a longer one).
 
 Verification: every `tests/test-finder-*.lua` and `test-preflight*` pass (new: chain-config, gh-commits-api 11, gh-commits, chain-commit-grep 24); stylua and lua-language-server clean; `bench-finder-matcher` 18.0 ms full scan / 18.4 ms subset (unchanged); `bench-ux.sh all` PASS on all five scenarios; real nvim in tmux with the default config: files, scoped grep, hint and back checked. A code review found a blank commit preview after going back (fixed with a regression test), the missing "(partial)" in the grep title, the unbounded cache and a late answer opening for another selection (all fixed). Not done: live GitHub (all `gh` calls are scripted), dark/light colour check in wezterm.
 

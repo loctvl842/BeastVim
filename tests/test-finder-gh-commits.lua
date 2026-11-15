@@ -18,7 +18,7 @@ local commits = gh.commits(4)
 commits[2].commit.message = "Scoped grep\n\nonly the files you found"
 commits[2].commit.author.name = "Zed"
 commits[2].author = { login = "zed" }
-gh.script["gh api -X GET repos/o/n/pulls/1/commits --hostname github.com -f per_page=100 -f page=1"] = gh.ok(vim.json.encode(commits))
+gh.script["gh api -X GET repos/o/n/pulls/1/commits --hostname github.com -f per_page=100 -f page=1"] = gh.ok(vim.json.encode(gh.reversed(commits)))
 local sha2 = commits[2].sha
 gh.script["gh api -X GET repos/o/n/commits/" .. commits[1].sha] = gh.ok(vim.json.encode({ commit = { message = "m" }, files = gh.files(2, "lib/c") }))
 gh.script["gh api -X GET repos/o/n/commits/" .. sha2] = gh.ok(vim.json.encode({ commit = { message = "m" }, files = gh.files(1, "lib/z") }))
@@ -43,7 +43,7 @@ t.eq("title", H.title(), "PR Short title › Commits (4)")
 t.eq("count", H.count(), "4")
 local rows = H.rows()
 t.ok(
-	"oldest first, with the id and the subject",
+	"newest first (the API answers oldest first), with the id and the subject",
 	rows[1]:find("0000001", 1, true) ~= nil and rows[1]:find("Commit 1 subject", 1, true) ~= nil and rows[4]:find("Commit 4 subject", 1, true) ~= nil,
 	vim.inspect(rows)
 )

@@ -83,6 +83,18 @@ function M.commits(n, from)
 	return out
 end
 
+--- A list in the opposite order (the tests write commits newest first, the API answers oldest first).
+---@generic T
+---@param list T[]
+---@return T[]
+function M.reversed(list)
+	local out = {}
+	for i = #list, 1, -1 do
+		out[#out + 1] = list[i]
+	end
+	return out
+end
+
 function M.install()
 	orig_system, orig_executable = vim.system, vim.fn.executable
 	M.calls, M.script = {}, {

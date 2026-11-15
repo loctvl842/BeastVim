@@ -133,7 +133,7 @@ finder/
 │   │       ├── serialize.lua  ← binary index dump/load (header + col_for uint16 pairs + raw uint32 matrix + NUL paths)
 │   │       ├── builder.lua    ← pure build routine (rg --files → read → serialize.write); runs in the child
 │   │       └── index.lua      ← spawns headless builder subprocess, loads via ffi.copy, fs_event refresh, query→paths
-│   ├── gh_commits.lua ← match source over `filter.ctx.pr`: the commits of a pull request (id, subject, author, age; oldest first via `keep_order`), diff preview (`gh/commit_preview.lua`, per-commit cache), Enter opens the commit in a scratch buffer
+│   ├── gh_commits.lua ← match source over `filter.ctx.pr`: the commits of a pull request (id, subject, author, age; newest first via `keep_order`), diff preview (`gh/commit_preview.lua`, per-commit cache), Enter opens the commit in a scratch buffer
 │   ├── gh_commit_files.lua ← match source over `filter.ctx.commit`: the files one commit changes (rows/preview/Enter as gh_pr_files); title "Commit <id> › Files Changed (N)"
 │   ├── gh_pr_files.lua ← match source over `filter.ctx.pr`: the files a pull request changes (paths), diff preview, Enter opens the diff in a scratch buffer; title "PR <title> › Files Changed (N)"
 │   ├── gh_issue_grep.lua ← live source over `filter.ctx.issues`: plain smart-case search in their title and description, grouped by issue

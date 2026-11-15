@@ -78,7 +78,7 @@ Step 1: open Pull Requests (<leader>ghp), move to #12
 
 Step 2: press <C-t>
   Title: "PR Refactor the finder so every pic… › Commits (4)". The 4 commits are listed,
-  oldest first (the order GitHub shows). The first commit's diff is on the right.
+  newest first. The first commit's diff is on the right.
 
 Step 3: move to the third commit
   The right side shows that commit's message, its changed files and the diff of each.
@@ -156,7 +156,7 @@ A merge commit with no files of its own: <C-g> says "Nothing to open from here".
 
 1. **Key for commits.** The PR list already uses `<C-g>` for Files Changed. Recommended: `<C-t>` for commits (the hint line shows both). Alternative: `<C-g>` opens a small choice (Files changed / Commits).
 2. **What "grep" searches after a commit.** Recommended: your local copies of the files the commit changed (jumpable results, same as after Files Changed). Alternative: only the changed lines of the commit's diff (results would open the diff, not your file).
-3. **Order.** Recommended: oldest first, like GitHub's page. Alternative: newest first.
+3. **Order.** Decided: newest first (the latest commit on top). Alternative: oldest first, like GitHub's page.
 
 ---
 

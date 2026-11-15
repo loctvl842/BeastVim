@@ -33,9 +33,11 @@ function M.get(filter, cb)
 			cb(message("No commits"))
 		else
 			filter.ctx.truncated = result.truncated
-			for i, commit in ipairs(result.commits) do
+			-- GitHub lists the oldest first; the latest commit is the one you want first.
+			for i = #result.commits, 1, -1 do
+				local commit = result.commits[i]
 				cb({
-					idx = i,
+					idx = #result.commits - i + 1,
 					score = 0,
 					text = ("%s %s %s"):format(commit.short, commit.subject, commit.author),
 					cwd = filter.cwd,
