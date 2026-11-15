@@ -77,6 +77,13 @@ H.press("<C-g>")
 H.settle(200)
 t.eq("title says what was scoped", H.title(), "3 Files › Live Grep")
 t.eq("the prompt starts empty", H.prompt(), "")
+local preview_cfg = vim.api.nvim_win_get_config(H.panes().preview.win)
+local preview_title = type(preview_cfg.title) == "table" and preview_cfg.title[1] and preview_cfg.title[1][1] or preview_cfg.title or ""
+t.eq(
+	"the preview of the placeholder is empty, with no stale title",
+	{ vim.trim(preview_title), #vim.api.nvim_buf_get_lines(H.panes().preview.buf, 0, -1, false) },
+	{ "", 1 }
+)
 t.ok("the list says what to type", H.has_row("type to search inside the 3 files"), vim.inspect(H.rows()))
 t.ok("hint offers the way back", H.hint():find("<BS> back to Files", 1, true) ~= nil, H.hint())
 

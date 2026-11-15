@@ -24,6 +24,9 @@ function M.schedule_preview(session)
 			if item then
 				if session.view.preview and session.level.query.source.preview then
 					session.level.query.source.preview(session.view.preview, item)
+				elseif session.view.preview and item.message then
+					-- An informational row (a placeholder, an error) has nothing to preview.
+					ui.preview.clear(session.view.preview)
 				elseif session.view.preview then
 					ui.preview.show(session.view.preview, item)
 
