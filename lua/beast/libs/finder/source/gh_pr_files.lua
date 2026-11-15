@@ -9,10 +9,8 @@ local M = {}
 M.live = false
 M.async = true
 M.auto_select = false
+M.keep_order = true
 M.count = format.ratio
-
--- GitHub's own pages show roughly this much of a pull request title.
-local TITLE_WIDTH = 40
 
 ---@class Beast.Finder.Gh.FileItem: Beast.Finder.Item
 ---@field pr Beast.Finder.Gh.Item
@@ -71,11 +69,7 @@ function M.title(filter, items)
 	if not pr then
 		return "Files Changed"
 	end
-	local title = pr.title
-	if vim.fn.strchars(title) > TITLE_WIDTH then
-		title = vim.fn.strcharpart(title, 0, TITLE_WIDTH - 3) .. "..."
-	end
-	local out = ("PR %s › Files Changed"):format(title)
+	local out = format.pr_label(pr) .. " › Files Changed"
 	if items and #items > 0 and not items[1].message then
 		out = out .. (" (%d%s)"):format(#items, filter.ctx.truncated and ", partial" or "")
 	end

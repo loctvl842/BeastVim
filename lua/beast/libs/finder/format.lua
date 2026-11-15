@@ -327,6 +327,34 @@ function M.gh_issue_grep_header(item)
 	}
 end
 
+--- "PR <title>", the title shortened with "..." when it is long (the title bar of the levels opened from a pull request).
+---@param pr Beast.Finder.Gh.Item
+---@return string
+function M.pr_label(pr)
+	local title = pr.title
+	if vim.fn.strchars(title) > 40 then
+		title = vim.fn.strcharpart(title, 0, 37) .. "..."
+	end
+	return "PR " .. title
+end
+
+--- A commit of a pull request: "<short id>  <subject>" with the author and age at the right edge.
+--- The item text is "<short id> <subject> <author>", which the parts' `src` ranges map matches onto.
+---@param item Beast.Finder.Item a commit item (`short`, `subject`, `author`, `date`)
+---@return Beast.Finder.Highlight[]
+function M.gh_commit(item)
+	if item.message then
+		return { { text = item.text, hl = item.is_error and "BeastFinderGhError" or "BeastFinderGhMessage" } }
+	end
+	local age = require("beast.libs.finder.source.gh.preview").reltime(item.date)
+	return {
+		{ text = item.short, hl = "BeastFinderGhNumber", src = { 1, #item.short } },
+		{ text = "  " },
+		{ text = item.subject, hl = "BeastFinderListFile", src = { #item.short + 2, #item.short + 1 + #item.subject } },
+		{ text = ("%s  %s "):format(item.author, age), hl = "BeastFinderListDir", right_align = true },
+	}
+end
+
 ---@param item Beast.Finder.Gh.Item|Beast.Finder.Item
 ---@return Beast.Finder.Highlight[]
 function M.gh(item)

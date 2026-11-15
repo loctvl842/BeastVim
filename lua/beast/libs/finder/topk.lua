@@ -9,7 +9,8 @@
 ---@field _data Beast.Finder.Item[]
 ---@field _size integer
 ---@field _capacity integer
----@overload fun(capacity: integer): Beast.Finder.TopK
+---@field _keep_order boolean items of equal score stay in the order they arrived (instead of shorter text first)
+---@overload fun(capacity: integer, keep_order?: boolean): Beast.Finder.TopK
 local M = setmetatable({}, {
 	__call = function(t, ...)
 		return t:new(...)
@@ -18,12 +19,14 @@ local M = setmetatable({}, {
 M.__index = M
 
 ---@param capacity integer maximum number of items to retain
+---@param keep_order? boolean
 ---@return Beast.Finder.TopK
-function M:new(capacity)
+function M:new(capacity, keep_order)
 	return setmetatable({
 		_data = {},
 		_size = 0,
 		_capacity = capacity,
+		_keep_order = keep_order == true,
 	}, self)
 end
 
@@ -46,10 +49,12 @@ function M:_less(a, b)
 	if a.score ~= b.score then
 		return a.score < b.score
 	end
-	local a_len = #(a.text or "")
-	local b_len = #(b.text or "")
-	if a_len ~= b_len then
-		return a_len > b_len -- longer text is worse
+	if not self._keep_order then
+		local a_len = #(a.text or "")
+		local b_len = #(b.text or "")
+		if a_len ~= b_len then
+			return a_len > b_len -- longer text is worse
+		end
 	end
 	return (a.idx or 0) > (b.idx or 0)
 end
@@ -120,14 +125,17 @@ function M:sorted()
 	for i = 1, self._size do
 		out[i] = self._data[i]
 	end
+	local keep_order = self._keep_order
 	table.sort(out, function(a, b)
 		if a.score ~= b.score then
 			return a.score > b.score
 		end
-		local a_len = #(a.text or "")
-		local b_len = #(b.text or "")
-		if a_len ~= b_len then
-			return a_len < b_len -- shorter text first
+		if not keep_order then
+			local a_len = #(a.text or "")
+			local b_len = #(b.text or "")
+			if a_len ~= b_len then
+				return a_len < b_len -- shorter text first
+			end
 		end
 		return (a.idx or 0) < (b.idx or 0)
 	end)

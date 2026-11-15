@@ -106,6 +106,37 @@ function M.open_diff(win, item)
 	end
 end
 
+--- Show a commit of a pull request (message and diffs) in a read-only scratch buffer. The commit's files
+--- may still have to be fetched (the picker is already closed), so the buffer opens when they arrive.
+---@param win? integer window to show it in; falls back to the current window
+---@param item Beast.Finder.Item a commit item
+function M.open_commit(win, item)
+	local commit_preview = require("beast.libs.finder.source.gh.commit_preview")
+	commit_preview.detail(item, function(result)
+		if result.error then
+			Toast("Could not load the commit: " .. result.error.message, vim.log.levels.WARN)
+			return
+		end
+		if win and vim.api.nvim_win_is_valid(win) then
+			vim.api.nvim_set_current_win(win)
+		end
+		local buf = vim.api.nvim_create_buf(true, true)
+		vim.bo[buf].buftype = "nofile"
+		vim.bo[buf].bufhidden = "wipe"
+		local name = ("%s@%s"):format(item.pr.repo, item.short)
+		local existing = vim.fn.bufnr("^" .. vim.fn.escape(name, "\\[].*~") .. "$")
+		if existing ~= -1 then
+			pcall(vim.api.nvim_buf_delete, existing, { force = true })
+		end
+		vim.api.nvim_buf_set_name(buf, name)
+		vim.api.nvim_buf_set_lines(buf, 0, -1, false, commit_preview.build(item, result.detail))
+		vim.bo[buf].modifiable = false
+		vim.bo[buf].filetype = "diff"
+		vim.cmd("normal! m'")
+		vim.api.nvim_win_set_buf(0, buf)
+	end)
+end
+
 ---@param win? integer window to focus before opening; falls back to the current window
 ---@param item Beast.Finder.Item
 function M.open_split(win, item)

@@ -80,6 +80,26 @@ end
 
 ---@param ctx Beast.Finder.ChainCtx
 ---@return string?
+local function commits_in_pr(ctx)
+	local pr = ctx.selected ---@cast pr Beast.Finder.Gh.Item?
+	return pr and not pr.message and ("commits in #" .. pr.number) or nil
+end
+
+---@param ctx Beast.Finder.ChainCtx
+---@return Beast.Finder.LevelOpts?
+local function pr_commits(ctx)
+	local pr = ctx.selected
+	if not pr or pr.message then
+		return nil
+	end
+	return {
+		ctx = { pr = pr },
+		title = require("beast.libs.finder.source.gh_commits").title({ ctx = { pr = pr } }),
+	}
+end
+
+---@param ctx Beast.Finder.ChainCtx
+---@return string?
 local function grep_local_copies(ctx)
 	return ctx.total > 0 and "grep your local copies" or nil
 end
@@ -137,6 +157,7 @@ local edges = {
 	{ from = "files", to = "live_grep", crumb = "Files", hint = grep_files, open = scope_files("Files") },
 	{ from = "buffers", to = "live_grep", crumb = "Buffers", hint = grep_files, open = scope_files("Buffers") },
 	{ from = "gh_pr", to = "gh_pr_files", crumb = "Pull Requests", hint = files_in_pr, open = pr_files },
+	{ from = "gh_pr", to = "gh_commits", key = "<C-t>", crumb = "Pull Requests", hint = commits_in_pr, open = pr_commits },
 	{ from = "gh_pr_files", to = "live_grep", crumb = "Files Changed", hint = grep_local_copies, open = scope_local_copies },
 	{ from = "gh_issue", to = "gh_issue_grep", crumb = "Issues", hint = grep_issues, open = scope_issues },
 	{ from = "help_tags", to = "live_grep", crumb = "Help", hint = grep_help, open = scope_files("Help Files") },

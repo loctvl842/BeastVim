@@ -12,6 +12,13 @@ local Filter = require("beast.libs.finder.filter")
 ---@field end_pos? {[1]: number, [2]: number}
 ---@field grep_text? string
 ---@field match_text? string  literal text grep actually matched (for preview highlight)
+---@field sha? string commit items: the full id
+---@field short? string commit items: the first 7 characters of `sha`
+---@field subject? string commit items: first line of the message
+---@field body? string commit items: the whole message
+---@field author? string commit items
+---@field date? string commit items: ISO timestamp
+---@field pr? Beast.Finder.Gh.Item gh_pr_files / gh_commits items: the pull request they belong to
 ---@field issue? Beast.Finder.Gh.Item issue grep: the issue the line was found in
 ---@field url? string web address (GitHub sources); Enter opens it, copy copies it
 ---@field message? boolean informational row (empty result, error); not an actionable item

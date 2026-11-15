@@ -36,6 +36,7 @@ local valid = {
 	["buffers>live_grep"] = true,
 	["help_tags>live_grep"] = true,
 	["gh_pr>gh_pr_files"] = true,
+	["gh_pr>gh_commits"] = true,
 	["gh_pr_files>live_grep"] = true,
 	["gh_issue>gh_issue_grep"] = true,
 }
@@ -49,7 +50,7 @@ for _, from in ipairs(sources) do
 	end
 end
 t.ok("sources were found", #sources >= 12, vim.inspect(sources))
-t.eq("exactly the six built-in edges exist, every other pair raises", wrong, {})
+t.eq("exactly the built-in edges exist, every other pair raises", wrong, {})
 t.eq("finder.chains() lists the enabled edges", #require("beast.libs.finder").chains(), #require("beast.libs.finder.chains"))
 
 t.section("files -> grep")

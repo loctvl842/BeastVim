@@ -161,7 +161,7 @@ function M.start(query, host)
 		local yield = async.yielder(1)
 		local match_idx = 0
 		local capacity = query.limit
-		local topk = TopK(capacity)
+		local topk = TopK(capacity, query.source.keep_order)
 
 		while not finder_done or match_idx < #items do
 			-- stylua: ignore
