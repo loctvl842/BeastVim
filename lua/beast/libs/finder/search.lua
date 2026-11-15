@@ -1,4 +1,4 @@
---- Headless file search: streams the `files` source once, then re-scores the cached items per
+--- Headless file search: streams the `files` source (again on `refresh`), then re-scores the cached items per
 --- query with the finder's match pipeline. No windows, no picker Session, so other libs
 --- (explorer) can reuse the finder's search without its UI. It is the same engine the picker
 --- runs, driven through a headless host.
@@ -64,6 +64,9 @@ function Session:_report()
 	self.loading = self.q.loading
 	-- stylua: ignore
 	if not self.cb or self.q.matching then return end
+	-- An empty pattern needs no scoring, so the loader renders it while streaming: wait for the whole list.
+	-- stylua: ignore
+	if self.q.loading and self.q.filter.pattern == "" then return end
 	local matched = self.q.matched
 	local capped = #matched > self.limit
 	if capped then
@@ -84,6 +87,8 @@ end
 --- Re-read the file list (e.g. hidden/gitignored visibility changed). The last
 --- query is re-run once the new list has streamed in.
 function Session:refresh()
+	-- stylua: ignore
+	if self.closed then return end
 	self.loading = true
 	match.reload(self.q, self.host)
 end

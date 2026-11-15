@@ -171,7 +171,7 @@ function M.start(query, host)
 				query.total = match_idx
 				vim.schedule(function()
 					-- stylua: ignore
-					if stale(s, host) then return end
+					if stale(s, host) or s.load_id ~= load_id then return end
 					host.render()
 				end)
 			end
@@ -187,8 +187,10 @@ function M.start(query, host)
 			query.matched = topk:sorted()
 			query.total = match_idx
 		else
-			-- Scores so far only cover the items that had arrived: the final pass below completes them.
+			-- Scores so far only cover the items that had arrived: the final pass below completes them,
+			-- and a partial answer the scorer already queued must not be mistaken for it.
 			query.matching = true
+			s.generation = s.generation + 1
 		end
 		query.loading = false
 

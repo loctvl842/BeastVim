@@ -154,6 +154,69 @@ vim.wait(300, function()
 end, 10)
 assert_test("no callback after close", calls == 0, "calls=" .. calls)
 
+io.write("\n--- refresh() re-runs the last query on its own ---\n")
+local rerun = search.files({ cwd = root })
+vim.wait(3000, function()
+	return not rerun.loading
+end, 10)
+local seen_texts
+rerun:query("fresh_file", function(matched, result)
+	if not result.loading then
+		seen_texts = vim.tbl_map(function(i)
+			return i.text
+		end, matched)
+	end
+end)
+vim.wait(1000, function()
+	return seen_texts ~= nil
+end, 10)
+assert_test("nothing before the file exists", seen_texts ~= nil and #seen_texts == 0, vim.inspect(seen_texts))
+write(root .. "/lua/beast/fresh_file.lua")
+seen_texts = nil
+rerun:refresh()
+vim.wait(3000, function()
+	return seen_texts ~= nil
+end, 10)
+assert_test(
+	"the same query is answered again, with the new file, without calling query()",
+	vim.deep_equal(seen_texts, { "lua/beast/fresh_file.lua" }),
+	vim.inspect(seen_texts)
+)
+rerun:close()
+
+io.write("\n--- results delivered while streaming are scored ---\n")
+local streaming = search.files({ cwd = root })
+local partial
+streaming:query("README", function(matched, result)
+	if result.loading then
+		partial = partial or {}
+		for _, item in ipairs(matched) do
+			partial[#partial + 1] = item.text
+		end
+	end
+end)
+vim.wait(1000, function()
+	return not streaming.loading
+end, 10)
+assert_test("anything reported before loading ends is a real match", partial == nil or vim.deep_equal(
+	vim.tbl_filter(function(t)
+		return t ~= "README.md"
+	end, partial),
+	{}
+), vim.inspect(partial))
+streaming:close()
+
+io.write("\n--- refresh() after close() does nothing ---\n")
+local gone = search.files({ cwd = root })
+gone:close()
+local ok_refresh = pcall(function()
+	gone:refresh()
+	vim.wait(200, function()
+		return false
+	end, 10)
+end)
+assert_test("no error", ok_refresh)
+
 io.write("\n--- refresh() picks up new files ---\n")
 write(root .. "/lua/beast/fresh_file.lua")
 s:refresh()
