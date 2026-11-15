@@ -44,6 +44,9 @@ function M.open(source_name, opts)
 	M.close()
 
 	local source = source_registry[source_name]
+	if source.check and not source.check() then
+		return
+	end
 	if source.auto_select then
 		-- Pre-flight: run the source to completion before any picker window
 		-- exists. A single result jumps directly (no picker ever shown); more

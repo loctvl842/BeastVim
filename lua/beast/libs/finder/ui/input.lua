@@ -15,6 +15,7 @@ local SPINNER_INTERVAL_MS = 80
 ---@field _spinner_timer uv.uv_timer_t|nil
 ---@field _spinner_frame integer
 ---@field _spinner_extmark integer|nil
+---@field _count_extmark integer|nil
 ---@overload fun(buf?: integer, win?: integer, ns: integer): Beast.Finder.InputView
 local InputView = View:extend(
 	---@param obj Beast.Finder.InputView
@@ -24,6 +25,7 @@ local InputView = View:extend(
 		obj._spinner_timer = nil
 		obj._spinner_frame = 0
 		obj._spinner_extmark = nil
+		obj._count_extmark = nil
 	end
 )
 
@@ -39,7 +41,8 @@ local M = {}
 ---@param debounce_ms? integer override debounce interval
 ---@param border? table border chars
 ---@param card? boolean card style: filled panel, extra left padding before the prompt icon
-function M.create(on_change, total_w, total_h, win_row, win_col, title, debounce_ms, border, card)
+---@param initial_text? string text the prompt starts with, cursor at its end
+function M.create(on_change, total_w, total_h, win_row, win_col, title, debounce_ms, border, card, initial_text)
 	local buf = View.buf.new("beast-finder-input")
 	vim.bo[buf].buftype = "prompt"
 
@@ -74,6 +77,10 @@ function M.create(on_change, total_w, total_h, win_row, win_col, title, debounce
 	local prefix = config.prompt_prefix
 	if prefix ~= "" then
 		vim.fn.prompt_setprompt(buf, prefix)
+	end
+
+	if initial_text and initial_text ~= "" then
+		vim.api.nvim_buf_set_lines(buf, 0, 1, false, { prefix .. initial_text })
 	end
 
 	-- Highlight the prompt prefix (safe now that the line has content)
@@ -139,6 +146,24 @@ function M.get_text(view)
 		text = text:sub(#prefix + 1)
 	end
 	return text
+end
+
+--- Show (or with nil, clear) a right-aligned dim label in the prompt row, e.g. the result count.
+---@param view Beast.Finder.InputView
+---@param text? string
+function M.set_count(view, text)
+	-- stylua: ignore
+	if not view:is_valid() then return end
+	if view._count_extmark then
+		pcall(vim.api.nvim_buf_del_extmark, view.buf, view.ns, view._count_extmark)
+		view._count_extmark = nil
+	end
+	if text and text ~= "" then
+		view._count_extmark = vim.api.nvim_buf_set_extmark(view.buf, view.ns, 0, 0, {
+			virt_text = { { text, "BeastFinderListDir" } },
+			virt_text_pos = "right_align",
+		})
+	end
 end
 
 --- Show a spinning indicator right-aligned in the input window

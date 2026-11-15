@@ -21,6 +21,7 @@ local ui = require("beast.libs.finder.ui")
 ---@field layout? "cards"
 ---@field initial_text? string
 ---@field initial_done? boolean the initial selection has been applied
+---@field initial_query? string prompt text the source opened with, searched already; the first change event for the same text is skipped
 ---@field frozen? boolean panels use frozen highlight namespaces
 ---@field main_win? integer
 ---@field augroup? integer
@@ -74,14 +75,24 @@ function M:new(source_name, opts)
 	local geo = require("beast.libs.finder.layout").calc(has_preview, opts.layout)
 	local title_name = source_name:gsub("_", " ")
 	local title = opts.layout == "cards" and "" or title_name:sub(1, 1):upper() .. title_name:sub(2)
-	local input_debounce = is_live and config.debounce.live_ms or nil
+	if source.title and opts.layout ~= "cards" then
+		title = source.title()
+	end
+	local input_debounce = source.debounce_ms or (is_live and config.debounce.live_ms or nil)
+	local initial_query = is_live and source.initial_query or nil
 	local frozen = opts.freeze_colors and require("beast.libs.finder.highlights").freeze() or nil
 
 	instance.view = {
 		input = ui.input.create(function(text)
+			-- Prefilling the prompt can echo back as a change event; the search for it already ran.
+			if instance.initial_query and text == instance.initial_query then
+				instance.initial_query = nil
+				return
+			end
+			instance.initial_query = nil
 			query.filter:update(text)
 			pipeline.run(instance)
-		end, geo.input.w, geo.input.h, geo.input.row, geo.input.col, title, input_debounce, geo.input.border, opts.layout == "cards"),
+		end, geo.input.w, geo.input.h, geo.input.row, geo.input.col, title, input_debounce, geo.input.border, opts.layout == "cards", initial_query),
 		list = ui.list.create(geo.list.row, geo.list.col, geo.list.w, geo.list.h, geo.list.border, opts.separators),
 		backdrop = opts.backdrop ~= false and ui.backdrop.create(config.backdrop) or nil,
 	}
@@ -97,6 +108,13 @@ function M:new(source_name, opts)
 	-- Initial load if 'load' is defined
 	if pipeline.load ~= nil then
 		pipeline.load(instance)
+	end
+
+	-- A live source with a default query searches right away, without waiting for typing.
+	if initial_query then
+		instance.initial_query = initial_query
+		query.filter:update(initial_query)
+		pipeline.run(instance)
 	end
 
 	return instance

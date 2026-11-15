@@ -23,7 +23,9 @@ function M.schedule_preview(state)
 			local item = ui.list.selected(state.view.list)
 
 			if item then
-				if state.view.preview then
+				if state.view.preview and state.query.source.preview then
+					state.query.source.preview(state.view.preview, item)
+				elseif state.view.preview then
 					ui.preview.show(state.view.preview, item)
 
 					-- Apply match highlights on preview for stream sources (grep)
