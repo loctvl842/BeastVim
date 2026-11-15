@@ -94,6 +94,8 @@ finder/
 │                     open/close_current/current, push(level)/pop() swap levels in the SAME windows (pop restores
 │                     prompt, results, cursor, scroll without searching); one autocmd group per session; on_close runs last
 ├── level.lua      ← Level: one search (source, query, engine, prompt text, title, count, cursor, offset); start/run/reload/stop
+├── chains.lua     ← the closed map of chains: one edge per row (from, to, key, crumb, hint(ctx), open(ctx)); files/buffers/help → live_grep, gh_pr → gh_pr_files → live_grep, gh_issue → gh_issue_grep; `finder.chains()` returns it
+├── chain.lua      ← drill(session) [`<C-g>`: look up the edge, push the level it opens], back(session), edge(from,to) (raises for any pair not in chains.lua), hint_text(session)
 ├── host.lua       ← Host interface engines talk to (alive, render, busy, rewind, count, title, rows) + headless()
 ├── search.lua     ← headless file search session: Query + match pipeline through a headless host (explorer's client; no UI)
 ├── preflight.lua  ← run a source to completion with no picker UI (generation-
@@ -102,13 +104,13 @@ finder/
 │                     fires User BeastFinderStatusChanged (statusline reads it)
 ├── config.lua     ← width, height, preview_ratio, debounce, matcher opts
 ├── query.lua      ← Query class: items, matched (best `limit`), total, loading, matching, filter; opts.preloaded_items
-├── filter.lua     ← Filter class: pattern + cwd state
+├── filter.lua     ← Filter class: pattern + cwd state; `files` (scoped grep), `ctx` (what a level needs from the one it was opened from)
 ├── matcher.lua    ← fuzzy matching (smartcase, scoring, positions)
 ├── score.lua      ← scoring algorithm (bonus tables, gap penalties)
 ├── topk.lua       ← top-K min-heap for fast ranking
 ├── queue.lua      ← priority queue helper
-├── format.lua     ← library of row formatters (filename, buffers, live_grep(+_header), help_tags, colorschemes, gh); sources point at them
-├── match_hl.lua   ← fuzzy match highlight extmarks (list + preview)
+├── format.lua     ← library of row formatters; file_row (icon, name, dim folder, `src` ranges) is shared by filename, buffers and the grep header; ratio (count label), help_tags, colorschemes, gh, gh_issue_grep_header; sources point at them
+├── match_hl.lua   ← fuzzy match highlight extmarks (list + preview); maps positions through a row part's `src` range
 ├── action.lua     ← open(session,item) [asks source.open], open_default (url, else file), open_help/open_file/
 │                     open_split/open_vsplit(win,item), copy_path(item)
 ├── keymaps.lua    ← one action table + per-pane binding tables (input/list/preview) + printable-char redirect
@@ -131,6 +133,8 @@ finder/
 │   │       ├── serialize.lua  ← binary index dump/load (header + col_for uint16 pairs + raw uint32 matrix + NUL paths)
 │   │       ├── builder.lua    ← pure build routine (rg --files → read → serialize.write); runs in the child
 │   │       └── index.lua      ← spawns headless builder subprocess, loads via ffi.copy, fs_event refresh, query→paths
+│   ├── gh_pr_files.lua ← match source over `filter.ctx.pr`: the files a pull request changes (paths), diff preview, Enter opens the diff in a scratch buffer; title "PR <title> › Files Changed (N)"
+│   ├── gh_issue_grep.lua ← live source over `filter.ctx.issues`: plain smart-case search in their title and description, grouped by issue
 │   ├── lsp.lua        ← factory: create(method, label) → async LSP source (auto_select)
 │   ├── lsp_{definitions,references,declarations,implementations}.lua ← one-line instances of lsp.create
 │   ├── colorschemes.lua ← sync (rtp-only globpath); grouped beastvim > nvim builtin > plugin, alphabetical within group; item.swatches from cache
@@ -141,11 +145,12 @@ finder/
 │   ├── gh_pr.lua, gh_issue.lua ← one-line instances (<leader>ghp / <leader>ghi)
 │   └── gh/
 │       ├── query.lua   ← pure: build(text, repo) adds repo:/sort:created-desc unless present; scope(); default_text(kind)
-│       ├── api.lua     ← `gh` CLI wrapper: check() local pre-flight, search() (gh api search/issues), detail() (gh pr|issue view), normalize*, error classes
+│       ├── api.lua     ← `gh` CLI wrapper: check() local pre-flight, search() (gh api search/issues), files() (pulls/{n}/files, 3 pages + truncation probe), detail() (gh pr|issue view), normalize*, error classes
 │       └── preview.lua ← preview pane: build()/reltime() pure, show() draws header at once then detail; per-view cache, stale-fetch guard
 └── ui/
-    ├── init.lua     ← barrel (input, list, preview, backdrop)
-    ├── input.lua    ← prompt buffer + debounced TextChanged
+    ├── init.lua     ← barrel (input, list, preview, backdrop, hint)
+    ├── hint.lua     ← one-line key hints under the picker, right-aligned, hidden when there is no room (and in the cards layout)
+    ├── input.lua    ← prompt buffer + debounced TextChanged (set_debounce follows the shown level)
     ├── list.lua     ← rendered items + cursor + selection prefix; opt-in separator rows (create(..., separators)), multi-chunk right_align (Highlight.chunks)
     ├── preview.lua  ← file preview with filetype detection
     └── backdrop.lua ← fullscreen dim overlay
@@ -155,6 +160,13 @@ API: `finder.open("files", opts)`, `finder.open("live_grep")`, `finder.open("hel
 View subclasses: `Beast.Finder.InputView`, `Beast.Finder.ListView`, `Beast.Finder.PreviewView`
 Loaded via: `packer.lazy()` on keys (`<leader>f/b/g/c/h`)
 Opts: `layout="cards"`, `separators`, `backdrop=false`, `freeze_colors`, `initial_text` (start on the item whose text matches), `on_preview(item)`, `on_close(confirmed)` (colorscheme picker; the selected theme is a thick tinted block with half-block edges)
+
+### Chains
+
+`<C-g>` follows the edge of `chains.lua` for the picker shown (`chain.drill`): the next level is pushed in the same windows
+with the matching items as its scope (`filter.files` for a grep, `filter.ctx` for the GitHub sources); `<BS>` on an empty
+prompt (or `<C-o>`) pops back without searching. Only the edges in `chains.lua` exist: any other pair raises in `chain.edge`.
+The hint line under the picker shows the edge available from the level shown and `<BS> back to <crumb>`.
 
 ### Picker lifecycle
 
