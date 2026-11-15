@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dev spec: Finder GitHub source</title>
+<style>
+  :root { --bg:#fbfaf7; --fg:#1c1b19; --muted:#6b675f; --line:#dcd8cf; --card:#fff; --accent:#b4540a; --new:#1a7f4b; --mod:#2a63c4; --warn:#b4540a; --box:#f3f1ec; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#161513; --fg:#ece8df; --muted:#a29d92; --line:#3a3732; --card:#1f1d1a; --accent:#e08a3c; --new:#58c48a; --mod:#7aa2f7; --warn:#e08a3c; --box:#262420; }
+  }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, sans-serif; }
+  main { max-width:900px; margin:0 auto; padding:24px 16px 80px; }
+  section { margin:32px 0; }
+  h1 { margin:0 0 8px; } h2 { margin:0 0 10px; } h3 { margin:14px 0 6px; font-size:1rem; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px 16px; margin:10px 0; }
+  .muted { color:var(--muted); }
+  code { font:0.88em ui-monospace,Menlo,monospace; background:var(--box); border:1px solid var(--line); border-radius:4px; padding:0 4px; word-break:break-word; }
+  table { width:100%; border-collapse:collapse; font-size:.92rem; }
+  th, td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--muted); font-weight:600; }
+  .tbl { overflow-x:auto; }
+  .new { color:var(--new); font-weight:600; } .mod { color:var(--mod); font-weight:600; }
+  .tag { display:inline-block; font-size:.75rem; font-weight:700; border:1px solid var(--line); border-radius:999px; padding:0 8px; margin-left:6px; color:var(--muted); }
+  .risk-high { color:var(--warn); border-color:var(--warn); }
+  ul { padding-left:20px; } li { margin:4px 0; }
+  ul.check { list-style:none; padding-left:0; } ul.check li::before { content:"\2610  "; color:var(--accent); }
+  .gap { border-left:4px solid var(--warn); }
+  .rec { color:var(--accent); font-weight:600; font-size:.85em; }
+  svg { width:100%; height:auto; color:var(--fg); }
+  svg .box { fill:var(--box); stroke:var(--line); stroke-width:1.2; }
+  svg .boxn { fill:var(--box); stroke:var(--new); stroke-width:1.6; }
+  svg .boxm { fill:var(--box); stroke:var(--mod); stroke-width:1.6; }
+  svg text { fill:currentColor; font:12px ui-monospace,Menlo,monospace; }
+  svg .sm { font-size:10.5px; fill:var(--muted); }
+  svg .ar { stroke:var(--muted); stroke-width:1.4; fill:none; marker-end:url(#a); }
+  details { margin:8px 0; } summary { cursor:pointer; font-weight:600; }
+</style>
+</head>
+<body>
+<main>
+
+<header data-spec="summary">
+  <h1>Finder GitHub source: dev spec</h1>
+  <p>Two thin sources, <code>gh_pr</code> and <code>gh_issue</code>, share one factory. They run <code>gh api search/issues</code> with the prompt text as the query and feed the existing live (stream) pipeline. The finder gets four small <b>opt-in</b> capabilities, so <code>live_grep</code> and every other source stay untouched.</p>
+  <p class="muted">PM spec: <code>docs/pm-specs/finder-github-source.md</code>. Five phases, each mergeable alone. Please read "PM spec gaps" first: three places where the approved PM spec does not match what I verified.</p>
+</header>
+
+<section data-spec="flow">
+  <h2>How it fits together</h2>
+  <svg viewBox="0 0 860 330" role="img" aria-label="Data flow from prompt text to list and preview">
+    <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--muted)"/></marker></defs>
+
+    <g id="n-input"><title>Prompt text (ui/input.lua)</title>
+      <rect class="boxm" x="10" y="20" width="150" height="54" rx="8"/><text x="22" y="42">prompt text</text><text class="sm" x="22" y="60">prefilled, debounce 400ms</text></g>
+    <g id="n-query"><title>source/gh/query.lua</title>
+      <rect class="boxn" x="200" y="20" width="170" height="54" rx="8"/><text x="212" y="42">gh/query.lua</text><text class="sm" x="212" y="60">+repo: +sort:created-desc</text></g>
+    <g id="n-api"><title>source/gh/api.lua</title>
+      <rect class="boxn" x="410" y="20" width="200" height="54" rx="8"/><text x="422" y="42">gh/api.lua  search()</text><text class="sm" x="422" y="60">gh api search/issues</text></g>
+    <g id="n-gh"><title>GitHub</title>
+      <rect class="box" x="670" y="20" width="170" height="54" rx="8"/><text x="682" y="42">GitHub search API</text><text class="sm" x="682" y="60">30 req/min limit</text></g>
+
+    <g id="n-source"><title>source/gh.lua</title>
+      <rect class="boxn" x="410" y="130" width="200" height="54" rx="8"/><text x="422" y="152">gh.lua  get()/cancel()</text><text class="sm" x="422" y="170">drops stale responses</text></g>
+    <g id="n-stream"><title>pipeline/stream.lua</title>
+      <rect class="boxm" x="200" y="130" width="170" height="54" rx="8"/><text x="212" y="152">stream pipeline</text><text class="sm" x="212" y="170">retain_results, run_when_empty</text></g>
+    <g id="n-list"><title>ui/list.lua + format.lua</title>
+      <rect class="boxm" x="10" y="130" width="150" height="54" rx="8"/><text x="22" y="152">list + count</text><text class="sm" x="22" y="170">format.gh_pr / gh_issue</text></g>
+
+    <g id="n-preview"><title>source/gh/preview.lua</title>
+      <rect class="boxn" x="10" y="240" width="190" height="54" rx="8"/><text x="22" y="262">gh/preview.lua</text><text class="sm" x="22" y="280">header now, body + comments later</text></g>
+    <g id="n-detail"><title>api.detail</title>
+      <rect class="boxn" x="260" y="240" width="210" height="54" rx="8"/><text x="272" y="262">gh/api.lua  detail()</text><text class="sm" x="272" y="280">gh pr|issue view --json, cached</text></g>
+    <g id="n-action"><title>action.lua</title>
+      <rect class="boxm" x="530" y="240" width="170" height="54" rx="8"/><text x="542" y="262">action.lua</text><text class="sm" x="542" y="280">Enter: vim.ui.open(url)</text></g>
+
+    <path id="e1" class="ar" d="M160 47H200"/><path id="e2" class="ar" d="M370 47H410"/><path id="e3" class="ar" d="M610 47H670"/>
+    <path id="e4" class="ar" d="M510 74V130"/>
+    <path id="e5" class="ar" d="M410 157H370"/><path id="e6" class="ar" d="M200 157H160"/>
+    <path id="e7" class="ar" d="M85 184V240"/><path id="e8" class="ar" d="M200 267H260"/>
+    <path id="e9" class="ar" d="M85 184 C 85 215, 600 205, 615 240"/>
+    <text class="sm" x="20" y="226">cursor move</text><text class="sm" x="640" y="226">Enter</text>
+    <text class="sm" x="20" y="320">green = new file    blue = modified file</text>
+  </svg>
+  <p class="muted">Two network paths: the search (on typing) and the detail fetch (on cursor stop). Both are async and cancellable; neither blocks the UI.</p>
+</section>
+
+<section data-spec="pm-gaps">
+  <h2>PM spec gaps - need your call</h2>
+
+  <div class="card gap" data-spec="gap-invalid-qualifier">
+    <strong>1. Invalid qualifiers are not errors on GitHub</strong>
+    <p>Verified: <code>state:opn</code>, <code>state:</code>, <code>foo:bar</code> and an unterminated <code>label:"</code> all return HTTP 200 with 0 results. Only real failures error: 422 (repo not found), 403/429 (rate limit), auth, network. The PM spec promised an error line for a bad qualifier value.</p>
+    <p><span class="rec">Proposed:</span> keep the error line for real failures, show "No results for this search" for bad qualifiers, and I update PM STATE 5 and scenario 8C to match.</p>
+  </div>
+
+  <div class="card gap" data-spec="gap-count">
+    <strong>2. The "same count as other pickers" does not exist</strong>
+    <p>The finder has no result count anywhere today.</p>
+    <p><span class="rec">Proposed:</span> add it (right-aligned in the prompt row, <code>22/22</code>, <code>100+</code> at the cap), opt-in for the GitHub sources, in Phase 2. Alternative: drop the count from the PM spec.</p>
+  </div>
+
+  <div class="card gap" data-spec="gap-split-keys">
+    <strong>3. <code>&lt;C-s&gt;</code> / <code>&lt;C-v&gt;</code> "do nothing"</strong>
+    <p>Today they close the picker first, then do nothing. Phase 3 adds a guard so the picker stays open for items without a file.</p>
+    <p class="muted">Noticed, not touching: the list-pane <code>&lt;C-v&gt;</code> handler calls <code>open_split</code> instead of <code>open_vsplit</code>. Pre-existing and outside this feature.</p>
+  </div>
+</section>
+
+<section data-spec="research">
+  <h2>Research</h2>
+  <div class="card">
+    <ul>
+      <li><b>Reuse:</b> stream pipeline, the <code>source/lsp.lua</code> factory pattern (one factory, one-line instances), input spinner, <code>Toast</code>, <code>Util.debounce</code>, test scaffolding that stubs <code>render</code>/<code>ui</code>.</li>
+      <li><b>Use:</b> <code>gh api search/issues</code> (one call returns PRs and issues; <code>sort:</code> and <code>author:@me</code> work in <code>q</code>), <code>gh pr|issue view --json</code> for detail, <code>gh auth token --hostname</code> (local, about 60 ms) for the login check, <code>vim.system</code>, <code>vim.ui.open</code>.</li>
+      <li><b>Build:</b> query builder, API wrapper, preview renderer, and four finder capabilities that did not exist: prompt prefill, keep-old-list, message rows and source preview hook, per-source title/debounce/count.</li>
+      <li><b>Constraint found:</b> search API allows 30 requests/minute, so GitHub sources use a 400 ms debounce (default live is 200 ms).</li>
+      <li class="muted">The snacks reference delegates to its own <code>Api.list</code>, which I did not read in detail. Behavior was checked against <code>gh</code> directly.</li>
+    </ul>
+  </div>
+</section>
+
+<section data-spec="architecture-changes">
+  <h2>Files</h2>
+  <div class="tbl"><table>
+    <tr><th></th><th>Path (under <code>lua/beast/libs/finder/</code> unless noted)</th><th>What and why</th></tr>
+    <tr><td class="new">new</td><td><code>source/gh/query.lua</code></td><td>Pure query builder: adds <code>repo:</code> and <code>sort:created-desc</code> when absent; quote-aware.</td></tr>
+    <tr><td class="new">new</td><td><code>source/gh/api.lua</code></td><td><code>search</code>, <code>detail</code>, error classification, repo/host detection, local pre-flight.</td></tr>
+    <tr><td class="new">new</td><td><code>source/gh.lua</code></td><td>Factory <code>create(kind)</code>; stale-response guard.</td></tr>
+    <tr><td class="new">new</td><td><code>source/gh_pr.lua</code>, <code>source/gh_issue.lua</code></td><td>One-line instances.</td></tr>
+    <tr><td class="new">new</td><td><code>source/gh/preview.lua</code></td><td>Header at once, body and conversation when fetched.</td></tr>
+    <tr><td class="new">new</td><td><code>tests/test-finder-gh-query.lua</code>, <code>test-finder-gh-api.lua</code>, <code>test-finder-stream-retain.lua</code>, <code>test-finder-input-initial.lua</code></td><td>Headless coverage of each new behavior.</td></tr>
+    <tr><td class="mod">mod</td><td><code>source/init.lua</code>, <code>query.lua</code></td><td>Document new optional source and item fields.</td></tr>
+    <tr><td class="mod">mod</td><td><code>pipeline/stream.lua</code></td><td><code>retain_results</code>, <code>run_when_empty</code> (opt-in; hot path).</td></tr>
+    <tr><td class="mod">mod</td><td><code>ui/input.lua</code>, <code>state.lua</code>, <code>render.lua</code></td><td>Prompt prefill, count, title/debounce overrides, preview dispatch.</td></tr>
+    <tr><td class="mod">mod</td><td><code>init.lua</code></td><td>Run <code>source.check()</code> before opening.</td></tr>
+    <tr><td class="mod">mod</td><td><code>format.lua</code>, <code>highlights.lua</code></td><td>Row format, state icons, label badges.</td></tr>
+    <tr><td class="mod">mod</td><td><code>action.lua</code>, <code>keymaps.lua</code></td><td>Open URL, copy URL, split-key guard, ignore message rows.</td></tr>
+    <tr><td class="mod">mod</td><td><code>lua/beast/init.lua</code></td><td>Keys <code>&lt;leader&gt;ghp</code>, <code>&lt;leader&gt;ghi</code>.</td></tr>
+    <tr><td class="mod">mod</td><td><code>docs/CODEMAP/libraries.md</code></td><td>Via <code>/update-codemap</code>.</td></tr>
+  </table></div>
+</section>
+
+<section data-spec="phases">
+  <h2>Phases</h2>
+
+  <div class="card" data-spec="phase-1">
+    <h3>Phase 1: Query and API core <span class="tag">risk: medium</span></h3>
+    <p><b>Goal:</b> pure, tested logic with no UI. Merges alone.</p>
+    <ol>
+      <li data-spec="phase-1-step-1"><code>source/gh/query.lua</code>: tokenizer, <code>build</code>, <code>default_text</code>.</li>
+      <li data-spec="phase-1-step-2"><code>source/gh/api.lua</code>: <code>search</code> via <code>gh api</code>, item normalization (open, draft, merged, closed), error classes, <code>kill()</code>.</li>
+      <li data-spec="phase-1-step-3">Tests with stubbed <code>vim.system</code>.</li>
+    </ol>
+    <p class="muted">Depends on: nothing.</p>
+  </div>
+
+  <div class="card" data-spec="phase-2">
+    <h3>Phase 2: Finder capabilities <span class="tag risk-high">risk: high</span></h3>
+    <p><b>Goal:</b> generic opt-in features, no GitHub yet. Hot path shared with <code>live_grep</code>, so every new branch is gated on a source flag.</p>
+    <ol>
+      <li data-spec="phase-2-step-1">Document new <code>ASource</code> and <code>Item</code> fields.</li>
+      <li data-spec="phase-2-step-2"><code>stream.lua</code>: <code>retain_results</code> (old list stays; first new batch replaces it; zero results clear) and <code>run_when_empty</code>.</li>
+      <li data-spec="phase-2-step-3">Prompt prefill (cursor at end), run once on open, count, title and debounce overrides.</li>
+      <li data-spec="phase-2-step-4"><code>source.check()</code> pre-flight in <code>finder/init.lua</code>.</li>
+      <li data-spec="phase-2-step-5">Tests: retain behavior, prefill, plus all existing finder tests unchanged.</li>
+    </ol>
+    <p class="muted">Depends on: nothing (parallel to Phase 1).</p>
+  </div>
+
+  <div class="card" data-spec="phase-3">
+    <h3>Phase 3: Sources, list, actions, keys <span class="tag">risk: medium</span></h3>
+    <p><b>Goal:</b> usable list in the picker, preview pane off for now.</p>
+    <ol>
+      <li data-spec="phase-3-step-1"><code>source/gh.lua</code> + <code>gh_pr.lua</code>/<code>gh_issue.lua</code>: flags, <code>check()</code> toasts (no <code>gh</code>, no remote, not logged in), <code>get</code> with generation guard, message rows for empty/error.</li>
+      <li data-spec="phase-3-step-2">Row format and highlights: state icon colors, number, title, author, label badges.</li>
+      <li data-spec="phase-3-step-3">Enter opens URL, <code>&lt;C-y&gt;</code> copies URL, split keys leave the picker open, message rows ignored.</li>
+      <li data-spec="phase-3-step-4">Keys <code>&lt;leader&gt;ghp</code> / <code>&lt;leader&gt;ghi</code> with <code>preview = false</code>.</li>
+    </ol>
+    <p class="muted">Depends on: Phases 1 and 2.</p>
+  </div>
+
+  <div class="card" data-spec="phase-4">
+    <h3>Phase 4: Preview <span class="tag">risk: medium</span></h3>
+    <p><b>Goal:</b> PM STATE 1 and 2 preview pane.</p>
+    <ol>
+      <li data-spec="phase-4-step-1"><code>source/gh/preview.lua</code> + render dispatch: instant header from the list item; <code>detail</code> fills branches, checks, mergeable, changes, description (markdown), conversation; cached per picker; late responses for a moved cursor are dropped. Keys flip to <code>preview = true</code>.</li>
+    </ol>
+    <p class="muted">Depends on: Phase 3.</p>
+  </div>
+
+  <div class="card" data-spec="phase-5">
+    <h3>Phase 5: Verification and docs <span class="tag">risk: low</span></h3>
+    <ol>
+      <li data-spec="phase-5-step-1">Full headless suite, <code>bench-grep.lua</code>, <code>bench-ux.sh all</code>: prove <code>live_grep</code> did not regress.</li>
+      <li data-spec="phase-5-step-2"><code>/update-codemap</code>.</li>
+    </ol>
+  </div>
+</section>
+
+<section data-spec="testing-strategy">
+  <h2>Testing strategy</h2>
+  <ul>
+    <li><b>Headless:</b> four new tests (see Files) plus all existing <code>tests/test-finder-*.lua</code> and <code>test-preflight.lua</code>.</li>
+    <li><b>Bench:</b> <code>scripts/bench-grep.lua</code>, <code>scripts/bench-ux.sh all</code>, compared to numbers before Phase 2.</li>
+    <li><b>Type check:</b> <code>lua-language-server --check</code> as in DEVELOPMENT.md.</li>
+    <li><b>Manual:</b> PM scenarios 1 to 9 in this repo (has a GitHub remote). 8A from <code>/tmp</code>, 8B with <code>gh</code> off <code>PATH</code>, 7 by typing fast. Screenshots checked against the PM mockups for row, preview and prompt-row layout.</li>
+  </ul>
+</section>
+
+<section data-spec="success-criteria">
+  <h2>Success criteria</h2>
+  <ul class="check">
+    <li>Both keys open pickers pre-filled with the default text, cursor at the end, results shown without typing.</li>
+    <li>List shows the repo's open items, newest created first, with icon, number, title, author, colored labels.</li>
+    <li>Editing the text matches what github.com shows for that text (state, author, label, words, other repo, kind flip, <code>sort:</code>).</li>
+    <li>Preview shows metadata, description, conversation; header instant; revisits instant.</li>
+    <li>Fast typing runs one search; stale responses never overwrite newer ones.</li>
+    <li>Old list stays and a spinner replaces the count during a search; zero results clear the list.</li>
+    <li>Empty results and real errors show one in-list line, never a popup.</li>
+    <li>No remote / no <code>gh</code> / not logged in: toast, no picker.</li>
+    <li>Enter opens the browser, <code>&lt;C-y&gt;</code> copies the URL, split keys keep the picker open, Esc closes cleanly.</li>
+    <li>Technical: all headless tests pass, <code>live_grep</code> bench within noise, luals clean, no <code>vim.notify</code> or lib-config keymaps in new code.</li>
+  </ul>
+</section>
+
+</main>
+</body>
+</html>

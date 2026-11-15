@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spec: Finder GitHub source</title>
+<style>
+  :root { --bg:#fbfaf7; --fg:#1c1b19; --muted:#6b675f; --line:#dcd8cf; --card:#fff; --accent:#b4540a; --term:#1e1f26; --termfg:#d8dae5; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#161513; --fg:#ece8df; --muted:#a29d92; --line:#3a3732; --card:#1f1d1a; --accent:#e08a3c; }
+  }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, sans-serif; }
+  main { max-width:880px; margin:0 auto; padding:24px 16px 80px; }
+  section { margin:32px 0; }
+  h1 { margin:0 0 8px; } h2 { margin:0 0 10px; } h3 { margin:18px 0 6px; font-size:1rem; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; }
+  .muted { color:var(--muted); }
+  pre.mock { background:var(--term); color:var(--termfg); border-radius:10px; padding:14px 16px; font:13px/1.35 ui-monospace,Menlo,monospace; overflow-x:auto; margin:8px 0; white-space:pre; }
+  pre.step { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:10px 14px; font:13px/1.5 ui-monospace,Menlo,monospace; overflow-x:auto; white-space:pre-wrap; margin:8px 0; }
+  ul { padding-left:20px; } li { margin:4px 0; }
+  ul.check { list-style:none; padding-left:0; } ul.check li::before { content:"\2610  "; color:var(--accent); }
+  details { margin:10px 0; } summary { cursor:pointer; font-weight:600; }
+  .choice { border-left:3px solid var(--accent); padding:6px 12px; margin:12px 0; background:var(--card); border-radius:0 8px 8px 0; }
+  .rec { color:var(--accent); font-weight:600; font-size:.85em; }
+  code { font:0.9em ui-monospace,Menlo,monospace; background:var(--card); border:1px solid var(--line); border-radius:4px; padding:0 4px; }
+</style>
+</head>
+<body>
+<main>
+
+<header data-spec="summary">
+  <h1>Browse GitHub PRs and issues in the finder</h1>
+  <p>Two new pickers, one for pull requests and one for issues. The prompt is a real GitHub search query (<code>is:pr state:open</code> by default) that you can edit freely, so one key per kind covers open, closed, merged, mine, another repo, and anything else GitHub can search.</p>
+  <p class="muted">Icons here are plain symbols; the real UI uses Nerd Font git icons. Repo and PR names are illustrative.</p>
+</header>
+
+<section data-spec="problem">
+  <h2>Problem</h2>
+  <p>To skim a repo's PRs and issues you leave the editor, open a browser, find the right tab and type filters into GitHub's search box. A separate key per view (open PRs, all PRs, my PRs ...) only multiplies key bindings and still cannot express a view nobody planned for.</p>
+  <p data-spec="why-now" class="muted">Why now: the finder already has a prompt, list, preview and live sources that re-run as you type. GitHub's search syntax is already known to you and is more powerful than any fixed set of views.</p>
+</section>
+
+<section data-spec="target-behavior">
+  <h2>Target behavior</h2>
+
+  <div data-spec="state-1">
+    <h3>STATE 1 - PR picker just opened</h3>
+<pre class="mock">┌─ Pull Requests - loctvl842/jarvix ─────────────────┐┌─ PR #30 ───────────────────────────────────────┐
+│ &gt; is:pr state:open █                         22/22 ││ feat(cli): function nodes that send and #30    │
+├────────────────────────────────────────────────────┤│                                                │
+│ ○ #32  Refactor m4 @loctvl842                      ││ Status:    ● Merged   main &lt;- function-nodes   │
+│▌● #30  feat(cli): function nodes that send and     ││ Repo:      loctvl842/jarvix                    │
+│        receive in their own pane @loctvl842        ││ Author:    loctvl842                           │
+│ ● #28  feat(cli): Jarvis supervisor prompt @loc..  ││ Created:   2 weeks ago                         │
+│ ● #26  feat(cli): show every node's events ..      ││ Updated:   2 weeks ago                         │
+│ ◌ #25  wip: retry policy  @loctvl842  [draft-idea] ││ Checks:    ✓ 1                                 │
+│ ✕ #4   Feat/claude m3 @loctvl842                   ││ Changes:   21 files  +832 -37                  │
+│ ● #3   feat: hub state tracking @loctvl842         ││                                                │
+│                                                    ││ ---------------------------------------------- │
+│                                                    ││ ## Summary                                     │
+│                                                    ││ A node written as a plain function now runs    │
+│                                                    ││ in its own tmux pane and can send and receive. │
+│                                                    ││ ...                                            │
+└────────────────────────────────────────────────────┘└────────────────────────────────────────────────┘
+  icons: ○ open   ◌ draft   ● merged   ✕ closed</pre>
+    <ul>
+      <li>Prompt pre-filled, cursor at the end. List is the current repo's open PRs, newest first (like GitHub).</li>
+      <li>Same look and keys as the other finder pickers (prompt on top, list left, preview right). A result count in the prompt row is new and shown for these pickers.</li>
+      <li>Row: state icon, <code>#number</code>, title, <code>@author</code>, label badges in each label's GitHub color.</li>
+      <li>Title bar names the repo being searched.</li>
+    </ul>
+  </div>
+
+  <div data-spec="state-2">
+    <h3>STATE 2 - Issue picker just opened</h3>
+<pre class="mock">┌─ Issues - loctvl842/jarvix ────────────────────────┐┌─ Issue #41 ────────────────────────────────────┐
+│ &gt; is:issue state:open █                      7/7   ││ Hub crashes when a node name has a dot   #41   │
+├────────────────────────────────────────────────────┤│                                                │
+│▌○ #41  Hub crashes when a node name has a dot      ││ Status:    ○ Open                              │
+│        @loctvl842  [bug]                           ││ Repo:      loctvl842/jarvix                    │
+│ ○ #39  Document the mesh down flag @loctvl842      ││ Author:    loctvl842                           │
+│        [docs]                                      ││ Labels:    [bug]                               │
+│ ○ #35  Pane labels are lost after restart          ││ Created:   3 days ago                          │
+│        @loctvl842  [bug] [tmux]                    ││ Comments:  2                                   │
+│                                                    ││ ---------------------------------------------- │
+│                                                    ││ ## What happens                                │
+│                                                    ││ `jarvix node run --node a.b` exits silently... │
+│                                                    ││                                                │
+│                                                    ││ ## Conversation                                │
+│                                                    ││ @someone  1 day ago                            │
+│                                                    ││ Reproduced on main.                            │
+└────────────────────────────────────────────────────┘└────────────────────────────────────────────────┘</pre>
+    <ul>
+      <li>PR-only fields (branches, checks, mergeable, changes) are absent for issues.</li>
+      <li>Under the description: the conversation (comments, plus review summaries for PRs), read-only, oldest first.</li>
+    </ul>
+  </div>
+
+  <div data-spec="state-3">
+    <h3>STATE 3 - You edited the text</h3>
+<pre class="mock">┌─ Pull Requests - loctvl842/jarvix ─────────────────┐
+│ &gt; is:pr is:merged author:@me hub               3/3 │
+├────────────────────────────────────────────────────┤
+│▌● #11  fix: publish each package with its own ..   │
+│ ● #3   feat: hub state tracking @loctvl842         │
+│ ● #2   feat(mux): tmux integration @loctvl842      │
+└────────────────────────────────────────────────────┘</pre>
+    <p class="muted">The list follows GitHub's answer to exactly that text.</p>
+  </div>
+
+  <div data-spec="state-4">
+    <h3>STATE 4 - A new search is running</h3>
+<pre class="mock">│ &gt; is:pr state:open fix                       ⠋     │
+├────────────────────────────────────────────────────┤
+│▌○ #32  Refactor m4 @loctvl842                      │   &lt;- old results stay until the new ones land</pre>
+    <p class="muted">No flicker: the previous list stays, a spinner replaces the count.</p>
+  </div>
+
+  <div data-spec="state-5">
+    <h3>STATE 5 - Search failed (repo not found, rate limit, network), or found nothing</h3>
+<pre class="mock">│ &gt; repo:nope/nope is:pr                             │
+├────────────────────────────────────────────────────┤
+│  GitHub could not run this search:                 │
+│  repository not found or no access to it           │
+
+│ &gt; is:pr label:does-not-exist                  0/0  │
+├────────────────────────────────────────────────────┤
+│  No results for this search                        │</pre>
+    <p class="muted">One quiet line in the list, never a popup.</p>
+  </div>
+</section>
+
+<section data-spec="scenarios">
+  <h2>Scenarios</h2>
+
+  <details open data-spec="scenario-1"><summary>1 - Skim open pull requests (happy path)</summary>
+<pre class="step">Step 1: Press &lt;leader&gt;ghp inside a repo that has a GitHub remote.
+  Picker opens with "is:pr state:open " in the prompt, cursor at the end.
+  The list fills with the repo's open PRs, newest first.
+
+Step 2: Press Down / Up (or Ctrl-n / Ctrl-p).
+  The preview follows. Title, state, author, labels appear at once;
+  description and conversation fill in a moment later.
+
+Step 3: Go back to a PR already visited.
+  Its preview appears instantly (not fetched again while the picker is open).</pre></details>
+
+  <details data-spec="scenario-2"><summary>2 - Closed or merged work by editing the text</summary>
+<pre class="step">Step 1: Change "state:open" to "is:merged".
+  Prompt: "is:pr is:merged". Spinner briefly, then merged PRs only.
+
+Step 2: Append "author:@me".
+  Only merged PRs authored by you remain.
+
+No separate key, no extra menu: the text is the filter.</pre></details>
+
+  <details data-spec="scenario-3"><summary>3 - Words and qualifiers together</summary>
+<pre class="step">Step 1: Type " hub" after the default text.
+  Open PRs where GitHub finds "hub" (title, description, comments).
+
+Step 2: Type " label:bug".
+  The list narrows further.
+
+Words are matched by GitHub like the github.com search box, not by the finder's fuzzy matcher.</pre></details>
+
+  <details data-spec="scenario-4"><summary>4 - Switch from PRs to issues without closing</summary>
+<pre class="step">Step 1: Replace "is:pr" with "is:issue".
+  Prompt: "is:issue state:open". The list becomes issues;
+  icons and preview switch to the issue style.</pre></details>
+
+  <details data-spec="scenario-5"><summary>5 - Look at another repo</summary>
+<pre class="step">Step 1: Type "repo:neovim/neovim is:issue label:bug".
+  Bug issues of that repo are listed; title bar reads "Issues - neovim/neovim".
+
+Without repo:, org: or user:, the search is always limited to the current repo.</pre></details>
+
+  <details data-spec="scenario-6"><summary>6 - Open or copy the highlighted item</summary>
+<pre class="step">Step 1: Press Enter on a row.
+  Picker closes; the PR or issue opens in the default browser.
+
+Step 2 (alternative): Press Ctrl-y.
+  URL is copied, picker stays open, a toast confirms.</pre></details>
+
+  <details data-spec="scenario-7"><summary>7 - Typing fast, slow network</summary>
+<pre class="step">Step 1: Type "fix" quickly, then keep typing "ing the bug".
+  One search starts, after you pause (a little longer than for local pickers).
+  If an older, slower search finishes after a newer one, its results are thrown away.
+  The list always matches the text currently in the prompt.</pre></details>
+
+  <details data-spec="scenario-8"><summary>8 - Cannot run (errors and edge cases)</summary>
+<pre class="step">A: &lt;leader&gt;ghp in a folder that is not a GitHub repo.
+   Picker does not open. Toast: "No GitHub remote found for this directory".
+
+B: "gh" not installed or not logged in.
+   Picker does not open. Toast says what is missing and how to fix it
+   ("GitHub CLI (gh) is not installed" / "Run `gh auth login` first").
+
+C: Half-written or unknown qualifier ("is:pr state:", "foo:bar").
+   GitHub does not reject these, it finds nothing: "No results for this search" (D).
+   Finishing the qualifier brings results back on its own.
+
+C2: The search really fails (repo not found or no access, rate limit, network, login expired).
+   One-line reason in the list (STATE 5), no popup. A rate limit says when it resets.
+
+D: Valid search, nothing found.
+   "No results for this search", count 0/0.
+
+E: More than 100 matches.
+   Newest 100 shown, count reads "100+" so you know to narrow the query.</pre></details>
+
+  <details data-spec="scenario-9"><summary>9 - Cancel</summary>
+<pre class="step">Step 1: Esc (normal mode) or Ctrl-c at any time.
+  Picker closes. Nothing opened or copied. A running search is dropped.</pre></details>
+</section>
+
+<section data-spec="behavior-rules">
+  <h2>Behavior rules</h2>
+  <ul>
+    <li data-spec="rule-text-is-query">The prompt text goes to GitHub as-is, never fuzzy-filtered locally.</li>
+    <li data-spec="rule-default-text">Defaults: <code>is:pr state:open </code> and <code>is:issue state:open </code> (trailing space). Only a starting point; any of it can be deleted.</li>
+    <li data-spec="rule-kind">The text decides the kind. With no <code>is:pr</code> / <code>is:issue</code> left, PRs and issues show together, told apart by icon.</li>
+    <li data-spec="rule-scope">Limited to the current repo unless the text has <code>repo:</code>, <code>org:</code> or <code>user:</code>.</li>
+    <li data-spec="rule-order">Newest created first, like GitHub's own PR and issue pages, unless the text has its own <code>sort:</code> (e.g. <code>sort:updated-desc</code>).</li>
+    <li data-spec="rule-limit">At most 100 results, no paging.</li>
+    <li data-spec="rule-search-timing">A search starts only after typing pauses. Old list stays with a spinner meanwhile. Out-of-date answers never overwrite newer ones.</li>
+    <li data-spec="rule-errors">GitHub errors and empty results appear inside the list. Only "cannot start" problems (no remote, no <code>gh</code>, not logged in) use a toast.</li>
+    <li data-spec="rule-preview">Preview shows list-level info instantly, then description and conversation. Fetched previews are kept until the picker closes. Read-only, scrolls like other previews.</li>
+    <li data-spec="rule-reopen">Reopening starts from the default text, not the last query.</li>
+    <li data-spec="rule-keys">Enter opens in browser, Ctrl-y copies URL, Ctrl-s / Ctrl-v do nothing. <code>&lt;leader&gt;ghp</code> = PRs, <code>&lt;leader&gt;ghi</code> = issues (<code>&lt;leader&gt;gp</code> is already "Preview hunk").</li>
+    <li data-spec="rule-colors">Icon colors: open green, draft grey, merged purple, closed red. Issues closed as "not planned" are grey, others purple.</li>
+  </ul>
+</section>
+
+<section data-spec="decisions">
+  <h2>Decisions for you</h2>
+  <p class="muted">Items 1, 2 and 4 are confirmed. Item 3 is still a recommendation.</p>
+
+  <div class="choice" data-spec="decision-keys">
+    <strong>1. Keys</strong> <span class="rec">confirmed</span>
+    <ul><li><code>&lt;leader&gt;ghp</code> / <code>&lt;leader&gt;ghi</code>. No clash, grouped as "GitHub". Both keys stay even though the text can switch kind: opening straight on the wanted kind is the common case.</li></ul>
+  </div>
+
+  <div class="choice" data-spec="decision-kind">
+    <strong>2. Deleting <code>is:pr</code> / <code>is:issue</code></strong> <span class="rec">confirmed</span>
+    <ul><li>Show both kinds together. The text is the single source of truth.</li></ul>
+  </div>
+
+  <div class="choice" data-spec="decision-enter">
+    <strong>3. Enter</strong>
+    <ul>
+      <li>Open in the browser <span class="rec">recommended for v1</span>.</li>
+      <li>Open an in-editor read-only page for the item.</li>
+    </ul>
+  </div>
+
+  <div class="choice" data-spec="decision-sort">
+    <strong>4. Default order</strong> <span class="rec">confirmed</span>
+    <ul><li>Like GitHub browsing: newest created first. Add <code>sort:</code> to change it.</li></ul>
+  </div>
+</section>
+
+<section data-spec="success-criteria">
+  <h2>Success criteria</h2>
+  <ul class="check">
+    <li>The two keys open pickers whose prompt holds <code>is:pr state:open </code> / <code>is:issue state:open </code>, cursor at the end.</li>
+    <li>The list shows the current repo's open items with state icon, number, title, author, colored labels.</li>
+    <li>Editing the text (state, author, label, words, other repo, <code>is:pr</code> to <code>is:issue</code>) matches what github.com shows for that text.</li>
+    <li>The preview shows metadata, description and conversation; revisiting an item is instant.</li>
+    <li>Fast typing yields one search; the list never shows results for older text.</li>
+    <li>While searching, the old list stays and a spinner replaces the count.</li>
+    <li>Failed searches (repo not found, rate limit, network) and empty results show one in-list line, not a popup. Unknown qualifiers simply give no results.</li>
+    <li>No remote / no <code>gh</code> / not logged in gives a clear toast and no empty picker.</li>
+    <li>Enter opens the browser, Ctrl-y copies the URL, Esc closes with no side effects.</li>
+    <li>Look and keys match the existing finder pickers.</li>
+  </ul>
+</section>
+
+<section data-spec="out-of-scope">
+  <h2>Out of scope</h2>
+  <ul>
+    <li>Write actions: comment, close, merge, label, assign, react. v1 is for scanning.</li>
+    <li>Checking out a PR branch and viewing its diff in the editor. Natural follow-up.</li>
+    <li>An in-editor page for a PR or issue.</li>
+    <li>Highlighting or completing qualifiers (<code>state:</code>, <code>label:</code> ...) in the prompt.</li>
+    <li>Paging beyond 100 results.</li>
+    <li>Remembering the last query between openings.</li>
+    <li>Opening outside a GitHub repo to search by <code>repo:</code> only.</li>
+    <li>GitLab (planned as a follow-up, own spec). Its filtering differs: UI filter tokens, the GLQL query language, and <code>glab</code> flags, so it is not a copy of the GitHub query box.</li>
+    <li>Other forges (Bitbucket, Gitea).</li>
+  </ul>
+</section>
+
+</main>
+</body>
+</html>
