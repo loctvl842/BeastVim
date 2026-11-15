@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dev spec: PR commits chain</title>
+<style>
+  :root { --bg:#fbfaf7; --fg:#1c1b19; --muted:#6b675f; --line:#dcd8cf; --card:#fff; --accent:#b4540a; --term:#1e1f26; --termfg:#d8dae5; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#161513; --fg:#ece8df; --muted:#a29d92; --line:#3a3732; --card:#1f1d1a; --accent:#e08a3c; }
+  }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, sans-serif; }
+  main { max-width:880px; margin:0 auto; padding:24px 16px 80px; }
+  section { margin:32px 0; }
+  h1 { margin:0 0 8px; } h2 { margin:0 0 10px; } h3 { margin:18px 0 6px; font-size:1rem; }
+  .muted { color:var(--muted); }
+  pre.mock { background:var(--term); color:var(--termfg); border-radius:10px; padding:14px 16px; font:13px/1.35 ui-monospace,Menlo,monospace; overflow-x:auto; margin:8px 0; white-space:pre; }
+  pre.step { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:10px 14px; font:13px/1.5 ui-monospace,Menlo,monospace; overflow-x:auto; white-space:pre-wrap; margin:8px 0; }
+  ul { padding-left:20px; } li { margin:4px 0; }
+  ul.check { list-style:none; padding-left:0; } ul.check li::before { content:"\2610  "; color:var(--accent); }
+  details { margin:10px 0; } summary { cursor:pointer; font-weight:600; }
+  .choice { border-left:3px solid var(--accent); padding:6px 12px; margin:12px 0; background:var(--card); border-radius:0 8px 8px 0; }
+  .rec { color:var(--accent); font-weight:600; font-size:.85em; }
+  code { font:0.9em ui-monospace,Menlo,monospace; background:var(--card); border:1px solid var(--line); border-radius:4px; padding:0 4px; }
+  .sim { margin:12px 0 22px; }
+  .sim .bar { display:flex; flex-wrap:wrap; gap:6px; margin:6px 0; }
+  .sim button { font:12px ui-monospace,Menlo,monospace; background:var(--card); color:var(--fg); border:1px solid var(--line); border-radius:6px; padding:4px 8px; cursor:pointer; }
+  .sim button:hover { border-color:var(--accent); }
+  .term { background:var(--term); color:var(--termfg); border-radius:10px; padding:10px; font:13px/1.45 ui-monospace,Menlo,monospace; outline:none; min-height:300px; }
+  .term:focus { box-shadow:0 0 0 2px var(--accent); }
+  .panes { display:grid; grid-template-columns:1.1fr 1fr; gap:8px; }
+  @media (max-width:640px) { .panes { grid-template-columns:1fr; } }
+  .pane { border:1px solid #4a4c5a; border-radius:6px; padding:4px 8px; min-height:260px; overflow:hidden; white-space:pre; }
+  .pane .ttl { color:#e5c07b; text-align:center; }
+  .term .dim { color:#7c7f93; } .term .sel { background:#3a3d4d; display:block; } .term .row { display:block; }
+  .term .hit { background:#4a4c5a; } .term .add { color:#98c379; } .term .del { color:#e06c75; } .term .hunk { color:#7c7f93; }
+  .term .prompt { color:#e5a06a; } .term .cnt { float:right; color:#7c7f93; } .term .caret { background:#d8dae5; color:#1e1f26; }
+  .term .hint { color:#7c7f93; display:block; text-align:right; margin-top:4px; }
+  .simtoast { min-height:1.5em; margin-top:6px; font-size:.9em; color:var(--accent); }
+  svg { width:100%; height:auto; color:var(--fg); }
+  table{border-collapse:collapse;width:100%;font-size:.9em} td,th{border:1px solid var(--line);padding:4px 8px;text-align:left;vertical-align:top}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin:12px 0}
+  .tag{font-size:.75em;border:1px solid var(--line);border-radius:10px;padding:1px 8px;margin-left:6px}
+</style>
+</head>
+<body>
+<main>
+<header data-spec="summary"><h1>PR commits chain + configurable chains</h1><p>Add <code>gh_pr &gt; gh_commits &gt; live_grep</code> and let users switch built-in edges off, change their keys, and change the back keys. The edge set stays closed; invalid config raises at setup.</p><svg viewBox="0 0 760 190" role="img" aria-label="chain map with keys" data-spec="chain-map"><title>Chain map and keys</title>
+<defs><marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="currentColor"/></marker></defs>
+<g fill="none" stroke="currentColor" stroke-width="1.5">
+<rect x="10" y="70" width="130" height="40" rx="8"/><rect x="230" y="20" width="150" height="40" rx="8"/><rect x="230" y="120" width="150" height="40" rx="8"/>
+<rect x="470" y="20" width="150" height="40" rx="8"/><rect x="470" y="120" width="150" height="40" rx="8"/>
+<path d="M140 85 L228 45" marker-end="url(#ar)"/><path d="M140 95 L228 140" marker-end="url(#ar)"/>
+<path d="M380 140 H468" marker-end="url(#ar)"/><path d="M380 40 H468" marker-end="url(#ar)"/>
+</g><g fill="currentColor" font-size="12" font-family="ui-monospace,Menlo,monospace">
+<text x="22" y="95">gh_pr</text><text x="242" y="45">gh_pr_files</text><text x="242" y="145">gh_commits (new)</text><text x="482" y="45">live_grep</text><text x="482" y="145">live_grep</text>
+<text x="160" y="58">&lt;C-g&gt;</text><text x="160" y="140">&lt;C-t&gt;</text><text x="400" y="34">&lt;C-g&gt;</text><text x="400" y="134">&lt;C-g&gt;</text>
+<text x="10" y="185" opacity=".7">each key and each edge: config.chains.edges[id] = false | { key = ... }; back keys: config.chains.back</text></g></svg></header>
+<section data-spec="context"><section data-spec="summary"><h2>Summary</h2>
+<p>Add the <code>gh_pr -&gt; gh_commits -&gt; live_grep</code> chain on top of the existing chain machinery (<code>chains.lua</code>, <code>chain.lua</code>, Session levels), and make the chain configurable: every built-in edge can be switched off or given another key, and the keys that go back can be changed. The set of edges stays closed (only built-in pairs exist); configuration chooses among them and an invalid configuration raises at setup. A commit&#x27;s files need a network call, so an edge can now finish asynchronously.</p></section><section data-spec="context"><h2>Context</h2>
+<h3 data-spec="problem">Problem</h3>
+<p><code>chains.lua</code> has one fixed key (<code>&lt;C-g&gt;</code>) per source and <code>keymaps.lua</code> binds it at module load, so a PR list cannot have two ways down (files changed, commits), nothing can be remapped or disabled, and <code>open(ctx)</code> is synchronous while the files of a commit are only known after a GitHub request. There is no commits source, no per-commit diff fetch, and the hint line assumes one edge per level.</p>
+<h3 data-spec="solution">Solution</h3>
+<p>Edges get an id (<code>&quot;gh_pr|gh_commits&quot;</code>) and a default key; <code>config.chains</code> can disable an edge (<code>false</code>) or change its key, and changes the back keys. <code>chain.lua</code> looks edges up by <code>(source, key)</code> among the *enabled* ones, <code>keymaps.lua</code> binds the keys of the enabled edges at mount, and the hint lists every enabled edge of the level shown. A new <code>gh_commits</code> match source lists a PR&#x27;s commits and previews the highlighted commit&#x27;s diff; an edge may return a waiting function so <code>&lt;C-g&gt;</code> on a commit can fetch its files first.</p></section><section data-spec="research"><h2>Research</h2>
+<h3 data-spec="repo-search">Repo Search</h3>
+<ul>
+<li>Searched for: <code>chain.KEY</code>, <code>chains</code> group in <code>keymaps.lua</code>, <code>config.setup</code>, <code>cfg.finder</code> in <code>lua/beast/init.lua</code>, <code>source.preview</code> for gh, <code>api.files</code>/<code>classify</code> in <code>source/gh/api.lua</code>, <code>host.busy</code>, <code>ui.input.start_spinner</code>, <code>open_diff</code> in <code>action.lua</code>.</li>
+<li>Found: the single <code>chain.KEY</code> bound in a static <code>chains</code> group at module load; user config reaches the finder through <code>packer.lazy(&quot;beast.libs.finder&quot;, { setup = finder.setup(cfg.finder) })</code>; <code>api.files</code> pages <code>pulls/{n}/files</code> with a truncation probe and a <code>kill</code> handle; <code>gh/preview.lua</code> has a per-view cache and stale-fetch guard to copy for the commit diff; <code>host.busy</code> + the prompt spinner already show &quot;working&quot;; <code>tests/helpers/gh.lua</code> scripts <code>gh</code> for tests.</li>
+<li>Reuse opportunity: Yes - the paging helper pattern of <code>api.files</code>, the preview state/cache pattern, <code>action.open_diff</code> (extend for a commit), <code>classify</code> for errors, the test helper.</li>
+</ul>
+<h3 data-spec="built-in-existing-lib-check">Built-in / Existing Lib Check</h3>
+<ul>
+<li>Checked: <code>vim.tbl_deep_extend</code>, <code>vim.validate</code>, GitHub REST <code>GET repos/{o}/{r}/pulls/{n}/commits</code> (max 250, <code>sha</code>, <code>commit.message</code>, <code>commit.author.{name,date}</code>, <code>author.login</code>) and <code>GET repos/{o}/{r}/commits/{sha}</code> (<code>files[]</code> with <code>filename</code>, <code>status</code>, <code>patch</code>, up to 300 files, <code>commit.message</code>).</li>
+<li>Found: both endpoints answer with <code>gh api</code> like the existing calls; <code>patch</code> is absent for binary or huge diffs.</li>
+<li>Decision: <b>Reuse</b> the chain machinery, gh api helpers and preview patterns; <b>Build</b> <code>gh_commits</code>, the commit detail fetch, chain config + validation, and async edge support. No new dependency.</li>
+</ul>
+<h3 data-spec="corrections-notes-on-the-pm-spec">Corrections / notes on the PM spec</h3>
+<ul>
+<li>The PM spec says <code>&lt;BS&gt;</code> goes back on an empty prompt. With configurable back keys, <code>&lt;BS&gt;</code> keeps that meaning (it is a normal backspace otherwise); any other key listed in <code>back</code> goes back whenever pressed.</li>
+<li>&quot;Configurable&quot; is read as: choose among built-in edges and keys. Defining a new pair, or a key that clashes with a picker key, raises at setup (earlier decision: the edge set is closed).</li>
+</ul></section><section data-spec="architecture-changes"><h2>Architecture Changes</h2>
+<ul>
+<li><code>lua/beast/libs/finder/config.lua</code> - modified: <code>chains = { back = { &quot;&lt;BS&gt;&quot;, &quot;&lt;C-o&gt;&quot; }, edges = {} }</code> defaults.</li>
+<li><code>lua/beast/libs/finder/chains.lua</code> - modified: each edge gets <code>id</code> (<code>from .. &quot;|&quot; .. to</code>) and a default <code>key</code>; new rows <code>gh_pr|gh_commits</code> (key <code>&lt;C-t&gt;</code>) and <code>gh_commits|live_grep</code>; <code>open</code> may return a *waiting function* (see Design).</li>
+<li><code>lua/beast/libs/finder/chain.lua</code> - modified: <code>enabled()</code> (edges after config), <code>from(source)</code> (all enabled edges of a source), <code>find(source, key)</code>, <code>keys()</code>; <code>validate(chains_cfg)</code> raises on unknown ids, non-string keys, a key clash (two enabled edges of one source, or a picker key); <code>drill(session, key)</code>; waiting-edge handling; <code>hint_text</code> lists every enabled edge and the first back key.</li>
+<li><code>lua/beast/libs/finder/init.lua</code> - modified: <code>setup</code> validates <code>config.chains</code> (raises); <code>finder.chains()</code> returns the enabled edges with their keys.</li>
+<li><code>lua/beast/libs/finder/keymaps.lua</code> - modified: the static <code>chains</code> group is built at mount from <code>chain.keys()</code> (one <code>drill</code> binding per distinct key, in all three panes) and the configured back keys (<code>&lt;BS&gt;</code> keeps the empty-prompt <code>expr</code> mapping, other keys call <code>back</code>); exports <code>reserved()</code> (the picker&#x27;s own keys) for validation.</li>
+<li><code>lua/beast/libs/finder/source/gh/api.lua</code> - modified: <code>commits(item, cb)</code> (pages of <code>pulls/{n}/commits</code>, 3 pages + truncation probe) and <code>commit(item, sha, cb)</code> (one commit with its files), normalizers.</li>
+<li><code>lua/beast/libs/finder/source/gh_commits.lua</code> - <b>new</b>: match source over <code>filter.ctx.pr</code>; rows <code>sha  subject  author  age</code>; <code>title</code>, <code>count</code>, <code>preview</code> (message, file list, diffs; cached per sha), <code>open</code> (full commit in a scratch buffer).</li>
+<li><code>lua/beast/libs/finder/source/gh/preview.lua</code> or sibling <code>source/gh/commit_preview.lua</code> - <b>new/modified</b>: pure <code>build(commit)</code> + window drawing with cache and stale guard.</li>
+<li><code>lua/beast/libs/finder/action.lua</code> - modified: <code>open_commit(win, item, commit)</code>.</li>
+<li><code>lua/beast/libs/finder/format.lua</code> - modified: <code>gh_commit</code> row formatter.</li>
+<li><code>lua/beast/libs/finder/source/init.lua</code> - modified: <code>&quot;gh_commits&quot;</code> in the source alias.</li>
+<li><code>lua/beast/libs/finder/ui/hint.lua</code> - unchanged; text comes from <code>chain.hint_text</code>.</li>
+<li><code>tests/test-finder-chain-config.lua</code>, <code>test-finder-gh-commits-api.lua</code>, <code>test-finder-gh-commits.lua</code>, <code>test-finder-chain-commit-grep.lua</code> - <b>new</b>; <code>test-finder-chain.lua</code> - modified (seven edges, config-aware pair test); <code>tests/helpers/gh.lua</code> - modified (commit fixtures).</li>
+<li><code>docs/CODEMAP/libraries.md</code>, <code>INDEX.md</code>, <code>lua/beast/libs/finder/docs/</code> - updated at the end.</li>
+</ul>
+<h3 data-spec="design-shared-by-all-phases">Design (shared by all phases)</h3>
+<pre class="step">-- config (user side, through cfg.finder in lua/beast/init.lua)
+chains = {
+  back  = { &quot;&lt;BS&gt;&quot;, &quot;&lt;C-o&gt;&quot; },                 -- keys that go back; &quot;&lt;BS&gt;&quot; only on an empty prompt
+  edges = {                                    -- by edge id; absent = built-in default
+    [&quot;gh_pr|gh_commits&quot;]   = { key = &quot;&lt;C-t&gt;&quot; },
+    [&quot;gh_pr|gh_pr_files&quot;]  = false,            -- switched off: no key, not in the hint
+    [&quot;files|live_grep&quot;]    = { key = &quot;&lt;M-g&gt;&quot; },
+  },
+}
+
+-- chains.lua (built-in, closed)
+{ id = &quot;gh_pr|gh_commits&quot;, from = &quot;gh_pr&quot;, to = &quot;gh_commits&quot;, key = &quot;&lt;C-t&gt;&quot;, crumb = &quot;Pull Requests&quot;,
+  hint = commits_in_pr, open = pr_commits }
+
+-- an edge whose next level needs a request returns a waiting function instead of options
+open = function(ctx) return function(resume)        -- resume(opts | message | nil)
+  return api.commit(ctx.selected, ctx.selected.sha, function(res) resume(res.error and res.error.message or scope(res.commit)) end)
+end end</pre>
+<p>Validation (<code>chain.validate</code>, run by <code>finder.setup</code>, raises with the offending id/key named): every key of <code>edges</code> is a known id (<code>finder: unknown chain &#x27;a&gt;b&#x27; (known: ...)</code>); the value is <code>false</code> or a table whose <code>key</code> is a non-empty string; no two enabled edges of one source share a key; no enabled edge key or back key equals a picker key (<code>keymaps.reserved()</code>); <code>back</code> is a non-empty list of strings. A waiting edge: <code>&lt;C-g&gt;</code> starts the prompt spinner and calls the function; the answer is applied only if the session is open and still on the same level and the user did not press <code>&lt;BS&gt;</code>; another drill key while waiting shows &quot;Still loading - try again in a moment&quot;.</p>
+<h3 data-spec="implementation-phases">Implementation Phases</h3>
+<h3 data-spec="phase-1-">Phase 1: Configurable chain (no new chain yet)</h3>
+<ul>
+<li><b>Config and ids</b> (Files: <code>config.lua</code>, <code>chains.lua</code>)</li>
+<li>Action: defaults for <code>chains</code>; every edge gets <code>id</code> and <code>key</code> (<code>&lt;C-g&gt;</code> for all existing edges). Depends on: None. Risk: Low</li>
+<li><b>Lookup by enabled edges</b> (File: <code>chain.lua</code>)</li>
+<li>Action: <code>enabled()</code>, <code>from(source)</code>, <code>find(source, key)</code>, <code>keys()</code>, <code>validate()</code>, <code>drill(session, key)</code>; <code>hint_text</code> lists all enabled edges of the level; back hint uses <code>config.chains.back[1]</code>. <code>chain.edge(from, to)</code> still raises for pairs not in <code>chains.lua</code> (disabled edges still *exist*). Depends on: Step 1. Risk: Medium</li>
+<li><b>Keys from config</b> (File: <code>keymaps.lua</code>, <code>init.lua</code>)</li>
+<li>Action: bind at mount: one <code>drill</code> binding per distinct enabled key in all three panes (the action knows its key), the back keys in the input; <code>reserved()</code> exported; <code>setup</code> calls <code>chain.validate</code>. Defaults reproduce today&#x27;s keys exactly. Depends on: Step 2. Risk: Medium (insert-mode <code>&lt;C-o&gt;</code> stays as today)</li>
+<li><b>Tests</b> (Files: <code>test-finder-chain-config.lua</code> new, <code>test-finder-chain.lua</code>)</li>
+<li>Action: defaults unchanged; disabled edge: no hint, key toasts &quot;Nothing to open from here&quot;; remapped key works and the old one does not; custom back key; invalid configs raise (unknown id, clash with <code>&lt;C-j&gt;</code>, two edges one key, non-string key, empty back); <code>finder.chains()</code> shows keys. Risk: Low</li>
+</ul>
+<h3 data-spec="phase-2-">Phase 2: Commits of a pull request</h3>
+<ul>
+<li><b>API</b> (File: <code>source/gh/api.lua</code>)</li>
+<li>Action: <code>M.commits(item, cb)</code> pages <code>pulls/{n}/commits</code> (3 pages of 100, probe for a 4th like <code>files</code>), returns <code>{ sha, short, subject, message, author, date }</code> and <code>truncated</code>; <code>M.commit(item, sha, cb)</code> returns <code>{ message, files = { path, status, additions, deletions, patch? }, truncated? }</code> (the endpoint lists up to 300 files); errors through <code>classify</code>; both return a <code>kill</code> handle. Risk: Medium</li>
+<li><b>Source</b> (Files: <code>source/gh_commits.lua</code> new, <code>format.lua</code>, <code>source/init.lua</code>)</li>
+<li>Action: match-pipeline async source over <code>filter.ctx.pr</code> (same shape as <code>gh_pr_files</code>): item <code>text = sha subject author</code>, fields for the row (<code>sha</code>, <code>subject</code>, <code>author</code>, <code>date</code>), message rows for errors; <code>title(filter, items)</code> = <code>PR &lt;title...&gt; › Commits (N)</code> (<code>, partial</code> when cut); <code>count = format.ratio</code>; <code>format.gh_commit</code> row = short sha (dim), subject, author and age right-aligned.</li>
+<li>Risk: Medium</li>
+<li><b>Commit preview and open</b> (Files: <code>source/gh/commit_preview.lua</code> new, <code>action.lua</code>)</li>
+<li>Action: <code>preview(view, item)</code> draws message + per-file <code>status +a -d</code> + each diff (<code>filetype=diff</code>) once <code>api.commit</code> answers; per-view cache by sha, stale-fetch guard, &quot;(diff too large or binary)&quot; per file without a patch, loading line meanwhile. <code>source.open</code> = <code>action.open_commit</code>: uses the cached commit (or fetches, with the picker already closed and a toast on error) and opens message + diffs in a read-only scratch buffer named <code>owner/name@&lt;short sha&gt;</code>.</li>
+<li>Risk: Medium</li>
+<li><b>Edge</b> (File: <code>chains.lua</code>)</li>
+<li>Action: <code>gh_pr|gh_commits</code>, key <code>&lt;C-t&gt;</code>, crumb &quot;Pull Requests&quot;, hint <code>commits in #N</code> (real PR row only), <code>open</code> returns <code>{ ctx = { pr = selected }, title = ... }</code>.</li>
+<li>Risk: Low</li>
+<li><b>Tests</b> (Files: <code>test-finder-gh-commits-api.lua</code>, <code>test-finder-gh-commits.lua</code> new)</li>
+<li>Action: paging/truncation/errors; the picker through the real keys with scripted <code>gh</code>: both hints on a PR, <code>&lt;C-t&gt;</code> lists commits oldest first, filter by subject/author/sha with <code>n/total</code>, diff preview and its cache (one fetch per sha), Enter opens the commit buffer, <code>&lt;BS&gt;</code> back with no new request, message row refuses. Risk: Low</li>
+</ul>
+<h3 data-spec="phase-3-">Phase 3: Commit to grep (async edge)</h3>
+<ul>
+<li><b>Waiting edges</b> (File: <code>chain.lua</code>)</li>
+<li>Action: when <code>open(ctx)</code> returns a function, start the prompt spinner, call it with <code>resume</code>; apply the answer only if the session is open, still on the same level and no pop happened (token); a second drill while waiting toasts &quot;Still loading - try again in a moment&quot;; the spinner stops either way. Risk: Medium</li>
+<li><b>Edge</b> (File: <code>chains.lua</code>)</li>
+<li>Action: <code>gh_commits|live_grep</code>, key <code>&lt;C-g&gt;</code>: <code>ctx.selected</code> commit, waits for <code>api.commit</code> (instant when the preview cached it), scope = changed files not <code>removed</code> that exist under the project root; title <code>N Files in &lt;short sha&gt; › Live Grep</code>; none exist -&gt; &quot;None of these files exist in your working tree&quot;; merge commit with no files -&gt; nil (&quot;Nothing to open from here&quot;); placeholder via <code>ctx.local_copies = true</code>; hint <code>grep the files changed in &lt;short sha&gt;</code>.</li>
+<li>Risk: Medium</li>
+<li><b>Tests</b> (File: <code>test-finder-chain-commit-grep.lua</code> new)</li>
+<li>Action: three-level chain with real temp files; removed/missing dropped, none-exist, merge commit, error from the commit request, <code>&lt;BS&gt;</code> while waiting drops the answer, double <code>&lt;C-g&gt;</code>, closing the picker while waiting; remap <code>&lt;C-g&gt;</code> of this edge through config. Risk: Low</li>
+</ul>
+<h3 data-spec="phase-4-">Phase 4: Docs and wrap-up</h3>
+<ul>
+<li><code>docs/CODEMAP/libraries.md</code> + <code>INDEX.md</code> (config, edge ids, waiting edges, <code>gh_commits</code>); a short &quot;Configuring chains&quot; note with the config example in <code>lua/beast/libs/finder/docs/</code>; update the pair test to the seven built-in edges; final verification below. Risk: Low</li>
+</ul></section><section data-spec="testing-strategy"><h2>Testing Strategy</h2>
+<ul>
+<li>Headless: new tests above plus <code>for f in tests/test-finder-*.lua tests/test-preflight*.lua; do nvim --clean --headless -l &quot;$f&quot;; done</code> with <code>NVIM_APPNAME=BeastVim</code>; <code>stylua --check lua tests</code>; luals as in DEVELOPMENT.md.</li>
+<li>Bench: <code>scripts/bench-finder-matcher.lua</code> (the match engine gains a title refresh only) and <code>bench-ux.sh all</code> (keymaps scenario opens the pickers) against the starting commit.</li>
+<li>Manual (real nvim in tmux, <code>NVIM_APPNAME=BeastVim</code>; a public repo with a multi-commit PR): PM spec scenarios 1-7; plus the default keys, a remapped key, a disabled edge, an invalid config message at startup. Not testable offline: live GitHub paging beyond the scripted fixtures.</li>
+</ul>
+</section><section data-spec="success-criteria"><h2>Success Criteria</h2>
+<ul>
+<li>Every PM spec success criterion (PR -&gt; commits with diff, filter, grep in the commit&#x27;s local files, back at each step, Enter opens the diff, refusals, <code>(partial)</code> caps, hint keys).</li>
+<li>With no configuration, every existing chain key behaves exactly as before; <code>&lt;C-t&gt;</code> is the new commits key.</li>
+<li><code>chains.edges[id] = false</code> removes the edge (key, hint, behavior); <code>{ key = ... }</code> rebinds it; <code>chains.back</code> changes the back keys.</li>
+<li>An unknown edge id, a key clash, or a malformed value raises at setup with a message naming it; no way to define a new pair.</li>
+<li>A slow commit request never opens a level after the user went back or closed the picker.</li>
+<li>Technical gates: all finder tests pass, luals and stylua clean, matcher bench and <code>bench-ux.sh all</code> within noise, Toast (no <code>vim.notify</code>).</li>
+</ul></section>
+</main>
+</body>
+</html>
