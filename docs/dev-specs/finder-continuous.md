@@ -191,13 +191,33 @@ A drill (`<C-g>`) is refused (toast, nothing changes) while the pipeline is not 
 - Not testable offline (state clearly in the final report): live GitHub paging beyond what is stubbed, clipboard, browser open.
 
 # Success Criteria
-- [ ] Files and Buffers rows show icon, file name and dim folder; `[+]` on modified buffers; the fuzzy match highlight is correct on name and folder (STATE 0).
-- [ ] In Files, Buffers and Help, `<C-g>` opens a grep that only returns matches inside the matching files / help pages, including when more than 1000 items match.
-- [ ] In Pull Requests, `<C-g>` lists the changed files of the highlighted PR with the diff, status and +/- counts in the preview; typing filters by path; capped at 300 files with a `(partial)` title.
-- [ ] From a PR's changed files `<C-g>` greps the local copies (removed / missing files dropped, count reflects it); in Issues `<C-g>` greps title and description.
-- [ ] `<BS>` on an empty prompt and `<C-o>` return to the earlier level with the same prompt, results and highlighted row; no new search (GitHub or files).
-- [ ] `<Esc>` / `<C-c>` close the whole chain; `<Enter>` on a result closes it.
-- [ ] Titles read `38 Files › Live Grep` / `PR <title...> › Files Changed (N)`; the hint sits under the picker, right-aligned, hidden when there is no room.
-- [ ] `<C-g>` with no next step, an empty list, or a still-working list toasts and changes nothing.
-- [ ] Windows are never closed and reopened during a push or pop (no flicker, backdrop stays).
-- [ ] Technical gates: all finder tests pass, luals and stylua clean, matcher bench and `bench-ux.sh all` within noise of baseline, no `vim.notify` or lib-config keymaps in new code (Toast and `packer.lazy` conventions).
+- [x] Files and Buffers rows show icon, file name and dim folder; `[+]` on modified buffers; the fuzzy match highlight is correct on name and folder (STATE 0).
+- [x] In Files, Buffers and Help, `<C-g>` opens a grep that only returns matches inside the matching files / help pages, including when more than 1000 items match.
+- [x] In Pull Requests, `<C-g>` lists the changed files of the highlighted PR with the diff, status and +/- counts in the preview; typing filters by path; capped at 300 files with a `(partial)` title.
+- [x] From a PR's changed files `<C-g>` greps the local copies (removed / missing files dropped, count reflects it); in Issues `<C-g>` greps title and description.
+- [x] `<BS>` on an empty prompt and `<C-o>` return to the earlier level with the same prompt, results and highlighted row; no new search (GitHub or files).
+- [x] `<Esc>` / `<C-c>` close the whole chain; `<Enter>` on a result closes it.
+- [x] Titles read `38 Files › Live Grep` / `PR <title...> › Files Changed (N)`; the hint sits under the picker, right-aligned, hidden when there is no room.
+- [x] `<C-g>` with no next step, an empty list, or a still-working list toasts and changes nothing.
+- [x] Windows are never closed and reopened during a push or pop (no flicker, backdrop stays).
+- [x] Technical gates: all finder tests pass, luals and stylua clean, matcher bench and `bench-ux.sh all` within noise of baseline, no `vim.notify` or lib-config keymaps in new code (Toast and `packer.lazy` conventions).
+
+## Completed
+
+2026-11-15. Phases 1-7 done: file row look, count label, chains (`chains.lua`, `chain.lua`, hint line, `<C-g>` / `<BS>` / `<C-o>`), scoped grep, Buffers / Help edges, PR files changed with diff preview, PR files to local grep, issues to grep, docs.
+
+- `3d9d7ea` feat(finder): files and buffers rows use the grep file look
+- `6abc42c` feat(finder): count label in the prompt row of files, buffers and help
+- `31497aa` feat(finder): chains - files lead to a grep scoped to the matching files
+- `2923829` feat(finder): buffers and help lead to a scoped grep
+- `d25745b` feat(finder): pull requests lead to their changed files with a diff preview
+- `9d1b015` feat(finder): changed files of a pull request lead to a grep in the local copies
+- `a2c1f00` feat(finder): issues lead to a grep in their title and description
+- `b757733` test(finder): every source pair is checked against the built-in chain edges
+- `956a3c7` docs(finder): codemap for chains, hint line and the new sources
+- `5992b19` test(finder): a scope above 1000 matches is searched in full
+- `3b5e383` fix(finder): hint returns after hiding, drill waits for typed text, parked levels reload, issue grep stops at its cap
+
+Deviations: the Help hint says "grep the matching help pages" with no number (counting distinct pages would walk every item on each render; the title has the exact count); `<C-g>` with no edge toasts, only `chain.edge` raises; PR files rows are plain paths (as the user asked). Found and fixed while implementing: the prompt debounce followed the first level only (`ui.input.set_debounce`); the match engine refreshes a loaded title; review fixes for a hint that never returned after hiding, a drill on text not yet searched, and parked levels that were not reloaded after a visibility toggle.
+
+Verification: every `tests/test-finder-*.lua` and `test-preflight*` pass (new: format, count, chain 40, chain-large, chain-pr-grep 13, gh-files-api 13, gh-pr-files, gh-issue-grep); stylua and lua-language-server clean; `bench-finder-matcher` 17.9 ms full scan / 18.6 ms subset (same as before); `bench-ux.sh all` PASS, keymaps p50 2.34 ms / p99 37.1 ms (baseline 2.30 / 37); real nvim in tmux: files row look, count `16/631`, scoped grep title and right-aligned hint checked on screen. Not done: dark/light colour check in wezterm, live GitHub calls (scripted `gh` only).
