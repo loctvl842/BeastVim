@@ -393,6 +393,7 @@ function M.setup(opts)
 			{ "<leader>F", function() require("beast.libs.finder").open("live_grep") end, desc = "Live grep" },
 			{ "<leader>h", function() require("beast.libs.finder").open("help_tags") end, desc = "Help tags" },
 			{ "<leader>gc", function() require("beast.libs.finder").open("git_commits") end, desc = "Git commits" },
+			{ "<leader>gr", function() require("beast.libs.finder").open("git_branches") end, desc = "Git branches" },
 			{ "<leader>ghp", function() require("beast.libs.finder").open("gh_pr") end, desc = "GitHub pull requests", group = "GitHub", cond = on_github },
 			{ "<leader>ghi", function() require("beast.libs.finder").open("gh_issue") end, desc = "GitHub issues", group = "GitHub", cond = on_github },
 			{

@@ -254,7 +254,7 @@ end
 ---@param cb fun(base: string?)
 ---@return Beast.Finder.Gh.Handle?
 function M.base(cwd, branch, default, cb)
-	if not default or branch.name == default then
+	if not default or default == branch.name then
 		return cb(nil)
 	end
 	return git(cwd, { "merge-base", "refs/heads/" .. default, "refs/heads/" .. branch.name }, function(res)

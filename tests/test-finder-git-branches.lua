@@ -149,5 +149,56 @@ t.ok("the patch starts at the first hunk", by["lib/a.lua"].patch:sub(1, 2) == "@
 t.eq("not truncated", diff.truncated, false)
 t.ok("a bad revision is an error", read(log.diff, dir, "nope", feat.sha).error ~= nil)
 
+t.section("the picker")
+local function head()
+	return vim.trim(vim.system({ "git", "-C", dir, "rev-parse", "--abbrev-ref", "HEAD" }, { text = true }):wait().stdout)
+end
+H.open("git_branches", { cwd = dir })
+H.settle(300)
+t.eq("title", H.title(), "Git Branches (3)")
+local rows = H.rows()
+t.ok("the branch you are on first, marked", rows[1]:find("●", 1, true) and rows[1]:find("main", 1, true), vim.inspect(rows))
+t.ok("then the newest", rows[2]:find("feat/x", 1, true) and rows[2]:find("Drop b, grow new", 1, true), vim.inspect(rows))
+t.ok("the others are not marked", not rows[2]:find("●", 1, true))
+
+H.type("Drop")
+H.settle(200)
+t.ok("typing filters by the latest commit: only the matching branch", H.has_row("feat/x") and not H.has_row("old"), vim.inspect(H.rows()))
+H.type("")
+H.settle(200)
+
+H.press("<C-j>")
+H.settle(500)
+local preview = H.panes().preview
+local text = table.concat(vim.api.nvim_buf_get_lines(preview.buf, 0, -1, false), "\n")
+t.ok("the preview counts the commits over main", text:find("2 commits ahead of main", 1, true) ~= nil, text)
+t.ok("and lists them", text:find("Add new, change a", 1, true) ~= nil and text:find("Drop b, grow new", 1, true) ~= nil, text)
+H.press("<C-j>")
+H.settle(500)
+text = table.concat(vim.api.nvim_buf_get_lines(H.panes().preview.buf, 0, -1, false), "\n")
+t.ok(
+	"a branch on main's tip has nothing ahead, its history is shown",
+	text:find("all commits", 1, true) ~= nil and text:find("Second on main", 1, true) ~= nil,
+	text
+)
+
+H.press("<C-k>")
+H.settle(300)
+H.press("<CR>")
+H.wait(function()
+	return table.concat(vim.api.nvim_buf_get_lines(0, 0, -1, false), "\n"):find("Drop b, grow new", 1, true) ~= nil
+end)
+t.ok("Enter opens the latest commit of the branch", true)
+t.eq("and never checks anything out", head(), "main")
+
+t.section("not a repository")
+local empty = vim.fn.resolve(vim.fn.tempname())
+vim.fn.mkdir(empty, "p")
+H.open("git_branches", { cwd = empty })
+H.settle(300)
+t.ok("a single message row", H.has_row("Not a git repository"), vim.inspect(H.rows()))
+H.close()
+
 vim.fn.delete(dir, "rf")
+vim.fn.delete(empty, "rf")
 t.done()

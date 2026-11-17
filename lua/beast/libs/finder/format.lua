@@ -389,6 +389,25 @@ function M.gh_commit(item)
 	}
 end
 
+--- A local branch: "<mark> <name>  <subject>" with the author and age at the right edge; the mark is a dot
+--- for the branch you are on. The item text is "<name> <subject> <author>", which the parts' `src` ranges map
+--- matches onto.
+---@param item Beast.Finder.Item a branch item (`name`, `current`, `subject`, `author`, `date`)
+---@return Beast.Finder.Highlight[]
+function M.git_branch(item)
+	if item.message then
+		return { { text = item.text, hl = item.is_error and "BeastFinderGhError" or "BeastFinderGhMessage" } }
+	end
+	local age = require("beast.libs.finder.source.gh.preview").reltime(item.date)
+	return {
+		{ text = item.current and "● " or "  ", hl = "BeastFinderGhNumber" },
+		{ text = item.name, hl = "BeastFinderGhNumber", src = { 1, #item.name } },
+		{ text = "  " },
+		{ text = item.subject, hl = "BeastFinderListFile", src = { #item.name + 2, #item.name + 1 + #item.subject } },
+		{ text = ("%s  %s "):format(item.author, age), hl = "BeastFinderListDir", right_align = true },
+	}
+end
+
 ---@param item Beast.Finder.Gh.Item|Beast.Finder.Item
 ---@return Beast.Finder.Highlight[]
 function M.gh(item)

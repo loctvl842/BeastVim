@@ -25,7 +25,7 @@
 ---@field placeholder? fun(filter: Beast.Finder.Filter): string? live sources: a message shown instead of results while the prompt is empty
 ---@field reload_on string[] `User` events that load the source again while the picker is open (default: `{ "BeastVisibilityChanged" }`)
 
----@alias Beast.Finder.Source "files"|"buffers"|"live_grep"|"colorschemes"|"help_tags"|"lsp_definitions"|"lsp_references"|"lsp_declarations"|"lsp_implementations"|"gh_pr"|"gh_issue"|"gh_pr_files"|"gh_issue_grep"|"gh_commits"|"gh_commit_files"|"git_commits"|"git_commit_files"
+---@alias Beast.Finder.Source "files"|"buffers"|"live_grep"|"colorschemes"|"help_tags"|"lsp_definitions"|"lsp_references"|"lsp_declarations"|"lsp_implementations"|"gh_pr"|"gh_issue"|"gh_pr_files"|"gh_issue_grep"|"gh_commits"|"gh_commit_files"|"git_commits"|"git_commit_files"|"git_branches"|"git_branch_files"
 
 ---@class Beast.Finder.SourceRegistry
 ---@field [Beast.Finder.Source] Beast.Finder.ASource
