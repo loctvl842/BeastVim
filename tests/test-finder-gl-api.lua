@@ -203,6 +203,8 @@ gl.script[MR_LIST] = gl.http_error(429, "Retry later")
 assert_eq("429 with no hint", search("mr", "o/n", {}).error.message, "GitLab rate limit reached")
 gl.script[MR_LIST] = { code = 1, stdout = "", stderr = 'ERROR Get "https://git.acme.dev/api/v4/x": dial tcp: lookup git.acme.dev: no such host' }
 assert_eq("unknown host is a network error", search("mr", "o/n", {}).error, { kind = "network", message = "cannot reach gitlab.com" })
+gl.script[MR_LIST] = { code = 124, stdout = "", stderr = "" }
+assert_eq("a request that never answers", search("mr", "o/n", {}).error, { kind = "network", message = "GitLab did not answer in time" })
 gl.script[MR_LIST] = gl.http_error(400, "400 Bad request - invalid labels")
 assert_eq("other errors keep GitLab's message", search("mr", "o/n", {}).error.message, "400 Bad request - invalid labels")
 gl.script[MR_LIST] = gl.ok("<html>502 Bad Gateway</html>")

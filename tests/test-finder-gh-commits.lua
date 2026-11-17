@@ -148,5 +148,28 @@ H.settle(800)
 t.eq("a pull request with more commits is cut and says so", H.title():match("%(300, partial%)$") ~= nil, true)
 H.close()
 
+t.section("rows leave room for the author at the right edge")
+local format = require("beast.libs.finder.format")
+local long = { short = "abcdef1", subject = ("long subject "):rep(8), author = "loctvl842", date = "2026-11-10T00:00:00Z" }
+---@param parts Beast.Finder.Highlight[]
+---@return integer drawn columns the row takes, with the selection prefix
+local function drawn(parts)
+	local cols = 2
+	for _, part in ipairs(parts) do
+		cols = cols + vim.fn.strdisplaywidth(part.text)
+	end
+	return cols
+end
+local commit_parts = format.gh_commit(long, 60)
+t.ok("a long subject leaves a column before the author", drawn(commit_parts) + 1 <= 60, "drawn " .. drawn(commit_parts))
+t.eq("the cut subject ends in dots", commit_parts[3].text:sub(-3), "...")
+t.eq("a match can only land on the part still shown", commit_parts[3].src[2] - commit_parts[3].src[1] + 1, #commit_parts[3].text - 3)
+t.eq("a short subject stays whole", format.gh_commit(vim.tbl_extend("force", long, { subject = "fix" }), 60)[3].text, "fix")
+t.eq("without a width nothing is cut", format.gh_commit(long)[3].text, long.subject)
+local branch = vim.tbl_extend("force", long, { name = "feature/a-long-branch-name", current = true })
+local branch_parts = format.git_branch(branch, 70)
+t.ok("a branch row leaves room too", drawn(branch_parts) + 1 <= 70, "drawn " .. drawn(branch_parts))
+t.eq("the branch subject ends in dots", branch_parts[4].text:sub(-3), "...")
+
 gh.restore()
 t.done()

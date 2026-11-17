@@ -10,6 +10,9 @@ M.PER_PAGE = pager.PER_PAGE
 
 local JSON = { luanil = { object = true, array = true } }
 
+-- A request that gets no answer (a stalled connection) must not leave the picker on its spinner for good.
+local TIMEOUT_MS = 30000
+
 -- ---------------------------------------------------------------------------
 -- Requests
 -- ---------------------------------------------------------------------------
@@ -86,6 +89,10 @@ local function classify(res, status, headers, body, host)
 	local ok, decoded = pcall(vim.json.decode, body, JSON)
 	local msg = ok and api_message(decoded) or nil
 
+	-- vim.system kills the process and reports 124 when `timeout` runs out
+	if res.code == 124 then
+		return { kind = "network", message = "GitLab did not answer in time" }
+	end
 	if status == 401 then
 		return { kind = "auth", message = ("GitLab login expired, run `glab auth login --hostname %s`"):format(host) }
 	end
@@ -134,7 +141,7 @@ local function request(host, path, fields, cb)
 	for _, key in ipairs(keys) do
 		vim.list_extend(cmd, { "-f", key .. "=" .. tostring(fields[key]) })
 	end
-	return vim.system(cmd, { text = true }, function(res)
+	return vim.system(cmd, { text = true, timeout = TIMEOUT_MS }, function(res)
 		vim.schedule(function()
 			cb(parse_response(res, host))
 		end)

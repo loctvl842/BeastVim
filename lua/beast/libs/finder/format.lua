@@ -374,20 +374,40 @@ function M.pr_label(pr)
 	return forge.review(pr) .. " " .. title
 end
 
+--- Cut a subject to `room` display columns, ending in "..." when it was cut, so the text drawn at the right
+--- edge of the row has its own space. Also returns how many bytes of the subject are still shown (the part a
+--- match highlight can land on).
+---@param subject string
+---@param room? integer columns left for the subject; nil keeps it whole
+---@return string shown
+---@return integer kept
+local function clip_subject(subject, room)
+	if not room or vim.fn.strdisplaywidth(subject) <= room then
+		return subject, #subject
+	end
+	local head = vim.fn.strcharpart(subject, 0, math.max(1, room - 3))
+	return head .. "...", #head
+end
+
 --- A commit of a pull request: "<short id>  <subject>" with the author and age at the right edge.
 --- The item text is "<short id> <subject> <author>", which the parts' `src` ranges map matches onto.
 ---@param item Beast.Finder.Item a commit item (`short`, `subject`, `author`, `date`)
+---@param width? integer width of the list, to make room for the author at the right edge
 ---@return Beast.Finder.Highlight[]
-function M.gh_commit(item)
+function M.gh_commit(item, width)
 	if item.message then
 		return { { text = item.text, hl = item.is_error and "BeastFinderGhError" or "BeastFinderGhMessage" } }
 	end
 	local age = require("beast.libs.finder.source.gh.preview").reltime(item.date)
+	local right = ("%s  %s "):format(item.author, age)
+	-- the selection prefix (2 columns) and one column between the subject and the author
+	local room = width and width - 2 - #item.short - 2 - vim.fn.strdisplaywidth(right) - 1
+	local subject, kept = clip_subject(item.subject, room)
 	return {
 		{ text = item.short, hl = "BeastFinderGhNumber", src = { 1, #item.short } },
 		{ text = "  " },
-		{ text = item.subject, hl = "BeastFinderListFile", src = { #item.short + 2, #item.short + 1 + #item.subject } },
-		{ text = ("%s  %s "):format(item.author, age), hl = "BeastFinderListDir", right_align = true },
+		{ text = subject, hl = "BeastFinderListFile", src = { #item.short + 2, #item.short + 1 + kept } },
+		{ text = right, hl = "BeastFinderListDir", right_align = true },
 	}
 end
 
@@ -395,18 +415,23 @@ end
 --- for the branch you are on. The item text is "<name> <subject> <author>", which the parts' `src` ranges map
 --- matches onto.
 ---@param item Beast.Finder.Item a branch item (`name`, `current`, `subject`, `author`, `date`)
+---@param width? integer width of the list, to make room for the author at the right edge
 ---@return Beast.Finder.Highlight[]
-function M.git_branch(item)
+function M.git_branch(item, width)
 	if item.message then
 		return { { text = item.text, hl = item.is_error and "BeastFinderGhError" or "BeastFinderGhMessage" } }
 	end
 	local age = require("beast.libs.finder.source.gh.preview").reltime(item.date)
+	local right = ("%s  %s "):format(item.author, age)
+	-- the selection prefix (2 columns), the mark (2), the gap after the name (2) and one before the author
+	local room = width and width - 2 - 2 - #item.name - 2 - vim.fn.strdisplaywidth(right) - 1
+	local subject, kept = clip_subject(item.subject, room)
 	return {
 		{ text = item.current and "● " or "  ", hl = "BeastFinderGhNumber" },
 		{ text = item.name, hl = "BeastFinderGhNumber", src = { 1, #item.name } },
 		{ text = "  " },
-		{ text = item.subject, hl = "BeastFinderListFile", src = { #item.name + 2, #item.name + 1 + #item.subject } },
-		{ text = ("%s  %s "):format(item.author, age), hl = "BeastFinderListDir", right_align = true },
+		{ text = subject, hl = "BeastFinderListFile", src = { #item.name + 2, #item.name + 1 + kept } },
+		{ text = right, hl = "BeastFinderListDir", right_align = true },
 	}
 end
 
