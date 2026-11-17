@@ -20,7 +20,7 @@ local M = {}
 ---@field name string Remote name ("origin")
 ---@field url string
 ---@field host string
----@field slug string "owner/name"
+---@field slug string "owner/name" ("group/subgroup/name" on GitLab)
 ---@field provider? string "github"|"gitlab"|nil when the host is not a known provider
 
 --- Substring of the host that identifies each provider (keeps GitHub Enterprise working).
@@ -30,7 +30,7 @@ local PROVIDERS = { "github", "gitlab" }
 local cache = {}
 local watching = false
 
---- Parse a git remote URL (https, ssh://, scp-like) into host and "owner/name".
+--- Parse a git remote URL (https, ssh://, scp-like) into host and "owner/name" (nested GitLab groups keep every segment).
 ---@param url string
 ---@return { host: string, slug: string }?
 function M.parse(url)
