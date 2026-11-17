@@ -418,6 +418,7 @@ function M.setup(opts)
 		{ "<leader>ghi", "gh_issue", "GitHub issues" },
 	}
 	local gh_root ---@type string? the project the keys were last decided for
+	local gh_keys_set = false
 	local function sync_gh_keys()
 		local root = Util.root()
 		-- stylua: ignore
@@ -427,15 +428,20 @@ function M.setup(opts)
 			vim.schedule(function()
 				local repo = res.code == 0 and require("beast.libs.finder.source.gh.api").parse_remote(res.stdout or "")
 				local on_github = repo and repo.host:find("github", 1, true) ~= nil
+				-- Key.del warns on a missing map, so there is nothing to remove until the keys were set once
+				if not on_github and not gh_keys_set then
+					return
+				end
+				gh_keys_set = on_github
 				for _, key in ipairs(gh_keys) do
 					local lhs, source, desc = key[1], key[2], key[3]
 					if on_github then
-						vim.keymap.set("n", lhs, function()
+						Key.safe_set("n", lhs, function()
 							require("beast.libs.packer.state").load_lib("beast.libs.finder")
 							require("beast.libs.finder").open(source)
-						end, { desc = desc })
+						end, { desc = desc, group = "GitHub" })
 					else
-						pcall(vim.keymap.del, "n", lhs)
+						Key.del({ lhs, mode = "n" })
 					end
 				end
 			end)
