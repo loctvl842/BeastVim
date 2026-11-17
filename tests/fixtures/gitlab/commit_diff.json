@@ -1,0 +1,41 @@
+[
+ {
+  "a_mode": "0",
+  "b_mode": "100644",
+  "collapsed": false,
+  "deleted_file": false,
+  "diff": "@@ -0,0 +1,3 @@\n+# glab-finder-test\n+\n+Retries use exponential backoff.\n",
+  "generated_file": null,
+  "new_file": true,
+  "new_path": "NOTES.md",
+  "old_path": "NOTES.md",
+  "renamed_file": false,
+  "too_large": false
+ },
+ {
+  "a_mode": "100644",
+  "b_mode": "0",
+  "collapsed": false,
+  "deleted_file": true,
+  "diff": "@@ -1,3 +0,0 @@\n-# glab-finder-test\n-\n-Throwaway project for testing the BeastVim finder GitLab source.\n",
+  "generated_file": null,
+  "new_file": false,
+  "new_path": "README.md",
+  "old_path": "README.md",
+  "renamed_file": false,
+  "too_large": false
+ },
+ {
+  "a_mode": "100644",
+  "b_mode": "100644",
+  "collapsed": false,
+  "deleted_file": false,
+  "diff": "@@ -1,2 +1,3 @@\n-retries: 3\n+retries: 5\n backoff: 1.5\n+webhook_timeout: 10\n",
+  "generated_file": null,
+  "new_file": false,
+  "new_path": "config/settings.yml",
+  "old_path": "config/settings.yml",
+  "renamed_file": false,
+  "too_large": false
+ }
+]

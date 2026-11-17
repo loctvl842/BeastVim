@@ -1,0 +1,288 @@
+[
+ {
+  "assignee": null,
+  "assignees": [],
+  "author": {
+   "id": 14758771,
+   "locked": false,
+   "name": "ON NO",
+   "state": "active",
+   "username": "loctvl842",
+   "web_url": "https://gitlab.com/loctvl842"
+  },
+  "blocking_issues_count": 0,
+  "closed_at": "2026-11-17T17:06:10.440Z",
+  "closed_by": {
+   "id": 14758771,
+   "locked": false,
+   "name": "ON NO",
+   "state": "active",
+   "username": "loctvl842",
+   "web_url": "https://gitlab.com/loctvl842"
+  },
+  "confidential": false,
+  "created_at": "2026-11-17T17:06:06.913Z",
+  "description": "retries key is misspelled in the docs.",
+  "discussion_locked": null,
+  "downvotes": 0,
+  "due_date": null,
+  "has_tasks": true,
+  "id": 210861528,
+  "iid": 4,
+  "imported": false,
+  "imported_from": "none",
+  "issue_type": "issue",
+  "labels": [
+   {
+    "archived": false,
+    "color": "#5bc0de",
+    "description": null,
+    "description_html": "",
+    "id": 55923549,
+    "name": "docs",
+    "text_color": "#1F1E24"
+   }
+  ],
+  "merge_requests_count": 0,
+  "milestone": null,
+  "moved_to_id": null,
+  "project_id": 89069282,
+  "references": {
+   "full": "loctvl842/glab-finder-test#4",
+   "relative": "#4",
+   "short": "#4"
+  },
+  "service_desk_reply_to": null,
+  "severity": "UNKNOWN",
+  "start_date": null,
+  "state": "closed",
+  "task_completion_status": {
+   "completed_count": 0,
+   "count": 0
+  },
+  "task_status": "0 of 0 checklist items completed",
+  "title": "Old typo in settings",
+  "type": "ISSUE",
+  "updated_at": "2026-11-17T17:06:10.650Z",
+  "upvotes": 0,
+  "user_notes_count": 0,
+  "web_url": "https://gitlab.com/loctvl842/glab-finder-test/-/work_items/4"
+ },
+ {
+  "assignee": null,
+  "assignees": [],
+  "author": {
+   "id": 14758771,
+   "locked": false,
+   "name": "ON NO",
+   "state": "active",
+   "username": "loctvl842",
+   "web_url": "https://gitlab.com/loctvl842"
+  },
+  "blocking_issues_count": 0,
+  "closed_at": null,
+  "closed_by": null,
+  "confidential": false,
+  "created_at": "2026-11-17T17:06:04.792Z",
+  "description": "Rounding uses floor instead of banker's rounding.",
+  "discussion_locked": null,
+  "downvotes": 0,
+  "due_date": null,
+  "has_tasks": true,
+  "id": 210861522,
+  "iid": 3,
+  "imported": false,
+  "imported_from": "none",
+  "issue_type": "issue",
+  "labels": [
+   {
+    "archived": false,
+    "color": "#d9534f",
+    "description": null,
+    "description_html": "",
+    "id": 55923548,
+    "name": "bug",
+    "text_color": "#FFFFFF"
+   },
+   {
+    "archived": false,
+    "color": "#ff8800",
+    "description": null,
+    "description_html": "",
+    "id": 55923551,
+    "name": "priority::high",
+    "text_color": "#1F1E24"
+   }
+  ],
+  "merge_requests_count": 0,
+  "milestone": null,
+  "moved_to_id": null,
+  "project_id": 89069282,
+  "references": {
+   "full": "loctvl842/glab-finder-test#3",
+   "relative": "#3",
+   "short": "#3"
+  },
+  "service_desk_reply_to": null,
+  "severity": "UNKNOWN",
+  "start_date": null,
+  "state": "opened",
+  "task_completion_status": {
+   "completed_count": 0,
+   "count": 0
+  },
+  "task_status": "0 of 0 checklist items completed",
+  "title": "Currency rounding off by one cent",
+  "type": "ISSUE",
+  "updated_at": "2026-11-17T17:06:04.792Z",
+  "upvotes": 0,
+  "user_notes_count": 0,
+  "web_url": "https://gitlab.com/loctvl842/glab-finder-test/-/work_items/3"
+ },
+ {
+  "assignee": null,
+  "assignees": [],
+  "author": {
+   "id": 14758771,
+   "locked": false,
+   "name": "ON NO",
+   "state": "active",
+   "username": "loctvl842",
+   "web_url": "https://gitlab.com/loctvl842"
+  },
+  "blocking_issues_count": 0,
+  "closed_at": null,
+  "closed_by": null,
+  "confidential": false,
+  "created_at": "2026-11-17T17:06:02.601Z",
+  "description": "The README does not explain the sandbox keys.",
+  "discussion_locked": null,
+  "downvotes": 0,
+  "due_date": null,
+  "has_tasks": true,
+  "id": 210861518,
+  "iid": 2,
+  "imported": false,
+  "imported_from": "none",
+  "issue_type": "issue",
+  "labels": [
+   {
+    "archived": false,
+    "color": "#5bc0de",
+    "description": null,
+    "description_html": "",
+    "id": 55923549,
+    "name": "docs",
+    "text_color": "#1F1E24"
+   }
+  ],
+  "merge_requests_count": 0,
+  "milestone": null,
+  "moved_to_id": null,
+  "project_id": 89069282,
+  "references": {
+   "full": "loctvl842/glab-finder-test#2",
+   "relative": "#2",
+   "short": "#2"
+  },
+  "service_desk_reply_to": null,
+  "severity": "UNKNOWN",
+  "start_date": null,
+  "state": "opened",
+  "task_completion_status": {
+   "completed_count": 0,
+   "count": 0
+  },
+  "task_status": "0 of 0 checklist items completed",
+  "title": "Document sandbox keys",
+  "type": "ISSUE",
+  "updated_at": "2026-11-17T17:06:02.601Z",
+  "upvotes": 0,
+  "user_notes_count": 0,
+  "web_url": "https://gitlab.com/loctvl842/glab-finder-test/-/work_items/2"
+ },
+ {
+  "assignee": null,
+  "assignees": [],
+  "author": {
+   "id": 14758771,
+   "locked": false,
+   "name": "ON NO",
+   "state": "active",
+   "username": "loctvl842",
+   "web_url": "https://gitlab.com/loctvl842"
+  },
+  "blocking_issues_count": 0,
+  "closed_at": null,
+  "closed_by": null,
+  "confidential": false,
+  "created_at": "2026-11-17T17:06:01.142Z",
+  "description": "## Steps\n1. Send a webhook that returns 500\n2. Observe the retry\n\nThe signature is computed twice.",
+  "discussion_locked": null,
+  "downvotes": 0,
+  "due_date": null,
+  "has_tasks": true,
+  "id": 210861514,
+  "iid": 1,
+  "imported": false,
+  "imported_from": "none",
+  "issue_type": "issue",
+  "labels": [
+   {
+    "archived": false,
+    "color": "#428bca",
+    "description": null,
+    "description_html": "",
+    "id": 55923550,
+    "name": "backend",
+    "text_color": "#FFFFFF"
+   },
+   {
+    "archived": false,
+    "color": "#d9534f",
+    "description": null,
+    "description_html": "",
+    "id": 55923548,
+    "name": "bug",
+    "text_color": "#FFFFFF"
+   }
+  ],
+  "merge_requests_count": 1,
+  "milestone": {
+   "created_at": "2026-11-17T17:05:58.533Z",
+   "description": null,
+   "due_date": null,
+   "expired": false,
+   "id": 7757445,
+   "iid": 1,
+   "project_id": 89069282,
+   "start_date": null,
+   "state": "active",
+   "title": "2026.4",
+   "updated_at": "2026-11-17T17:05:58.533Z",
+   "web_url": "https://gitlab.com/loctvl842/glab-finder-test/-/milestones/1"
+  },
+  "moved_to_id": null,
+  "project_id": 89069282,
+  "references": {
+   "full": "loctvl842/glab-finder-test#1",
+   "relative": "#1",
+   "short": "#1"
+  },
+  "service_desk_reply_to": null,
+  "severity": "UNKNOWN",
+  "start_date": null,
+  "state": "opened",
+  "task_completion_status": {
+   "completed_count": 0,
+   "count": 0
+  },
+  "task_status": "0 of 0 checklist items completed",
+  "title": "Webhook signature check fails on retries",
+  "type": "ISSUE",
+  "updated_at": "2026-11-17T17:33:01.922Z",
+  "upvotes": 0,
+  "user_notes_count": 1,
+  "web_url": "https://gitlab.com/loctvl842/glab-finder-test/-/work_items/1"
+ }
+]

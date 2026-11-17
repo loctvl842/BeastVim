@@ -1,0 +1,80 @@
+[
+ {
+  "author": {
+   "id": 14758771,
+   "locked": false,
+   "name": "ON NO",
+   "state": "active",
+   "username": "loctvl842",
+   "web_url": "https://gitlab.com/loctvl842"
+  },
+  "body": "requested review from @loctvl842",
+  "commands_changes": {},
+  "confidential": false,
+  "created_at": "2026-11-17T17:07:07.224Z",
+  "id": 4257056346,
+  "imported": false,
+  "imported_from": "none",
+  "internal": false,
+  "noteable_id": 569821498,
+  "noteable_iid": 6,
+  "noteable_type": "MergeRequest",
+  "project_id": 89069282,
+  "resolvable": false,
+  "system": true,
+  "type": null,
+  "updated_at": "2026-11-17T17:07:07.226Z"
+ },
+ {
+  "author": {
+   "id": 14758771,
+   "locked": false,
+   "name": "ON NO",
+   "state": "active",
+   "username": "loctvl842",
+   "web_url": "https://gitlab.com/loctvl842"
+  },
+  "body": "assigned to @loctvl842",
+  "commands_changes": {},
+  "confidential": false,
+  "created_at": "2026-11-17T17:07:07.323Z",
+  "id": 4257056356,
+  "imported": false,
+  "imported_from": "none",
+  "internal": false,
+  "noteable_id": 569821498,
+  "noteable_iid": 6,
+  "noteable_type": "MergeRequest",
+  "project_id": 89069282,
+  "resolvable": false,
+  "system": true,
+  "type": null,
+  "updated_at": "2026-11-17T17:07:07.325Z"
+ },
+ {
+  "author": {
+   "id": 14758771,
+   "locked": false,
+   "name": "ON NO",
+   "state": "active",
+   "username": "loctvl842",
+   "web_url": "https://gitlab.com/loctvl842"
+  },
+  "body": "Looks good, one question about the cap.",
+  "commands_changes": {},
+  "confidential": false,
+  "created_at": "2026-11-17T17:07:09.097Z",
+  "id": 4257056574,
+  "imported": false,
+  "imported_from": "none",
+  "internal": false,
+  "noteable_id": 569821498,
+  "noteable_iid": 6,
+  "noteable_type": "MergeRequest",
+  "project_id": 89069282,
+  "resolvable": false,
+  "system": false,
+  "type": null,
+  "updated_at": "2026-11-17T17:07:09.097Z"
+ }
+]

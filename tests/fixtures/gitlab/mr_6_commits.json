@@ -1,0 +1,53 @@
+[
+ {
+  "author_name": "loctvl842",
+  "authored_date": "2026-11-18T00:06:11.000+07:00",
+  "committed_date": "2026-11-18T00:06:11.000+07:00",
+  "committer_name": "loctvl842",
+  "created_at": "2026-11-18T00:06:11.000+07:00",
+  "extended_trailers": {},
+  "id": "a5b38f416056495aa7a879c626998d30f9ee464b",
+  "message": "chore: settings and notes\n",
+  "parent_ids": [
+   "4e3a9a339b1331ca17e5e45ef585cf33d0ce3ab4"
+  ],
+  "short_id": "a5b38f41",
+  "title": "chore: settings and notes",
+  "trailers": {},
+  "web_url": "https://gitlab.com/loctvl842/glab-finder-test/-/commit/a5b38f416056495aa7a879c626998d30f9ee464b"
+ },
+ {
+  "author_name": "loctvl842",
+  "authored_date": "2026-11-18T00:06:11.000+07:00",
+  "committed_date": "2026-11-18T00:06:11.000+07:00",
+  "committer_name": "loctvl842",
+  "created_at": "2026-11-18T00:06:11.000+07:00",
+  "extended_trailers": {},
+  "id": "4e3a9a339b1331ca17e5e45ef585cf33d0ce3ab4",
+  "message": "refactor: rename parser to csv_parser\n",
+  "parent_ids": [
+   "d4c87567f18ec0ca6179d2495c335e9ce7c7fd2e"
+  ],
+  "short_id": "4e3a9a33",
+  "title": "refactor: rename parser to csv_parser",
+  "trailers": {},
+  "web_url": "https://gitlab.com/loctvl842/glab-finder-test/-/commit/4e3a9a339b1331ca17e5e45ef585cf33d0ce3ab4"
+ },
+ {
+  "author_name": "loctvl842",
+  "authored_date": "2026-11-18T00:06:11.000+07:00",
+  "committed_date": "2026-11-18T00:06:11.000+07:00",
+  "committer_name": "loctvl842",
+  "created_at": "2026-11-18T00:06:11.000+07:00",
+  "extended_trailers": {},
+  "id": "d4c87567f18ec0ca6179d2495c335e9ce7c7fd2e",
+  "message": "feat(retry): exponential backoff\n",
+  "parent_ids": [
+   "8ff5d55ac25efabfe8cd0c42024d102cb5cd23fc"
+  ],
+  "short_id": "d4c87567",
+  "title": "feat(retry): exponential backoff",
+  "trailers": {},
+  "web_url": "https://gitlab.com/loctvl842/glab-finder-test/-/commit/d4c87567f18ec0ca6179d2495c335e9ce7c7fd2e"
+ }
+]

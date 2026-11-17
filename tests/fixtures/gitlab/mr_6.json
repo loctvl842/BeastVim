@@ -1,0 +1,124 @@
+{
+ "approvals_before_merge": null,
+ "assignee": {
+  "id": 14758771,
+  "locked": false,
+  "name": "ON NO",
+  "state": "active",
+  "username": "loctvl842",
+  "web_url": "https://gitlab.com/loctvl842"
+ },
+ "assignees": [
+  {
+   "id": 14758771,
+   "locked": false,
+   "name": "ON NO",
+   "state": "active",
+   "username": "loctvl842",
+   "web_url": "https://gitlab.com/loctvl842"
+  }
+ ],
+ "author": {
+  "bot": false,
+  "id": 14758771,
+  "locked": false,
+  "name": "ON NO",
+  "state": "active",
+  "username": "loctvl842",
+  "web_url": "https://gitlab.com/loctvl842"
+ },
+ "blocking_discussions_resolved": true,
+ "changes_count": "5",
+ "closed_at": null,
+ "closed_by": null,
+ "created_at": "2026-11-17T17:07:07.056Z",
+ "description": "## What\nWebhooks that fail with 5xx are retried with exponential backoff.\n\nCloses #1",
+ "detailed_merge_status": "mergeable",
+ "diff_refs": {
+  "base_sha": "8ff5d55ac25efabfe8cd0c42024d102cb5cd23fc",
+  "head_sha": "a5b38f416056495aa7a879c626998d30f9ee464b",
+  "start_sha": "30cf4ec594d390b9277193ff30cd4e7d56bb4a88"
+ },
+ "discussion_locked": null,
+ "downvotes": 0,
+ "draft": false,
+ "first_contribution": false,
+ "first_deployed_to_production_at": null,
+ "force_remove_source_branch": true,
+ "has_conflicts": false,
+ "head_pipeline": null,
+ "id": 569821498,
+ "iid": 6,
+ "imported": false,
+ "imported_from": "none",
+ "labels": [
+  "backend"
+ ],
+ "latest_build_finished_at": null,
+ "latest_build_started_at": null,
+ "merge_after": null,
+ "merge_commit_sha": null,
+ "merge_error": null,
+ "merge_status": "can_be_merged",
+ "merge_user": null,
+ "merge_when_pipeline_succeeds": false,
+ "merged_at": null,
+ "merged_by": null,
+ "milestone": {
+  "created_at": "2026-11-17T17:05:58.533Z",
+  "description": null,
+  "due_date": null,
+  "expired": false,
+  "id": 7757445,
+  "iid": 1,
+  "project_id": 89069282,
+  "start_date": null,
+  "state": "active",
+  "title": "2026.4",
+  "updated_at": "2026-11-17T17:05:58.533Z",
+  "web_url": "https://gitlab.com/loctvl842/glab-finder-test/-/milestones/1"
+ },
+ "pipeline": null,
+ "prepared_at": "2026-11-17T17:07:08.503Z",
+ "project_id": 89069282,
+ "reference": "!6",
+ "references": {
+  "full": "loctvl842/glab-finder-test!6",
+  "relative": "!6",
+  "short": "!6"
+ },
+ "reviewers": [
+  {
+   "id": 14758771,
+   "locked": false,
+   "name": "ON NO",
+   "state": "active",
+   "username": "loctvl842",
+   "web_url": "https://gitlab.com/loctvl842"
+  }
+ ],
+ "sha": "a5b38f416056495aa7a879c626998d30f9ee464b",
+ "should_remove_source_branch": null,
+ "source_branch": "retry-backoff",
+ "source_project_id": 89069282,
+ "squash": false,
+ "squash_commit_sha": null,
+ "squash_on_merge": false,
+ "state": "opened",
+ "subscribed": true,
+ "target_branch": "main",
+ "target_project_id": 89069282,
+ "task_completion_status": {
+  "completed_count": 0,
+  "count": 0
+ },
+ "title": "Retry failed webhooks with backoff",
+ "updated_at": "2026-11-17T17:33:03.435Z",
+ "upvotes": 0,
+ "user": {
+  "can_merge": true
+ },
+ "user_notes_count": 1,
+ "web_url": "https://gitlab.com/loctvl842/glab-finder-test/-/merge_requests/6",
+ "work_in_progress": false
+}
