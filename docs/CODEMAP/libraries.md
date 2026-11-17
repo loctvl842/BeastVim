@@ -94,7 +94,7 @@ finder/
 │                     open/close_current/current, push(level)/pop() swap levels in the SAME windows (pop restores
 │                     prompt, results, cursor, scroll without searching); one autocmd group per session; on_close runs last
 ├── level.lua      ← Level: one search (source, query, engine, prompt text, title, count, cursor, offset); start/run/reload/stop
-├── chains.lua     ← the closed map of chains: one edge per row (id "from|to", key, crumb, hint(ctx), open(ctx)); files/buffers/help → live_grep, gh_pr → gh_pr_files (`<C-g>`) / gh_commits (`<C-t>`), gh_commits → gh_commit_files (`<C-g>`) / live_grep (`<C-f>`), gh_pr_files and gh_commit_files → live_grep, git_commits → git_commit_files → live_grep (local history, `<leader>gc`), git_branches → git_branch_files (`<C-g>`) / git_commits (`<C-t>`), git_branch_files → live_grep (local branches, `<leader>gb`), gh_issue → gh_issue_grep. `open` may return a function (waiting edge: a request first, see drill)
+├── chains.lua     ← the closed map of chains: one edge per row (id "from|to", key, crumb, hint(ctx), open(ctx)); files/buffers/help → live_grep, gh_pr and gl_mr → gh_pr_files (`<C-g>`) / gh_commits (`<C-t>`), gh_commits → gh_commit_files (`<C-g>`) / live_grep (`<C-f>`), gh_pr_files and gh_commit_files → live_grep, git_commits → git_commit_files → live_grep (local history, `<leader>gc`), git_branches → git_branch_files (`<C-g>`) / git_commits (`<C-t>`), git_branch_files → live_grep (local branches, `<leader>gb`), gh_issue and gl_issue → gh_issue_grep. `open` may return a function (waiting edge: a request first, see drill)
 ├── chain.lua      ← enabled()/from(source)/find(source,key)/keys(session) (edges after `config.chains`), drill(session,key) [push the level the edge opens; waiting edges show the spinner and are dropped on pop/close], back(session), edge(from,to) (raises for a pair not in chains.lua), validate(cfg) (raises at setup), hint_text(session)
 ├── host.lua       ← Host interface engines talk to (alive, render, busy, rewind, count, title, rows) + headless()
 ├── search.lua     ← headless file search session: Query + match pipeline through a headless host (explorer's client; no UI)
@@ -149,12 +149,20 @@ finder/
 │   ├── colorscheme_swatches.lua        ← JSON cache (stdpath cache, key = theme mtime + worker mtime); ensure() spawns worker, fires User BeastFinderSwatchesReady
 │   ├── colorscheme_swatches_worker.lua ← headless child: applies each theme, prints 10 role colors (bg, fg, red…purple, grey)
 │   ├── help_tags.lua  ← sync (rtp-only tag parsing)
-│   ├── gh.lua         ← factory create(kind): GitHub live source, prompt text = search query; stale-response guard; declares initial_query/retain_results/run_when_empty/debounce_ms/count/title/check/preview
+│   ├── live.lua       ← factory create(spec): the live picker of a code host (stale-response guard, message rows incl. wrapped hints, count, title, check); spec = name/title/initial_query/debounce_ms/check/scope/search
+│   ├── forge.lua      ← what differs per host, keyed by `item.provider` (nil = GitHub): api(item), name, ref ("#30"/"!412"), review ("PR"/"MR"), project ("Repo"/"Project"); the shared gh_* sources and the preview go through it
+│   ├── pager.lua      ← collect(run, normalize, cb): page loop (3 pages of 100 + one probe page for "truncated") shared by the gh and gl apis
+│   ├── gh.lua         ← create(kind): GitHub spec for live.lua, prompt text = GitHub search query (`gh api search/issues`)
 │   ├── gh_pr.lua, gh_issue.lua ← one-line instances (<leader>ghp / <leader>ghi)
+│   ├── gl.lua         ← create(kind): GitLab spec for live.lua; prompt = `flag:value` pairs + free words (gl/query), an empty answer for a named user is checked with api.user_exists
+│   ├── gl_mr.lua, gl_issue.lua ← one-line instances (<leader>gmr / <leader>gmi; keys only where `Git.has_provider("gitlab")`)
+│   ├── gl/
+│   │   ├── query.lua   ← pure: parse(text, kind) → params / project / words / users or error + wrapped hint; flags state author assignee reviewer label milestone draft source target sort project; scope()
+│   │   └── api.lua     ← `glab api --hostname <host> --include` wrapper (30 s timeout): repo() = `Git.remote("gitlab")` (nested group paths), check() (glab, remote, `glab auth status`), me() (@me, cached), search() (list + X-Total), user_exists(), files()/commits()/commit() via pager (commits reversed to oldest first), detail() (item + notes), normalize*, error classes (401/404/429 with reset time/network/timeout)
 │   └── gh/
 │       ├── query.lua   ← pure: build(text, repo) adds repo:/sort:created-desc unless present; scope(); default_text(kind)
-│       ├── api.lua     ← `gh` CLI wrapper: repo() = `Git.remote("github")`, check() local pre-flight, search() (gh api search/issues), files() (pulls/{n}/files, 3 pages + truncation probe), detail() (gh pr|issue view), normalize*, error classes
-│       ├── preview.lua ← preview pane: build()/reltime() pure, show() draws header at once then detail; per-view cache, stale-fetch guard
+│       ├── api.lua     ← `gh` CLI wrapper (items carry provider="github" and ref): repo() = `Git.remote("github")`, check() local pre-flight, search() (gh api search/issues), files() (pulls/{n}/files, 3 pages + truncation probe), detail() (gh pr|issue view), normalize*, error classes
+│       ├── preview.lua ← preview pane (both hosts): build()/reltime() pure (offsets honored), show() draws header at once then detail; per-view cache, stale-fetch guard
 │       └── commit_preview.lua ← a commit's pane: rows() (plain summary + each file via ui/diff) and build() (raw text, what Enter opens)
 └── ui/
     ├── init.lua     ← barrel (input, list, preview, backdrop, hint)
@@ -166,7 +174,7 @@ finder/
     └── backdrop.lua ← fullscreen dim overlay
 ```
 
-API: `finder.open("files", opts)`, `finder.open("git_branches")`, `finder.open("live_grep")`, `finder.open("help_tags")`, `finder.open("gh_pr")`, `finder.open("gh_issue")`
+API: `finder.open("files", opts)`, `finder.open("git_branches")`, `finder.open("live_grep")`, `finder.open("help_tags")`, `finder.open("gh_pr")`, `finder.open("gh_issue")`, `finder.open("gl_mr")`, `finder.open("gl_issue")`
 View subclasses: `Beast.Finder.InputView`, `Beast.Finder.ListView`, `Beast.Finder.PreviewView`
 Loaded via: `packer.lazy()` on keys (`<leader>f/b/g/c/h`)
 Opts: `layout="cards"`, `separators`, `backdrop=false`, `freeze_colors`, `initial_text` (start on the item whose text matches), `on_preview(item)`, `on_close(confirmed)` (colorscheme picker; the selected theme is a thick tinted block with half-block edges)

@@ -28,15 +28,15 @@ STATE 1 - Merge request picker just opened. The prompt is pre-filled with `state
 ┌─ Merge Requests - platform/payments/api ───────────┐┌─ MR !412 ──────────────────────────────────────┐
 │ > state:opened █                             14/14 ││ Retry failed webhooks with backoff        !412 │
 ├────────────────────────────────────────────────────┤│                                                │
-│ ○ !418  Bump rails to 7.1 @mina                    ││ Status:    ○ Open   retry-backoff -> main      │
+│ ○ !418  Bump rails to 7.1 @mina                    ││ Status:    ○ Open   main <- retry-backoff      │
 │▌○ !412  Retry failed webhooks with backoff @dao    ││ Project:   platform/payments/api               │
 │         [backend] [payments]                       ││ Author:    dao                                 │
 │ ◌ !409  Draft: ledger export @sam  [wip]           ││ Reviewers: mina, lee                           │
 │ ○ !405  Fix typo in README @lee                    ││ Created:   3 days ago                          │
 │ ○ !398  Cache currency rates @mina  [perf]         ││ Updated:   5 hours ago                         │
+│                                                    ││ Mergeable: ✓                                   │
 │                                                    ││ Pipeline:  ✓ passed                            │
-│                                                    ││ Changes:   6 files  +141 -23                   │
-│                                                    ││ Merge:     can be merged                       │
+│                                                    ││ Changes:   6 files                             │
 │                                                    ││ ---------------------------------------------- │
 │                                                    ││ ## What                                        │
 │                                                    ││ Webhooks that fail with 5xx are retried up to  │

@@ -24,15 +24,15 @@ finder = {
 | Edge id | Default key |
 |---|---|
 | `files\|live_grep`, `buffers\|live_grep`, `help_tags\|live_grep` | `<C-g>` |
-| `gh_pr\|gh_pr_files` | `<C-g>` |
-| `gh_pr\|gh_commits` | `<C-t>` |
+| `gh_pr\|gh_pr_files`, `gl_mr\|gh_pr_files` | `<C-g>` |
+| `gh_pr\|gh_commits`, `gl_mr\|gh_commits` | `<C-t>` |
 | `gh_pr_files\|live_grep`, `gh_commit_files\|live_grep` | `<C-g>` |
 | `gh_commits\|gh_commit_files` | `<C-g>` |
 | `git_commits\|git_commit_files`, `git_commit_files\|live_grep` | `<C-g>` (local commits: `<leader>gc` → files changed → grep) |
 | `git_branches\|git_branch_files`, `git_branch_files\|live_grep` | `<C-g>` (local branches: `<leader>gr` → files changed since the branch left `main`/`master` → grep) |
 | `git_branches\|git_commits` | `<C-t>` (the commits of the branch that are not on `main`/`master`; its whole history on the default branch itself) |
 | `gh_commits\|live_grep` | `<C-f>` |
-| `gh_issue\|gh_issue_grep` | `<C-g>` |
+| `gh_issue\|gh_issue_grep`, `gl_issue\|gh_issue_grep` | `<C-g>` |
 
 `finder.setup` raises, naming the problem, for an unknown edge id, a value that is not `false` or `{ key = "..." }`,
 a key that a picker key already uses (`<C-j>`, `<CR>`, ...), two edges of one picker with the same key, or a key
