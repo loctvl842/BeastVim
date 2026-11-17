@@ -88,11 +88,14 @@ io.write("\n--- errors ---\n")
 local bad = query.parse("state:opened colour:red", "mr")
 assert_eq("unknown flag", bad.error, 'Unknown filter "colour:".')
 assert_eq(
-	"hint lists the merge request flags",
+	"hint lists the merge request flags, one row at a time",
 	bad.hint,
-	"Available: state, author, assignee, reviewer, label, milestone, draft, source, target, sort, project"
+	"Available: state, author, assignee, reviewer,\n  label, milestone, draft, source, target,\n  sort, project"
 )
-assert_eq("hint lists the issue flags", query.parse("x:y", "issue").hint, "Available: state, author, assignee, label, milestone, sort, project")
+assert_eq("hint lists the issue flags", query.parse("x:y", "issue").hint, "Available: state, author, assignee, label,\n  milestone, sort, project")
+for line in vim.gsplit(bad.hint, "\n", { plain = true }) do
+	assert_eq("a hint row fits a narrow list: " .. line, #line <= 46, true)
+end
 assert_eq("no params on error", bad.params, nil)
 
 io.write("\n--- project ---\n")

@@ -15,7 +15,7 @@ local tokens = require("beast.libs.finder.source.gh.query").tokens
 ---@field words? string free words, sent as `search`
 ---@field users? { flag: string, name: string }[] usernames the text names, to explain an empty answer
 ---@field error? string what is wrong with the text; no request is made
----@field hint? string a second line for `error`
+---@field hint? string more lines for `error`, joined with "\n"
 
 --- Prompt text a picker opens with (trailing space so the user can keep typing).
 ---@param _ Beast.Finder.Gl.Kind
@@ -53,16 +53,30 @@ local function applicable(kind)
 	return set
 end
 
+-- Message rows do not wrap, so the list of flags is broken into lines this wide.
+local HINT_WIDTH = 46
+
+--- "Available: state, author, ..." as lines of at most `HINT_WIDTH` columns, joined with "\n".
 ---@param kind Beast.Finder.Gl.Kind
 ---@return string
 local function available(kind)
+	local lines, line = {}, "Available:"
 	local names = {}
 	for _, flag in ipairs(FLAGS) do
 		if not flag.mr or kind == "mr" then
 			names[#names + 1] = flag[1]
 		end
 	end
-	return table.concat(names, ", ")
+	for i, name in ipairs(names) do
+		local word = i < #names and (name .. ",") or name
+		if #line + 1 + #word > HINT_WIDTH then
+			lines[#lines + 1] = line
+			line = " "
+		end
+		line = line .. " " .. word
+	end
+	lines[#lines + 1] = line
+	return table.concat(lines, "\n")
 end
 
 ---@param value string
@@ -137,7 +151,7 @@ function M.parse(text, kind)
 		if flag then
 			flag = flag:lower()
 			if not ok_flags[flag] then
-				return { error = ('Unknown filter "%s:".'):format(flag), hint = "Available: " .. available(kind) }
+				return { error = ('Unknown filter "%s:".'):format(flag), hint = available(kind) }
 			end
 			value = unquote(value)
 			local err = set(flag, value)

@@ -124,9 +124,9 @@ io.write("\n--- mistakes in the text make no request ---\n")
 local before = #gl.calls
 items = run(mr, "state:opened colour:red")
 assert_eq("no request", #gl.calls, before)
-assert_eq("two message rows", #items, 2)
+assert_eq("the message and the wrapped hint rows", #items, 4)
 assert_eq("first row", items[1].text, 'Unknown filter "colour:".')
-assert_test("both are errors", items[1].is_error and items[2].is_error)
+assert_test("all are errors", items[1].is_error and items[2].is_error and items[4].is_error)
 assert_test("hint lists the flags", items[2].text:find("Available: state, author", 1, true) ~= nil)
 assert_eq("no count after an error", mr.count(items), "")
 

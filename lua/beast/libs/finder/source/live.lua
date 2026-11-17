@@ -86,8 +86,9 @@ function M.create(spec)
 					cb(message(spec.name .. " could not run this search:", true))
 				end
 				cb(message(err.message, true))
-				if err.hint then
-					cb(message(err.hint, true))
+				-- message rows do not wrap: a long hint arrives as one line per row
+				for line in vim.gsplit(err.hint or "", "\n", { plain = true, trimempty = true }) do
+					cb(message(line, true))
 				end
 			elseif #result.items == 0 then
 				cb(message("No results for this search"))
