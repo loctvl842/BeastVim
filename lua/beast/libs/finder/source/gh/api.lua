@@ -36,10 +36,12 @@
 ---@class Beast.Finder.Gh.Handle
 ---@field kill fun()
 
+local pager = require("beast.libs.finder.source.pager")
+
 ---@class Beast.Finder.Gh.Api
 local M = {}
 
-M.PER_PAGE = 100
+M.PER_PAGE = pager.PER_PAGE
 
 -- ---------------------------------------------------------------------------
 -- Repo detection and pre-flight (local only, no network)
@@ -237,11 +239,8 @@ end
 
 ---@class Beast.Finder.Gh.FilesResult
 ---@field files? Beast.Finder.Gh.File[]
----@field truncated? boolean the pull request changes more files than `FILES_PAGES` pages hold
+---@field truncated? boolean the pull request changes more files than `pager.PAGES` pages hold
 ---@field error? Beast.Finder.Gh.Error
-
---- GitHub lists up to 3000 files; we ask for this many pages of `PER_PAGE` and say when there are more.
-M.FILES_PAGES = 3
 
 ---@param raw table one element of `pulls/{n}/files`
 ---@return Beast.Finder.Gh.File
@@ -256,20 +255,17 @@ function M.normalize_file(raw)
 	}
 end
 
---- Read a list endpoint of a pull request page by page: `FILES_PAGES` pages are kept, and one more is read
---- only to tell whether the list was cut short. `cb` runs on the main loop, also after `kill()`.
+--- Read a list endpoint of a pull request page by page (see `pager`). `cb` runs on the main loop, also
+--- after `kill()`; callers that cancel must ignore it.
 ---@generic T
 ---@param item Beast.Finder.Gh.Item the pull request
 ---@param endpoint string "files" or "commits"
 ---@param normalize fun(raw: table): T
----@param cb fun(result: { items?: T[], truncated?: boolean, error?: Beast.Finder.Gh.Error })
+---@param cb fun(result: Beast.Finder.Pager.Result)
 ---@return Beast.Finder.Gh.Handle
 local function pages(item, endpoint, normalize, cb)
-	local out, killed = {}, false
-	local proc ---@type vim.SystemObj?
-
-	local function fetch(page)
-		proc = vim.system({
+	return pager.collect(function(page, done)
+		return vim.system({
 			"gh",
 			"api",
 			"-X",
@@ -278,42 +274,22 @@ local function pages(item, endpoint, normalize, cb)
 			"--hostname",
 			item.host,
 			"-f",
-			"per_page=" .. M.PER_PAGE,
+			"per_page=" .. pager.PER_PAGE,
 			"-f",
 			"page=" .. page,
 		}, { text = true }, function(res)
 			vim.schedule(function()
 				if res.code ~= 0 then
-					return cb({ error = classify(res) })
+					return done({ error = classify(res) })
 				end
 				local ok, list = pcall(vim.json.decode, res.stdout or "", { luanil = { object = true, array = true } })
 				if not ok or type(list) ~= "table" then
-					return cb({ error = { kind = "other", message = "unexpected response from GitHub" } })
+					return done({ error = { kind = "other", message = "unexpected response from GitHub" } })
 				end
-				-- The page after the last one we keep only tells whether the list was cut short.
-				if page > M.FILES_PAGES then
-					return cb({ items = out, truncated = #list > 0 })
-				end
-				for _, raw in ipairs(list) do
-					out[#out + 1] = normalize(raw)
-				end
-				if #list < M.PER_PAGE or killed then
-					return cb({ items = out })
-				end
-				fetch(page + 1)
+				done({ list = list })
 			end)
 		end)
-	end
-	fetch(1)
-
-	return {
-		kill = function()
-			killed = true
-			if proc then
-				pcall(proc.kill, proc, 15)
-			end
-		end,
-	}
+	end, normalize, cb)
 end
 
 --- The files a pull request changes. `cb` runs on the main loop, also after `kill()`; callers that cancel must ignore it.
@@ -351,7 +327,7 @@ end
 
 ---@class Beast.Finder.Gh.CommitsResult
 ---@field commits? Beast.Finder.Gh.Commit[]
----@field truncated? boolean the pull request has more commits than `FILES_PAGES` pages hold
+---@field truncated? boolean the pull request has more commits than `pager.PAGES` pages hold
 ---@field error? Beast.Finder.Gh.Error
 
 --- The commits of a pull request, oldest first (the order GitHub shows).
