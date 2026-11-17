@@ -43,6 +43,8 @@ local samples = {
 	lsp_implementations = grep_item,
 	gh_pr = gh_item,
 	gh_issue = vim.tbl_extend("force", gh_item, { kind = "issue" }),
+	gl_mr = vim.tbl_extend("force", gh_item, { provider = "gitlab", ref = "!1", url = "https://gitlab.com/o/n/-/merge_requests/1" }),
+	gl_issue = vim.tbl_extend("force", gh_item, { provider = "gitlab", kind = "issue", ref = "#1", url = "https://gitlab.com/o/n/-/issues/1" }),
 }
 local grouped = { live_grep = true, lsp_definitions = true, lsp_references = true, lsp_declarations = true, lsp_implementations = true }
 local previews =

@@ -376,10 +376,13 @@ function M.setup(opts)
 	if cfg.git then
 		require("beast.libs.git.config").setup(cfg.git)
 	end
-	-- The GitHub pickers have keys only where the project has a GitHub remote (decided at startup; a host that
-	-- merely looks like GitHub still gets the picker's own check).
+	-- The GitHub and GitLab pickers have keys only where the project has a remote of that host (decided at
+	-- startup; a host that merely looks like it still gets the picker's own check).
 	local function on_github()
 		return Git.has_provider("github", Util.root())
+	end
+	local function on_gitlab()
+		return Git.has_provider("gitlab", Util.root())
 	end
 
 	packer.lazy("beast.libs.finder", {
@@ -396,6 +399,8 @@ function M.setup(opts)
 			{ "<leader>gb", function() require("beast.libs.finder").open("git_branches") end, desc = "Git branches" },
 			{ "<leader>ghp", function() require("beast.libs.finder").open("gh_pr") end, desc = "GitHub pull requests", group = "GitHub", cond = on_github },
 			{ "<leader>ghi", function() require("beast.libs.finder").open("gh_issue") end, desc = "GitHub issues", group = "GitHub", cond = on_github },
+			{ "<leader>gmr", function() require("beast.libs.finder").open("gl_mr") end, desc = "GitLab merge requests", group = "GitLab", cond = on_gitlab },
+			{ "<leader>gmi", function() require("beast.libs.finder").open("gl_issue") end, desc = "GitLab issues", group = "GitLab", cond = on_gitlab },
 			{
 				"<leader>c",
 				function()
