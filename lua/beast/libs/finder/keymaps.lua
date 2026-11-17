@@ -112,6 +112,9 @@ local actions = {
 	focus_preview = function(s)
 		if s.view.preview and s.view.preview:is_valid() then
 			vim.api.nvim_set_current_win(s.view.preview.win)
+      -- The preview pane's keys are normal-mode keys; keep them reachable when
+      -- the focus came from the prompt's insert mode.
+      vim.cmd("stopinsert")
 		end
 	end,
 	-- Nothing lies in that direction.
@@ -149,7 +152,8 @@ local leave = {
 }
 
 --- Insert/modify keys of the preview: they belong to the prompt, so they move there and type.
-local preview_redirect = { "i", "I", "a", "A", "o", "O", "s", "S", "c", "C", "r", "R", "x", "X", "d", "D", "p", "P", "/" }
+--- `/` is not redirected: Vim's own search runs in the preview buffer (`n`, `N`, `?`, `*`, `#` were never bound).
+local preview_redirect = { "i", "I", "a", "A", "o", "O", "s", "S", "c", "C", "r", "R", "x", "X", "d", "D", "p", "P" }
 
 ---@class Beast.Finder.PaneKeys
 ---@field modes string[] modes the keys are bound in
@@ -280,7 +284,7 @@ local function mount_pane(session, role, spec)
 		for _, char in
 			ipairs(spec.redirect --[[@as string[] ]])
 		do
-			redirect(char, char ~= "/")
+      redirect(char, true)
 		end
 	end
 	-- Block <leader> from triggering global mappings - redirect to input
