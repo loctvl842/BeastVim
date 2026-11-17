@@ -29,6 +29,8 @@
 ---@class Beast.Finder.Gh.Error
 ---@field kind "not_found"|"rate_limit"|"auth"|"network"|"other"
 ---@field message string
+---@field hint? string a second line of explanation
+---@field bare? boolean the message stands alone, without "<host> could not run this search:" before it
 
 ---@class Beast.Finder.Gh.Result
 ---@field items? Beast.Finder.Gh.Item[]
