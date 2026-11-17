@@ -280,8 +280,8 @@ function M.setup(opts)
 	      { "<leader>gu", function() require("beast.libs.git").unstage_hunk() end, mode = { "n", "x" }, desc = "Unstage hunk (explicit)", group = "Git" },
 	      { "<leader>gr", function() require("beast.libs.git").reset_hunk() end, mode = { "n", "x" }, desc = "Reset hunk", group = "Git" },
 	      { "<leader>g.", function() require("beast.libs.git").repeat_action() end, mode = "n", desc = "Repeat last git action", group = "Git" },
-	      { "<leader>gb", function() require("beast.libs.git").blame_line() end, mode = "n", desc = "Blame current line", group = "Git" },
-	      { "<leader>gB", function() require("beast.libs.git").blame() end, mode = "n", desc = "Blame file (side window)", group = "Git" },
+	      { "<leader>gl", function() require("beast.libs.git").blame_line() end, mode = "n", desc = "Blame current line", group = "Git" },
+	      { "<leader>gL", function() require("beast.libs.git").blame() end, mode = "n", desc = "Blame file (side window)", group = "Git" },
 	      { "<leader>gtb", function() require("beast.libs.git").toggle_current_line_blame() end, mode = "n", desc = "Toggle current-line blame", group = "Git" },
 	    },
 		setup = function(g)
@@ -393,7 +393,7 @@ function M.setup(opts)
 			{ "<leader>F", function() require("beast.libs.finder").open("live_grep") end, desc = "Live grep" },
 			{ "<leader>h", function() require("beast.libs.finder").open("help_tags") end, desc = "Help tags" },
 			{ "<leader>gc", function() require("beast.libs.finder").open("git_commits") end, desc = "Git commits" },
-			{ "<leader>gr", function() require("beast.libs.finder").open("git_branches") end, desc = "Git branches" },
+			{ "<leader>gb", function() require("beast.libs.finder").open("git_branches") end, desc = "Git branches" },
 			{ "<leader>ghp", function() require("beast.libs.finder").open("gh_pr") end, desc = "GitHub pull requests", group = "GitHub", cond = on_github },
 			{ "<leader>ghi", function() require("beast.libs.finder").open("gh_issue") end, desc = "GitHub issues", group = "GitHub", cond = on_github },
 			{

@@ -130,11 +130,18 @@ local function scope_local_copies(ctx)
 	if #paths == 0 then
 		return "None of these files exist in your working tree"
 	end
-	local commit = ctx.filter.ctx and ctx.filter.ctx.commit
+	local owner = ctx.filter.ctx or {}
+	local commit, branch = owner.commit, owner.branch
+	local title = ("%d PR Files › Live Grep"):format(#paths)
+	if commit then
+		title = ("%s › %d Files › Live Grep"):format(format.commit_trail(commit), #paths)
+	elseif branch then
+		title = ("%s › %d Files › Live Grep"):format(branch.name, #paths)
+	end
 	return {
 		files = paths,
 		ctx = { local_copies = true, commit = commit and commit.short },
-		title = commit and ("%s › %d Files › Live Grep"):format(format.commit_trail(commit), #paths) or ("%d PR Files › Live Grep"):format(#paths),
+		title = title,
 	}
 end
 
@@ -221,6 +228,53 @@ local function scope_commit_files(ctx)
 	end
 end
 
+---@param ctx Beast.Finder.ChainCtx
+---@return string?
+local function files_in_branch(ctx)
+	local branch = ctx.selected
+	return branch and not branch.message and ("files changed in " .. branch.name) or nil
+end
+
+--- The files a branch changed since it left the default branch. The branch's base is a request away, so
+--- this answers later; with nothing to compare it answers with a message and nothing opens.
+---@param ctx Beast.Finder.ChainCtx
+---@return (fun(resume: fun(result: Beast.Finder.LevelOpts|string|nil)): Beast.Finder.Gh.Handle?)|string|nil
+local function branch_files(ctx)
+	local branch = ctx.selected
+	if not branch or branch.message then
+		return nil
+	end
+	if not branch.default then
+		return "No main or master branch to compare against"
+	end
+	return function(resume)
+		return require("beast.libs.finder.source.git.log").base(ctx.filter.cwd, branch, branch.default, function(base)
+			if not base then
+				return resume(("Nothing changed on this branch against %s"):format(branch.default))
+			end
+			local owner = vim.tbl_extend("force", branch, { base = base })
+			resume({ ctx = { branch = owner }, title = require("beast.libs.finder.source.git_branch_files").title({ ctx = { branch = owner } }) })
+		end)
+	end
+end
+
+---@param ctx Beast.Finder.ChainCtx
+---@return string?
+local function commits_in_branch(ctx)
+	local branch = ctx.selected
+	return branch and not branch.message and ("commits in " .. branch.name) or nil
+end
+
+---@param ctx Beast.Finder.ChainCtx
+---@return Beast.Finder.LevelOpts?
+local function branch_commits(ctx)
+	local branch = ctx.selected
+	if not branch or branch.message then
+		return nil
+	end
+	return { ctx = { branch = branch }, title = require("beast.libs.finder.source.git_commits").title({ ctx = { branch = branch } }) }
+end
+
 local edges = {
 	{ from = "files", to = "live_grep", crumb = "Files", hint = grep_files, open = scope_files("Files") },
 	{ from = "buffers", to = "live_grep", crumb = "Buffers", hint = grep_files, open = scope_files("Buffers") },
@@ -228,6 +282,9 @@ local edges = {
 	{ from = "gh_pr", to = "gh_commits", key = "<C-t>", crumb = "Pull Requests", hint = commits_in_pr, open = pr_commits },
 	{ from = "gh_commits", to = "gh_commit_files", crumb = "Commits", hint = files_in_commit, open = commit_files("gh_commit_files") },
 	{ from = "gh_commits", to = "live_grep", key = "<C-f>", crumb = "Commits", hint = grep_commit_files, open = scope_commit_files },
+	{ from = "git_branches", to = "git_branch_files", crumb = "Git Branches", hint = files_in_branch, open = branch_files },
+	{ from = "git_branches", to = "git_commits", key = "<C-t>", crumb = "Git Branches", hint = commits_in_branch, open = branch_commits },
+	{ from = "git_branch_files", to = "live_grep", crumb = "Files Changed", hint = grep_local_copies, open = scope_local_copies },
 	{ from = "git_commits", to = "git_commit_files", crumb = "Commits", hint = files_in_commit, open = commit_files("git_commit_files") },
 	{ from = "git_commit_files", to = "live_grep", crumb = "Files Changed", hint = grep_local_copies, open = scope_local_copies },
 	{ from = "gh_commit_files", to = "live_grep", crumb = "Files Changed", hint = grep_local_copies, open = scope_local_copies },

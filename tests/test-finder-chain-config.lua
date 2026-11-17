@@ -44,6 +44,9 @@ local expected = {
 	"gh_commits|gh_commit_files",
 	"gh_commits|live_grep",
 	"gh_issue|gh_issue_grep",
+	"git_branch_files|live_grep",
+	"git_branches|git_branch_files",
+	"git_branches|git_commits",
 	"git_commit_files|live_grep",
 	"git_commits|git_commit_files",
 	"gh_pr|gh_commits",
@@ -55,9 +58,10 @@ table.sort(ids)
 table.sort(expected)
 t.eq("every built-in edge is on", ids, expected)
 t.ok(
-	"all use <C-g> but the commits of a pull request (<C-t>) and the grep of a commit (<C-f>)",
+	"all use <C-g> but the commits of a pull request or a branch (<C-t>) and the grep of a commit (<C-f>)",
 	vim.iter(chain.enabled()):all(function(edge)
-		return edge.key == ((edge.id == "gh_pr|gh_commits" and "<C-t>") or (edge.id == "gh_commits|live_grep" and "<C-f>") or "<C-g>")
+		local commits = edge.id == "gh_pr|gh_commits" or edge.id == "git_branches|git_commits"
+		return edge.key == ((commits and "<C-t>") or (edge.id == "gh_commits|live_grep" and "<C-f>") or "<C-g>")
 	end)
 )
 t.eq("back keys", config.chains.back, { "<BS>", "<C-o>" })

@@ -25,7 +25,8 @@ end
 ---@param cb fun(item: Beast.Finder.Item|nil)
 function M.get(filter, cb)
 	filter.ctx = filter.ctx or {}
-	log.commits(filter.cwd, function(result)
+	---@param result Beast.Finder.Git.CommitsResult
+	local function emit(result)
 		if result.error then
 			cb(message("git could not list the commits:", true))
 			cb(message(result.error.message, true))
@@ -49,18 +50,30 @@ function M.get(filter, cb)
 			end
 		end
 		cb(nil)
+	end
+	local branch = filter.ctx.branch
+	if not branch then
+		log.commits(filter.cwd, emit)
+		return
+	end
+	-- A branch lists what it added over the default branch; with nothing to compare, its whole history.
+	local ref = "refs/heads/" .. branch.name
+	log.base(filter.cwd, branch, branch.default, function(base)
+		log.commits(filter.cwd, emit, base and (base .. ".." .. ref) or ref)
 	end)
 end
 
---- "Commits (N)"; `items` is nil while loading.
+--- "Commits (N)", "<branch> › Commits (N)" for the commits of a branch; `items` is nil while loading.
 ---@param filter? Beast.Finder.Filter
 ---@param items? Beast.Finder.Item[]
 ---@return string
 function M.title(filter, items)
+	local branch = filter and filter.ctx and filter.ctx.branch
+	local out = branch and (branch.name .. " › Commits") or "Commits"
 	if items and #items > 0 and not items[1].message then
-		return ("Commits (%d%s)"):format(#items, filter and filter.ctx and filter.ctx.truncated and ", latest only" or "")
+		out = out .. (" (%d%s)"):format(#items, filter and filter.ctx and filter.ctx.truncated and ", latest only" or "")
 	end
-	return "Commits"
+	return out
 end
 
 M.preview = function(view, item)

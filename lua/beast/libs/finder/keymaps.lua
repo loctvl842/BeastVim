@@ -19,6 +19,8 @@ local function move_cursor(session, delta)
 		local from, to = ui.list.visible_range(session.view.list)
 		match_hl.apply_list(session.view.list.buf, session.level.query.matched, format_fn, from, to, session.view.list._separators and 2 or 1)
 	end
+	-- The hint names the highlighted row ("files changed in #12"), so it follows the cursor.
+	render.hint(session)
 	vim.cmd("redraw")
 	render.schedule_preview(session)
 end

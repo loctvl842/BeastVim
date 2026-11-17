@@ -187,8 +187,10 @@ end
 ---@param cb fun(result: Beast.Finder.Git.BranchesResult)
 ---@return Beast.Finder.Gh.Handle
 function M.branches(cwd, cb)
-	local format = table.concat({ "%(HEAD)", "%(refname:short)", "%(objectname)", "%(authorname)", "%(authordate:iso-strict)", "%(contents)" }, FIELD)
-		.. RECORD
+	local format = table.concat(
+		{ "%(HEAD)", "%(refname:lstrip=2)", "%(objectname)", "%(authorname)", "%(authordate:iso-strict)", "%(contents)" },
+		FIELD
+	) .. RECORD
 	local args = { "for-each-ref", "--sort=-committerdate", "--format=" .. format, "refs/heads" }
 	return git(cwd, args, function(res)
 		if res.code ~= 0 then
@@ -249,7 +251,7 @@ end
 --- there is nothing to compare: no default branch, the branch is the default, it has no commit of its own,
 --- or the two share no history.
 ---@param cwd string
----@param branch Beast.Finder.Git.Branch
+---@param branch {name: string, sha: string} a branch (or the item of one)
 ---@param default? string
 ---@param cb fun(base: string?)
 ---@return Beast.Finder.Gh.Handle?

@@ -30,11 +30,11 @@ end
 ---@param item Beast.Finder.Item a commit item
 ---@return string
 local function key(item)
-	return M.repo(item) .. "@" .. item.sha
+	return M.repo(item) .. "@" .. (item.base and item.base .. ".." or "") .. item.sha
 end
 
 --- The commit's detail: from the cache at once (returns nil), else after a request (returns its handle).
----@param item Beast.Finder.Item a commit item (`sha`, and `pr` for a pull request's commit or `cwd` for a local one)
+---@param item Beast.Finder.Item a commit item (`sha`, and `pr` for a pull request's commit or `cwd` for a local one); a branch item with `base` gives what the branch changed since `base`
 ---@param cb fun(result: Beast.Finder.Gh.CommitDetailResult)
 ---@return Beast.Finder.Gh.Handle?
 function M.detail(item, cb)
@@ -57,7 +57,11 @@ function M.detail(item, cb)
 	if item.pr then
 		return api.commit(item.pr, item.sha, answer)
 	end
-	return require("beast.libs.finder.source.git.log").show(item.cwd, item.sha, answer)
+	local log = require("beast.libs.finder.source.git.log")
+	if item.base then
+		return log.diff(item.cwd, item.base, item.sha, answer)
+	end
+	return log.show(item.cwd, item.sha, answer)
 end
 
 --- What a commit shows: the lines up to and including the file list, then its files (each followed by its

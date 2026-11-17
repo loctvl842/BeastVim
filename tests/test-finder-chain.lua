@@ -42,6 +42,9 @@ local valid = {
 	["gh_commit_files>live_grep"] = true,
 	["git_commits>git_commit_files"] = true,
 	["git_commit_files>live_grep"] = true,
+	["git_branches>git_branch_files"] = true,
+	["git_branches>git_commits"] = true,
+	["git_branch_files>live_grep"] = true,
 	["gh_pr_files>live_grep"] = true,
 	["gh_issue>gh_issue_grep"] = true,
 }

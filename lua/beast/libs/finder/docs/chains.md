@@ -1,7 +1,8 @@
 # Chains
 
 A picker can lead to another one with a key: Files, Buffers and Help to a grep in the matching files; Pull
-Requests to their changed files or their commits; a commit or the changed files to a grep in your local copies;
+Requests to their changed files or their commits; local Git Branches to the files they changed or their commits;
+a commit or the changed files to a grep in your local copies;
 Issues to a grep in their text. `<BS>` on an empty prompt (or `<C-o>`) goes back, exactly as you left the picker.
 
 The set of chains is built in (`chains.lua`); you only choose among them. Edge ids are `"from|to"`.
@@ -28,6 +29,8 @@ finder = {
 | `gh_pr_files\|live_grep`, `gh_commit_files\|live_grep` | `<C-g>` |
 | `gh_commits\|gh_commit_files` | `<C-g>` |
 | `git_commits\|git_commit_files`, `git_commit_files\|live_grep` | `<C-g>` (local commits: `<leader>gc` → files changed → grep) |
+| `git_branches\|git_branch_files`, `git_branch_files\|live_grep` | `<C-g>` (local branches: `<leader>gr` → files changed since the branch left `main`/`master` → grep) |
+| `git_branches\|git_commits` | `<C-t>` (the commits of the branch that are not on `main`/`master`; its whole history on the default branch itself) |
 | `gh_commits\|live_grep` | `<C-f>` |
 | `gh_issue\|gh_issue_grep` | `<C-g>` |
 

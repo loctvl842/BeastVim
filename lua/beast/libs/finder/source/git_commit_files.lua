@@ -21,12 +21,12 @@ local function message(text, is_error)
 	return { idx = 1, score = 1, text = text, message = true, is_error = is_error }
 end
 
+--- The files `owner` changed: a commit, or a branch item with `base` (see `git_branch_files`).
 ---@param filter Beast.Finder.Filter
+---@param owner Beast.Finder.Item
 ---@param cb fun(item: Beast.Finder.Item|nil)
-function M.get(filter, cb)
-	---@type Beast.Finder.Item
-	local commit = filter.ctx.commit
-	commit_preview.detail(commit, function(result)
+function M.list(filter, owner, cb)
+	commit_preview.detail(owner, function(result)
 		if result.error then
 			cb(message("git could not list the files:", true))
 			cb(message(result.error.message, true))
@@ -41,7 +41,7 @@ function M.get(filter, cb)
 					text = file.path,
 					file = file.path,
 					cwd = filter.cwd,
-					commit = commit,
+					commit = owner,
 					status = file.status,
 					previous = file.previous,
 					additions = file.additions,
@@ -52,6 +52,12 @@ function M.get(filter, cb)
 		end
 		cb(nil)
 	end)
+end
+
+---@param filter Beast.Finder.Filter
+---@param cb fun(item: Beast.Finder.Item|nil)
+function M.get(filter, cb)
+	M.list(filter, filter.ctx.commit, cb)
 end
 
 --- "<id> <subject> › Files Changed (N)"; `items` is nil while loading.
