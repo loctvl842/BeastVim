@@ -64,13 +64,19 @@ end
 ---@field truncated? boolean the history is longer than `LIMIT`
 ---@field error? Beast.Finder.Gh.Error
 
---- The latest `LIMIT` commits of the repository at `cwd`, newest first.
+--- The latest `LIMIT` commits of the repository at `cwd`, newest first. `rev` is what `git log` walks
+--- (a ref or a range such as "base..refs/heads/x"); nil means `HEAD`.
 ---@param cwd string
 ---@param cb fun(result: Beast.Finder.Git.CommitsResult)
+---@param rev? string
 ---@return Beast.Finder.Gh.Handle
-function M.commits(cwd, cb)
+function M.commits(cwd, cb, rev)
 	local format = table.concat({ "%H", "%an", "%aI", "%B" }, FIELD) .. RECORD
-	return git(cwd, { "log", "-n", tostring(M.LIMIT + 1), "--format=" .. format }, function(res)
+	local args = { "log", "-n", tostring(M.LIMIT + 1), "--format=" .. format }
+	if rev then
+		args[#args + 1] = rev
+	end
+	return git(cwd, args, function(res)
 		if res.code ~= 0 then
 			return cb({ error = failure(res) })
 		end
@@ -128,6 +134,21 @@ function M.parse_show(stdout)
 	return files
 end
 
+--- The files of `git show` / `git diff` output as a commit detail, cut at `MAX_FILES`.
+---@param res vim.SystemCompleted
+---@return Beast.Finder.Gh.CommitDetailResult
+local function detail_result(res)
+	if res.code ~= 0 then
+		return { error = failure(res) }
+	end
+	local files = M.parse_show(res.stdout or "")
+	local truncated = #files > M.MAX_FILES
+	for i = #files, M.MAX_FILES + 1, -1 do
+		files[i] = nil
+	end
+	return { detail = { message = "", files = files, truncated = truncated } }
+end
+
 --- One commit with the files it changed (a merge shows what it brought in from the other parents).
 ---@param cwd string
 ---@param sha string
@@ -136,15 +157,109 @@ end
 function M.show(cwd, sha, cb)
 	local args = { "show", "--format=", "-M", "--raw", "--numstat", "--patch", "--relative", "--diff-merges=first-parent", sha }
 	return git(cwd, args, function(res)
+		cb(detail_result(res))
+	end)
+end
+
+--- What changed from `base` to `tip`, in the shape of a commit's detail.
+---@param cwd string
+---@param base string
+---@param tip string
+---@param cb fun(result: Beast.Finder.Gh.CommitDetailResult)
+---@return Beast.Finder.Gh.Handle
+function M.diff(cwd, base, tip, cb)
+	local args = { "diff", "-M", "--raw", "--numstat", "--patch", "--relative", base, tip }
+	return git(cwd, args, function(res)
+		cb(detail_result(res))
+	end)
+end
+
+---@class Beast.Finder.Git.Branch: Beast.Finder.Gh.Commit
+---@field name string
+---@field current boolean
+
+---@class Beast.Finder.Git.BranchesResult
+---@field branches? Beast.Finder.Git.Branch[] the branch you are on first, then the newest first
+---@field error? Beast.Finder.Gh.Error
+
+--- The local branches of the repository at `cwd`, each with its latest commit.
+---@param cwd string
+---@param cb fun(result: Beast.Finder.Git.BranchesResult)
+---@return Beast.Finder.Gh.Handle
+function M.branches(cwd, cb)
+	local format = table.concat({ "%(HEAD)", "%(refname:short)", "%(objectname)", "%(authorname)", "%(authordate:iso-strict)", "%(contents)" }, FIELD)
+		.. RECORD
+	local args = { "for-each-ref", "--sort=-committerdate", "--format=" .. format, "refs/heads" }
+	return git(cwd, args, function(res)
 		if res.code ~= 0 then
 			return cb({ error = failure(res) })
 		end
-		local files = M.parse_show(res.stdout or "")
-		local truncated = #files > M.MAX_FILES
-		for i = #files, M.MAX_FILES + 1, -1 do
-			files[i] = nil
+		local branches = {}
+		for record in (res.stdout or ""):gmatch("([^" .. RECORD .. "]+)") do
+			local head, name, sha, author, date, message = record:gsub("^\n", ""):match(
+				"^([%* ])"
+					.. FIELD
+					.. "([^"
+					.. FIELD
+					.. "]*)"
+					.. FIELD
+					.. "(%x+)"
+					.. FIELD
+					.. "([^"
+					.. FIELD
+					.. "]*)"
+					.. FIELD
+					.. "([^"
+					.. FIELD
+					.. "]*)"
+					.. FIELD
+					.. "(.*)$"
+			)
+			if name then
+				message = vim.trim(message)
+				local branch = {
+					name = name,
+					current = head == "*",
+					sha = sha,
+					short = sha:sub(1, 7),
+					subject = message:match("^[^\n]*"),
+					message = message,
+					author = author,
+					date = date,
+				}
+				table.insert(branches, branch.current and 1 or #branches + 1, branch)
+			end
 		end
-		cb({ detail = { message = "", files = files, truncated = truncated } })
+		cb({ branches = branches })
+	end)
+end
+
+--- The branch changes are compared against: `main`, else `master`, else nil.
+---@param branches Beast.Finder.Git.Branch[]
+---@return string?
+function M.default_name(branches)
+	local names = {}
+	for _, branch in ipairs(branches) do
+		names[branch.name] = true
+	end
+	return (names.main and "main") or (names.master and "master") or nil
+end
+
+--- Where `branch` left `default`: the commit its own changes start from. Nil (and `cb` runs at once) when
+--- there is nothing to compare: no default branch, the branch is the default, it has no commit of its own,
+--- or the two share no history.
+---@param cwd string
+---@param branch Beast.Finder.Git.Branch
+---@param default? string
+---@param cb fun(base: string?)
+---@return Beast.Finder.Gh.Handle?
+function M.base(cwd, branch, default, cb)
+	if not default or branch.name == default then
+		return cb(nil)
+	end
+	return git(cwd, { "merge-base", "refs/heads/" .. default, "refs/heads/" .. branch.name }, function(res)
+		local base = res.code == 0 and vim.trim(res.stdout or "") or nil
+		cb(base ~= branch.sha and base or nil)
 	end)
 end
 
