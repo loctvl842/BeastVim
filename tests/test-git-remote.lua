@@ -71,7 +71,15 @@ assert_eq("https remote with user", parsed("https://me@github.com/o/n.git"), "gi
 assert_eq("scp-like ssh remote", parsed("git@github.com:o/n.git"), "github.com|o/n")
 assert_eq("ssh:// remote with port", parsed("ssh://git@ghe.corp.dev:2222/o/n.git"), "ghe.corp.dev|o/n")
 assert_eq("enterprise https host", parsed("https://ghe.corp.dev/o/n"), "ghe.corp.dev|o/n")
-assert_eq("nested path is rejected", parsed("https://git.acme.dev/group/sub/proj.git"), nil)
+assert_eq("nested group path", parsed("https://git.acme.dev/group/sub/proj.git"), "git.acme.dev|group/sub/proj")
+assert_eq("nested group path over scp-like ssh", parsed("git@git.acme.dev:a/b/c/d.git"), "git.acme.dev|a/b/c/d")
+assert_eq("nested group path over ssh:// with port", parsed("ssh://git@host:2222/g/sub/p.git"), "host|g/sub/p")
+assert_eq(
+	"nested group path with token in the url",
+	parsed("https://oauth2:tok@gitlab.acme.dev/platform/payments/api.git"),
+	"gitlab.acme.dev|platform/payments/api"
+)
+assert_eq("single segment is rejected", parsed("https://github.com/only"), nil)
 assert_eq("garbage is rejected", parsed("not a url"), nil)
 assert_eq("empty is rejected", parsed(""), nil)
 

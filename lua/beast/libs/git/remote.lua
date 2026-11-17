@@ -47,7 +47,7 @@ function M.parse(url)
 		return nil
 	end
 	path = path:gsub("%.git$", ""):gsub("/+$", "")
-	if not path:match("^[^/]+/[^/]+$") then
+	if not path:match("^[^/]+/.+$") then
 		return nil
 	end
 	return { host = host, slug = path }
