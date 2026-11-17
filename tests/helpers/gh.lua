@@ -97,8 +97,9 @@ end
 
 function M.install()
 	orig_system, orig_executable = vim.system, vim.fn.executable
+	require("beast.libs.git.remote").invalidate()
 	M.calls, M.script = {}, {
-		["git -C"] = M.ok("git@github.com:o/n.git\n"),
+		["git -C"] = M.ok("remote.origin.url git@github.com:o/n.git\n"),
 		["gh auth token"] = M.ok("token\n"),
 	}
 	vim.fn.executable = function()

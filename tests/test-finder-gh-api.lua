@@ -1,9 +1,8 @@
 -- =========================================================================
 -- Test: GitHub finder source API wrapper
 -- =========================================================================
--- Covers docs/dev-specs/finder-github-source.md Phase 1: remote parsing,
--- pre-flight checks, normalizing search results, classifying failures,
--- and the argv handed to `gh`. vim.system is stubbed, nothing hits the network.
+-- Covers docs/dev-specs/finder-github-source.md Phase 1: pre-flight checks,
+-- normalizing search results, classifying failures, and the argv handed to `gh`. vim.system is stubbed, nothing hits the network.
 --
 -- Run as: nvim --clean --headless -l tests/test-finder-gh-api.lua
 -- Exit code: 0 = PASS, 1 = FAIL
@@ -28,6 +27,7 @@ local function assert_eq(name, got, expected)
 	assert_test(name, got == expected, "expected " .. vim.inspect(expected) .. ", got " .. vim.inspect(got))
 end
 
+_G.Git = require("beast.libs.git")
 local api = require("beast.libs.finder.source.gh.api")
 
 -- ---------------------------------------------------------------------------
@@ -68,25 +68,8 @@ end
 
 local function reset()
 	calls, script, killed = {}, {}, 0
+	require("beast.libs.git.remote").invalidate()
 end
-
--- ---------------------------------------------------------------------------
--- parse_remote
--- ---------------------------------------------------------------------------
-local function remote(url)
-	local r = api.parse_remote(url)
-	return r and (r.host .. "|" .. r.slug) or nil
-end
-
-assert_eq("https remote", remote("https://github.com/loctvl842/BeastVim"), "github.com|loctvl842/BeastVim")
-assert_eq("https remote with .git and newline", remote("https://github.com/loctvl842/BeastVim.git\n"), "github.com|loctvl842/BeastVim")
-assert_eq("https remote with user", remote("https://me@github.com/o/n.git"), "github.com|o/n")
-assert_eq("scp-like ssh remote", remote("git@github.com:o/n.git"), "github.com|o/n")
-assert_eq("ssh:// remote with port", remote("ssh://git@ghe.corp.dev:2222/o/n.git"), "ghe.corp.dev|o/n")
-assert_eq("enterprise https host", remote("https://ghe.corp.dev/o/n"), "ghe.corp.dev|o/n")
-assert_eq("nested path is rejected", remote("https://git.acme.dev/group/sub/proj.git"), nil)
-assert_eq("garbage is rejected", remote("not a url"), nil)
-assert_eq("empty is rejected", remote(""), nil)
 
 -- ---------------------------------------------------------------------------
 -- check (pre-flight)
@@ -102,24 +85,24 @@ assert_eq("no gh: message", err, "GitHub CLI (gh) is not installed")
 vim.fn.executable = function()
 	return 1
 end
-script["git -C /x remote get-url origin"] = { code = 2, stdout = "", stderr = "fatal" }
+script["git -C /x config --get-regexp"] = { code = 1, stdout = "", stderr = "" }
 repo, err = api.check("/x")
 assert_eq("no remote: message", err, "No GitHub remote found for this directory")
 
 reset()
-script["git -C /x remote get-url origin"] = { code = 0, stdout = "git@github.com:o/n.git\n", stderr = "" }
+script["git -C /x config --get-regexp"] = { code = 0, stdout = "remote.origin.url git@github.com:o/n.git\n", stderr = "" }
 script["gh auth token --hostname github.com"] = { code = 1, stdout = "", stderr = "no oauth token" }
 repo, err = api.check("/x")
 assert_eq("not logged in: message", err, "Run `gh auth login` first")
 
 reset()
-script["git -C /x remote get-url origin"] = { code = 0, stdout = "git@git.acme.dev:o/n.git\n", stderr = "" }
+script["git -C /x config --get-regexp"] = { code = 0, stdout = "remote.origin.url git@git.acme.dev:o/n.git\n", stderr = "" }
 script["gh auth token --hostname git.acme.dev"] = { code = 1, stdout = "", stderr = "no oauth token" }
 repo, err = api.check("/x")
 assert_eq("unknown host is not a GitHub remote", err, "No GitHub remote found for this directory")
 
 reset()
-script["git -C /x remote get-url origin"] = { code = 0, stdout = "git@github.com:o/n.git\n", stderr = "" }
+script["git -C /x config --get-regexp"] = { code = 0, stdout = "remote.origin.url git@github.com:o/n.git\n", stderr = "" }
 script["gh auth token --hostname github.com"] = { code = 0, stdout = "gho_x\n", stderr = "" }
 repo, err = api.check("/x")
 assert_eq("ok: slug", repo and repo.slug, "o/n")

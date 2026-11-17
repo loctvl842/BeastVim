@@ -24,6 +24,7 @@ function H.boot()
 	package.path = "./lua/?.lua;./lua/?/init.lua;" .. package.path
 	_G.Util = require("beast.util")
 	_G.View = require("beast.libs.view")
+	_G.Git = require("beast.libs.git")
 	_G.Theme = {
 		get = function()
 			return setmetatable({}, {

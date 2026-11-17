@@ -1,9 +1,7 @@
 --- Everything that talks to the `gh` CLI for the GitHub finder sources.
 --- Search results are normalized into finder items here so no other module sees raw API JSON.
 
----@class Beast.Finder.Gh.Repo
----@field host string
----@field slug string "owner/name"
+---@alias Beast.Finder.Gh.Repo Beast.Git.Remote
 
 ---@class Beast.Finder.Gh.Label
 ---@field name string
@@ -47,37 +45,10 @@ M.PER_PAGE = 100
 -- Repo detection and pre-flight (local only, no network)
 -- ---------------------------------------------------------------------------
 
---- Parse a git remote URL (https, ssh://, scp-like) into host and "owner/name".
----@param url string
----@return Beast.Finder.Gh.Repo?
-function M.parse_remote(url)
-	url = vim.trim(url)
-	local host, path
-	local rest = url:match("^%a[%w+.-]*://(.+)$")
-	if rest then
-		rest = rest:gsub("^[^/@]*@", "")
-		host, path = rest:match("^([^/:]+):?%d*/(.+)$")
-	else
-		host, path = url:match("^[^@/]+@([^:/]+):(.+)$")
-	end
-	if not host then
-		return nil
-	end
-	path = path:gsub("%.git$", ""):gsub("/+$", "")
-	if not path:match("^[^/]+/[^/]+$") then
-		return nil
-	end
-	return { host = host, slug = path }
-end
-
 ---@param cwd string
 ---@return Beast.Finder.Gh.Repo?
 function M.repo(cwd)
-	local res = vim.system({ "git", "-C", cwd, "remote", "get-url", "origin" }, { text = true }):wait()
-	if res.code ~= 0 then
-		return nil
-	end
-	return M.parse_remote(res.stdout or "")
+	return Git.remote("github", cwd)
 end
 
 --- Can a search run here? Returns the repo, or nil plus the reason to show the user.
