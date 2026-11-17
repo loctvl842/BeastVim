@@ -47,6 +47,9 @@ local valid = {
 	["git_branch_files>live_grep"] = true,
 	["gh_pr_files>live_grep"] = true,
 	["gh_issue>gh_issue_grep"] = true,
+	["gl_mr>gh_pr_files"] = true,
+	["gl_mr>gh_commits"] = true,
+	["gl_issue>gh_issue_grep"] = true,
 }
 local wrong = {}
 for _, from in ipairs(sources) do

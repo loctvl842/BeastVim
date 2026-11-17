@@ -52,15 +52,18 @@ local expected = {
 	"gh_pr|gh_commits",
 	"gh_pr|gh_pr_files",
 	"gh_pr_files|live_grep",
+	"gl_issue|gh_issue_grep",
+	"gl_mr|gh_commits",
+	"gl_mr|gh_pr_files",
 	"help_tags|live_grep",
 }
 table.sort(ids)
 table.sort(expected)
 t.eq("every built-in edge is on", ids, expected)
 t.ok(
-	"all use <C-g> but the commits of a pull request or a branch (<C-t>) and the grep of a commit (<C-f>)",
+	"all use <C-g> but the commits of a pull or merge request or a branch (<C-t>) and the grep of a commit (<C-f>)",
 	vim.iter(chain.enabled()):all(function(edge)
-		local commits = edge.id == "gh_pr|gh_commits" or edge.id == "git_branches|git_commits"
+		local commits = edge.id == "gh_pr|gh_commits" or edge.id == "gl_mr|gh_commits" or edge.id == "git_branches|git_commits"
 		return edge.key == ((commits and "<C-t>") or (edge.id == "gh_commits|live_grep" and "<C-f>") or "<C-g>")
 	end)
 )

@@ -370,6 +370,133 @@ function M.commit_url(item, sha)
 end
 
 -- ---------------------------------------------------------------------------
+-- Files and commits (drill-down)
+-- ---------------------------------------------------------------------------
+
+--- Lines a patch adds and removes. GitLab sends the hunks only, so every `+`/`-` line counts.
+---@param patch string
+---@return integer additions
+---@return integer deletions
+local function count_changes(patch)
+	local additions, deletions = 0, 0
+	for line in vim.gsplit(patch, "\n", { plain = true }) do
+		local c = line:sub(1, 1)
+		if c == "+" then
+			additions = additions + 1
+		elseif c == "-" then
+			deletions = deletions + 1
+		end
+	end
+	return additions, deletions
+end
+
+---@param raw table one element of `merge_requests/:iid/diffs` or `repository/commits/:sha/diff`
+---@return Beast.Finder.Gh.File
+function M.normalize_file(raw)
+	local status = "modified"
+	if raw.new_file then
+		status = "added"
+	elseif raw.deleted_file then
+		status = "removed"
+	elseif raw.renamed_file then
+		status = "renamed"
+	end
+	-- a diff GitLab left out (too large, collapsed, binary) comes empty
+	local patch = (raw.diff ~= nil and raw.diff ~= "" and not raw.too_large and not raw.collapsed) and raw.diff or nil
+	local additions, deletions = 0, 0
+	if patch then
+		additions, deletions = count_changes(patch)
+	end
+	return {
+		path = raw.new_path,
+		previous = raw.renamed_file and raw.old_path or nil,
+		status = status,
+		additions = additions,
+		deletions = deletions,
+		patch = patch,
+	}
+end
+
+---@param raw table one element of `merge_requests/:iid/commits`
+---@return Beast.Finder.Gh.Commit
+function M.normalize_commit(raw)
+	return {
+		sha = raw.id,
+		short = raw.short_id,
+		subject = raw.title or "",
+		message = raw.message or raw.title or "",
+		author = raw.author_name or "",
+		date = raw.created_at or "",
+	}
+end
+
+--- Read a list endpoint of a project page by page (see `pager`).
+---@generic T
+---@param host string
+---@param path string
+---@param normalize fun(raw: table): T
+---@param cb fun(result: Beast.Finder.Pager.Result)
+---@return Beast.Finder.Gh.Handle
+local function pages(host, path, normalize, cb)
+	return pager.collect(function(page, done)
+		return request(host, path, { per_page = pager.PER_PAGE, page = page }, function(res)
+			if res.error then
+				return done({ error = res.error })
+			end
+			done({ list = res.body })
+		end)
+	end, normalize, cb)
+end
+
+---@param item Beast.Finder.Gh.Item
+---@param tail string
+---@return string
+local function project_path(item, tail)
+	return ("projects/%s/%s"):format(M.project_id(item.repo), tail)
+end
+
+--- The files a merge request changes. `cb` runs on the main loop, also after `kill()`; callers that cancel must ignore it.
+---@param item Beast.Finder.Gh.Item the merge request
+---@param cb fun(result: Beast.Finder.Gh.FilesResult)
+---@return Beast.Finder.Gh.Handle
+function M.files(item, cb)
+	return pages(item.host, project_path(item, ("merge_requests/%d/diffs"):format(item.number)), M.normalize_file, function(result)
+		cb({ files = result.items, truncated = result.truncated, error = result.error })
+	end)
+end
+
+--- The commits of a merge request, oldest first (the order the GitHub api uses; GitLab answers newest first).
+---@param item Beast.Finder.Gh.Item the merge request
+---@param cb fun(result: Beast.Finder.Gh.CommitsResult)
+---@return Beast.Finder.Gh.Handle
+function M.commits(item, cb)
+	return pages(item.host, project_path(item, ("merge_requests/%d/commits"):format(item.number)), M.normalize_commit, function(result)
+		local commits ---@type Beast.Finder.Gh.Commit[]?
+		if result.items then
+			commits = {}
+			for i = #result.items, 1, -1 do
+				commits[#commits + 1] = result.items[i]
+			end
+		end
+		cb({ commits = commits, truncated = result.truncated, error = result.error })
+	end)
+end
+
+--- The files one commit changed. The message is not fetched: the commit list already holds it.
+---@param item Beast.Finder.Gh.Item the merge request (for the project)
+---@param sha string
+---@param cb fun(result: Beast.Finder.Gh.CommitDetailResult)
+---@return Beast.Finder.Gh.Handle
+function M.commit(item, sha, cb)
+	return pages(item.host, project_path(item, ("repository/commits/%s/diff"):format(sha)), M.normalize_file, function(result)
+		if result.error then
+			return cb({ error = result.error })
+		end
+		cb({ detail = { message = "", files = result.items, truncated = result.truncated or false } })
+	end)
+end
+
+-- ---------------------------------------------------------------------------
 -- Detail (preview pane)
 -- ---------------------------------------------------------------------------
 

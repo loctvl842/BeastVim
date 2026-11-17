@@ -281,6 +281,8 @@ local edges = {
 	{ from = "buffers", to = "live_grep", crumb = "Buffers", hint = grep_files, open = scope_files("Buffers") },
 	{ from = "gh_pr", to = "gh_pr_files", crumb = "Pull Requests", hint = files_in_pr, open = pr_files },
 	{ from = "gh_pr", to = "gh_commits", key = "<C-t>", crumb = "Pull Requests", hint = commits_in_pr, open = pr_commits },
+	{ from = "gl_mr", to = "gh_pr_files", crumb = "Merge Requests", hint = files_in_pr, open = pr_files },
+	{ from = "gl_mr", to = "gh_commits", key = "<C-t>", crumb = "Merge Requests", hint = commits_in_pr, open = pr_commits },
 	{ from = "gh_commits", to = "gh_commit_files", crumb = "Commits", hint = files_in_commit, open = commit_files("gh_commit_files") },
 	{ from = "gh_commits", to = "live_grep", key = "<C-f>", crumb = "Commits", hint = grep_commit_files, open = scope_commit_files },
 	{ from = "git_branches", to = "git_branch_files", crumb = "Git Branches", hint = files_in_branch, open = branch_files },
@@ -291,6 +293,7 @@ local edges = {
 	{ from = "gh_commit_files", to = "live_grep", crumb = "Files Changed", hint = grep_local_copies, open = scope_local_copies },
 	{ from = "gh_pr_files", to = "live_grep", crumb = "Files Changed", hint = grep_local_copies, open = scope_local_copies },
 	{ from = "gh_issue", to = "gh_issue_grep", crumb = "Issues", hint = grep_issues, open = scope_issues },
+	{ from = "gl_issue", to = "gh_issue_grep", crumb = "Issues", hint = grep_issues, open = scope_issues },
 	{ from = "help_tags", to = "live_grep", crumb = "Help", hint = grep_help, open = scope_files("Help Files") },
 }
 
