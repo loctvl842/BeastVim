@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spec: Finder GitLab source</title>
+<style>
+  :root { --bg:#fbfaf7; --fg:#1c1b19; --muted:#6b675f; --line:#dcd8cf; --card:#fff; --accent:#b4540a; --term:#1e1f26; --termfg:#d8dae5; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#161513; --fg:#ece8df; --muted:#a29d92; --line:#3a3732; --card:#1f1d1a; --accent:#e08a3c; }
+  }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, sans-serif; }
+  main { max-width:880px; margin:0 auto; padding:24px 16px 80px; }
+  section { margin:32px 0; }
+  h1 { margin:0 0 8px; } h2 { margin:0 0 10px; } h3 { margin:18px 0 6px; font-size:1rem; }
+  pre.mock { background:var(--term); color:var(--termfg); border-radius:10px; padding:14px 16px; font:13px/1.35 ui-monospace,Menlo,monospace; overflow-x:auto; margin:8px 0; white-space:pre; }
+  pre.step { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:10px 14px; font:13px/1.5 ui-monospace,Menlo,monospace; overflow-x:auto; white-space:pre-wrap; margin:8px 0; }
+  ul { padding-left:20px; } li { margin:4px 0; }
+  ul.check { list-style:none; padding-left:0; } ul.check li::before { content:"\2610  "; color:var(--accent); }
+  code { font:0.9em ui-monospace,Menlo,monospace; background:var(--card); border:1px solid var(--line); border-radius:4px; padding:0 4px; }
+</style>
+</head>
+<body>
+<main>
+<h1>Browse GitLab merge requests and issues in the finder</h1>
+<section data-spec="summary"><h2>Summary</h2>
+<p>Two new pickers, one for merge requests and one for issues, let the user scan a GitLab project without leaving the editor, exactly like the GitHub pull request and issue pickers. The project and the server (gitlab.com or a company&#x27;s own GitLab) are found from the repo&#x27;s git remotes, so nothing needs configuring for the common case. The prompt holds readable filter flags (<code>state:opened author:@me label:bug</code>) plus free words, and the same drill-down keys as GitHub lead from a merge request to its files, its commits and a text search inside them.</p>
+</section>
+<section data-spec="problem"><h2>Problem</h2>
+<p>A user whose repo lives on GitLab gets none of the GitHub pickers: the keys are absent, and to skim merge requests or issues they have to leave the editor, open the web page, and click through GitLab&#x27;s filter bar. Many people work on both GitHub and a company GitLab, and the editor treats only one of them as a first-class citizen.</p>
+<p>Copying GitHub&#x27;s design one to one does not work, because GitLab has no GitHub-style search box syntax: its web filter is a row of tokens, and &quot;open&quot;, &quot;merged&quot;, &quot;mine&quot; are values of fixed fields, not free text. The picker has to offer something equally quick to type but honest about what GitLab can filter on.</p>
+<div data-spec="why-now"><h3>Why now</h3>
+<p>The finder already has the live, prompt-driven source, the preview, and the drill-down chains for GitHub. The git remote reader already recognizes GitLab hosts. What is missing is the GitLab side of the same experience.</p>
+</div>
+</section>
+<section data-spec="target-behavior"><h2>Target Behavior</h2>
+<p>STATE 1 - Merge request picker just opened. The prompt is pre-filled with <code>state:opened </code> and the cursor sits at its end. The list is the project&#x27;s open merge requests, newest first. The preview shows the highlighted one:</p>
+<pre class="mock">┌─ Merge Requests - platform/payments/api ───────────┐┌─ MR !412 ──────────────────────────────────────┐
+│ &gt; state:opened █                             14/14 ││ Retry failed webhooks with backoff        !412 │
+├────────────────────────────────────────────────────┤│                                                │
+│ ○ !418  Bump rails to 7.1 @mina                    ││ Status:    ○ Open   retry-backoff -&gt; main      │
+│▌○ !412  Retry failed webhooks with backoff @dao    ││ Project:   platform/payments/api               │
+│         [backend] [payments]                       ││ Author:    dao                                 │
+│ ◌ !409  Draft: ledger export @sam  [wip]           ││ Reviewers: mina, lee                           │
+│ ○ !405  Fix typo in README @lee                    ││ Created:   3 days ago                          │
+│ ○ !398  Cache currency rates @mina  [perf]         ││ Updated:   5 hours ago                         │
+│                                                    ││ Pipeline:  ✓ passed                            │
+│                                                    ││ Changes:   6 files  +141 -23                   │
+│                                                    ││ Merge:     can be merged                       │
+│                                                    ││ ---------------------------------------------- │
+│                                                    ││ ## What                                        │
+│                                                    ││ Webhooks that fail with 5xx are retried up to  │
+│                                                    ││ five times with exponential backoff...         │
+└────────────────────────────────────────────────────┘└────────────────────────────────────────────────┘
+  icons: ○ open   ◌ draft   ● merged   ✕ closed   (Nerd Font git icons in the real UI)</pre>
+<ul><li>Same look, keys and selection marker as the GitHub pickers and the other finder pickers. The result count sits in the prompt row.</li><li>Row: state icon, <code>!number</code> for merge requests (<code>#number</code> for issues, the way GitLab writes them), title, <code>@author</code>, then label badges. GitLab &quot;scoped&quot; labels (<code>priority::high</code>) show as written.</li><li>The title bar names the project, with the full group path (<code>platform/payments/api</code>). For a self-hosted server the host is added: <code>Merge Requests - git.acme.dev/platform/payments/api</code>.</li></ul>
+<p>─────────────────────────────────────────</p>
+<p>STATE 2 - Issue picker just opened. Same screen, other default text and other preview:</p>
+<pre class="mock">┌─ Issues - platform/payments/api ───────────────────┐┌─ Issue #207 ───────────────────────────────────┐
+│ &gt; state:opened █                              5/5  ││ Webhook signature check fails on retries  #207 │
+├────────────────────────────────────────────────────┤│                                                │
+│▌○ #207  Webhook signature check fails on retries   ││ Status:    ○ Open                              │
+│         @dao  [bug] [payments]                     ││ Project:   platform/payments/api               │
+│ ○ #203  Document sandbox keys @lee  [docs]         ││ Author:    dao                                 │
+│ ○ #199  Currency rounding off by one cent @sam     ││ Assignees: mina                                │
+│         [bug]                                      ││ Labels:    [bug] [payments]                    │
+│                                                    ││ Milestone: 2026.4                              │
+│                                                    ││ Created:   3 days ago                          │
+│                                                    ││ Comments:  2                                   │
+│                                                    ││ ---------------------------------------------- │
+│                                                    ││ ## Steps                                       │
+│                                                    ││ 1. Send a webhook that returns 500...          │
+│                                                    ││                                                │
+│                                                    ││ ## Conversation                                │
+│                                                    ││ @mina  1 day ago                               │
+│                                                    ││ Reproduced on main.                            │
+└────────────────────────────────────────────────────┘└────────────────────────────────────────────────┘</pre>
+<ul><li>Merge-request-only fields (branches, reviewers, pipeline, changes, merge status) are absent for issues.</li><li>Below the description the preview shows the conversation, oldest first, read-only. Automatic system lines (&quot;added label ~bug&quot;, &quot;changed milestone&quot;) are left out; only what people wrote is shown.</li></ul>
+<p>─────────────────────────────────────────</p>
+<p>STATE 3 - The user edited the text. The list follows exactly those filters:</p>
+<pre class="mock">┌─ Merge Requests - platform/payments/api ───────────┐
+│ &gt; state:merged author:@me webhook              3/3 │
+├────────────────────────────────────────────────────┤
+│▌● !377  Webhook delivery log @loctvl842            │
+│ ● !350  Move webhook config to settings @loctvl..  │
+│ ● !341  Webhook timeouts @loctvl842  [backend]     │
+└────────────────────────────────────────────────────┘</pre>
+<p>Free words (<code>webhook</code>) are searched by GitLab in title and description. Flags narrow by field.</p>
+<p>─────────────────────────────────────────</p>
+<p>STATE 4 - A new search is running (user just typed). The previous list stays on screen; a small spinner replaces the count:</p>
+<pre class="mock">│ &gt; state:opened author:@me retry              ⠋     │
+├────────────────────────────────────────────────────┤
+│▌○ !418  Bump rails to 7.1 @mina                    │   &lt;- old results, until the new ones land</pre>
+<p>─────────────────────────────────────────</p>
+<p>STATE 5 - Search failed, a flag is wrong, or nothing was found. One quiet line in the list, no popup:</p>
+<pre class="mock">│ &gt; state:opened author:nobody-here                  │
+├────────────────────────────────────────────────────┤
+│  GitLab could not run this search:                 │
+│  user &quot;nobody-here&quot; was not found                  │</pre>
+<pre class="mock">│ &gt; state:opened colour:red                          │
+├────────────────────────────────────────────────────┤
+│  Unknown filter &quot;colour:&quot;. Available: state,       │
+│  author, assignee, reviewer, label, milestone,     │
+│  draft, source, target, sort, project              │</pre>
+<pre class="mock">│ &gt; state:opened label:does-not-exist           0/0  │
+├────────────────────────────────────────────────────┤
+│  No results for this search                        │</pre>
+<p>─────────────────────────────────────────</p>
+<p>STATE 6 - Drill-down, same keys as the GitHub pickers. From a merge request, one key shows the files it changes and another its commits; from there a key shows a commit&#x27;s files, and a key searches text inside the chosen set:</p>
+<pre class="mock">┌─ MR Retry failed webhooks with backoff &gt; Files Changed (6) ─┐
+│▌ app/jobs/webhook_retry.rb                                  │
+│  app/models/webhook.rb                                      │
+│  config/initializers/sidekiq.rb                             │
+│  ...                                                        │
+└─────────────────────────────────────────────────────────────┘
+   &lt;BS&gt; back   &lt;C-t&gt; commits   Enter open diff</pre>
+<p>The path crumbs, hints and rows look like the GitHub chain, only the wording says &quot;MR&quot; instead of &quot;PR&quot;.</p>
+</section>
+<section data-spec="scenarios"><h2>Scenarios</h2>
+<div data-spec="scenario-1"><h3>1 - Skim open merge requests (happy path)</h3>
+<pre class="step">Step 1: Press &lt;leader&gt;gmr inside a repo that has a GitLab remote.
+  The picker opens with &quot;state:opened &quot; in the prompt, cursor at the end.
+  The list fills with the project&#x27;s open merge requests, newest first.
+
+Step 2: Press Down / Up (or Ctrl-n / Ctrl-p) to move through the list.
+  The preview follows. The header (title, state, author, labels, branches) appears at once;
+  the description and conversation fill in a moment later.
+
+Step 3: Go back to one already visited.
+  Its preview appears instantly, it is not fetched again while the picker is open.</pre>
+</div>
+<div data-spec="scenario-2"><h3>2 - Look at merged or closed work by editing the text</h3>
+<pre class="step">Step 1: Change &quot;state:opened&quot; to &quot;state:merged&quot;.
+  A spinner shows briefly, then the list is merged requests only.
+
+Step 2: Append &quot;author:@me&quot;.
+  Only merged requests authored by the user remain.
+
+Step 3: Append &quot;label:backend label:payments&quot;.
+  Only requests carrying both labels remain.</pre>
+</div>
+<div data-spec="scenario-3"><h3>3 - Words and flags together</h3>
+<pre class="step">Step 1: Type &quot; retry&quot; after the default text.
+  Prompt: &quot;state:opened retry&quot;
+  GitLab finds open requests mentioning &quot;retry&quot; in title or description.
+
+Step 2: Type &#x27; &quot;exponential backoff&quot;&#x27;.
+  Quoted words are searched as one phrase.</pre>
+</div>
+<div data-spec="scenario-4"><h3>4 - Draft, branches and ordering (merge requests)</h3>
+<pre class="step">Step 1: Add &quot;draft:no&quot; to hide work-in-progress requests, or &quot;draft:yes&quot; to see only them.
+Step 2: Add &quot;target:main&quot; or &quot;source:retry-backoff&quot; to filter by branch.
+Step 3: Add &quot;sort:updated&quot; to order by last update instead of newest created.</pre>
+</div>
+<div data-spec="scenario-5"><h3>5 - Another project</h3>
+<pre class="step">Step 1: Type &quot;project:platform/billing/core state:opened&quot;.
+  The list shows that project&#x27;s open merge requests. The title bar now reads
+  &quot;Merge Requests - platform/billing/core&quot;. The server is still the one found from the remotes.</pre>
+<p>Without <code>project:</code>, the search is always limited to the current project.</p>
+</div>
+<div data-spec="scenario-6"><h3>6 - Self-hosted GitLab</h3>
+<pre class="step">Step 1: The repo&#x27;s remote is git@git.acme.dev:platform/payments/api.git and the host name contains &quot;gitlab&quot;
+  (for example gitlab.acme.dev). Press &lt;leader&gt;gmr.
+  The picker opens, title &quot;Merge Requests - gitlab.acme.dev/platform/payments/api&quot;.
+  Nothing was configured: the server comes from the remote.
+
+Step 2: The host name does NOT contain &quot;gitlab&quot; (git.acme.dev).
+  The keys are not offered and a direct open shows a toast:
+  &#x27;git.acme.dev is not known as a GitLab server. Add it to the remote hosts setting.&#x27;
+  After adding it once, the keys appear and everything above works.</pre>
+</div>
+<div data-spec="scenario-7"><h3>7 - Open or copy the highlighted item</h3>
+<pre class="step">Step 1: Press Enter on a row.
+  The picker closes and the merge request or issue opens in the default web browser.
+
+Step 2 (alternative): Press Ctrl-y instead.
+  The URL is copied, the picker stays open, a toast confirms.</pre>
+</div>
+<div data-spec="scenario-8"><h3>8 - Drill into a merge request</h3>
+<pre class="step">Step 1: On a merge request press the same key as GitHub&#x27;s &quot;files changed&quot;.
+  The picker becomes the list of files the request changes; the preview is that file&#x27;s diff.
+  Enter opens the diff in a scratch buffer, Backspace on an empty prompt goes back.
+
+Step 2: Back on the request, press the &quot;commits&quot; key.
+  The picker lists the request&#x27;s commits, newest first, with a diff preview per commit.
+  From a commit, the &quot;files&quot; key lists that commit&#x27;s files, the &quot;search&quot; key searches text
+  inside the commits&#x27; changes.
+
+Step 3: On an issue, press the &quot;search&quot; key.
+  A text search runs over the title and description of the issues currently listed.</pre>
+<p>A very large merge request can be cut by GitLab itself; the list then ends with a line saying that more files exist (&quot;showing the first N files, open in the browser for all&quot;).</p>
+</div>
+<div data-spec="scenario-9"><h3>9 - Typing fast, slow network</h3>
+<pre class="step">Step 1: Type &quot;retry&quot; quickly, then keep typing &quot; label:backend&quot;.
+  Only one search starts, after the user pauses for a moment.
+  A slower, older search that finishes after a newer one is thrown away.</pre>
+</div>
+<div data-spec="scenario-10"><h3>10 - Cannot run (error and edge cases)</h3>
+<pre class="step">Case A: &lt;leader&gt;gmr in a folder with no GitLab remote.
+  The keys are not offered; a direct open shows the toast &quot;No GitLab remote found for this directory&quot;.
+
+Case B: &quot;glab&quot; is not installed.
+  Toast: &quot;GitLab CLI (glab) is not installed&quot;.
+
+Case C: glab is installed but not logged in to this server.
+  Toast: &quot;Run `glab auth login --hostname gitlab.acme.dev` first&quot; (names the actual host).
+
+Case D: A flag the picker does not know (colour:red), or a value GitLab rejects (author:nobody).
+  One line in the list (STATE 5), never a popup. Fixing the text brings results back on its own.
+
+Case E: The search really fails (project not found or no access, rate limit, network, login expired).
+  One-line reason in the list. A rate limit says when it resets.
+
+Case F: Valid search with no matches.
+  &quot;No results for this search&quot;, count 0/0.
+
+Case G: More than 100 matches.
+  The newest 100 are shown and the count reads &quot;100+&quot;.
+
+Case H: The repo has both a GitHub and a GitLab remote (a mirror).
+  Both sets of keys are offered; each picker uses its own remote.
+
+Case I: A very old self-hosted GitLab lacks a field (for example the pipeline status).
+  That line is simply missing in the preview. Nothing errors.</pre>
+</div>
+<div data-spec="scenario-11"><h3>11 - Cancel</h3>
+<pre class="step">Step 1: Press Esc (normal mode) or Ctrl-c at any time.
+  The picker closes. Nothing is opened or copied. A running search is dropped.</pre>
+</div>
+</section>
+<section data-spec="behavior-rules"><h2>Behavior Rules</h2>
+<ul><li>The picker is a separate pair of pickers for GitLab; the GitHub pickers behave exactly as before.</li><li>Merge requests and issues are never mixed in one list (GitLab has no combined search). The kind is chosen by the key, not by the text.</li><li>The prompt has two kinds of parts: <code>flag:value</code> pairs and free words. Free words are searched by GitLab (title and description), not fuzzy-matched locally. Double quotes keep a phrase together.</li><li>Flags, with their values:</li><ul><li><code>state:</code> <code>opened</code> (also <code>open</code>), <code>closed</code>, <code>merged</code> (merge requests only), <code>all</code>. Default <code>opened</code>.</li><li><code>author:</code> <code>assignee:</code> <code>reviewer:</code> a username, or <code>@me</code> for the logged-in user. <code>reviewer:</code> is for merge requests. <code>assignee:none</code> finds unassigned.</li><li><code>label:</code> a label name (quotes for spaces). Repeating it requires all of them. <code>label:none</code> finds unlabelled.</li><li><code>milestone:</code> a milestone title.</li><li><code>draft:</code> <code>yes</code> / <code>no</code> (merge requests only).</li><li><code>source:</code> <code>target:</code> a branch name (merge requests only).</li><li><code>sort:</code> <code>created</code> (default, newest first) or <code>updated</code>, with an optional <code>-asc</code> suffix.</li><li><code>project:</code> the full path of another project on the same server.</li></ul><li>A flag that does not apply to the picker (<code>draft:</code> in the issue picker, <code>state:merged</code> for issues) is reported like an unknown one, in the list.</li><li>Results are limited to the project of the current directory unless the text has <code>project:</code>.</li><li>At most 100 results are loaded. The list is not paginated.</li><li>A new search starts only after typing pauses. While it runs, the old list stays and a spinner replaces the count. Out-of-date answers never overwrite newer ones.</li><li>Errors and empty results appear inside the list. Only &quot;cannot start at all&quot; problems (no remote, no <code>glab</code>, not logged in, host not known as GitLab) use a toast.</li><li>Preview: what is known from the list shows instantly; description and conversation arrive after. Fetched previews are kept until the picker closes. The preview is read-only.</li><li>Reopening starts from the default text, not the last query.</li><li>Enter opens in the browser. Ctrl-y copies the URL. Ctrl-s and Ctrl-v do nothing.</li><li>Chains and their keys are the same as the GitHub pickers (files changed, commits, commit files, search text); the crumbs say &quot;MR&quot;.</li><li>Key bindings: <code>&lt;leader&gt;gmr</code> merge requests, <code>&lt;leader&gt;gmi</code> issues, group &quot;GitLab&quot;. Offered only when the project has a GitLab remote.</li><li>Colors of state icons: open green, draft grey, merged purple, closed red. Same palette as GitHub.</li><li>The server is never typed by the user: it always comes from the git remotes (the first GitLab remote, <code>origin</code> preferred), so nested groups and custom ports in the remote work as written.</li></ul>
+</section>
+<section data-spec="success-criteria"><h2>Success Criteria</h2>
+<ul class="check"><li>In a repo with a gitlab.com remote, <code>&lt;leader&gt;gmr</code> and <code>&lt;leader&gt;gmi</code> open pickers with <code>state:opened </code> in the prompt and the cursor at its end.</li><li>In a repo whose remote is a self-hosted GitLab (host name containing &quot;gitlab&quot;), the same keys work with no configuration and the title names that server.</li><li>A host that does not contain &quot;gitlab&quot; works after being added once to the remote hosts setting; before that, the user gets a toast that names the host and what to do.</li><li>The list shows state icon, <code>!</code>/<code>#</code> number, title, author and label badges; nested group paths are shown in full.</li><li>Editing flags and words changes the list accordingly: state, author (<code>@me</code> too), label (several), draft, branches, sort, milestone, another project.</li><li>Moving the cursor shows a preview with metadata, description and conversation (human comments only); revisiting is instant.</li><li>Typing fast results in one search; the list never shows results for an older text; the old list stays while the spinner runs.</li><li>Unknown or inapplicable flags, rejected values, failed searches and empty results each show one in-list line, no popup.</li><li>No remote / no <code>glab</code> / not logged in shows a clear toast naming the host, and does not open an empty picker.</li><li>Enter opens the browser, Ctrl-y copies the URL, Esc closes without side effects.</li><li>Merge request: files changed, commits, commit files and search text work with the same keys as GitHub; a cut-short file list says so.</li><li>Issue: search text over the listed issues works with the same key as GitHub.</li><li>The GitHub pickers are unchanged.</li><li>Look and keys match the existing finder pickers.</li></ul>
+</section>
+<section data-spec="out-of-scope"><h2>Out of Scope</h2>
+<ul><li>Write actions: commenting, approving, merging, closing, labelling. Deferred, v1 is for scanning.</li><li>Checking out a merge request branch or reviewing its diff as a review thread.</li><li>An in-editor page for a merge request or issue (Enter opens the browser).</li><li>Pipelines, jobs, environments, releases and other GitLab areas.</li><li>Mixed merge request and issue list; GitLab&#x27;s own query language (GLQL) as the prompt.</li><li>Autocomplete or highlighting of flags in the prompt.</li><li>Paging beyond 100 results, remembering the last query.</li><li>Choosing a different remote than the first GitLab one (a repo with two different GitLab servers).</li><li>Other forges (Bitbucket, Gitea).</li></ul>
+</section>
+</main>
+</body>
+</html>
