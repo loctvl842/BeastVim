@@ -28,6 +28,8 @@
 -- stylua: ignore
 local M = setmetatable({}, { __call = function(m, ...) return m.safe_set(...) end })
 
+local Cond = require("beast.libs.key.cond")
+
 local EVENTS = {
 	SET = "keymap:set",
 	DEL = "keymap:del",
@@ -161,8 +163,9 @@ end
 
 ---@param id string
 ---@param km Beast.Keymap
-local function record_call(id, km)
-	local site = resolve_call_site(km.desc)
+---@param site? Beast.Keymap.CallSite Call site captured earlier (a deferred registration has no caller on the stack)
+local function record_call(id, km, site)
+	site = site or resolve_call_site(km.desc)
 	local bucket = M.conflicts[id]
 	local is_new = bucket == nil
 	local dup_added = false
@@ -238,6 +241,14 @@ local function emit_changed(action, keys, buf)
 	end)
 end
 
+---Unique id of a keymap: termcode-normalised lhs plus its mode
+---@param lhs string
+---@param mode string
+---@return string
+function M.id(lhs, mode)
+	return vim.api.nvim_replace_termcodes(lhs, true, true, true) .. " (" .. mode .. ")"
+end
+
 ---Parse Spec -> Base
 ---@param value Beast.KeymapSpec
 ---@return Beast.Keymap
@@ -254,8 +265,7 @@ local function parse(value)
 	ret[2] = nil
 	ret.mode = value.mode --[[@as string]] or "n"
 
-	-- Create unique ID using termcodes for special keys
-	ret.id = vim.api.nvim_replace_termcodes(ret.lhs, true, true, true) .. " (" .. ret.mode .. ")"
+	ret.id = M.id(ret.lhs, ret.mode)
 
 	return ret
 end
@@ -306,6 +316,7 @@ function M.del(spec, buffer)
 		if not ok then
 			vim.notify(("Failed to remove keymap '%s' (mode: %s): %s"):format(km.lhs, km.mode, err), vim.log.levels.WARN)
 		end
+		Cond.cancel(km.id, buffer)
 		M.managed[km.id] = nil
 		M.forget_conflict(km.id)
 		emit_changed(EVENTS.DEL, km, buffer)
@@ -315,10 +326,13 @@ end
 ---Set a keymap and mark it as managed
 ---@param spec Beast.KeymapSpec
 ---@param buffer? integer|boolean Buffer number for buffer-local mapping
-function M.set(spec, buffer)
+---@param site? Beast.Keymap.CallSite Call site to record instead of the caller's
+function M.set(spec, buffer, site)
 	local km = parse(spec)
   -- stylua: ignore
   if not km.rhs then return end
+	-- A newer registration of the same keys supersedes a slow `cond` still running for them
+	Cond.cancel(km.id, buffer)
 
 	local rhs = km.rhs
   -- stylua: ignore
@@ -363,9 +377,19 @@ function M.set(spec, buffer)
 	-- Buffer-local maps never overwrite a global one (or another buffer's), so
 	-- they don't belong in the set-time conflict history keyed by (mode, lhs).
 	if not buffer then
-		record_call(km.id, km)
+		record_call(km.id, km, site)
 	end
 	emit_changed(EVENTS.SET, km, buffer)
+end
+
+---Register a label/group only: track it in the registry for the hint index, but
+---don't register an actual keymap with Neovim.
+---@param spec Beast.KeymapSpec
+---@param buffer? integer|boolean
+function M.label(spec, buffer)
+	local km = parse(spec)
+	M.managed[km.id] = km
+	emit_changed(EVENTS.LBL, km, buffer)
 end
 
 ---Safely set or delete a keymap across modes
@@ -383,25 +407,26 @@ function M.safe_set(mode, lhs, rhs, opts)
   -- stylua: ignore
   for k, v in pairs(opts) do spec[k] = v end
 
+	local modes = normalize_modes(mode)
+
 	-- Deleting never depends on `cond`; the condition is checked once per call, not per mode.
+	-- A slow check ("pending") registers its own placeholders and finishes the registration later.
 	local deleting = rhs == vim.NIL or rhs == false
-	if not deleting and spec.cond ~= nil and require("beast.libs.key.cond").resolve(spec) ~= "yes" then
-		return
+	if not deleting and spec.cond ~= nil then
+		local site = type(spec.cond) == "function" and resolve_call_site(opts.desc) or nil
+		if Cond.resolve(spec, modes, opts.buffer, site) ~= "yes" then
+			return
+		end
 	end
 
-	local modes = normalize_modes(mode)
 	for _, m in ipairs(modes) do
 		spec.mode = m
-		if rhs == vim.NIL or rhs == false then
+		if deleting then
 			M.del(spec, opts.buffer)
 		elseif rhs ~= nil then
 			M.set(spec, opts.buffer)
 		else
-			local km = parse(spec)
-			-- Label/group only: track in the registry for the hint index, but
-			-- don't register an actual keymap with Neovim.
-			M.managed[km.id] = km
-			emit_changed(EVENTS.LBL, km, opts.buffer)
+			M.label(spec, opts.buffer)
 		end
 		-- rhs == nil → label/group: skip (no mapping)
 	end
