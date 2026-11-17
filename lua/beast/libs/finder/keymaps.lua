@@ -112,9 +112,9 @@ local actions = {
 	focus_preview = function(s)
 		if s.view.preview and s.view.preview:is_valid() then
 			vim.api.nvim_set_current_win(s.view.preview.win)
-      -- The preview pane's keys are normal-mode keys; keep them reachable when
-      -- the focus came from the prompt's insert mode.
-      vim.cmd("stopinsert")
+			-- The preview pane's keys are normal-mode keys; keep them reachable when
+			-- the focus came from the prompt's insert mode.
+			vim.cmd("stopinsert")
 		end
 	end,
 	-- Nothing lies in that direction.
@@ -284,7 +284,7 @@ local function mount_pane(session, role, spec)
 		for _, char in
 			ipairs(spec.redirect --[[@as string[] ]])
 		do
-      redirect(char, true)
+			redirect(char, true)
 		end
 	end
 	-- Block <leader> from triggering global mappings - redirect to input
