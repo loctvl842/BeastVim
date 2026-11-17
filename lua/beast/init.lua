@@ -372,6 +372,16 @@ function M.setup(opts)
 		end,
 	})
 
+	-- Git.setup runs lazily, but the host overrides must apply to the check below, which runs as the keys register.
+	if cfg.git then
+		require("beast.libs.git.config").setup(cfg.git)
+	end
+	-- The GitHub pickers have keys only where the project has a GitHub remote (decided at startup; a host that
+	-- merely looks like GitHub still gets the picker's own check).
+	local function on_github()
+		return Git.has_provider("github", Util.root())
+	end
+
 	packer.lazy("beast.libs.finder", {
 		setup = function(finder)
 			finder.setup(cfg.finder or {})
@@ -383,6 +393,8 @@ function M.setup(opts)
 			{ "<leader>F", function() require("beast.libs.finder").open("live_grep") end, desc = "Live grep" },
 			{ "<leader>h", function() require("beast.libs.finder").open("help_tags") end, desc = "Help tags" },
 			{ "<leader>gc", function() require("beast.libs.finder").open("git_commits") end, desc = "Git commits" },
+			{ "<leader>ghp", function() require("beast.libs.finder").open("gh_pr") end, desc = "GitHub pull requests", group = "GitHub", cond = on_github },
+			{ "<leader>ghi", function() require("beast.libs.finder").open("gh_issue") end, desc = "GitHub issues", group = "GitHub", cond = on_github },
 			{
 				"<leader>c",
 				function()
@@ -410,47 +422,6 @@ function M.setup(opts)
 				desc = "Colorschemes",
 			},
 		},
-	})
-
-	-- The GitHub pickers have keys only where the project has a GitHub remote (checked at startup, when the
-	-- directory changes and when a buffer of another project is entered; a host that merely looks like GitHub
-	-- still gets the picker's own check).
-	local gh_keys = {
-		{ "<leader>ghp", "gh_pr", "GitHub pull requests" },
-		{ "<leader>ghi", "gh_issue", "GitHub issues" },
-	}
-	local gh_root ---@type string? the project the keys were last decided for
-	local gh_keys_set = false
-	-- Git.setup runs lazily, but the host overrides must apply to the checks below from VimEnter on.
-	if cfg.git then
-		require("beast.libs.git.config").setup(cfg.git)
-	end
-	local function sync_gh_keys()
-		local root = Util.root()
-		-- stylua: ignore
-		if root == gh_root then return end
-		gh_root = root
-		local on_github = Git.has_provider("github", root)
-		-- Key.del warns on a missing map, so there is nothing to remove until the keys were set once
-		if not on_github and not gh_keys_set then
-			return
-		end
-		gh_keys_set = on_github
-		for _, key in ipairs(gh_keys) do
-			local lhs, source, desc = key[1], key[2], key[3]
-			if on_github then
-				Key.safe_set("n", lhs, function()
-					require("beast.libs.packer.state").load_lib("beast.libs.finder")
-					require("beast.libs.finder").open(source)
-				end, { desc = desc, group = "GitHub" })
-			else
-				Key.del({ lhs, mode = "n" })
-			end
-		end
-	end
-	vim.api.nvim_create_autocmd({ "VimEnter", "DirChanged", "BufEnter" }, {
-		group = vim.api.nvim_create_augroup("BeastGithubKeys", { clear = true }),
-		callback = sync_gh_keys,
 	})
 
 	-- Smooth viewport scrolling (lazy — activate after first buffer read)
