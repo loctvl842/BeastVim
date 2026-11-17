@@ -12,6 +12,7 @@
 ---@field unique? boolean
 ---@field script? boolean
 ---@field once? boolean
+---@field cond? boolean|fun(done: fun(ok: boolean)): boolean? Register the keymap only when true
 
 ---@class Beast.KeymapSpec: Beast.KeymapBase
 ---@field [1] string lhs (left-hand side)
@@ -277,7 +278,7 @@ local function normalize_modes(mode)
 	return modes
 end
 
-local skip = { mode = true, id = true, rhs = true, lhs = true, has = true, group = true, once = true }
+local skip = { mode = true, id = true, rhs = true, lhs = true, has = true, group = true, once = true, cond = true }
 
 ---@param keys Beast.KeymapBase
 ---@return table opts Options suitable for vim.keymap.set
@@ -381,6 +382,12 @@ function M.safe_set(mode, lhs, rhs, opts)
 	local spec = { lhs, rhs, mode = mode }
   -- stylua: ignore
   for k, v in pairs(opts) do spec[k] = v end
+
+	-- Deleting never depends on `cond`; the condition is checked once per call, not per mode.
+	local deleting = rhs == vim.NIL or rhs == false
+	if not deleting and spec.cond ~= nil and require("beast.libs.key.cond").resolve(spec) ~= "yes" then
+		return
+	end
 
 	local modes = normalize_modes(mode)
 	for _, m in ipairs(modes) do
