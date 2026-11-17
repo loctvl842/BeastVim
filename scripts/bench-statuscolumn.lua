@@ -22,6 +22,7 @@ local RUNS = 3
 
 vim.opt.runtimepath:prepend(vim.fn.getcwd())
 package.path = "./lua/?.lua;./lua/?/init.lua;" .. package.path
+_G.Util = require("beast.util")
 
 local ok_stc, stc = pcall(require, "beast.libs.statuscolumn")
 if not ok_stc then
