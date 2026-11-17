@@ -1,4 +1,4 @@
-<!-- Generated: 2026-11-16 | Files scanned: 361 | Token estimate: ~3380 -->
+<!-- Generated: 2026-11-17 | Files scanned: 361 | Token estimate: ~3380 -->
 
 # Architecture
 
@@ -90,6 +90,7 @@ lua/beast/
 | `Theme` | beast.theme | Theme palette (accent1…, dimmed1…); replaces old `Palette` |
 | `Key` | beast.libs.key | Keymap registration + viewer |
 | `View` | beast.libs.view | View instance constructor + `.buf`/`.win` submodules |
+| `Git` | beast.libs.git | Remote providers: `providers()`, `has_provider(name)`, `remote(provider)` (module only; `setup` stays lazy) |
 | `Icon` | beast.icon | Icon lookup |
 | `Treesitter` | beast.libs.treesitter | `ensure_parser` for `BeastVim/<Lang>` extensions (module only; `setup`/`enable` stay lazy) |
 | `Mason` | beast.libs.mason | `bin` / `ensure_package` for `BeastVim/<Lang>` extensions |

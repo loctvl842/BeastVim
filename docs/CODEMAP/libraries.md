@@ -1,4 +1,4 @@
-<!-- Generated: 2026-11-16 | Files scanned: 361 | Token estimate: ~13964 -->
+<!-- Generated: 2026-11-17 | Files scanned: 361 | Token estimate: ~13964 -->
 
 # Libraries
 
@@ -149,7 +149,7 @@ finder/
 │   ├── gh_pr.lua, gh_issue.lua ← one-line instances (<leader>ghp / <leader>ghi)
 │   └── gh/
 │       ├── query.lua   ← pure: build(text, repo) adds repo:/sort:created-desc unless present; scope(); default_text(kind)
-│       ├── api.lua     ← `gh` CLI wrapper: check() local pre-flight, search() (gh api search/issues), files() (pulls/{n}/files, 3 pages + truncation probe), detail() (gh pr|issue view), normalize*, error classes
+│       ├── api.lua     ← `gh` CLI wrapper: repo() = `Git.remote("github")`, check() local pre-flight, search() (gh api search/issues), files() (pulls/{n}/files, 3 pages + truncation probe), detail() (gh pr|issue view), normalize*, error classes
 │       ├── preview.lua ← preview pane: build()/reltime() pure, show() draws header at once then detail; per-view cache, stale-fetch guard
 │       └── commit_preview.lua ← a commit's pane: rows() (plain summary + each file via ui/diff) and build() (raw text, what Enter opens)
 └── ui/
@@ -779,6 +779,7 @@ Loaded via: `packer.lazy()` on VimEnter (deferred)
 git/
 ├── init.lua       ← state, attach/detach, debounced recompute, single-flight, autocmds, public surface
 ├── config.lua     ← debounce_ms, keymaps, icons, ft_ignore, bt_ignore, blame{ enabled, delay_ms, ... } (frozen, ADR-003)
+├── remote.lua     ← remotes of a project: parse(url), provider_of(host), list/remote(provider)/providers/has_provider(name, root?) (sync, cached per root, dropped on FocusGained); config.remote.hosts maps custom hosts
 ├── repo.lua       ← resolve(buf) + get_base/get_head/get_path_data/intent_to_add/get_username via vim.system
 ├── diff.lua       ← compute_hunks(base, current) via vim.text.diff (fallback vim.diff), histogram + linematch; (word_spans moved to view/diff.lua)
 ├── hunks.lua      ← expand_signs / expand_staged_signs / find_at_buffer_line / index_to_buffer_delta
@@ -800,7 +801,7 @@ git/
 API: `git.setup(opts)`, `git.attach(buf)`, `git.get_hunks(buf)`, `git.get_staged_hunks(buf)`,
 `git.nav_hunk(dir, opts)`, `git.preview_hunk()`, `git.stage_hunk(buf, lnum)`,
 `git.unstage_hunk(buf, lnum)`, `git.reset_hunk(buf, lnum)`, `git.repeat_action()`,
-`git.refresh(buf, { base?, head? })`, `git.blame_line(opts?)`, `git.blame(opts?)`, `git.toggle_current_line_blame()`.
+`git.refresh(buf, { base?, head? })`, `git.remote(provider, root?)`, `git.providers(root?)`, `git.has_provider(name, root?)`, `git.blame_line(opts?)`, `git.blame(opts?)`, `git.toggle_current_line_blame()`.
 Default buffer-local keymaps (when `config.keymaps=true`): `]c` / `[c` next/prev, `<leader>gp` preview, `<leader>gb` blame line, `<leader>gB` blame file, `<leader>gtb` toggle blame.
 Statuscolumn integration: extmarks classified by namespace pattern `^beast_git_signs_(unstaged|staged)$` — staged tier rendered via `BeastStcGitStaged{Add,Change,Delete}` desaturated palette blends (ADR-020).
 Loaded via: `packer.lazy()` on `BufReadPost` (deferred).

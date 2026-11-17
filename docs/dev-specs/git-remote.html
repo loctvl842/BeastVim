@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spec: git-remote</title>
+<style>
+  :root { --bg:#fbfaf7; --fg:#1c1b19; --muted:#6b675f; --line:#dcd8cf; --card:#fff; --accent:#b4540a; --ok:#2f7d4f; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#161513; --fg:#ece8df; --muted:#a29d92; --line:#3a3732; --card:#1f1d1a; --accent:#e08a3c; --ok:#6fcf97; }
+  }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, sans-serif; }
+  main { max-width:880px; margin:0 auto; padding:24px 16px 80px; }
+  section { margin:32px 0; }
+  h1 { margin:0 0 8px; } h2 { margin:0 0 12px; font-size:1.2rem; }
+  code, pre { font:13px/1.5 ui-monospace, Menlo, monospace; }
+  code { background:var(--card); border:1px solid var(--line); border-radius:4px; padding:0 4px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin:10px 0; }
+  .muted { color:var(--muted); }
+  .rec { border-color:var(--accent); }
+  .tag { font-size:12px; color:var(--accent); font-weight:600; }
+  table { width:100%; border-collapse:collapse; font-size:14px; display:block; overflow-x:auto; }
+  th, td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
+  svg { width:100%; height:auto; color:var(--fg); }
+  svg .box { fill:var(--card); stroke:var(--line); stroke-width:1.5; }
+  svg .new { fill:var(--card); stroke:var(--accent); stroke-width:2; }
+  svg text { fill:currentColor; font:13px ui-monospace, Menlo, monospace; }
+  svg .arrow { stroke:currentColor; stroke-width:1.5; fill:none; }
+  svg .lbl { fill:var(--muted); font-size:11px; }
+</style>
+</head>
+<body>
+<main>
+  <header data-spec="summary">
+    <h1>git-remote</h1>
+    <p>New <code>libs/git/remote.lua</code> reads a project's git remotes and answers <code>Git.providers()</code>, <code>Git.has_provider(name)</code> and <code>Git.remote(provider)</code>. <code>Git</code> becomes a global. The startup keys and the finder's GitHub source delegate to it, so no other lib defines remote logic. Groundwork for refactoring the lazy provider keys next.</p>
+    <p class="muted">No PM spec: not a UI feature.</p>
+  </header>
+
+  <section data-spec="context">
+    <h2>The problem</h2>
+    <p><code>sync_gh_keys</code> spawns <code>git remote get-url origin</code>, parses it with the finder's parser, and tests <code>host:find("github")</code>. The parser and a second origin lookup live in the finder, the provider test in the startup file, and GitLab or a second remote cannot be asked about at all.</p>
+  </section>
+
+  <section data-spec="flow">
+    <h2>After the change</h2>
+    <svg viewBox="0 0 760 250" role="img" aria-label="Data flow">
+      <defs><marker id="ah" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="currentColor"/></marker></defs>
+      <g id="n-init"><title>lua/beast/init.lua</title><rect class="box" x="10" y="20" width="200" height="50" rx="8"/><text x="24" y="42">lua/beast/init.lua</text><text class="lbl" x="24" y="58">sync_gh_keys</text></g>
+      <g id="n-finder"><title>finder gh api</title><rect class="box" x="10" y="170" width="200" height="50" rx="8"/><text x="24" y="192">finder/source/gh/api</text><text class="lbl" x="24" y="208">repo() = Git.remote("github")</text></g>
+      <g id="n-remote"><title>libs/git/remote.lua</title><rect class="new" x="290" y="85" width="200" height="80" rx="8"/><text x="304" y="108">git/remote.lua (new)</text><text class="lbl" x="304" y="128">parse, provider_of, list, remote</text><text class="lbl" x="304" y="144">providers, has_provider</text></g>
+      <g id="n-git"><title>git config</title><rect class="box" x="560" y="85" width="190" height="80" rx="8"/><text x="574" y="108">git config</text><text class="lbl" x="574" y="128">--get-regexp</text><text class="lbl" x="574" y="144">^remote\..*\.url$</text></g>
+      <path class="arrow" d="M210,50 L290,100" marker-end="url(#ah)"/><text class="lbl" x="205" y="72">has_provider("github")</text>
+      <path class="arrow" d="M210,195 L290,150" marker-end="url(#ah)"/><text class="lbl" x="215" y="190">remote("github")</text>
+      <path class="arrow" d="M490,125 L560,125" marker-end="url(#ah)"/><text class="lbl" x="492" y="115">once / root</text>
+      <text class="lbl" x="290" y="190">cache[root]; FocusGained invalidates</text>
+    </svg>
+    <p class="muted">Result for a repo with <code>origin</code> on GitHub and <code>mirror</code> on GitLab: <code>providers()</code> is <code>{ "github", "gitlab" }</code>, <code>has_provider("bitbucket")</code> is <code>false</code>.</p>
+  </section>
+
+  <section data-spec="research">
+    <h2>Research</h2>
+    <div class="card">
+      <p><b>Found:</b> <code>parse_remote</code> in <code>finder/source/gh/api.lua</code> (tested), the inline host test in <code>sync_gh_keys</code>, nothing remote-aware in <code>libs/git</code>. <code>git config --get-regexp</code> lists all remotes in one process.</p>
+      <p><b>Decision:</b> Reuse the parser (moved, then deleted from the finder), Build <code>remote.lua</code>. Finder tests that mock the origin command are updated.</p>
+    </div>
+  </section>
+
+  <section data-spec="decisions">
+    <h2>Decisions for you</h2>
+    <div class="card rec" data-spec="decision-d1"><span class="tag">D1 · RECOMMENDED</span><br><b>Sync, cached per root.</b> Matches the requested return shape; one ~3 ms spawn per root per session.<br><span class="muted">Alternative: async <code>refresh(root, cb)</code>; <code>has_provider</code> would be wrong until the callback fires.</span></div>
+    <div class="card rec" data-spec="decision-d2"><span class="tag">D2 · RECOMMENDED</span><br><b>All remotes count.</b> Needed to produce <code>{ "github", "gitlab" }</code>.<br><span class="muted">Alternative: origin only.</span></div>
+    <div class="card rec" data-spec="decision-d3"><span class="tag">D3 · RECOMMENDED</span><br><b>Substring rule on the host</b> (<code>github</code>, <code>gitlab</code>); keeps GitHub Enterprise working, same as today.<br><span class="muted">Alternative: exact hosts.</span></div>
+    <div class="card rec" data-spec="decision-d4"><span class="tag">D4 · CONFIRMED IN REVIEW</span><br><b><code>_G.Git = Util.mod("beast.libs.git")</code></b> next to Key/View. It loads the lib file at startup, so the startup bench gates it; if it regresses, make the lib's internal requires lazy.</div>
+    <div class="card rec" data-spec="decision-d6"><span class="tag">D6 · CONFIRMED IN REVIEW</span><br><b>Finder keeps no <code>parse_remote</code>.</b> <code>gh/api.lua</code> uses <code>Git.remote("github", cwd)</code>. One parser, one place to fix bugs.</div>
+    <div class="card rec" data-spec="decision-d7"><span class="tag">D7 · RECOMMENDED</span><br><b>Config map for custom hosts:</b> <code>remote = { hosts = { ["git.acme.dev"] = "github" } }</code>, empty by default. The finder used to accept any host <code>gh</code> was logged into; without this, such enterprise hosts would be dropped.<br><span class="muted">Alternative: accept the regression.</span></div>
+    <div class="card rec" data-spec="decision-d5"><span class="tag">D5 · RECOMMENDED</span><br><b><code>invalidate()</code> plus a <code>FocusGained</code> hook</b>, so a <code>git remote add</code> in another terminal shows up.<br><span class="muted">Alternative: never invalidate.</span></div>
+  </section>
+
+  <section data-spec="architecture-changes">
+    <h2>Files</h2>
+    <table>
+      <tr><th>Path</th><th></th><th>What</th></tr>
+      <tr><td><code>lua/beast/libs/git/remote.lua</code></td><td>new</td><td>parse, provider_of, list, providers, has_provider, invalidate</td></tr>
+      <tr><td><code>lua/beast/libs/git/init.lua</code></td><td>mod</td><td>public <code>remote</code>, <code>providers</code>, <code>has_provider</code> (lazy require inside)</td></tr>
+      <tr><td><code>lua/beast/libs/git/config.lua</code></td><td>mod</td><td><code>remote.hosts</code> overrides (D7)</td></tr>
+      <tr><td><code>lua/beast/libs/finder/source/gh/api.lua</code></td><td>mod</td><td><code>parse_remote</code> deleted; <code>repo()</code> uses <code>Git.remote("github")</code></td></tr>
+      <tr><td><code>lua/beast/init.lua</code></td><td>mod</td><td><code>_G.Git</code>; <code>sync_gh_keys</code> calls <code>Git.has_provider("github", root)</code></td></tr>
+      <tr><td><code>tests/test-finder-gh-api.lua</code></td><td>mod</td><td>parse cases move out; mocks use the new git command</td></tr>
+      <tr><td><code>tests/test-git-remote.lua</code></td><td>new</td><td>parse, classify, multi-remote, cache, invalidate</td></tr>
+    </table>
+  </section>
+
+  <section data-spec="audit-of-other-git-code">
+    <h2>Other git code outside <code>libs/git</code></h2>
+    <p class="muted">Scanned every git process or <code>.git</code> lookup. Only the first two are remote logic and are in this spec; the rest are candidates for their own specs.</p>
+    <table>
+      <tr><th>Where</th><th>What</th><th>Verdict</th></tr>
+      <tr><td><code>init.lua:427</code></td><td>origin lookup + host test</td><td><b>Move now</b></td></tr>
+      <tr><td><code>finder/…/gh/api.lua</code></td><td><code>parse_remote</code>, <code>repo()</code></td><td><b>Move now</b></td></tr>
+      <tr><td><code>finder/source/git/log.lua</code></td><td><code>git log</code>/<code>show</code> runner + parsers</td><td>Follow-up <code>git-log</code>: runner/parsers to the git lib</td></tr>
+      <tr><td><code>statusline/…/git_commit.lua</code></td><td><code>git log -1</code> per buffer</td><td>Follow-up <code>Git.last_commit</code></td></tr>
+      <tr><td><code>statusline/…/git_branch.lua</code></td><td>own <code>.git</code> walk, HEAD reader, watchers</td><td>Follow-up <code>Git.branch</code> + change event</td></tr>
+      <tr><td><code>explorer/git.lua</code>, <code>explorer/health.lua</code></td><td><code>git status</code> engine, own root lookup</td><td>Follow-up <code>Git.status</code> (largest)</td></tr>
+      <tr><td><code>util/root.lua</code></td><td><code>.git</code> marker for project root</td><td>Leave: generic root heuristic</td></tr>
+      <tr><td><code>packer/ui.lua</code></td><td><code>git ls-remote</code> on plugin sources</td><td>Leave: unrelated to the project repo</td></tr>
+    </table>
+  </section>
+
+  <section data-spec="phases">
+    <h2>Phases</h2>
+    <div class="card" data-spec="phase-1">
+      <b>Phase 1: remote module</b> <span class="muted">· risk medium · depends on nothing</span>
+      <ol>
+        <li data-spec="phase-1-step-1">Move the parser into <code>remote.parse</code>.</li>
+        <li data-spec="phase-1-step-2"><code>provider_of(host)</code> and <code>list(root)</code> via <code>git config --get-regexp</code>.</li>
+        <li data-spec="phase-1-step-3"><code>providers</code>, <code>has_provider</code>, <code>remote(provider)</code>, per-root cache, <code>invalidate</code>, one-time <code>FocusGained</code> autocmd, <code>config.remote.hosts</code>.</li>
+        <li data-spec="phase-1-step-4">Public functions in <code>libs/git/init.lua</code> and <code>_G.Git</code> in <code>lua/beast/init.lua</code>; run the startup bench.</li>
+        <li data-spec="phase-1-step-5"><code>tests/test-git-remote.lua</code> with a stubbed <code>vim.system</code>.</li>
+      </ol>
+    </div>
+    <div class="card" data-spec="phase-2">
+      <b>Phase 2: consumers</b> <span class="muted">· risk medium · depends on Phase 1</span>
+      <ol>
+        <li data-spec="phase-2-step-1">Delete the finder's <code>parse_remote</code>; <code>repo()</code> returns <code>Git.remote("github", cwd)</code>; update the finder tests' mocks.</li>
+        <li data-spec="phase-2-step-2"><code>sync_gh_keys</code> drops the spawn, parse and host test; keeps the root short-circuit, <code>gh_keys_set</code> guard and <code>Key</code> calls. First <code>BufEnter</code> in a new root blocks for one spawn, so check the startup bench.</li>
+      </ol>
+    </div>
+  </section>
+
+  <section data-spec="testing-strategy">
+    <h2>Testing</h2>
+    <ul>
+      <li>New <code>tests/test-git-remote.lua</code>; re-run every <code>tests/test-finder-gh-*.lua</code>, updating mocks of the origin command.</li>
+      <li><code>./scripts/bench-startup.sh</code> before and after Phase 2; type check with lua-language-server.</li>
+      <li>Manual: GitHub repo shows <code>&lt;leader&gt;ghp/ghi</code>; <code>:cd</code> to a non-GitHub dir removes them; add a GitLab <code>mirror</code> remote and print <code>providers()</code>.</li>
+    </ul>
+  </section>
+
+  <section data-spec="success-criteria">
+    <h2>Done when</h2>
+    <ul>
+      <li>☐ <code>providers()</code> gives <code>{ "github", "gitlab" }</code> for both remotes, <code>{}</code> for a non-repo</li>
+      <li>☐ <code>has_provider</code> true for github/gitlab, false for bitbucket</li>
+      <li>☐ <code>lua/beast/init.lua</code> and the finder no longer spawn git for remotes or parse URLs</li>
+      <li>☐ <code>Git</code> is global; <code>Git.remote("github")</code> returns host and slug; custom hosts map via config</li>
+      <li>☐ New test and all <code>tests/test-finder-gh-*.lua</code> pass</li>
+      <li>☐ No startup regression; type check clean; Enterprise hosts still <code>github</code></li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>
