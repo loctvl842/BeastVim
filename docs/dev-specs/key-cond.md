@@ -34,7 +34,7 @@ generated: 2026-11-17
   - `lua/beast/libs/packer/triggers/keys.lua:26-39` builds `map_opts` from a fixed list (`nowait`, `silent`, `expr`, `remap`, `noremap`), so `cond` on a `packer.lazy` key would be silently dropped.
   - `lua/beast/libs/packer/init.lua:239`, `import.lua:88`, `triggers/event.lua:13` already use a `cond` function on plugin specs (`cond == nil or cond()`): same name, same "false means skip" meaning.
   - `lua/beast/libs/toast/init.lua:52` `Toast(msg, level, opts)` is the notice channel per the lib conventions; repeated toasts already stack as `x2` (`toast-repeat-count`).
-  - `lua/beast/init.lua:428` `sync_gh_keys` is the motivating caller (async `vim.system`, key set/del on `VimEnter`/`DirChanged`/`BufEnter`). Not changed here.
+  - `lua/beast/init.lua:428` `sync_gh_keys` is the motivating caller (async `vim.system`, key set/del on `VimEnter`/`DirChanged`/`BufEnter`). Replaced in Phase 4.
   - Tests: `tests/test-key-hint.lua` is a manual `:luafile` script; headless tests stub `vim.system` (see `tests/test-git-remote.lua`) and run with `nvim --clean --headless -l`.
 - Reuse opportunity: Yes. Reuse `M.set`/`M.del` for placeholder install/remove, `M.managed` + `BeastKeysChanged` for hint/cheatsheet, `Toast` for messages, `vim.uv.new_timer`/`vim.defer_fn` for the timeout.
 
@@ -174,18 +174,31 @@ About 45 lines (`gh_keys` table, state flags, `sync_gh_keys`, autocmd) become ab
 - Manual (PM spec scenarios): 1 and 2 with `cond = false/true` and a quick function on a throwaway `<leader>` key; 3 with a slow cond (`vim.system({"sleep","3"}, {}, function() done(true) end)`), open the hint during the wait; 4 press the placeholder; 5 and 6 with `done(false)`, a missing command, and `sleep 60` (10 s timeout toast); 7 with `buffer = true` and `:bwipeout` before the answer; 8 delete the key during the wait.
 
 # Success Criteria
-- [ ] `cond = false` or a quick false: key absent from hint, cheatsheet and `Key.managed`.
-- [ ] `cond = true` or no `cond`: behaviour and conflict reporting unchanged.
-- [ ] Slow check: key exists immediately, startup time unchanged, editor responsive.
-- [ ] Pressing the placeholder toasts "still checking" and runs nothing else.
-- [ ] Slow yes: same keys run the real action, no new conflict record.
-- [ ] Slow no: key removed silently. Error or timeout: removed with exactly one toast.
-- [ ] Buffer-local keys checked per buffer; closed-buffer, replaced and deleted keys ignore a late answer.
-- [ ] `cond` never appears in the options passed to `vim.keymap.set`.
-- [ ] `packer.lazy` `keys` honour `cond`.
-- [ ] The GitHub pickers' keys exist exactly where the project has a GitHub remote at startup, with `sync_gh_keys` and its autocmd gone.
-- [ ] `test-key-cond.lua` passes, existing key/finder key tests pass, lua-language-server check is clean.
+- [x] `cond = false` or a quick false: key absent from hint, cheatsheet and `Key.managed`.
+- [x] `cond = true` or no `cond`: behaviour and conflict reporting unchanged.
+- [x] Slow check: key exists immediately, startup time unchanged, editor responsive.
+- [x] Pressing the placeholder toasts "still checking" and runs nothing else.
+- [x] Slow yes: same keys run the real action, no new conflict record.
+- [x] Slow no: key removed silently. Error or timeout: removed with exactly one toast.
+- [x] Buffer-local keys checked per buffer; closed-buffer, replaced and deleted keys ignore a late answer.
+- [x] `cond` never appears in the options passed to `vim.keymap.set`.
+- [x] `packer.lazy` `keys` honour `cond`.
+- [x] The GitHub pickers' keys exist exactly where the project has a GitHub remote at startup, with `sync_gh_keys` and its autocmd gone.
+- [x] `test-key-cond.lua` passes, existing key/finder key tests pass, lua-language-server check is clean.
 
 # Decisions for you
 1. **LSP `cond` rename.** Recommended: rename the LSP field to `method` (Phase 3 step 2). Alternative: keep it and special-case `Beast.Lsp.KeySpec` with a type override; leaves two meanings of `cond` on one spec family.
 2. **Packer lazy keys in this change.** Recommended: include Phase 3 step 1 so `packer.lazy` keys work. Alternative: ship only `Key.safe_set` support and let `packer.lazy` ignore `cond` until a follow-up.
+
+---
+
+## Completed
+
+2026-11-17. Phase 1 quick conditions, Phase 2 slow conditions with placeholder, Phase 3 callers (packer lazy keys, LSP field rename), Phase 4 GitHub keys refactor.
+
+- `1aff13d` feat(key): cond field gates keymap registration (boolean or quick function)
+- `5344cc4` feat(key): slow cond registers a toast-only placeholder until done(ok) or timeout
+- `243b925` feat(key): packer lazy keys honour cond; lsp key gate field cond renamed to method (the five language plugins in neovim_plugins were renamed in their own repos: python `71d6a5f`, typescript `ed0741e`, lua_ls `f49a0eb`, cpp `5fe9e0a`, json `c2469cd`)
+- `710d508` refactor(init): GitHub picker keys use cond instead of sync_gh_keys and its autocmd
+
+Verification: `tests/test-key-cond.lua` 48 passed; finder key tests 77 and 27, git remote 38, packer failures 21; stylua and lua-language-server check clean; `bench-key-hint` PASS (open p50 1.19 ms); startup 59.4 ms vs 59.8 ms before Phase 4 (hyperfine, 30 runs). E2E with the real config: GitHub keys present in a GitHub repo, absent for a gitlab remote, no remote and no repo; a file argument follows the file's project.
