@@ -337,5 +337,49 @@ do
 	assert_test("every mode is swapped on yes", ran > 0)
 end
 
+-- ---------------------------------------------------------------------------
+-- packer lazy keys forward cond to the temporary trigger
+-- ---------------------------------------------------------------------------
+io.write("packer lazy keys\n")
+do
+	_G.Key = Key
+	local triggers = require("beast.libs.packer.triggers.keys")
+	local loads = 0
+	local function load_fn()
+		loads = loads + 1
+	end
+	local plugin = { name = "demo" }
+
+	triggers.setup(plugin, { { "<leader>pa", noop, desc = "gated off", cond = false } }, load_fn)
+	assert_test("cond = false leaves no lazy trigger", not mapped("<leader>pa"))
+
+	triggers.setup(plugin, { { "<leader>pb", noop, desc = "gated on", cond = true } }, load_fn)
+	assert_test("cond = true keeps the lazy trigger", mapped("<leader>pb"))
+
+	triggers.setup(plugin, { "<leader>pc" }, load_fn)
+	assert_test("a bare string key is unaffected", mapped("<leader>pc"))
+
+	local checks = 0
+	triggers.setup(plugin, {
+		{
+			"<leader>pd",
+			noop,
+			desc = "counted",
+			cond = function()
+				checks = checks + 1
+				return true
+			end,
+		},
+	}, load_fn)
+	press("<leader>pd")
+	assert_test(
+		"the trigger loads the plugin and installs the real key",
+		settle(function()
+			return loads == 1 and mapped("<leader>pd")
+		end)
+	)
+	assert_eq("the real key is not checked again", checks, 1)
+end
+
 io.write(("\n%d passed, %d failed\n"):format(passed, failed))
 os.exit(failed == 0 and 0 or 1)

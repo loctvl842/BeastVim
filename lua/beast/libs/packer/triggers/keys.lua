@@ -47,6 +47,12 @@ function M.setup(plugin_spec, keys_list, load_fn)
 			end
 		end
 
+		-- `cond` gates only the temporary trigger; the real keymap set after the plugin loads is not checked again
+		local trigger_opts = map_opts
+		if type(key_spec) == "table" and key_spec.cond ~= nil then
+			trigger_opts = vim.tbl_extend("force", map_opts, { cond = key_spec.cond })
+		end
+
 		-- Set temporary keymap using Keys.safe_set (handles mode normalization automatically)
 		Key.safe_set(mode, lhs, function()
 			-- Delete the temporary keymap
@@ -80,7 +86,7 @@ function M.setup(plugin_spec, keys_list, load_fn)
 					vim.api.nvim_feedkeys(keys, "m", false)
 				end
 			end)
-		end, map_opts)
+		end, trigger_opts)
 	end
 end
 

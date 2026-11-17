@@ -27,7 +27,7 @@ local augroup
 local register_capability_handler
 
 ---@class Beast.Lsp.KeySpec : Beast.KeymapSpec
----@field cond? string LSP method (e.g. "textDocument/definition") gating bind
+---@field method? string LSP method (e.g. "textDocument/definition") gating bind
 
 ---@class Beast.Lsp.Registered
 ---@field keys? Beast.Lsp.KeySpec[]|Beast.Lsp.KeySpec Buffer-local keymap specs; single spec or array
@@ -166,7 +166,7 @@ function M.setup()
 					---@type Beast.Lsp.KeySpec[]
 					local specs = (type(server.keys[1]) == "table") and server.keys or { server.keys }
 					for _, spec in ipairs(specs) do
-						if not spec.cond or client:supports_method(spec.cond) then
+						if not spec.method or client:supports_method(spec.method) then
 							Key.safe_set(spec.mode or "n", spec[1], spec[2], {
 								buffer = ev.buf,
 								desc = spec.desc,
