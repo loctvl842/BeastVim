@@ -31,6 +31,7 @@ local hunks_mod = require("beast.libs.git.hunks")
 local repo = require("beast.libs.git.repo")
 local signs = require("beast.libs.git.signs")
 
+---@class Beast.Git
 local M = {}
 
 ---@type Beast.Lib.Meta
@@ -615,6 +616,28 @@ local function ensure_autocmds()
 			end)
 		end,
 	})
+end
+
+--- The remote hosted on `provider` ("github"|"gitlab"), `origin` preferred.
+---@param provider string
+---@param root? string defaults to the current project root
+---@return Beast.Git.Remote?
+function M.remote(provider, root)
+	return require("beast.libs.git.remote").remote(provider, root)
+end
+
+--- Providers hosting the project's remotes, e.g. `{ "github", "gitlab" }`.
+---@param root? string
+---@return string[]
+function M.providers(root)
+	return require("beast.libs.git.remote").providers(root)
+end
+
+---@param name string
+---@param root? string
+---@return boolean
+function M.has_provider(name, root)
+	return require("beast.libs.git.remote").has_provider(name, root)
 end
 
 ---@param opts? Beast.Git.Config

@@ -14,6 +14,9 @@
 ---@field max_summary_length? integer Truncate `<summary>` to N display cells with a `…` suffix. 0 disables. Default 50 (matches VSCode GitLens).
 ---@field use_focus? boolean Trigger updates on FocusGained as well.
 
+---@class Beast.Git.RemoteConfig
+---@field hosts? table<string, string> Host to provider overrides for hosts that do not contain "github" or "gitlab", e.g. `{ ["git.acme.dev"] = "github" }`.
+
 ---@class Beast.Git.Config
 local defaults = {
 	---@type integer Debounce window (ms) for on_lines re-diffs.
@@ -37,6 +40,11 @@ local defaults = {
 		formatter_nc = "      <author>",
 		max_summary_length = 50,
 		use_focus = true,
+	},
+
+	---@type Beast.Git.RemoteConfig
+	remote = {
+		hosts = {},
 	},
 
 	---@type string[] Filetypes that never attach.
