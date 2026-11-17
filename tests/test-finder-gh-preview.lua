@@ -70,6 +70,10 @@ assert_eq("years", preview.reltime("2024-11-15T00:00:00Z", NOW), "2 years ago")
 assert_eq("future clamps", preview.reltime("2027-01-01T00:00:00Z", NOW), "just now")
 assert_eq("garbage", preview.reltime("yesterday", NOW), "")
 assert_eq("nil", preview.reltime(nil, NOW), "")
+assert_eq("fraction and Z", preview.reltime("2026-11-14T00:00:00.000Z", NOW), "1 day ago")
+-- 2026-11-14T07:00:00+07:00 is 2026-11-14T00:00:00Z
+assert_eq("positive offset", preview.reltime("2026-11-14T07:00:00.000+07:00", NOW), "1 day ago")
+assert_eq("negative offset", preview.reltime("2026-11-13T19:00:00-05:00", NOW), "1 day ago")
 
 -- ---------------------------------------------------------------------------
 local function item(extra)
@@ -108,6 +112,30 @@ local function detail(extra)
 		},
 	}, extra or {})
 end
+
+io.write("\n--- build: GitLab item and detail ---\n")
+local gl_item = item({ provider = "gitlab", ref = "!412", number = 412, state = "open", repo = "platform/payments/api", host = "gitlab.acme.dev" })
+local gl_lines = preview.build(gl_item, {
+	body = "Retry with backoff",
+	base = "main",
+	head = "retry-backoff",
+	files = 6,
+	pipeline = "passed",
+	reviewers = { "mina", "lee" },
+	assignees = { "dao" },
+	milestone = "2026.4",
+	conversation = {},
+}, nil, NOW)
+assert_test("title uses the host's reference", has(gl_lines, "feat(cli): function nodes  !412"))
+assert_test("project label", has(gl_lines, f("Project", "platform/payments/api")))
+assert_test("no Repo label", not has(gl_lines, "Repo:"))
+assert_test("reviewers", has(gl_lines, f("Reviewers", "mina, lee")))
+assert_test("assignees", has(gl_lines, f("Assignees", "dao")))
+assert_test("milestone", has(gl_lines, f("Milestone", "2026.4")))
+assert_test("pipeline", has(gl_lines, f("Pipeline", "passed")))
+assert_test("files without line totals", has(gl_lines, f("Changes", "6 files")))
+assert_test("no checks line without checks", not has(gl_lines, "Checks:"))
+assert_test("an item without ref still writes #n", has(preview.build(item(), nil, nil, NOW), "feat(cli): function nodes  #30"))
 
 io.write("\n--- build: header before the fetch answers ---\n")
 local lines, spans = preview.build(item(), nil, nil, NOW)

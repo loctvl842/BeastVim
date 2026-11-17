@@ -1,8 +1,8 @@
 --- What a commit looks like in the preview pane and in the buffer Enter opens: its message, the files it
 --- changed and their diffs. The commit's files come from `gh api` (one request per commit, kept for the
 --- session), so the pane draws the header at once and the rest when the request answers.
-local api = require("beast.libs.finder.source.gh.api")
 local diff = require("beast.libs.finder.ui.diff")
+local forge = require("beast.libs.finder.source.forge")
 local preview = require("beast.libs.finder.source.gh.preview")
 
 ---@class Beast.Finder.Gh.CommitPreview
@@ -55,7 +55,7 @@ function M.detail(item, cb)
 		cb(result)
 	end
 	if item.pr then
-		return api.commit(item.pr, item.sha, answer)
+		return forge.api(item.pr).commit(item.pr, item.sha, answer)
 	end
 	local log = require("beast.libs.finder.source.git.log")
 	if item.base then

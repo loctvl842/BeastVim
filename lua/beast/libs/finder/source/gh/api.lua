@@ -11,6 +11,8 @@
 
 ---@class Beast.Finder.Gh.Item: Beast.Finder.Item
 ---@field kind Beast.Finder.Gh.Kind
+---@field provider? "github"|"gitlab" absent means GitHub
+---@field ref? string the number as the host writes it: "#30", "!412"
 ---@field state Beast.Finder.Gh.State
 ---@field number integer
 ---@field title string
@@ -108,6 +110,8 @@ function M.normalize(raw, host)
 	return {
 		text = ("#%d %s"):format(raw.number, raw.title or ""),
 		kind = is_pr and "pr" or "issue",
+		provider = "github",
+		ref = "#" .. raw.number,
 		state = state,
 		number = raw.number,
 		title = raw.title or "",
@@ -223,6 +227,14 @@ function M.search(q, host, cb)
 			pcall(proc.kill, proc, 15)
 		end,
 	}
+end
+
+--- Web address of a commit of `item`'s repository.
+---@param item Beast.Finder.Gh.Item
+---@param sha string
+---@return string
+function M.commit_url(item, sha)
+	return ("https://%s/%s/commit/%s"):format(item.host, item.repo, sha)
 end
 
 -- ---------------------------------------------------------------------------
@@ -408,10 +420,14 @@ end
 ---@field base? string
 ---@field head? string
 ---@field mergeable? string
----@field additions integer
----@field deletions integer
+---@field additions? integer nil when the host reports no line totals (GitLab)
+---@field deletions? integer
 ---@field files integer
----@field checks Beast.Finder.Gh.Checks
+---@field checks? Beast.Finder.Gh.Checks
+---@field pipeline? string GitLab: status of the head pipeline ("passed", "failed", ...)
+---@field reviewers? string[]
+---@field assignees? string[]
+---@field milestone? string
 ---@field conversation Beast.Finder.Gh.ConversationEntry[] oldest first
 
 local DETAIL_FIELDS = {

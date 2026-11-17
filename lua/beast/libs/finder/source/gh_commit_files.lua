@@ -1,6 +1,7 @@
 --- The files one commit of a pull request changes: opened from the commits list (a chain), the prompt
 --- filters them by path. Rows, preview and Enter are those of the pull request's changed files.
 local commit_preview = require("beast.libs.finder.source.gh.commit_preview")
+local forge = require("beast.libs.finder.source.forge")
 local format = require("beast.libs.finder.format")
 local pr_files = require("beast.libs.finder.source.gh_pr_files")
 
@@ -28,7 +29,7 @@ function M.get(filter, cb)
 	local commit = filter.ctx.commit
 	commit_preview.detail(commit, function(result)
 		if result.error then
-			cb(message("GitHub could not list the files:", true))
+			cb(message(forge.name(commit.pr) .. " could not list the files:", true))
 			cb(message(result.error.message, true))
 		elseif #result.detail.files == 0 then
 			cb(message("No files changed"))

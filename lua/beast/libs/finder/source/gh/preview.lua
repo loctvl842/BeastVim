@@ -1,7 +1,7 @@
 --- Preview pane for the GitHub sources: what the list already knows is drawn at once,
 --- description and conversation fill in when `gh pr|issue view` answers.
 local View = require("beast.libs.view")
-local api = require("beast.libs.finder.source.gh.api")
+local forge = require("beast.libs.finder.source.forge")
 local format = require("beast.libs.finder.format")
 
 ---@class Beast.Finder.Gh.Preview
@@ -29,7 +29,7 @@ local states = setmetatable({}, { __mode = "k" })
 -- Pure content
 -- ---------------------------------------------------------------------------
 
---- Seconds since the epoch for an ISO-8601 UTC timestamp ("2026-08-08T10:29:43Z").
+--- Seconds since the epoch for an ISO-8601 timestamp ("2026-08-08T10:29:43Z"; fractions and a `+hh:mm` offset are allowed).
 ---@param iso string
 ---@return integer?
 local function epoch(iso)
@@ -45,7 +45,13 @@ local function epoch(iso)
 	local doy = math.floor((153 * (mo + (mo > 2 and -3 or 9)) + 2) / 5) + d - 1
 	local doe = yoe * 365 + math.floor(yoe / 4) - math.floor(yoe / 100) + doy
 	local days = era * 146097 + doe - 719468
-	return days * 86400 + tonumber(h) * 3600 + tonumber(mi) * 60 + tonumber(s)
+	local t = days * 86400 + tonumber(h) * 3600 + tonumber(mi) * 60 + tonumber(s)
+	-- an explicit UTC offset ("2026-11-18T00:06:11.000+07:00") moves the instant
+	local sign, oh, om = iso:match("([+-])(%d%d):(%d%d)$")
+	if sign then
+		t = t - (sign == "+" and 1 or -1) * (tonumber(oh) * 3600 + tonumber(om) * 60)
+	end
+	return t
 end
 
 --- "2 weeks ago" style age of a timestamp.
@@ -134,7 +140,7 @@ function M.build(item, detail, failure, now)
 		end
 	end
 
-	add(("%s  #%d"):format(item.title, item.number), "BeastFinderPreviewTitle")
+	add(("%s  %s"):format(item.title, forge.ref(item)), "BeastFinderPreviewTitle")
 	add("")
 
 	local icon, icon_hl = format.gh_state(item)
@@ -145,9 +151,15 @@ function M.build(item, detail, failure, now)
 	field("Status", status)
 	-- colour just the icon + word, like the list row
 	spans[#spans + 1] = { row = #lines - 1, col = LABEL_WIDTH, end_col = LABEL_WIDTH + #icon + 1 + #STATUS_WORD[item.state], hl = icon_hl }
-	field("Repo", item.repo)
+	field(forge.project(item), item.repo)
 	if item.author then
 		field("Author", item.author, "BeastFinderGhAuthor")
+	end
+	if detail and detail.reviewers and #detail.reviewers > 0 then
+		field("Reviewers", table.concat(detail.reviewers, ", "))
+	end
+	if detail and detail.assignees and #detail.assignees > 0 then
+		field("Assignees", table.concat(detail.assignees, ", "))
 	end
 	if #item.labels > 0 then
 		local names = {}
@@ -155,6 +167,9 @@ function M.build(item, detail, failure, now)
 			names[#names + 1] = label.name
 		end
 		field("Labels", table.concat(names, ", "))
+	end
+	if detail and detail.milestone then
+		field("Milestone", detail.milestone)
 	end
 	field("Created", M.reltime(item.created, now))
 	field("Updated", M.reltime(item.updated, now))
@@ -164,14 +179,22 @@ function M.build(item, detail, failure, now)
 		field("Closed", M.reltime(detail.closed, now))
 	end
 	if item.kind == "pr" and detail then
-		local checks = checks_text(detail.checks)
+		local checks = detail.checks and checks_text(detail.checks) or ""
 		if checks ~= "" then
 			field("Checks", checks)
+		end
+		if detail.pipeline then
+			field("Pipeline", detail.pipeline)
 		end
 		if MERGEABLE[detail.mergeable or ""] then
 			field("Mergeable", MERGEABLE[detail.mergeable])
 		end
-		field("Changes", ("%d files  +%d -%d"):format(detail.files, detail.additions, detail.deletions))
+		-- a host that does not report line totals (GitLab) shows the file count alone
+		if detail.additions then
+			field("Changes", ("%d files  +%d -%d"):format(detail.files, detail.additions, detail.deletions))
+		else
+			field("Changes", ("%d files"):format(detail.files))
+		end
 	elseif item.kind == "issue" then
 		field("Comments", tostring(item.comments))
 	end
@@ -290,7 +313,7 @@ function M.show(view, item)
 	View.win.wo(view.win, "wrap", true)
 	View.win.wo(view.win, "linebreak", true)
 	pcall(vim.api.nvim_win_set_config, view.win, {
-		title = (" %s #%d "):format(item.kind == "pr" and "PR" or "Issue", item.number),
+		title = (" %s %s "):format(item.kind == "pr" and forge.review(item) or "Issue", forge.ref(item)),
 		title_pos = "center",
 	})
 
@@ -302,7 +325,7 @@ function M.show(view, item)
 
 	local req = {}
 	st.req = req
-	st.proc = api.detail(item, function(result)
+	st.proc = forge.api(item).detail(item, function(result)
 		-- stylua: ignore
 		if st.req ~= req or not view:is_valid() then return end
 		st.proc = nil

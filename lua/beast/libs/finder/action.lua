@@ -1,4 +1,5 @@
 local diff = require("beast.libs.finder.ui.diff")
+local forge = require("beast.libs.finder.source.forge")
 
 local M = {}
 
@@ -113,7 +114,7 @@ function M.open_diff(win, item)
 	end
 	local lines = diff.raw_lines(item)
 	local name = item.commit and ("%s@%s: %s"):format(repo_name(item.commit), item.commit.short, item.file)
-		or ("%s#%d: %s"):format(item.pr.repo, item.pr.number, item.file)
+		or ("%s%s: %s"):format(item.pr.repo, forge.ref(item.pr), item.file)
 	open_scratch(name, lines)
 	for lnum, line in ipairs(lines) do
 		if line:sub(1, 2) == "@@" then

@@ -1,6 +1,6 @@
 --- The commits of a pull request: opened from the pull request list (a chain), the prompt filters them by
 --- id, subject or author. Each commit previews its diff; Enter shows the whole commit in a scratch buffer.
-local api = require("beast.libs.finder.source.gh.api")
+local forge = require("beast.libs.finder.source.forge")
 local format = require("beast.libs.finder.format")
 
 ---@class Beast.Finder.Source.GhCommits: Beast.Finder.ASource
@@ -25,15 +25,15 @@ end
 function M.get(filter, cb)
 	---@type Beast.Finder.Gh.Item
 	local pr = filter.ctx.pr
-	api.commits(pr, function(result)
+	forge.api(pr).commits(pr, function(result)
 		if result.error then
-			cb(message("GitHub could not list the commits:", true))
+			cb(message(forge.name(pr) .. " could not list the commits:", true))
 			cb(message(result.error.message, true))
 		elseif #result.commits == 0 then
 			cb(message("No commits"))
 		else
 			filter.ctx.truncated = result.truncated
-			-- GitHub lists the oldest first; the latest commit is the one you want first.
+			-- The api lists them oldest first; the latest commit is the one you want first.
 			for i = #result.commits, 1, -1 do
 				local commit = result.commits[i]
 				cb({
@@ -48,7 +48,7 @@ function M.get(filter, cb)
 					body = commit.message,
 					author = commit.author,
 					date = commit.date,
-					url = ("https://%s/%s/commit/%s"):format(pr.host, pr.repo, commit.sha),
+					url = forge.api(pr).commit_url(pr, commit.sha),
 				})
 			end
 		end
@@ -56,7 +56,7 @@ function M.get(filter, cb)
 	end)
 end
 
---- "PR <title> › Commits (N)"; `items` is nil while loading.
+--- "PR <title> › Commits (N)" ("MR" on GitLab); `items` is nil while loading.
 ---@param filter? Beast.Finder.Filter
 ---@param items? Beast.Finder.Item[]
 ---@return string

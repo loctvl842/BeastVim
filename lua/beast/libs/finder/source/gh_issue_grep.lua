@@ -1,6 +1,7 @@
 --- Search the text (title and description) of the issues of the list this picker was opened from.
 --- Nothing is fetched: the issues are the ones the issue list already holds, and the prompt text is
 --- looked up in them as a plain string (smart case: any capital makes it case-sensitive).
+local forge = require("beast.libs.finder.source.forge")
 local format = require("beast.libs.finder.format")
 
 ---@class Beast.Finder.Source.GhIssueGrep: Beast.Finder.ASource
@@ -54,7 +55,7 @@ function M.get(filter, cb)
 				cb({
 					idx = count,
 					score = 1,
-					text = ("#%d:%d: %s"):format(issue.number, lnum, line),
+					text = ("%s:%d: %s"):format(forge.ref(issue), lnum, line),
 					url = issue.url,
 					issue = issue,
 					pos = { lnum, at - 1 },

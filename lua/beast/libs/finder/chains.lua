@@ -4,6 +4,7 @@
 --- `open(ctx)` builds the next level: a table of level options (see `Beast.Finder.LevelOpts`), a
 --- string (a message shown to the user, nothing opens) or nil ("nothing to open from here").
 --- `hint(ctx)` is the text shown after the key in the hint line under the picker; nil hides it.
+local forge = require("beast.libs.finder.source.forge")
 local format = require("beast.libs.finder.format")
 
 ---@class Beast.Finder.ChainCtx
@@ -64,7 +65,7 @@ end
 ---@return string?
 local function files_in_pr(ctx)
 	local pr = ctx.selected ---@cast pr Beast.Finder.Gh.Item?
-	return pr and not pr.message and ("files changed in #" .. pr.number) or nil
+	return pr and not pr.message and ("files changed in " .. forge.ref(pr)) or nil
 end
 
 ---@param ctx Beast.Finder.ChainCtx
@@ -84,7 +85,7 @@ end
 ---@return string?
 local function commits_in_pr(ctx)
 	local pr = ctx.selected ---@cast pr Beast.Finder.Gh.Item?
-	return pr and not pr.message and ("commits in #" .. pr.number) or nil
+	return pr and not pr.message and ("commits in " .. forge.ref(pr)) or nil
 end
 
 ---@param ctx Beast.Finder.ChainCtx

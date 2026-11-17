@@ -1,7 +1,7 @@
 --- The files a pull request changes: opened from the pull request list (a chain), the prompt filters
 --- them by path. Each file previews its diff; Enter shows the diff in a scratch buffer.
-local api = require("beast.libs.finder.source.gh.api")
 local diff = require("beast.libs.finder.ui.diff")
+local forge = require("beast.libs.finder.source.forge")
 local format = require("beast.libs.finder.format")
 
 ---@class Beast.Finder.Source.GhPrFiles: Beast.Finder.ASource
@@ -33,9 +33,9 @@ end
 function M.get(filter, cb)
 	---@type Beast.Finder.Gh.Item
 	local pr = filter.ctx.pr
-	api.files(pr, function(result)
+	forge.api(pr).files(pr, function(result)
 		if result.error then
-			cb(message("GitHub could not list the files:", true))
+			cb(message(forge.name(pr) .. " could not list the files:", true))
 			cb(message(result.error.message, true))
 		elseif #result.files == 0 then
 			cb(message("No files changed"))

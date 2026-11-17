@@ -5,6 +5,8 @@
 ---@field right_align boolean?
 ---@field chunks? { [1]: string, [2]: string }[] right_align only: several highlighted chunks; `text` is ignored
 
+local forge = require("beast.libs.finder.source.forge")
+
 local M = {}
 
 local SWATCH_COUNT = 10
@@ -322,7 +324,7 @@ function M.gh_issue_grep_header(item)
 	local icon, icon_hl = M.gh_state(issue)
 	return {
 		{ text = icon .. "  ", hl = icon_hl },
-		{ text = ("%-6s"):format("#" .. issue.number), hl = "BeastFinderGhNumber" },
+		{ text = ("%-6s"):format(forge.ref(issue)), hl = "BeastFinderGhNumber" },
 		{ text = issue.title, hl = "BeastFinderListFile" },
 	}
 end
@@ -361,7 +363,7 @@ function M.commit_trail(commit)
 	return commit.pr and (M.pr_label(commit.pr) .. " › " .. label) or label
 end
 
---- "PR <title>", the title shortened with "..." when it is long (the title bar of the levels opened from a pull request).
+--- "PR <title>" ("MR" on GitLab), the title shortened with "..." when it is long (the title bar of the levels opened from a pull request).
 ---@param pr Beast.Finder.Gh.Item
 ---@return string
 function M.pr_label(pr)
@@ -369,7 +371,7 @@ function M.pr_label(pr)
 	if vim.fn.strchars(title) > 40 then
 		title = vim.fn.strcharpart(title, 0, 37) .. "..."
 	end
-	return "PR " .. title
+	return forge.review(pr) .. " " .. title
 end
 
 --- A commit of a pull request: "<short id>  <subject>" with the author and age at the right edge.
@@ -418,7 +420,7 @@ function M.gh(item)
 	local icon, icon_hl = M.gh_state(item)
 	local result = {
 		{ text = icon .. "  ", hl = icon_hl },
-		{ text = ("%-6s"):format("#" .. item.number), hl = "BeastFinderGhNumber" },
+		{ text = ("%-6s"):format(forge.ref(item)), hl = "BeastFinderGhNumber" },
 		{ text = item.title, hl = "BeastFinderListFile" },
 	}
 	if item.author then

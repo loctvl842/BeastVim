@@ -40,6 +40,8 @@ local function tokens(text)
 	return out
 end
 
+M.tokens = tokens
+
 --- First value of each `key:value` qualifier (keys lowercased). Only a token that starts with
 --- `key:` is a qualifier; a negated one (`-repo:x`) excludes, it does not scope.
 ---@param text string
