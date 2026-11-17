@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spec: Git branch chain</title>
+<style>
+  :root { --bg:#fbfaf7; --fg:#1c1b19; --muted:#6b675f; --line:#dcd8cf; --card:#fff; --accent:#b4540a; --term:#1e1f26; --termfg:#d8dae5; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#161513; --fg:#ece8df; --muted:#a29d92; --line:#3a3732; --card:#1f1d1a; --accent:#e08a3c; }
+  }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, sans-serif; }
+  main { max-width:880px; margin:0 auto; padding:24px 16px 80px; }
+  section { margin:32px 0; }
+  h1 { margin:0 0 8px; } h2 { margin:0 0 10px; } h3 { margin:18px 0 6px; font-size:1rem; }
+  .muted { color:var(--muted); }
+  pre.mock { background:var(--term); color:var(--termfg); border-radius:10px; padding:14px 16px; font:13px/1.35 ui-monospace,Menlo,monospace; overflow-x:auto; margin:8px 0; white-space:pre; }
+  pre.step { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:10px 14px; font:13px/1.5 ui-monospace,Menlo,monospace; overflow-x:auto; white-space:pre-wrap; margin:8px 0; }
+  ul { padding-left:20px; } li { margin:4px 0; }
+  ul.check { list-style:none; padding-left:0; } ul.check li::before { content:"\2610  "; color:var(--accent); }
+  details { margin:10px 0; } summary { cursor:pointer; font-weight:600; }
+  .choice { border-left:3px solid var(--accent); padding:6px 12px; margin:12px 0; background:var(--card); border-radius:0 8px 8px 0; }
+  .rec { color:var(--accent); font-weight:600; font-size:.85em; }
+  code { font:0.9em ui-monospace,Menlo,monospace; background:var(--card); border:1px solid var(--line); border-radius:4px; padding:0 4px; }
+  .sim { margin:12px 0 22px; }
+  .sim .bar { display:flex; flex-wrap:wrap; gap:6px; margin:6px 0; }
+  .sim button { font:12px ui-monospace,Menlo,monospace; background:var(--card); color:var(--fg); border:1px solid var(--line); border-radius:6px; padding:4px 8px; cursor:pointer; }
+  .sim button:hover { border-color:var(--accent); }
+  .term { background:var(--term); color:var(--termfg); border-radius:10px; padding:10px; font:13px/1.45 ui-monospace,Menlo,monospace; outline:none; min-height:300px; }
+  .term:focus { box-shadow:0 0 0 2px var(--accent); }
+  .panes { display:grid; grid-template-columns:1.1fr 1fr; gap:8px; }
+  @media (max-width:640px) { .panes { grid-template-columns:1fr; } }
+  .pane { border:1px solid #4a4c5a; border-radius:6px; padding:4px 8px; min-height:260px; overflow:hidden; white-space:pre; }
+  .pane .ttl { color:#e5c07b; text-align:center; }
+  .term .dim { color:#7c7f93; } .term .sel { background:#3a3d4d; display:block; } .term .row { display:block; }
+  .term .hit { background:#4a4c5a; } .term .add { color:#98c379; } .term .del { color:#e06c75; } .term .hunk { color:#7c7f93; }
+  .term .prompt { color:#e5a06a; } .term .cnt { float:right; color:#7c7f93; } .term .caret { background:#d8dae5; color:#1e1f26; }
+  .term .hint { color:#7c7f93; display:block; text-align:right; margin-top:4px; }
+  .simtoast { min-height:1.5em; margin-top:6px; font-size:.9em; color:var(--accent); }
+  svg { width:100%; height:auto; color:var(--fg); }
+</style>
+</head>
+<body>
+<main>
+<header data-spec="summary"><h1>Git branch chain</h1><p>A list of your local branches. From a branch, one key opens the files it changed and another opens its commits; from a commit, one key opens the files that commit changed; from any list of changed files, one key opens a grep limited to those files. Backspace steps back at every level.</p></header>
+<section data-spec="problem"><h2>Problem</h2>
+<p>To review what a branch does you leave the editor: run git commands to see which files it touched, which commits it holds, and what each commit changed. Searching inside just those files means remembering their names and grepping the whole project. The finder already does this for pull requests and for the commit history, but there is no way in from a branch.</p>
+<h3 data-spec="why-now">Why now</h3>
+<p>Local commits already chain to their files and then to a grep, and pull requests chain the same way. A branch is the missing starting point for work that has no pull request yet (or that you do not want to push to look at).</p>
+</section>
+<section data-spec="target-behavior"><h2>Target Behavior</h2>
+<p>The chain. <code>&lt;C-g&gt;</code> is the &quot;go deeper&quot; key, <code>&lt;C-t&gt;</code> is the &quot;commits&quot; key (as on pull requests). The two boxes marked &quot;new&quot; are what this spec adds; the rest exists today:</p>
+<pre class="mock">Git Branches ──&lt;C-g&gt;──&gt; Files Changed ──&lt;C-g&gt;──&gt; grep in those files        (new, new, exists)
+     │
+     └───────&lt;C-t&gt;──&gt; Commits ──&lt;C-g&gt;──&gt; Files Changed ──&lt;C-g&gt;──&gt; grep      (new, exists, exists)
+
+&lt;BS&gt; (empty prompt) or &lt;C-o&gt; goes back one level at every step, nothing is searched again.</pre>
+<pre class="mock">STATE 1 — Branch list, the ways down are shown under the picker:
+┌─ Git Branches (4) ─────────────────────────┐┌─ feat/chain-keys ─────────────────────┐
+│ &gt; █                                    4   ││ 3 commits ahead of main               │
+├────────────────────────────────────────────┤│                                       │
+│▌ feat/chain-keys   Wire keys   Loc  today  ││ 9c20aa8  Scoped grep                  │
+│  fix/scrollbar     Flicker     Loc  3 days ││ b71e0d4  Wire &lt;C-g&gt; to the table      │
+│  main            ● Merge #11   Loc  5 days ││ 3f9a1c2  Add chain table              │
+│  old/spike         Try thing   Loc  3 weeks││                                       │
+└────────────────────────────────────────────┘└───────────────────────────────────────┘
+                    &lt;C-g&gt; files changed in feat/chain-keys   &lt;C-t&gt; commits in feat/chain-keys
+
+─────────────────────────────────────────
+STATE 2 — &lt;C-g&gt;: the files the branch changed (against where it left main), diff on the right:
+┌─ feat/chain-keys › Files Changed (3) ──────┐┌─ chains.lua ──────────────────────────┐
+│ &gt; █                                    3   ││ @@ -0,0 +1,40 @@                     │
+├────────────────────────────────────────────┤│ +local M = {}                         │
+│▌ M chains.lua    lua/beast/libs/finder     ││ +...                                  │
+│  M keymaps.lua   lua/beast/libs/finder     ││                                       │
+│  A branches.lua  lua/beast/libs/finder     ││                                       │
+└────────────────────────────────────────────┘└───────────────────────────────────────┘
+                  &lt;C-g&gt; grep these 3 files   &lt;BS&gt; back to Git Branches
+
+─────────────────────────────────────────
+STATE 3 — &lt;C-t&gt; from STATE 1: the commits of the branch, newest first:
+┌─ feat/chain-keys › Commits (3) ────────────┐┌─ 9c20aa8  Scoped grep ────────────────┐
+│ &gt; █                                    3   ││ Loc &lt;l@x.dev&gt;  today                  │
+├────────────────────────────────────────────┤│                                       │
+│▌ 9c20aa8  Scoped grep          Loc  today  ││  lua/beast/libs/finder/chains.lua     │
+│  b71e0d4  Wire &lt;C-g&gt; to the…   Loc  today  ││ @@ -10,3 +10,4 @@                     │
+│  3f9a1c2  Add chain table      Loc  today  ││ +...                                  │
+└────────────────────────────────────────────┘└───────────────────────────────────────┘
+                  &lt;C-g&gt; files changed in 9c20aa8   &lt;BS&gt; back to Git Branches
+
+─────────────────────────────────────────
+STATE 4 — &lt;C-g&gt; from a commit: only that commit&#x27;s files; &lt;C-g&gt; again greps them (STATE 5):
+┌─ 9c20aa8 Scoped grep › Files Changed (2) ──┐
+│▌ M chains.lua    lua/beast/libs/finder     │
+│  M keymaps.lua   lua/beast/libs/finder     │
+└────────────────────────────────────────────┘
+                  &lt;C-g&gt; grep these 2 files   &lt;BS&gt; back to Commits
+
+─────────────────────────────────────────
+STATE 5 — Grep inside those files (your local copies):
+┌─ 3 Files in feat/chain-keys › Live Grep ───┐┌─ chains.lua ──────────────────────────┐
+│ &gt; chain█                                   ││ ...                                   │
+├────────────────────────────────────────────┤│                                       │
+│  chains.lua  lua/beast/libs/finder         ││                                       │
+│▌  1:3   --- The map of chains              ││                                       │
+│   40:5  local function scope_files(what)   ││                                       │
+└────────────────────────────────────────────┘└───────────────────────────────────────┘
+                                                         &lt;BS&gt; back to Files Changed</pre>
+<p>A branch row is: name, a <code>●</code> on the branch you are on, the first line of its latest commit, the author, how long ago. Typing filters by any of these. The branch you are on is listed first, then the rest newest first.</p>
+</section>
+<section data-spec="scenarios"><h2>Scenarios</h2>
+<h3 data-spec="1-happy-path-branch-its-files-grep">1 — Happy path: branch, its files, grep</h3>
+<pre class="step">Step 1: open Git Branches (&lt;leader&gt;gr), move to feat/chain-keys
+  The right side lists the commits it has that main does not.
+  The hint offers &quot;&lt;C-g&gt; files changed in feat/chain-keys&quot; and &quot;&lt;C-t&gt; commits in feat/chain-keys&quot;.
+
+Step 2: press &lt;C-g&gt;
+  Title: &quot;feat/chain-keys › Files Changed (3)&quot;. The 3 files are listed; the first one&#x27;s diff is on the right.
+
+Step 3: press &lt;C-g&gt;
+  Title: &quot;3 Files in feat/chain-keys › Live Grep&quot;. The prompt is empty.
+
+Step 4: type &quot;chain&quot;, move to a result, press &lt;Enter&gt;
+  The picker closes and the file opens at that line.</pre>
+<h3 data-spec="2-branch-a-commit-its-files-grep">2 — Branch, a commit, its files, grep</h3>
+<pre class="step">Step 1: on feat/chain-keys press &lt;C-t&gt;
+  Title: &quot;feat/chain-keys › Commits (3)&quot;. The first commit&#x27;s diff is on the right.
+
+Step 2: move to the second commit and press &lt;C-g&gt;
+  Title: &quot;b71e0d4 Wire &lt;C-g&gt; to the… › Files Changed (1)&quot;. Only the files that commit changed.
+
+Step 3: press &lt;C-g&gt;
+  Grep limited to those files, as in scenario 1.</pre>
+<h3 data-spec="3-going-back">3 — Going back</h3>
+<pre class="step">From grep: &lt;BS&gt; on an empty prompt (or &lt;C-o&gt;) -&gt; the files list, same highlighted file.
+From files / commits: &lt;BS&gt; on an empty prompt (or &lt;C-o&gt;) -&gt; the branch list, same highlighted branch.
+From a commit&#x27;s files: &lt;BS&gt; -&gt; the commits, same highlighted commit.
+Nothing is searched again. &lt;Esc&gt; closes the whole chain.</pre>
+<h3 data-spec="4-a-branch-with-no-changes-of-its-own">4 — A branch with no changes of its own</h3>
+<pre class="step">The branch you are on is main, or a branch that points at the same commit as main.
+&lt;C-g&gt; (files changed): nothing opens and a message says &quot;Nothing changed on this branch against main&quot;.
+&lt;C-t&gt; (commits): opens the latest 500 commits of that branch, the same list as &lt;leader&gt;gc.</pre>
+<h3 data-spec="5-branch-that-changed-files-you-no-longe">5 — Branch that changed files you no longer have</h3>
+<pre class="step">A file the branch deleted is listed in Files Changed (marked D, its diff on the right) but is not in your
+checkout. &lt;C-g&gt; (grep) keeps only the files that exist in your working tree; the title counts those.
+If none exist: nothing opens and a message says &quot;None of these files exist in your working tree&quot;.</pre>
+<h3 data-spec="6-open-from-the-list">6 — Open from the list</h3>
+<pre class="step">&lt;Enter&gt; on a branch: the picker closes and the branch&#x27;s latest commit (message, then the diff of every
+file) opens in a read-only buffer. Nothing is checked out; the branch you are on never changes.
+&lt;Enter&gt; on a commit or a changed file: as in the existing local commit picker.</pre>
+<h3 data-spec="7-errors-and-empty">7 — Errors and empty</h3>
+<pre class="step">Not in a git repository: the list says &quot;Not a git repository&quot; and nothing else. &lt;C-g&gt; / &lt;C-t&gt; do nothing
+but show a short note.
+A repository with one branch and no commits yet: the list says &quot;No branches&quot;.
+Too many changes: a branch with more than 300 changed files shows the first 300 and the title ends
+&quot;(300, partial)&quot;; a branch with more than 500 commits shows the latest 500 (&quot;(500, partial)&quot;).</pre>
+</section>
+<section data-spec="behavior-rules"><h2>Behavior Rules</h2>
+<ul><li>Only local branches are listed (no remote-tracking branches).</li><li>&quot;Against main&quot; means against the point where the branch left the main line: files and commits that the branch added, not what main gained since. The main line is the repository&#x27;s default branch (<code>main</code>, else <code>master</code>).</li><li>The files of a branch are the union of what its commits changed, one row per file, with the status letter (A added, M modified, D deleted, R renamed).</li><li><code>&lt;C-t&gt;</code> and <code>&lt;C-g&gt;</code> act on the highlighted branch, not on the one you are on.</li><li><code>&lt;C-g&gt;</code> on a commit keeps the existing meaning: the files that commit changed.</li><li><code>&lt;C-g&gt;</code> on a list of changed files (of a branch or a commit) greps the local copies of those files; it never greps old content, so a line number can differ from the diff.</li><li>The hint under the picker always shows the keys that work on the highlighted row, and &quot;back to ...&quot; below the first level.</li><li>Back goes to the level you came from, exactly as you left it (prompt, list, highlighted row).</li><li>Message rows (&quot;No branches&quot;, errors) never open anything.</li><li>Only the supported chains exist; any other key press shows &quot;Nothing to open from here&quot;.</li></ul>
+</section>
+<section data-spec="open-decisions"><h2>Open decisions</h2>
+<div class="choice"><b>What &quot;files changed&quot; means for a branch.</b> Recommended: what the branch added since it left the main line (like the &quot;Files changed&quot; tab of a pull request). Alternative: the difference between the branch tip and main&#x27;s tip right now (also shows what main gained since).</div><div class="choice"><b>Commits of a branch.</b> Recommended: only the commits not on main (3 in the example); on main itself, the latest 500. Alternative: always the full history of the branch.</div><div class="choice"><b>Key to open the branch list.</b> Recommended: <code>&lt;leader&gt;gr</code>, next to <code>&lt;leader&gt;gc</code> for commits (<code>&lt;leader&gt;gb</code> and <code>&lt;leader&gt;gB</code> are the blame keys).</div><div class="choice"><b><code>&lt;Enter&gt;</code> on a branch.</b> Recommended: open its latest commit read-only (safe, changes nothing). Alternative: check the branch out (changes your working tree, so it needs a confirmation and a clean tree; deferred).</div>
+</section>
+<section data-spec="success-criteria"><h2>Success Criteria</h2>
+<ul class="check"><li><code>&lt;leader&gt;gr</code> lists local branches (current one first, marked), each with its latest commit line, author and age; typing filters them.</li><li>On a branch, <code>&lt;C-g&gt;</code> lists the files it changed with status letters and the diff of the highlighted file on the right.</li><li>On a branch, <code>&lt;C-t&gt;</code> lists its commits newest first, with the diff of the highlighted commit on the right.</li><li>On a commit (from a branch or from <code>&lt;leader&gt;gc</code>), <code>&lt;C-g&gt;</code> lists the files that commit changed.</li><li>On a list of changed files, <code>&lt;C-g&gt;</code> opens a grep limited to the existing local copies; the title counts them.</li><li><code>&lt;BS&gt;</code> on an empty prompt and <code>&lt;C-o&gt;</code> go back one level at each step without searching again, restoring the prompt and the highlighted row.</li><li>A branch with no changes of its own says so on <code>&lt;C-g&gt;</code> and still lists history on <code>&lt;C-t&gt;</code>.</li><li>Message rows, empty lists and &quot;no local files&quot; never open anything and say why.</li><li>The hint under the picker shows <code>&lt;C-g&gt;</code> and <code>&lt;C-t&gt;</code> on a branch, <code>&lt;C-g&gt;</code> and <code>&lt;BS&gt; back</code> on a commit or a list of files.</li><li>Opening a branch with <code>&lt;Enter&gt;</code> never changes the branch you are on.</li></ul>
+</section>
+<section data-spec="out-of-scope"><h2>Out of Scope</h2>
+<ul><li>Checking out, creating, renaming or deleting a branch (see Open decision 4).</li><li>Remote-tracking branches and branches of other repositories.</li><li>Comparing two arbitrary branches.</li><li>Reviewing, committing or cherry-picking from the picker.</li></ul>
+</section>
+</main>
+</body>
+</html>

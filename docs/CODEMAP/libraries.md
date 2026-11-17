@@ -94,7 +94,7 @@ finder/
 │                     open/close_current/current, push(level)/pop() swap levels in the SAME windows (pop restores
 │                     prompt, results, cursor, scroll without searching); one autocmd group per session; on_close runs last
 ├── level.lua      ← Level: one search (source, query, engine, prompt text, title, count, cursor, offset); start/run/reload/stop
-├── chains.lua     ← the closed map of chains: one edge per row (id "from|to", key, crumb, hint(ctx), open(ctx)); files/buffers/help → live_grep, gh_pr → gh_pr_files (`<C-g>`) / gh_commits (`<C-t>`), gh_commits → gh_commit_files (`<C-g>`) / live_grep (`<C-f>`), gh_pr_files and gh_commit_files → live_grep, git_commits → git_commit_files → live_grep (local history, `<leader>gc`), gh_issue → gh_issue_grep. `open` may return a function (waiting edge: a request first, see drill)
+├── chains.lua     ← the closed map of chains: one edge per row (id "from|to", key, crumb, hint(ctx), open(ctx)); files/buffers/help → live_grep, gh_pr → gh_pr_files (`<C-g>`) / gh_commits (`<C-t>`), gh_commits → gh_commit_files (`<C-g>`) / live_grep (`<C-f>`), gh_pr_files and gh_commit_files → live_grep, git_commits → git_commit_files → live_grep (local history, `<leader>gc`), git_branches → git_branch_files (`<C-g>`) / git_commits (`<C-t>`), git_branch_files → live_grep (local branches, `<leader>gb`), gh_issue → gh_issue_grep. `open` may return a function (waiting edge: a request first, see drill)
 ├── chain.lua      ← enabled()/from(source)/find(source,key)/keys(session) (edges after `config.chains`), drill(session,key) [push the level the edge opens; waiting edges show the spinner and are dropped on pop/close], back(session), edge(from,to) (raises for a pair not in chains.lua), validate(cfg) (raises at setup), hint_text(session)
 ├── host.lua       ← Host interface engines talk to (alive, render, busy, rewind, count, title, rows) + headless()
 ├── search.lua     ← headless file search session: Query + match pipeline through a headless host (explorer's client; no UI)
@@ -135,8 +135,12 @@ finder/
 │   │       └── index.lua      ← spawns headless builder subprocess, loads via ffi.copy, fs_event refresh, query→paths
 │   ├── gh_commits.lua ← match source over `filter.ctx.pr`: the commits of a pull request (id, subject, author, age; newest first via `keep_order`), diff preview (`gh/commit_preview.lua`, per-commit cache), Enter opens the commit in a scratch buffer
 │   ├── gh_commit_files.lua ← match source over `filter.ctx.commit`: the files one commit changes (rows/preview/Enter as gh_pr_files; the preview is `ui/diff.lua` drawing the file's diff); title "Commit <id> › Files Changed (N)"
-│   ├── git_commits.lua ← match source: the latest 500 commits of the local repo (`git log`, newest first); reuses the gh commit row/preview/open; `git/log.lua` runs `git log` / `git show` and parses them into the GitHub commit/file shapes
-│   ├── git_commit_files.lua ← match source over `filter.ctx.commit`: the files a local commit changed; title "<id> <subject> › Files Changed (N)"
+│   ├── git_commits.lua ← match source: the latest 500 commits of the local repo (`git log`, newest first), or with `filter.ctx.branch` those the branch has over the default branch (its whole history on the default itself); reuses the gh commit row/preview/open
+│   ├── git_commit_files.lua ← match source over `filter.ctx.commit`: the files a local commit changed (`list(filter, owner, cb)` is shared with git_branch_files); title "<id> <subject> › Files Changed (N)"
+│   ├── git_branches.lua ← match source: local branches (`git for-each-ref`; the current one first, then newest), row `format.git_branch`, preview `git/branch_preview.lua` (commits ahead of main/master), Enter shows the tip commit (never checks out); items carry `default` (main, else master)
+│   ├── git_branch_files.lua ← match source over `filter.ctx.branch` (an item with `base`, the merge-base): files a branch changed since it left the default branch; rows/preview/Enter from git_commit_files; title "<name> › Files Changed (N)"
+│   ├── git/branch_preview.lua ← the branch preview pane: "<N> commits ahead of <default>" + the commits; per-branch cache keyed by tip
+│   ├── git/log.lua ← `git` reads parsed into the GitHub commit/file shapes: commits(cwd,cb,rev?), show, diff(base,tip), branches, default_name, base (merge-base; nil when there is nothing of its own)
 │   ├── gh_pr_files.lua ← match source over `filter.ctx.pr`: the files a pull request changes (paths), diff preview, Enter opens the diff in a scratch buffer; title "PR <title> › Files Changed (N)"
 │   ├── gh_issue_grep.lua ← live source over `filter.ctx.issues`: plain smart-case search in their title and description, grouped by issue
 │   ├── lsp.lua        ← factory: create(method, label) → async LSP source (auto_select)
@@ -162,7 +166,7 @@ finder/
     └── backdrop.lua ← fullscreen dim overlay
 ```
 
-API: `finder.open("files", opts)`, `finder.open("live_grep")`, `finder.open("help_tags")`, `finder.open("gh_pr")`, `finder.open("gh_issue")`
+API: `finder.open("files", opts)`, `finder.open("git_branches")`, `finder.open("live_grep")`, `finder.open("help_tags")`, `finder.open("gh_pr")`, `finder.open("gh_issue")`
 View subclasses: `Beast.Finder.InputView`, `Beast.Finder.ListView`, `Beast.Finder.PreviewView`
 Loaded via: `packer.lazy()` on keys (`<leader>f/b/g/c/h`)
 Opts: `layout="cards"`, `separators`, `backdrop=false`, `freeze_colors`, `initial_text` (start on the item whose text matches), `on_preview(item)`, `on_close(confirmed)` (colorscheme picker; the selected theme is a thick tinted block with half-block edges)
@@ -190,7 +194,7 @@ session:close()                      -- aborts every level, closes windows, then
 
 Sources: `files` (async, fd/rg/find), `buffers` (sync), `live_grep` (live async),
 `gh_pr`/`gh_issue` (live async, `gh api`; opt-in live features: `initial_query` prefills + searches on open, `retain_results`, `run_when_empty`, `debounce_ms`, `count`, `title`, `check` (false aborts open), `preview` (replaces file preview); message rows = `item.message`),
-`colorschemes` (sync, rtp-only), `help_tags` (sync, rtp-only — loaded plugins only),
+`git_commits`/`git_branches` (async, `git`; local history and branches), `colorschemes` (sync, rtp-only), `help_tags` (sync, rtp-only — loaded plugins only),
 `lsp_definitions`/`lsp_references`/`lsp_declarations`/`lsp_implementations`
 (async, `source/lsp.lua` factory; `auto_select = true`, `label` for the statusline).
 
@@ -794,7 +798,7 @@ git/
 ├── conflict.lua   ← merge-conflict highlighter: one coloured band per side + (Current/Incoming Change) labels
 ├── blame.lua      ← async `git blame --incremental` parser; run(ctx, { lnum?, contents?, ignore_whitespace?, revision?, untracked? }, cb)
 ├── current_line_blame.lua ← cursor-driven virt_text; namespace beast_git_blame; debounced via Util.debounce; cursor-race guard
-├── blame_view.lua ← Beast.View subclass; <leader>gB opens left side window with full-file blame; scrollbind-synced; <CR>=show commit, r=reblame parent, R=reset
+├── blame_view.lua ← Beast.View subclass; <leader>gL opens left side window with full-file blame; scrollbind-synced; <CR>=show commit, r=reblame parent, R=reset
 ├── highlights.lua ← BeastGit{Add,Change,Delete,TopDelete,Changedelete} + BeastGitStaged* + BeastGitPreview{Add,Delete}{,Word} + BeastGitCurrentLineBlame + BeastGitBlameView{Sha,Author,Date}
 └── health.lua     ← :checkhealth — git bin, diff backend, namespaces, attached count, staged-tier hl groups, blame config + user.name
 ```
@@ -803,7 +807,7 @@ API: `git.setup(opts)`, `git.attach(buf)`, `git.get_hunks(buf)`, `git.get_staged
 `git.nav_hunk(dir, opts)`, `git.preview_hunk()`, `git.stage_hunk(buf, lnum)`,
 `git.unstage_hunk(buf, lnum)`, `git.reset_hunk(buf, lnum)`, `git.repeat_action()`,
 `git.refresh(buf, { base?, head? })`, `git.remote(provider, root?)`, `git.providers(root?)`, `git.has_provider(name, root?)`, `git.blame_line(opts?)`, `git.blame(opts?)`, `git.toggle_current_line_blame()`.
-Default buffer-local keymaps (when `config.keymaps=true`): `]c` / `[c` next/prev, `<leader>gp` preview, `<leader>gb` blame line, `<leader>gB` blame file, `<leader>gtb` toggle blame.
+Default buffer-local keymaps (when `config.keymaps=true`): `]c` / `[c` next/prev, `<leader>gp` preview, `<leader>gl` blame line, `<leader>gL` blame file, `<leader>gtb` toggle blame.
 Statuscolumn integration: extmarks classified by namespace pattern `^beast_git_signs_(unstaged|staged)$` — staged tier rendered via `BeastStcGitStaged{Add,Change,Delete}` desaturated palette blends (ADR-020).
 Loaded via: `packer.lazy()` on `BufReadPost` (deferred).
 

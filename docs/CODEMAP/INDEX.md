@@ -1,4 +1,4 @@
-<!-- Generated: 2026-11-17 | Files scanned: 361 | Token estimate: ~258 -->
+<!-- Generated: 2026-11-17 | Files scanned: 366 | Token estimate: ~258 -->
 
 # BeastVim Codemaps
 
@@ -11,7 +11,7 @@ Quick-reference architecture documentation. Regenerate with `/update-codemap`.
 ## Project Stats
 - Language: Lua
 - Platform: Neovim plugin (config-as-plugin)
-- Lines of code: ~52,680 across 361 lua files
+- Lines of code: ~53,540 across 366 lua files
 - Libraries: 28 - autopairs, breadcrumb, confirm, explorer, finder, git, image, indent, input, key, lsp, mason, messages, notify, packer, review, scroll, searchcount, select, session, starter, statuscolumn, statusline, tabline, toast, treesitter, view, window
 - Colorschemes: repo-root colors/ (monokai-pro + classic/light/machine/octagon/ristretto/spectrum)
 - Shared modules: view/ (instance + .buf + .win submodules, .diff shared diff renderer), animate.lua, async.lua, util/, theme/, visibility.lua (global hidden/gitignored state)
