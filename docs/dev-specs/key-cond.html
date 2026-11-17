@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dev Spec: Keymap condition</title>
+<style>
+  :root { --bg:#fbfaf7; --fg:#1c1b19; --muted:#6b675f; --line:#dcd8cf; --card:#fff; --accent:#b4540a; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#161513; --fg:#ece8df; --muted:#a29d92; --line:#3a3732; --card:#1f1d1a; --accent:#e08a3c; }
+  }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, sans-serif; }
+  main { max-width:880px; margin:0 auto; padding:24px 16px 80px; }
+  section { margin:32px 0; }
+  h1 { margin:0 0 8px; } h2 { margin:0 0 10px; } h3 { margin:18px 0 6px; font-size:1rem; }
+  .muted { color:var(--muted); }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px 16px; margin:12px 0; }
+  .card h3 { margin-top:0; }
+  table { width:100%; border-collapse:collapse; font-size:.92em; display:block; overflow-x:auto; }
+  th, td { text-align:left; padding:6px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+  code { font:0.9em ui-monospace,Menlo,monospace; background:var(--card); border:1px solid var(--line); border-radius:4px; padding:0 4px; }
+  ul { padding-left:20px; } li { margin:4px 0; }
+  ul.check { list-style:none; padding-left:0; } ul.check li::before { content:"\2610  "; color:var(--accent); }
+  .choice { border-left:3px solid var(--accent); padding:6px 12px; margin:12px 0; background:var(--card); border-radius:0 8px 8px 0; }
+  .rec { color:var(--accent); font-weight:600; font-size:.85em; }
+  .risk { font-size:.8em; color:var(--muted); }
+  pre.shape { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:10px 14px; font:12.5px/1.45 ui-monospace,Menlo,monospace; overflow-x:auto; }
+  svg { width:100%; height:auto; color:var(--fg); }
+  svg .box { fill:var(--card); stroke:var(--line); } svg .hot { stroke:var(--accent); }
+  svg text { fill:currentColor; font:12px system-ui, sans-serif; }
+</style>
+</head>
+<body>
+<main>
+<header data-spec="summary"><h1>Keymap condition: dev plan</h1>
+<p><code>Key.safe_set</code> learns <code>cond</code>. A boolean or a function that returns true/false decides registration at once. A function that returns nothing and calls <code>done(ok)</code> later is a slow check: the key is registered as a toast-only placeholder, then swapped for the real keymap on yes or removed on no, error or timeout. Slow-check bookkeeping lives in a new <code>key/cond.lua</code>. PM spec: <code>docs/pm-specs/key-cond.md</code>.</p></header>
+
+<section data-spec="context"><h2>Context</h2>
+<p><b>Problem.</b> <code>KeymapBase</code> cannot say "register only if X". Callers hand-roll an <code>if</code> (e.g. <code>sync_gh_keys</code> in <code>lua/beast/init.lua</code>), and an external-command check either blocks the editor or leaves a dead key in the hint.</p>
+<p><b>Solution.</b> <code>core.safe_set</code> evaluates <code>cond</code> once per call. Slow answers go through <code>key/cond.lua</code>, which owns the pending table, the 10 s timer and the swap/remove. <code>core.set</code> and <code>core.del</code> get small hooks.</p>
+
+<svg viewBox="0 0 720 230" role="img" aria-label="safe_set cond flow" data-spec="flow">
+  <title>safe_set with cond</title>
+  <rect id="f-safe" class="box" x="10" y="90" width="130" height="40" rx="8"/><text x="75" y="114" text-anchor="middle">core.safe_set</text>
+  <rect id="f-resolve" class="box hot" x="190" y="90" width="130" height="40" rx="8"/><text x="255" y="114" text-anchor="middle">cond.resolve</text>
+  <rect id="f-set" class="box" x="460" y="10" width="250" height="40" rx="8"/><text x="585" y="34" text-anchor="middle">yes (quick): core.set real key</text>
+  <rect id="f-skip" class="box" x="460" y="62" width="250" height="40" rx="8"/><text x="585" y="86" text-anchor="middle">no (quick): skip, nothing set</text>
+  <rect id="f-ph" class="box hot" x="460" y="118" width="250" height="40" rx="8"/><text x="585" y="142" text-anchor="middle">slow: core.set placeholder (toast)</text>
+  <rect id="f-done" class="box" x="460" y="174" width="250" height="44" rx="8"/><text x="585" y="193" text-anchor="middle">done(ok) / timeout (vim.schedule):</text><text x="585" y="209" text-anchor="middle">swap via set, or core.del</text>
+  <path d="M140 110 H190 M320 100 L460 30 M320 104 L460 82 M320 112 L460 138 M585 158 V174" stroke="currentColor" fill="none"/>
+  <text x="20" y="190" class="muted">core.del cancels a pending token</text>
+</svg>
+</section>
+
+<section data-spec="research"><h2>Research</h2>
+<div class="card">
+<h3>Repo search</h3>
+<ul>
+<li><code>core.lua</code>: <code>KeymapBase</code> has no <code>cond</code>; the <code>skip</code> table (line 280) already filters <code>has/group/once</code> from <code>vim.keymap.set</code> options; <code>safe_set</code> (375) loops modes.</li>
+<li><code>core.set</code> records conflicts via <code>resolve_call_site</code>, which finds no user frame when called from an async callback. The swap must reuse the registration-time site or it is reported as a duplicate.</li>
+<li>Hint and cheatsheet read <code>Key.managed</code> and rebuild on <code>BeastKeysChanged</code>: placeholders and removals show up with no hint change.</li>
+<li><code>lsp/attach.lua</code>: <code>Beast.Lsp.KeySpec</code> already declares <code>cond?: string</code> (an LSP method). Type clash, no runtime clash (never forwarded to <code>safe_set</code>).</li>
+<li><code>packer/triggers/keys.lua</code> builds options from a fixed list, so <code>cond</code> on a lazy key would be silently dropped.</li>
+<li>Packer plugin specs already use <code>cond</code> as "false means skip": same name, same meaning.</li>
+</ul>
+<h3>Decision</h3>
+<p><b>Build</b> <code>key/cond.lua</code> on top of existing <code>core.set/del</code>; <b>Use</b> <code>vim.defer_fn</code>, <code>Toast</code>. <code>libs/async.lua</code> is CPU time-slicing, not process waiting, so it adds nothing.</p>
+</div>
+</section>
+
+<section data-spec="architecture-changes"><h2>Files</h2>
+<table>
+<tr><th>Path</th><th></th><th>What</th></tr>
+<tr><td><code>lua/beast/libs/key/core.lua</code></td><td>modified</td><td><code>cond</code> type, <code>skip</code> entry, evaluate in <code>safe_set</code>, optional site on <code>set</code>, <code>del</code> cancels pending</td></tr>
+<tr><td><code>lua/beast/libs/key/cond.lua</code></td><td>new</td><td><code>resolve</code>, pending table, placeholder, swap, removal, timeout, toasts</td></tr>
+<tr><td><code>lua/beast/libs/packer/triggers/keys.lua</code></td><td>modified</td><td>forward <code>cond</code> to the temporary lazy-load key only</td></tr>
+<tr><td><code>lua/beast/libs/lsp/attach.lua</code></td><td>modified</td><td>rename LSP field <code>cond</code> to <code>method</code></td></tr>
+<tr><td><code>lua/beast/init.lua</code></td><td>modified</td><td>replace <code>sync_gh_keys</code> and its autocmd with two <code>cond</code> keys in the finder's <code>packer.lazy</code></td></tr>
+<tr><td><code>tests/test-key-cond.lua</code></td><td>new</td><td>headless tests</td></tr>
+<tr><td><code>docs/CODEMAP/libraries.md</code></td><td>modified</td><td>list <code>cond.lua</code></td></tr>
+</table></section>
+
+<section data-spec="phases"><h2>Phases</h2>
+<div class="card" data-spec="phase-1"><h3>Phase 1: Quick conditions <span class="risk">risk: medium</span></h3>
+<p class="muted">Mergeable alone. Until Phase 2, a function that returns nothing counts as a no.</p>
+<ol>
+<li data-spec="phase-1-step-1"><b>Type and opts filter</b> (<code>core.lua</code>): add <code>cond</code> to <code>KeymapBase</code> and to <code>skip</code>.</li>
+<li data-spec="phase-1-step-2"><b>Evaluate in <code>safe_set</code></b> (<code>core.lua</code>): once per call, before set/label. Early exit when <code>opts.cond == nil</code>. <code>rhs = false</code> deletion ignores <code>cond</code>.</li>
+<li data-spec="phase-1-step-3"><b>Quick path</b> (<code>cond.lua</code>): boolean, or function under <code>pcall</code>; a thrown error is a no plus one toast.</li>
+<li data-spec="phase-1-step-4"><b>Tests</b> (<code>test-key-cond.lua</code>): true/false/nil, quick true/false, error, multi-mode, deletion, no <code>cond</code> leaking into <code>nvim_get_keymap</code>.</li>
+</ol></div>
+<div class="card" data-spec="phase-2"><h3>Phase 2: Slow conditions <span class="risk">risk: medium</span></h3>
+<p class="muted">Depends on Phase 1.</p>
+<ol>
+<li data-spec="phase-2-step-1"><b>Pending table</b>: one token per key id and buffer; a new registration marks the old token stale. <code>buffer = true/0</code> resolves to the current buffer at registration.</li>
+<li data-spec="phase-2-step-2"><b>Placeholder</b>: function returned nothing and did not call <code>done</code> synchronously. Install via <code>core.set</code> with a toast <code>rhs</code>, <code>expr/once</code> stripped, <code>desc</code> kept. Label-only specs get no placeholder.</li>
+<li data-spec="phase-2-step-3"><b>Swap without a fake duplicate</b> (<code>core.lua</code>): <code>set(spec, buffer, site)</code> reuses the registration-time call site in <code>record_call</code>.</li>
+<li data-spec="phase-2-step-4"><b><code>done(ok)</code></b>: idempotent, <code>vim.schedule</code>d. Stale token or invalid buffer: ignore. Yes: swap. Anything else: <code>core.del</code>, silent for a plain false.</li>
+<li data-spec="phase-2-step-5"><b>Timeout and errors</b>: <code>vim.defer_fn</code> at 10 s (<code>Cond.timeout_ms</code>), one WARN toast then remove.</li>
+<li data-spec="phase-2-step-6"><b>Cancel on delete</b> (<code>core.del</code>): late answer cannot revive a deleted key.</li>
+<li data-spec="phase-2-step-7"><b>Tests</b>: placeholder exists, pressing toasts only, yes swaps with no conflict record, no is silent, error/timeout toast once, stale token, closed buffer, delete while pending, label-only, double <code>done</code>.</li>
+</ol></div>
+<div class="card" data-spec="phase-3"><h3>Phase 3: Callers <span class="risk">risk: medium</span></h3>
+<p class="muted">Depends on Phase 2 (LSP rename is independent).</p>
+<ol>
+<li data-spec="phase-3-step-1"><b>Packer lazy keys</b> (<code>triggers/keys.lua</code>): <code>cond</code> only on the temporary trigger; the real key set after plugin load is not re-gated.</li>
+<li data-spec="phase-3-step-2"><b>LSP rename</b> (<code>lsp/attach.lua</code>): <code>Beast.Lsp.KeySpec.cond</code> becomes <code>method</code>; no users found in the repo.</li>
+<li data-spec="phase-3-step-3"><b>Codemap</b>: add <code>cond.lua</code> under <code>key/</code>.</li>
+</ol></div>
+<div class="card" data-spec="phase-4"><h3>Phase 4: Refactor the GitHub keys <span class="risk">risk: medium</span></h3>
+<p class="muted">Depends on Phase 3 step 1. A quick condition, so no placeholder is involved.</p>
+<ol>
+<li data-spec="phase-4-step-1"><b>Move the keys</b> (<code>lua/beast/init.lua</code>): add <code>&lt;leader&gt;ghp</code> and <code>&lt;leader&gt;ghi</code> to the finder's <code>packer.lazy</code> <code>keys</code> with <code>group = "GitHub"</code> and a shared <code>cond</code>. Delete <code>gh_keys</code>, <code>gh_root</code>, <code>gh_keys_set</code>, <code>sync_gh_keys</code> and the <code>BeastGithubKeys</code> autocmd. Keep the <code>cfg.git</code> config block above them. The manual <code>load_lib</code> call goes away: the lazy trigger loads the finder.</li>
+<li data-spec="phase-4-step-2"><b>Behavior change, accepted</b>: decided once at startup. Entering another remote's project later (<code>:cd</code>, another project's buffer) does not add or remove the keys until restart.</li>
+<li data-spec="phase-4-step-3"><b>Verify</b>: start in a GitHub repo, a non-GitHub repo and a folder with no repo.</li>
+</ol>
+<h3 data-spec="phase-4-shape">Shape after</h3>
+<pre class="shape">local function on_github() return Git.has_provider("github", Util.root()) end
+
+packer.lazy("beast.libs.finder", {
+  setup = function(finder) finder.setup(cfg.finder or {}) end,
+  keys = {
+    -- ...existing finder keys...
+    { "&lt;leader&gt;ghp", function() require("beast.libs.finder").open("gh_pr") end,
+      desc = "GitHub pull requests", group = "GitHub", cond = on_github },
+    { "&lt;leader&gt;ghi", function() require("beast.libs.finder").open("gh_issue") end,
+      desc = "GitHub issues", group = "GitHub", cond = on_github },
+  },
+})</pre>
+<p class="muted">About 45 lines (key table, two state flags, <code>sync_gh_keys</code>, autocmd) become about 8.</p></div>
+</section>
+
+<section data-spec="testing-strategy"><h2>Testing Strategy</h2>
+<ul>
+<li><b>Headless:</b> <code>NVIM_APPNAME=BeastVim nvim --clean --headless -l tests/test-key-cond.lua</code> (fake slow cond with <code>vim.defer_fn</code>, stubbed <code>vim.system</code>); also <code>test-finder-keys.lua</code> and <code>test-finder-gh-keys.lua</code>.</li>
+<li><b>Phase 4 manual:</b> start in a GitHub repo (keys listed under GitHub and working), a repo with another host or no remote (keys absent), and outside any repo (keys absent, no error). First press loads the finder.</li>
+<li><b>Bench:</b> <code>scripts/bench-key-hint.lua</code> (no new bench; no-<code>cond</code> path is one nil check).</li>
+<li><b>Types:</b> lua-language-server check from DEVELOPMENT.md.</li>
+<li><b>Manual:</b> PM scenarios 1-8 on a throwaway <code>&lt;leader&gt;</code> key, slow cond via <code>vim.system({"sleep","3"}, {}, cb)</code>; timeout with <code>sleep 60</code>; <code>:bwipeout</code> before the answer.</li>
+</ul></section>
+
+<section data-spec="success-criteria"><h2>Success Criteria</h2>
+<ul class="check">
+<li>False or quick-false: key absent from hint, cheatsheet and <code>Key.managed</code>.</li>
+<li>No <code>cond</code> or true: behaviour and conflict reporting unchanged.</li>
+<li>Slow check: key exists immediately, startup unchanged, editor responsive.</li>
+<li>Placeholder press toasts and runs nothing else.</li>
+<li>Slow yes: real action runs, no new conflict record.</li>
+<li>Slow no: removed silently. Error or timeout: removed with exactly one toast.</li>
+<li>Buffer-local, replaced and deleted keys ignore a late answer.</li>
+<li><code>cond</code> never reaches <code>vim.keymap.set</code>.</li>
+<li><code>packer.lazy</code> keys honour <code>cond</code>.</li>
+<li>GitHub keys exist exactly where the project has a GitHub remote at startup; <code>sync_gh_keys</code> and its autocmd are gone.</li>
+<li>New test passes, existing key/finder key tests pass, type check clean.</li>
+</ul></section>
+
+<section data-spec="decisions"><h2>Decisions for you</h2>
+<div class="choice" data-spec="decision-lsp-rename"><b>1. LSP <code>cond</code> field</b> <span class="rec">recommended: rename to <code>method</code></span><br>Alternative: keep it and override the type on <code>Beast.Lsp.KeySpec</code>, leaving two meanings of <code>cond</code> on one spec family.</div>
+<div class="choice" data-spec="decision-packer"><b>2. Packer lazy keys in this change</b> <span class="rec">recommended: include (Phase 3 step 1)</span><br>Alternative: ship only <code>Key.safe_set</code> and let <code>packer.lazy</code> ignore <code>cond</code> until a follow-up.</div>
+</section>
+</main>
+</body>
+</html>

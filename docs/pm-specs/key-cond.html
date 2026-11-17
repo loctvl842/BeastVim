@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spec: Keymap condition</title>
+<style>
+  :root { --bg:#fbfaf7; --fg:#1c1b19; --muted:#6b675f; --line:#dcd8cf; --card:#fff; --accent:#b4540a; --term:#1e1f26; --termfg:#d8dae5; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#161513; --fg:#ece8df; --muted:#a29d92; --line:#3a3732; --card:#1f1d1a; --accent:#e08a3c; }
+  }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, sans-serif; }
+  main { max-width:880px; margin:0 auto; padding:24px 16px 80px; }
+  section { margin:32px 0; }
+  h1 { margin:0 0 8px; } h2 { margin:0 0 10px; } h3 { margin:18px 0 6px; font-size:1rem; }
+  .muted { color:var(--muted); }
+  pre.mock { background:var(--term); color:var(--termfg); border-radius:10px; padding:14px 16px; font:13px/1.4 ui-monospace,Menlo,monospace; overflow-x:auto; margin:8px 0; white-space:pre; }
+  pre.step { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:10px 14px; font:13px/1.5 ui-monospace,Menlo,monospace; overflow-x:auto; white-space:pre-wrap; margin:8px 0; }
+  ul { padding-left:20px; } li { margin:4px 0; }
+  ul.check { list-style:none; padding-left:0; } ul.check li::before { content:"\2610  "; color:var(--accent); }
+  details { margin:10px 0; } summary { cursor:pointer; font-weight:600; }
+  .choice { border-left:3px solid var(--accent); padding:6px 12px; margin:12px 0; background:var(--card); border-radius:0 8px 8px 0; }
+  .rec { color:var(--accent); font-weight:600; font-size:.85em; }
+  code { font:0.9em ui-monospace,Menlo,monospace; background:var(--card); border:1px solid var(--line); border-radius:4px; padding:0 4px; }
+  .mock .dim { color:#7c7f93; } .mock .new { color:#98c379; } .mock .no { color:#e06c75; }
+  svg { width:100%; height:auto; color:var(--fg); }
+  svg .box { fill:var(--card); stroke:var(--line); } svg .hot { stroke:var(--accent); }
+  svg text { fill:currentColor; font:12px system-ui, sans-serif; }
+</style>
+</head>
+<body>
+<main>
+<header data-spec="summary"><h1>Keymap condition</h1>
+<p>A keymap can carry a <code>cond</code>. When it is false the keymap does not exist. For a slow check (an external command) the keymap is registered right away as a placeholder: pressing it only shows a "still checking" toast. A yes turns it into the real keymap; a no, an error or a timeout removes it and tells you why. The editor never waits.</p></header>
+
+<section data-spec="problem"><h2>Problem</h2>
+<p>Some keymaps only make sense in some situations ("only if <code>gh</code> is installed"). Today you either register them always, which leaves a dead key in the hint, or you wrap them in a hand-written <code>if</code>. When that check needs an external command, the simple way is to wait for it, which blocks startup.</p>
+<h3 data-spec="why-now">Why now</h3>
+<p>The external-command case exposes the gap: without a condition that can wait without blocking, every such keymap costs startup time or leaves a dead key.</p></section>
+
+<section data-spec="target-behavior"><h2>Target Behavior</h2>
+<svg viewBox="0 0 700 190" role="img" aria-label="Condition flow" data-spec="target-behavior-flow">
+  <title>Registration flow</title>
+  <rect id="n-reg" class="box" x="10" y="75" width="120" height="40" rx="8"/><text x="70" y="99" text-anchor="middle">register keymap</text>
+  <rect id="n-quick" class="box" x="180" y="10" width="150" height="40" rx="8"/><text x="255" y="34" text-anchor="middle">quick: true / false</text>
+  <rect id="n-slow" class="box hot" x="180" y="75" width="150" height="40" rx="8"/><text x="255" y="99" text-anchor="middle">slow: placeholder set</text>
+  <rect id="n-yes" class="box" x="470" y="60" width="220" height="32" rx="8"/><text x="580" y="81" text-anchor="middle">yes: real keymap</text>
+  <rect id="n-no" class="box" x="470" y="110" width="220" height="44" rx="8"/><text x="580" y="129" text-anchor="middle">no / error / timeout:</text><text x="580" y="145" text-anchor="middle">placeholder removed</text>
+  <path d="M130 95 L180 35 M130 95 H180 M330 90 L470 78 M330 100 L470 130" stroke="currentColor" fill="none"/>
+  <text x="255" y="170" text-anchor="middle" class="muted">press while pending: toast only</text>
+</svg>
+
+<pre class="mock" data-spec="state-1">STATE 1 — Condition is true (or a quick check answers true):
+┌─ &lt;leader&gt; ───────────────┐
+│  f   Files               │
+│  g   Git                 │
+│  gp  Pull requests       │   <span class="new">&lt;- real keymap</span>
+└──────────────────────────┘</pre>
+<pre class="mock" data-spec="state-2">STATE 2 — Condition is false (boolean or quick check):
+┌─ &lt;leader&gt; ───────────────┐
+│  f   Files               │
+│  g   Git                 │
+└──────────────────────────┘   <span class="no">&lt;- no "gp": not in hint, not in cheatsheet</span></pre>
+<pre class="mock" data-spec="state-3">STATE 3 — Slow check running: listed as a placeholder, pressing it only toasts:
+┌─ &lt;leader&gt; ───────────────┐
+│  f   Files               │
+│  g   Git                 │
+│  gp  Pull requests       │   <span class="dim">&lt;- placeholder</span>
+└──────────────────────────┘
+                     ┌────────────────────────────────┐
+  press &lt;leader&gt;gp:  │ Pull requests: still checking  │
+                     │ (is `gh` available?)           │
+                     └────────────────────────────────┘</pre>
+<pre class="mock" data-spec="state-4">STATE 4 — Slow check answers yes:
+The placeholder silently becomes the real keymap. &lt;leader&gt;gp now runs it.</pre>
+<pre class="mock" data-spec="state-5">STATE 5 — Slow check answers no, fails, or times out:
+┌────────────────────────────────────────────┐
+│ &lt;leader&gt;gp disabled: check timed out (10s) │   <span class="no">&lt;- notification</span>
+└────────────────────────────────────────────┘
+┌─ &lt;leader&gt; ───────────────┐
+│  f   Files               │
+│  g   Git                 │
+└──────────────────────────┘   <span class="no">&lt;- placeholder gone</span></pre>
+<pre class="step" data-spec="forms">cond = true                           -- boolean: fixed answer, no placeholder
+cond = function() ... return ok end   -- quick check: answers right away, no placeholder
+cond = function(done) ... done(ok) end
+                                      -- slow check: placeholder until done(ok) is called</pre>
+<p class="muted">A function that returns true/false is quick. A function that returns nothing and calls <code>done</code> later is slow.</p>
+</section>
+
+<section data-spec="scenarios"><h2>Scenarios</h2>
+<details open data-spec="scenario-1"><summary>1 — Boolean condition</summary>
+<pre class="step">Step 1: cond = false  -> not registered; absent from hint and cheatsheet.
+Step 2: cond = true, or no cond  -> behaves exactly as today.</pre></details>
+<details open data-spec="scenario-2"><summary>2 — Quick function condition</summary>
+<pre class="step">Step 1: cond = function() return vim.fn.executable("gh") == 1 end, called once at registration.
+Step 2: returns true  -> registered at once as the real keymap.
+Step 3: returns false -> not registered.</pre></details>
+<details open data-spec="scenario-3"><summary>3 — Slow condition, external command (happy path)</summary>
+<pre class="step">Step 1: Neovim starts. The keymap is registered at once as a placeholder. Startup does not wait.
+Step 2: The command runs in the background. The user works as normal; &lt;leader&gt;gp is listed in the hint.
+Step 3: The command answers yes. The placeholder silently becomes the real keymap.</pre></details>
+<details open data-spec="scenario-4"><summary>4 — Pressing the placeholder while the check runs</summary>
+<pre class="step">Step 1: The user presses &lt;leader&gt;gp too early. A toast says it is still being checked. Nothing else happens.
+Step 2: Pressed again: same toast (stacks as "x2"). The press is not remembered; the action does not run on its own after a yes.</pre></details>
+<details data-spec="scenario-5"><summary>5 — Slow condition answers no</summary>
+<pre class="step">Step 1: The placeholder is removed, gone from hint and cheatsheet. No notification: "no" is the intended outcome.</pre></details>
+<details data-spec="scenario-6"><summary>6 — Slow condition fails or hangs</summary>
+<pre class="step">Step 1: Command missing, exits with an error, or the condition raises.
+  Treated as no. Placeholder removed, notification names the keymap and the reason.
+Step 2: The command never ends. After 10 seconds the check is abandoned, placeholder removed, notification says it timed out.</pre></details>
+<details data-spec="scenario-7"><summary>7 — Buffer-local keymap</summary>
+<pre class="step">Step 1: buffer = true + slow cond for buffer 7: a placeholder in buffer 7 only.
+Step 2: Same spec attached to buffer 9: checked again, own placeholder and own answer.
+Step 3: Buffer 7 closes mid-check: the late answer is thrown away, no error, no notification.</pre></details>
+<details data-spec="scenario-8"><summary>8 — Deleted or replaced while its check runs</summary>
+<pre class="step">Step 1: Placeholder pending, author deletes the keymap. Removed as today; the late yes does not bring it back.
+Step 2: Placeholder pending, a newer registration of the same keys replaces it. The older answer is thrown away.</pre></details>
+</section>
+
+<section data-spec="behavior-rules"><h2>Behavior Rules</h2>
+<ul>
+<li><code>cond</code> is optional. No <code>cond</code> means exactly today's behavior.</li>
+<li>A boolean or quick function answers at once. A "no" means never registered: not in the hint, cheatsheet or conflict check.</li>
+<li>Only a slow check creates a placeholder.</li>
+<li>A placeholder is a real entry for hint, cheatsheet and conflict checks, with the keymap's description. Pressing it only shows a toast, whatever the real action was.</li>
+<li>Yes: placeholder becomes the real keymap. No, error or timeout: placeholder removed.</li>
+<li>A plain "no" is silent. An error or timeout notifies, once per keymap.</li>
+<li>Checked once per registration (once per buffer for buffer-local keymaps). No live re-checking.</li>
+<li>A slow function answers by calling <code>done</code>; a quick one by returning. Never both.</li>
+<li>Anything other than a clear yes is a no: <code>nil</code>, an error, a timeout, a failed command.</li>
+<li>The editor never blocks: no startup delay, no frozen input. Slow answers are abandoned after 10 seconds.</li>
+<li>Late answers for a deleted, replaced, or closed-buffer keymap are thrown away.</li>
+<li>Pressing a placeholder never queues the action for later.</li>
+<li><code>cond</code> is not passed to Neovim as a key option.</li>
+<li>Label-only entries (group names) can carry <code>cond</code>; with no action to block they get no placeholder and are listed once the check says yes.</li>
+</ul></section>
+
+<section data-spec="success-criteria"><h2>Success Criteria</h2>
+<ul class="check">
+<li><code>cond = false</code>, or a quick false, is absent from hint and cheatsheet.</li>
+<li><code>cond = true</code> or no <code>cond</code> is unchanged.</li>
+<li>A slow-check keymap exists right after registration, with no added startup time.</li>
+<li>Pressing a pending placeholder toasts "still checking" and does nothing else.</li>
+<li>After a slow yes the same keys run the real action, no restart.</li>
+<li>After a slow no the keymap disappears from hint and cheatsheet without a notification.</li>
+<li>After an error or timeout it disappears and one notification explains why.</li>
+<li>The editor stays responsive while a slow check runs.</li>
+<li>Buffer-local keymaps are checked per buffer; a closed buffer's late answer is ignored.</li>
+<li>Deleting or replacing a keymap mid-check is not undone by the late answer.</li>
+</ul></section>
+
+<section data-spec="open-decisions"><h2>Decisions for you</h2>
+<div class="choice" data-spec="decision-no-notify"><b>1. Notification on a plain "no"</b> <span class="rec">proposed: silent</span><br>"No" is the intended outcome (e.g. <code>gh</code> simply not installed). Alternative: always notify when a placeholder is removed. Your note asked for a notification on timeout, so error and timeout notify.</div>
+<div class="choice" data-spec="decision-timeout"><b>2. Timeout</b> <span class="rec">proposed: 10 s</span><br>Shorter loses keymaps on a slow machine; longer keeps the placeholder longer.</div>
+<div class="choice" data-spec="decision-placeholder-look"><b>3. Placeholder in the hint</b> <span class="rec">proposed: listed like any keymap</span><br>Alternative: dimmed with a "checking" tag. More honest, adds a visual state.</div>
+</section>
+
+<section data-spec="out-of-scope"><h2>Out of Scope</h2>
+<ul>
+<li>Re-checking later (folder changes, tool installed after startup). One check per registration keeps it predictable; a reload re-checks.</li>
+<li>Running the action automatically after a late yes. Surprising to run something pressed seconds ago.</li>
+<li>Sharing one command's answer between many keymaps. Authors can compute it once in their own config.</li>
+<li><code>cond</code> deciding when to delete a keymap. Deletion stays explicit.</li>
+</ul></section>
+</main>
+</body>
+</html>

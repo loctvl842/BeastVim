@@ -377,6 +377,7 @@ key/
 ├── init.lua             ← proxy to core, setup()
 ├── config.lua           ← readonly config, cheatsheet + hint dimensions
 ├── core.lua             ← safe_set, managed keymaps registry (+ BeastKeysChanged emit)
+├── cond.lua             ← `cond` on a keymap spec: boolean / quick fn / slow fn(done) with a toast-only placeholder, swap or remove on answer or 10s timeout
 ├── api.lua              ← show/hide/query operations
 ├── highlights.lua       ← BeastKey* groups (incl. BeastKeyHint*)
 ├── builtin.lua          ← default keymaps (scroll, pin, etc.)
@@ -393,7 +394,7 @@ key/
     └── loop.lua         ← walk_state, render, modal getchar loop
 ```
 
-API: `Key.safe_set(mode, lhs, rhs, opts)`, `Key.managed`. Hint is enabled by
+API: `Key.safe_set(mode, lhs, rhs, opts)` (`opts.cond` = boolean | `function() return ok end` | `function(done) ... done(ok) end`; `packer.lazy` `keys` forward it to the lazy trigger), `Key.managed`. Hint is enabled by
 default via `config.hint.enabled = true`; opt out with
 `Key.setup({ hint = { enabled = false } })`.
 
@@ -595,13 +596,13 @@ lsp/
 ├── init.lua          ← setup, register(name, cfg), unregister(name), capabilities, add_capabilities, on_attach, :BeastLspInfo; calls vim.diagnostic.config(cfg.diagnostics) directly
 ├── config.lua        ← diagnostics defaults (Icon.diagnostics.*), inlay_hints/codelens/fold toggles, read-only metatable
 ├── capabilities.lua  ← base() + contributors + get(); first_client_seen flag for late-add warning
-├── attach.lua        ← single LspAttach autocmd on BeastVim-lsp augroup; servers map + subscribers list; inline keymap binding (cond gated via client:supports_method, Key.safe_set, group defaults to "LSP"); apply_fold/inlay_hints/codelens (codelens via vim.lsp.codelens.enable); wraps client/registerCapability (reload-safe, identity-compared) to re-apply caps when servers announce them after handshake
+├── attach.lua        ← single LspAttach autocmd on BeastVim-lsp augroup; servers map + subscribers list; inline keymap binding (method gated via client:supports_method, Key.safe_set, group defaults to "LSP"); apply_fold/inlay_hints/codelens (codelens via vim.lsp.codelens.enable); wraps client/registerCapability (reload-safe, identity-compared) to re-apply caps when servers announce them after handshake
 ├── highlights.lua    ← LspReference{Text,Read,Write} groups for document_highlight
 └── health.lua        ← :checkhealth beast.libs.lsp (version, init, servers + cmd[1] PATH, contributors, attached clients, toggle status)
 ```
 
 API: `Lsp.setup(opts)`, `Lsp.register(name, cfg)`, `Lsp.unregister(name)`, `Lsp.capabilities()`, `Lsp.add_capabilities(contrib)`, `Lsp.on_attach(fn)`
-`cfg` is a `vim.lsp.Config` augmented with `keys` (with optional `cond` LSP-method gating), `on_attach`, and `enabled` (preflight `fun(): boolean`; false skips `vim.lsp.config`/`vim.lsp.enable` but still records dispatcher extras).
+`cfg` is a `vim.lsp.Config` augmented with `keys` (with optional `method` LSP-method gating), `on_attach`, and `enabled` (preflight `fun(): boolean`; false skips `vim.lsp.config`/`vim.lsp.enable` but still records dispatcher extras).
 `cfg.capabilities` defaults to a **snapshot taken at `register()` time** (Neovim's `vim.lsp` validator strictly requires a `table`). To pick up contributors registered later (e.g. blink.cmp on InsertEnter), `register()` also installs a `before_init` hook that re-resolves `M.capabilities()` and assigns it to the outgoing `initialize` request — so any server that hasn't started yet still receives late additions. Caller-supplied `before_init` is chained, not replaced. Contributors added after the first `LspAttach` emit a one-shot WARN via `vim.notify` (already-attached clients won't see the new contribution).
 Loaded **eagerly** from `beast/init.lua` between `confirm.setup()` and `packer.setup` — `vim.lsp.enable` must run before the first `FileType` autocmd. Global: `_G.Lsp`. Dispatch order: per-server keys → per-server on_attach → apply_fold/inlay_hints/codelens → global subscribers. Per-server configs live in external `BeastVim/<Lang>` repos (see ADR-030).
 Bench: `scripts/bench-lsp.lua` measures capabilities resolution (50-contributor stress, 1 ms threshold). Tests: `tests/test-lsp.lua` (18 assertions covering register/unregister/capabilities snapshot+`before_init`/toggles/warning).
