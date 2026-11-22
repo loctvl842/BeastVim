@@ -1,0 +1,593 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spec: XML language support</title>
+<style>
+  :root { --bg:#fbfaf7; --fg:#1c1b19; --muted:#6b675f; --line:#dcd8cf; --card:#fff; --accent:#b4540a;
+          --bad:#b3261e; --good:#1b7a3d; --code:#f3f0e8; --hl:#fde9c8; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#161513; --fg:#ece8df; --muted:#a29d92; --line:#3a3732; --card:#1f1d1a; --accent:#e08a3c;
+            --bad:#ff8a80; --good:#6fd08c; --code:#262420; --hl:#4a3a1f; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, sans-serif; }
+  main { max-width:900px; margin:0 auto; padding:24px 16px 80px; }
+  h1 { font-size:28px; margin:0 0 8px; }
+  h2 { font-size:20px; margin:0 0 10px; border-bottom:1px solid var(--line); padding-bottom:6px; }
+  h3 { font-size:15px; margin:14px 0 6px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
+  section { margin:34px 0; }
+  p { margin:8px 0; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; }
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  @media (max-width:700px) { .grid { grid-template-columns:1fr; } }
+  .tag { display:inline-block; font-size:12px; font-weight:600; padding:1px 8px; border-radius:99px; border:1px solid var(--line); }
+  .tag.bad { color:var(--bad); border-color:var(--bad); }
+  .tag.good { color:var(--good); border-color:var(--good); }
+  pre.mock { margin:8px 0 0; background:var(--code); border:1px solid var(--line); border-radius:8px;
+             padding:10px 12px; font:13px/1.5 ui-monospace, Menlo, monospace; overflow-x:auto; white-space:pre; }
+  .bad-l { color:var(--bad); font-weight:600; }
+  .good-l { color:var(--good); font-weight:600; }
+  .step { display:grid; grid-template-columns:90px 1fr; gap:6px 12px; padding:8px 0; border-top:1px dashed var(--line); }
+  .step:first-of-type { border-top:0; }
+  .step b { color:var(--accent); }
+  @media (max-width:520px) { .step { grid-template-columns:1fr; } }
+  ul { padding-left:20px; } li { margin:4px 0; }
+  ul.check { list-style:none; padding-left:0; }
+  ul.check li::before { content:"☐ "; color:var(--muted); }
+  details { margin:10px 0; }
+  summary { cursor:pointer; font-weight:600; }
+  .muted { color:var(--muted); }
+  svg { width:100%; height:auto; color:var(--fg); }
+
+  /* ── interactive demo ── */
+  .sim { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px; }
+  .bar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:10px; }
+  .seg { display:inline-flex; border:1px solid var(--line); border-radius:8px; overflow:hidden; }
+  .seg button { border:0; border-radius:0; }
+  button { font:inherit; font-size:13px; color:var(--fg); background:var(--bg); border:1px solid var(--line);
+           border-radius:8px; padding:5px 10px; cursor:pointer; }
+  button:hover { border-color:var(--accent); }
+  button.on { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .lbl { font-size:12px; color:var(--muted); margin-right:2px; }
+  .view { background:var(--code); border:1px solid var(--line); border-radius:8px; padding:6px 0; overflow-x:auto;
+          font:13px/1.65 ui-monospace, Menlo, monospace; outline:none; }
+  .view:focus { border-color:var(--accent); }
+  .row { display:flex; white-space:pre; cursor:pointer; min-width:max-content; }
+  .row.cur { background:var(--hl); }
+  .g { width:2.2ch; text-align:center; color:var(--muted); flex:none; }
+  .g.c { color:var(--accent); }
+  .n { width:4ch; text-align:right; color:var(--muted); flex:none; padding-right:1ch; }
+  .row.cur .n { color:var(--accent); font-weight:700; }
+  .t { position:relative; padding-right:2ch; }
+  .ev { position:absolute; top:0; color:var(--accent); font-weight:700; pointer-events:none; }
+  .tg { color:#2e6fd6; } .at { color:#9a5b00; } .st { color:#1b7a3d; } .en { color:#9b30a0; }
+  @media (prefers-color-scheme: dark) { .tg { color:#79a8ff; } .at { color:#e0b36a; } .st { color:#8fd69f; } .en { color:#d89be0; } }
+  .fl { color:var(--muted); }
+  .out { margin-top:10px; }
+  .out pre { margin:4px 0 0; background:var(--code); border:1px solid var(--line); border-radius:8px; padding:8px 12px;
+             font:12.5px/1.45 ui-monospace, Menlo, monospace; overflow-x:auto; min-height:3.2em; }
+  .note { font-size:13px; color:var(--muted); margin-top:8px; }
+  kbd { font:12px ui-monospace, Menlo, monospace; border:1px solid var(--line); border-bottom-width:2px; border-radius:4px; padding:0 5px; background:var(--bg); }
+</style>
+</head>
+<body>
+<main>
+
+<header data-spec="summary">
+  <h1>XML language support</h1>
+  <p>Fold signs sit only on lines that open a multi-line element, the vertical line that marks the current element is drawn on every line that belongs to it even when the file's indentation is uneven, and typing the <code>&gt;</code> of an opening tag writes the closing tag for you.</p>
+  <p class="muted">Reported on <code>complex.xml</code>, cursor at line 34, column 12.</p>
+</header>
+
+<section data-spec="demo">
+  <h2>Try it</h2>
+  <p>A live model of lines 27 to 39 of <code>complex.xml</code>, with the same odd indentation on line 35. Flip between <b>Today</b> and <b>With XML support</b>, move the cursor, fold and unfold, and compare against the expected result. The report underneath is what the scope debug command would print.</p>
+  <div class="sim" id="sim">
+    <div class="bar">
+      <span class="lbl">Mode</span>
+      <span class="seg" role="group" aria-label="Mode">
+        <button id="m-today">Today</button><button id="m-xml" class="on">With XML support</button>
+      </span>
+      <span class="lbl" style="margin-left:6px">Jump</span>
+      <button data-jump="34">34 · reported case</button>
+      <button data-jump="35">35 · single-line element</button>
+      <button data-jump="33">33 · opening tag</button>
+      <button data-jump="37">37 · closing tag</button>
+      <button id="b-break">Delete closing tag on 37</button>
+    </div>
+    <div class="view" id="view" tabindex="0" aria-label="XML demo buffer"></div>
+    <div class="bar" style="margin-top:10px">
+      <button id="k-down">j ↓</button><button id="k-up">k ↑</button>
+      <button id="k-zc">zc close fold</button><button id="k-zo">zo open fold</button>
+      <button id="k-reset">Reset</button>
+    </div>
+    <div class="note">Click a line, or focus the buffer and use <kbd>j</kbd> <kbd>k</kbd> <kbd>↑</kbd> <kbd>↓</kbd> <kbd>zc</kbd> <kbd>zo</kbd>. If clicks add review notes instead, turn off "Pick elements" (Alt+A).</div>
+    <div class="out">
+      <span class="lbl" id="out-h"></span>
+      <pre id="out"></pre>
+    </div>
+  </div>
+
+  <h3 data-spec="demo-autoclose" style="margin-top:22px">Typing playground (auto-close tag)</h3>
+  <div class="sim" data-spec="demo-autoclose-box">
+    <p style="margin:0 0 8px">Follows the mode switch above. Type <code>&lt;class</code> then <code>&gt;</code> in <b>With XML support</b>; in <b>Today</b> the <code>&gt;</code> is just a character. Undo with <kbd>Ctrl</kbd>+<kbd>Z</kbd>.</p>
+    <div class="bar">
+      <span class="lbl">Try</span>
+      <button data-type="&lt;class">&lt;class</button>
+      <button data-type="&lt;app:label key=&quot;team&quot;">&lt;app:label key="team"</button>
+      <button data-type="&lt;br/">&lt;br/</button>
+      <button data-type="&lt;/class">&lt;/class</button>
+      <button data-type="&lt;!-- note --">&lt;!-- note --</button>
+      <button data-type="&lt;a href=&quot;x&gt;y&quot;">&lt;a href="x&gt;y"</button>
+      <button id="t-clear">Clear</button>
+    </div>
+    <textarea id="play" rows="5" spellcheck="false" aria-label="Typing playground"
+      style="width:100%;font:13px/1.6 ui-monospace,Menlo,monospace;background:var(--code);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px 12px;resize:vertical"></textarea>
+    <div class="note">The buttons type the text for you and place the cursor at its end; press <kbd>&gt;</kbd> yourself to see the result. Mode: <b id="play-mode"></b></div>
+  </div>
+</section>
+
+<section data-spec="problem">
+  <h2>What is wrong today</h2>
+  <p>BeastVim does not know XML. It guesses structure from indentation, and one line indented differently (line 35) derails both guesses.</p>
+  <div class="grid">
+    <div class="card" data-spec="problem-folds">
+      <span class="tag bad">Folds</span>
+      <p>Signs sit on the first line <em>inside</em> an element, not its opening tag, and land on text lines (34, 36). One stray line splits one element into several folds.</p>
+    </div>
+    <div class="card" data-spec="problem-scope">
+      <span class="tag bad">Element line</span>
+      <p>Drawn only around the cursor, stops at the first differently indented line. Line 36 is missing.</p>
+    </div>
+  </div>
+  <div class="card" data-spec="problem-autoclose" style="margin-top:12px">
+    <span class="tag bad">Typing</span>
+    <p>Every element is typed twice. Writing <code>&lt;class&gt;</code> means also typing <code>&lt;/class&gt;</code> by hand, and forgetting it leaves the file broken.</p>
+  </div>
+  <h3 data-spec="why-now">Why now</h3>
+  <p>Every other shipped language has its own small plugin. XML is the odd one out. A language plugin is where XML-aware folds and element line belong, instead of special cases in the editor core.</p>
+</section>
+
+<section data-spec="target-behavior">
+  <h2>Target behavior</h2>
+  <p>Lines 32 to 38 of <code>complex.xml</code>. Line 35 is indented less than its neighbours; that is what breaks the guesses.</p>
+  <div class="grid">
+    <div class="card" data-spec="state-1">
+      <span class="tag bad">State 1 · today</span>
+<pre class="mock"> fold  line
+        32    &lt;app:annotations&gt;   ← no sign on the opener
+  ▾     33      &lt;app:annotation key="multiline"&gt;
+<span class="bad-l">  ▾     34        First line</span>
+        35    &lt;app:code&gt;literal …&lt;/app:code&gt;
+<span class="bad-l">  ▾     36        Final line</span>
+        37      &lt;/app:annotation&gt;
+        38    &lt;/app:annotations&gt;
+
+ element line (col 6):
+        33      &lt;app:annotation …&gt;
+<span class="bad-l">        34      ▏ First line</span>
+        35    &lt;app:code&gt;…
+<span class="bad-l">        36        Final line  ← no line</span>
+        37      &lt;/app:annotation&gt;</pre>
+    </div>
+    <div class="card" data-spec="state-2">
+      <span class="tag good">State 2 · with XML support</span>
+<pre class="mock"> fold  line
+  ▾     32    &lt;app:annotations&gt;
+  ▾     33      &lt;app:annotation key="multiline"&gt;
+        34        First line
+        35    &lt;app:code&gt;literal …&lt;/app:code&gt;
+        36        Final line
+        37      &lt;/app:annotation&gt;
+        38    &lt;/app:annotations&gt;
+
+ element line (col 6):
+        33      &lt;app:annotation …&gt;
+<span class="good-l">        34      ▏ First line</span>
+        35    &lt;app:code&gt;…   ← none, text is left of the line
+<span class="good-l">        36      ▏ Final line</span>
+        37      &lt;/app:annotation&gt;</pre>
+    </div>
+  </div>
+  <div class="card" data-spec="state-3" style="margin-top:12px">
+    <span class="tag good">State 3 · folded (zc on line 33)</span>
+<pre class="mock">  ▾     32    &lt;app:annotations&gt;
+  ▸     33      &lt;app:annotation key="multiline"&gt; …  (5 lines folded)
+        38    &lt;/app:annotations&gt;</pre>
+  </div>
+  <div class="card" data-spec="state-4" style="margin-top:12px">
+    <span class="tag good">State 4 · auto-close tag (<code>|</code> is the cursor)</span>
+<pre class="mock">Before pressing &gt;:    &lt;class|
+After pressing &gt;:     &lt;class&gt;|&lt;/class&gt;
+
+With attributes:      &lt;app:label key="team"|
+After pressing &gt;:     &lt;app:label key="team"&gt;|&lt;/app:label&gt;</pre>
+    <p class="muted">The cursor stays between the two tags, ready for the content.</p>
+  </div>
+</section>
+
+<section data-spec="scenarios">
+  <h2>Scenarios</h2>
+
+  <div class="card" data-spec="scenario-1">
+    <h3>1 · Open an XML file</h3>
+    <div class="step"><b>Do</b><span>Open <code>complex.xml</code>.</span></div>
+    <div class="step"><b>See</b><span>Tags, attributes, text and comments are coloured.</span></div>
+    <div class="step"><b>See</b><span>A fold sign on every line where a multi-line element opens. None on text lines or on single-line elements like <code>&lt;app:label key="team"&gt;platform&lt;/app:label&gt;</code>.</span></div>
+  </div>
+
+  <div class="card" data-spec="scenario-2" style="margin-top:12px">
+    <h3>2 · Uneven indentation (the reported case)</h3>
+    <div class="step"><b>Do</b><span>Cursor on line 34, column 12.</span></div>
+    <div class="step"><b>See</b><span>Element line at column 6 on line 34 <em>and</em> line 36. None on 35. None on the closing tag, line 37.</span></div>
+  </div>
+
+  <div class="card" data-spec="scenario-3" style="margin-top:12px">
+    <h3>3 · Cursor on a single-line element</h3>
+    <div class="step"><b>Do</b><span>Move onto line 35, on <code>&lt;app:code&gt;</code>.</span></div>
+    <div class="step"><b>See</b><span>It has no body, so the enclosing <code>&lt;app:annotation&gt;</code> (lines 33 to 37) is marked, same as scenario 2.</span></div>
+  </div>
+
+  <div class="card" data-spec="scenario-4" style="margin-top:12px">
+    <h3>4 · Cursor on the opening or closing tag</h3>
+    <div class="step"><b>Do</b><span>Line 33, then line 37.</span></div>
+    <div class="step"><b>See</b><span>The same element stays marked, so the mark does not jump along its edges.</span></div>
+  </div>
+
+  <div class="card" data-spec="scenario-5" style="margin-top:12px">
+    <h3>5 · Fold and unfold</h3>
+    <div class="step"><b>Do</b><span><code>zc</code> on line 33.</span></div>
+    <div class="step"><b>See</b><span>Element collapses to one line, sign shows closed form.</span></div>
+    <div class="step"><b>Do</b><span><code>zo</code>.</span></div>
+    <div class="step"><b>See</b><span>Expands, sign open again.</span></div>
+    <div class="step"><b>Do</b><span><code>zc</code> on line 34 (inside).</span></div>
+    <div class="step"><b>See</b><span>The whole <code>&lt;app:annotation&gt;</code> collapses, not one text line.</span></div>
+  </div>
+
+  <div class="card" data-spec="scenario-6" style="margin-top:12px">
+    <h3>6 · First time on a machine</h3>
+    <div class="step"><b>Do</b><span>Open an XML file, never opened one before.</span></div>
+    <div class="step"><b>See</b><span>File shows at once, editable; folds and element line behave as today.</span></div>
+    <div class="step"><b>Wait</b><span>A few seconds while XML support is fetched.</span></div>
+    <div class="step"><b>See</b><span>Colours, folds and element line switch to the correct behaviour on their own, no reopen.</span></div>
+    <div class="step"><b>Do</b><span>Open another XML file.</span></div>
+    <div class="step"><b>See</b><span>Correct from the first frame.</span></div>
+  </div>
+
+  <div class="card" data-spec="scenario-7" style="margin-top:12px">
+    <h3>7 · Broken XML (error case)</h3>
+    <div class="step"><b>Do</b><span>Delete a closing tag so an element never ends.</span></div>
+    <div class="step"><b>See</b><span>No freeze, no error messages. Complete elements around it still fold and mark correctly; the broken one falls back to a best guess or shows nothing.</span></div>
+    <div class="step"><b>Do</b><span>Put the tag back.</span></div>
+    <div class="step"><b>See</b><span>Back to normal.</span></div>
+  </div>
+
+  <div class="card" data-spec="scenario-8" style="margin-top:12px">
+    <h3>8 · Auto-close tag</h3>
+    <div class="step"><b>Do</b><span>In insert mode type <code>&lt;class</code>.</span></div>
+    <div class="step"><b>See</b><span>Nothing extra yet.</span></div>
+    <div class="step"><b>Do</b><span>Press <code>&gt;</code>.</span></div>
+    <div class="step"><b>See</b><span><code>&lt;class&gt;&lt;/class&gt;</code>, cursor between the tags.</span></div>
+    <div class="step"><b>Do</b><span>Type the content, then on a new line type <code>&lt;item</code> and <code>&gt;</code>.</span></div>
+    <div class="step"><b>See</b><span>Each element closes itself; the outer one is untouched.</span></div>
+  </div>
+
+  <div class="card" data-spec="scenario-9" style="margin-top:12px">
+    <h3>9 · Cases where nothing is added</h3>
+    <div class="step"><b>Type</b><span><code>&lt;br/</code> then <code>&gt;</code> &rarr; <code>&lt;br/&gt;</code>. Self-closing is already complete.</span></div>
+    <div class="step"><b>Type</b><span><code>&lt;/class</code> then <code>&gt;</code> &rarr; a closing tag never gets a partner.</span></div>
+    <div class="step"><b>Type</b><span><code>&lt;!--</code>, <code>&lt;?xml version="1.0"?</code> or <code>&lt;!DOCTYPE note</code> then <code>&gt;</code> &rarr; no partner.</span></div>
+    <div class="step"><b>Type</b><span><code>&lt;a href="x&gt;y"</code>: the first <code>&gt;</code> is inside the quotes, so nothing is added there. Only the <code>&gt;</code> that ends the tag closes it.</span></div>
+    <div class="step"><b>Type</b><span><code>a &lt; b</code> in text &rarr; not a tag (space after <code>&lt;</code>).</span></div>
+    <div class="step"><b>Do</b><span><code>&lt;class|&lt;/class&gt;</code>, press <code>&gt;</code> &rarr; no second closing tag.</span></div>
+  </div>
+</section>
+
+<section data-spec="behavior-rules">
+  <h2>Behavior rules</h2>
+  <ul>
+    <li>A fold sign appears only on the first line of an element that spans more than one line.</li>
+    <li>A fold always covers one whole element, never a slice of its text.</li>
+    <li>The element line is drawn at the indentation of the opening tag, so uneven body text never moves it.</li>
+    <li>It is drawn on each stretch of the body indented at least as deep as the first body line. A shallower line breaks the stretch and gets no line. Two stretches in one element are both drawn.</li>
+    <li>A blank line inside a stretch does not break it.</li>
+    <li>Cursor on a single-line element: the nearest enclosing multi-line element is marked.</li>
+    <li>Opening tag, closing tag or body all mark the same element.</li>
+    <li>Nested elements: the innermost multi-line element around the cursor is marked.</li>
+    <li>Auto-close fires only when <code>&gt;</code> is typed (not on paste), only for an opening tag, and the closing tag uses the exact name, prefix included (<code>app:label</code>).</li>
+    <li>After auto-close the cursor sits between the tags, so one undo removes both the <code>&gt;</code> and the added closing tag.</li>
+    <li>XML dialects with their own file types (schemas, stylesheets, SVG) are not part of the first cut.</li>
+    <li>The plugin works only inside BeastVim and says so plainly when loaded elsewhere.</li>
+  </ul>
+</section>
+
+<section data-spec="success-criteria">
+  <h2>Success criteria</h2>
+  <ul class="check">
+    <li>In <code>complex.xml</code>, no fold sign on lines 34, 35 or 36.</li>
+    <li>Fold signs on 32 and 33, and on every other multi-line element.</li>
+    <li>Cursor at 34:12 draws the element line on 34 and 36, not on 35.</li>
+    <li>Scope report for that position lists two stretches (34 to 34, 36 to 36), both at column 6, body indent 8.</li>
+    <li>Cursor on the single-line element (line 35) marks the enclosing element.</li>
+    <li><code>zc</code> anywhere inside an element folds the whole element.</li>
+    <li>First open on a clean machine works without a restart once support is fetched.</li>
+    <li>A file with a missing closing tag opens without errors.</li>
+    <li><code>&lt;class</code> then <code>&gt;</code> gives <code>&lt;class&gt;|&lt;/class&gt;</code>, cursor between the tags.</li>
+    <li><code>&lt;app:label key="team"</code> then <code>&gt;</code> closes with <code>&lt;/app:label&gt;</code>.</li>
+    <li>Self-closing tags, closing tags, comments, declarations, doctypes and a <code>&gt;</code> inside quotes add nothing.</li>
+    <li>One undo reverts the <code>&gt;</code> and the added closing tag together.</li>
+    <li>No regression in other languages' fold signs and element line.</li>
+  </ul>
+</section>
+
+<section data-spec="out-of-scope">
+  <h2>Out of scope</h2>
+  <ul>
+    <li><b>Language server</b> (diagnostics, completion, hover, schema validation). Deferred: the reported problems do not need one, and it adds a download and settings to decide.</li>
+    <li><b>Formatting on save.</b> Deferred with the language server.</li>
+    <li>XSD, XSLT, SVG and other dialects with their own file types.</li>
+    <li>Tag renaming (editing an opening tag does not rename its closing tag). Deferred: separate from the reported problems.</li>
+    <li>Pressing Enter between the tags to open an indented body line. Deferred: not asked for.</li>
+    <li>Changes to how other languages draw folds or the element line.</li>
+  </ul>
+</section>
+
+</main>
+<script>
+(function () {
+  var SW = 2;
+  var SRC = [
+    '    <app:labels>',
+    '      <app:label key="team">platform</app:label>',
+    '      <app:label key="component">orchestration</app:label>',
+    '      <app:label key="release">2026.11</app:label>',
+    '    </app:labels>',
+    '    <app:annotations>',
+    '      <app:annotation key="multiline">',
+    '        First line',
+    '    <app:code>literal &lt;tag&gt; content</app:code>',
+    '        Final line',
+    '      </app:annotation>',
+    '    </app:annotations>',
+    '  </app:metadata>'
+  ];
+  var FIRST = 27, LAST = FIRST + SRC.length - 1;
+  var st = { mode: 'xml', cur: 34, closed: [], broken: false, zpend: false };
+
+  function text(n) { return (st.broken && n === 37) ? '' : SRC[n - FIRST]; }
+  function indent(n) { var t = text(n); return /\S/.test(t) ? t.match(/^ */)[0].length : null; }
+  function key(f) { return f.from + '-' + f.to; }
+
+  // ── XML mode: elements from a tiny tag matcher (unmatched closers ignored, unclosed ones end before the closer)
+  function elements() {
+    var els = [], stack = [];
+    for (var n = FIRST; n <= LAST; n++) {
+      var re = /<(\/?)([\w:.-]+)[^>]*?(\/?)>/g, m, t = text(n);
+      while ((m = re.exec(t))) {
+        if (m[3]) { els.push({ name: m[2], from: n, to: n }); }
+        else if (!m[1]) { stack.push({ name: m[2], from: n }); }
+        else {
+          var i = stack.length - 1;
+          while (i >= 0 && stack[i].name !== m[2]) i--;
+          if (i < 0) continue;                       // stray closer
+          while (stack.length - 1 > i) { var u = stack.pop(); els.push({ name: u.name, from: u.from, to: n - 1 }); }
+          var o = stack.pop();
+          els.push({ name: o.name, from: o.from, to: n });
+        }
+      }
+    }
+    while (stack.length) { var r = stack.pop(); els.push({ name: r.name, from: r.from, to: LAST }); }
+    return els;
+  }
+
+  // ── Today: indent folds. level = indent / shiftwidth; blank lines take the smaller neighbour level.
+  function levels() {
+    var lv = {};
+    for (var n = FIRST; n <= LAST; n++) { var i = indent(n); if (i !== null) lv[n] = Math.floor(i / SW); }
+    for (n = FIRST; n <= LAST; n++) if (lv[n] === undefined) {
+      var a = n - 1, b = n + 1;
+      while (a >= FIRST && lv[a] === undefined) a--;
+      while (b <= LAST && lv[b] === undefined) b++;
+      lv[n] = Math.min(a >= FIRST ? lv[a] : 0, b <= LAST ? lv[b] : 0);
+    }
+    return lv;
+  }
+  function folds() {
+    var out = [];
+    if (st.mode === 'xml') {
+      elements().forEach(function (e) { if (e.to > e.from) out.push({ from: e.from, to: e.to }); });
+      return out;
+    }
+    var lv = levels();
+    for (var L = 3; L <= 5; L++) {
+      var s = null;
+      for (var n = FIRST; n <= LAST + 1; n++) {
+        var ok = n <= LAST && lv[n] >= L;
+        if (ok && s === null) s = n;
+        if (!ok && s !== null) { out.push({ from: s, to: n - 1 }); s = null; }
+      }
+    }
+    return out;
+  }
+
+  // ── scope detection (mirrors collect_segments: runs at least as deep as the first body line)
+  function segments(from, to, col) {
+    var bodyFrom = from + 1, first = null;
+    for (var n = bodyFrom; n <= to; n++) { var i = indent(n); if (i !== null) { first = i; break; } }
+    if (first === null || first <= 0) return null;
+    if (col >= first) col = Math.max(0, first - SW);
+    var segs = [], s = null;
+    for (n = bodyFrom; n <= to; n++) {
+      var ind = indent(n), deep = (ind === null ? first : ind) >= first;
+      if (deep && s === null) s = n;
+      if (!deep && s !== null) { segs.push({ buf: 8, col: col, from: s, indent: first, to: n - 1 }); s = null; }
+    }
+    if (s !== null) segs.push({ buf: 8, col: col, from: s, indent: first, to: to });
+    return segs.length ? segs : null;
+  }
+  function scope() {
+    var c = st.cur;
+    if (st.mode === 'xml') {
+      var best = null;
+      elements().forEach(function (e) {
+        if (e.to > e.from && e.from <= c && c <= e.to && (!best || e.to - e.from < best.to - best.from)) best = e;
+      });
+      return best ? segments(best.from, best.to, indent(best.from)) : null;
+    }
+    var at = c;
+    while (indent(at) === null && at < LAST) at++;
+    var i = indent(at);
+    if (!i) return null;
+    var a = at, b = at;
+    while (a - 1 >= FIRST && (indent(a - 1) === null || indent(a - 1) >= i)) a--;
+    while (b + 1 <= LAST && (indent(b + 1) === null || indent(b + 1) >= i)) b++;
+    return [{ buf: 8, col: Math.max(0, i - SW), from: a, indent: i, to: b }];
+  }
+
+  function hidden() {
+    var h = {};
+    st.closed.forEach(function (f) { for (var n = f.from + 1; n <= f.to; n++) h[n] = true; });
+    return h;
+  }
+  function visible() {
+    var h = hidden(), v = [];
+    for (var n = FIRST; n <= LAST; n++) if (!h[n]) v.push(n);
+    return v;
+  }
+
+  function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function color(s) {
+    var e = esc(s);
+    e = e.replace(/&amp;(lt|gt);/g, '<span class="en">&amp;$1;</span>');
+    e = e.replace(/(&lt;\/?)([\w:.-]+)/g, '$1<span class="tg">$2</span>');
+    e = e.replace(/([\w:-]+)=(&quot;|")([^"]*)"/g, '<span class="at">$1</span>=<span class="st">"$3"</span>');
+    return e;
+  }
+
+  function inspect(segs) {
+    if (!segs) return 'nil';
+    return '{ ' + segs.map(function (s) {
+      return '{\n    buf = ' + s.buf + ',\n    col = ' + s.col + ',\n    from = ' + s.from +
+             ',\n    indent = ' + s.indent + ',\n    to = ' + s.to + '\n  }';
+    }).join(', ') + ' }';
+  }
+
+  function render() {
+    var segs = scope(), fl = folds(), vis = visible(), h = hidden();
+    var starts = {}, closedStart = {};
+    fl.forEach(function (f) { starts[f.from] = true; });
+    st.closed.forEach(function (f) { closedStart[f.from] = true; });
+    var drawn = {};
+    (segs || []).forEach(function (s) {
+      for (var n = s.from; n <= s.to; n++) { var i = indent(n); if (i !== null && i > s.col) drawn[n] = s.col; }
+    });
+    var html = vis.map(function (n) {
+      var sign = starts[n] ? (closedStart[n] ? '▸' : '▾') : '';
+      var body = st.mode === 'xml' ? color(text(n)) : esc(text(n));
+      if (closedStart[n]) body += ' <span class="fl">…</span>';
+      var ev = (drawn[n] !== undefined && !closedStart[n]) ? '<i class="ev" style="left:' + drawn[n] + 'ch">▏</i>' : '';
+      return '<div class="row' + (n === st.cur ? ' cur' : '') + '" data-n="' + n + '">' +
+        '<span class="g' + (closedStart[n] ? ' c' : '') + '">' + sign + '</span>' +
+        '<span class="n">' + n + '</span><span class="t">' + ev + body + '</span></div>';
+    }).join('');
+    document.getElementById('view').innerHTML = html;
+    document.getElementById('out-h').textContent = 'cursor on line ' + st.cur + '  ·  :lua require("beast.libs.indent.scope").debug()';
+    document.getElementById('out').textContent = inspect(segs);
+    document.getElementById('m-today').className = st.mode === 'today' ? 'on' : '';
+    document.getElementById('m-xml').className = st.mode === 'xml' ? 'on' : '';
+    var pm = document.getElementById('play-mode');
+    if (pm) pm.textContent = st.mode === 'xml' ? 'With XML support (auto-close on)' : 'Today (auto-close off)';
+    document.getElementById('b-break').textContent = st.broken ? 'Put closing tag back' : 'Delete closing tag on 37';
+  }
+
+  function move(d) {
+    var v = visible(), i = v.indexOf(st.cur);
+    if (i < 0) i = 0;
+    st.cur = v[Math.max(0, Math.min(v.length - 1, i + d))];
+    render();
+  }
+  function zc() {
+    var open = folds().filter(function (f) {
+      return f.to > f.from && f.from <= st.cur && st.cur <= f.to &&
+        !st.closed.some(function (c) { return key(c) === key(f); });
+    }).sort(function (a, b) { return (a.to - a.from) - (b.to - b.from); });
+    if (open.length) { st.closed.push(open[0]); st.cur = open[0].from; }
+    render();
+  }
+  function zo() {
+    var hit = st.closed.filter(function (f) { return f.from <= st.cur && st.cur <= f.to; })
+      .sort(function (a, b) { return (b.to - b.from) - (a.to - a.from); });
+    if (hit.length) st.closed = st.closed.filter(function (f) { return key(f) !== key(hit[0]); });
+    render();
+  }
+  function jump(n) { st.closed = []; st.cur = n; render(); }
+
+  var view = document.getElementById('view');
+  view.addEventListener('click', function (e) {
+    var r = e.target.closest('.row'); if (!r) return;
+    st.cur = +r.getAttribute('data-n'); view.focus(); render();
+  });
+  view.addEventListener('keydown', function (e) {
+    var k = e.key;
+    if (st.zpend) {
+      st.zpend = false;
+      if (k === 'c') { zc(); e.preventDefault(); return; }
+      if (k === 'o') { zo(); e.preventDefault(); return; }
+    }
+    if (k === 'z') { st.zpend = true; e.preventDefault(); }
+    else if (k === 'j' || k === 'ArrowDown') { move(1); e.preventDefault(); }
+    else if (k === 'k' || k === 'ArrowUp') { move(-1); e.preventDefault(); }
+  });
+  // ── auto-close tag: text to insert when '>' is typed at position p, or null for a plain '>'
+  function autoClose(value, p) {
+    var before = value.slice(0, p), lt = before.lastIndexOf('<');
+    if (lt < 0) return null;
+    var seg = before.slice(lt + 1).replace(/"[^"]*"|'[^']*'/g, '_');       // complete quoted values can hold a '>'
+    if (/["']/.test(seg)) return null;                                      // cursor is inside a quoted value
+    if (seg.indexOf('>') >= 0 || /\/\s*$/.test(seg)) return null;           // already closed / self-closing
+    var m = /^([A-Za-z_][\w:.-]*)(\s[\s\S]*)?$/.exec(seg);                  // not </x, <!, <?, "< b"
+    if (!m) return null;
+    if (value.slice(p).indexOf('</' + m[1] + '>') === 0) return null;      // closer already there
+    return '></' + m[1] + '>';
+  }
+  window.__autoClose = autoClose;
+  var play = document.getElementById('play');
+  play.addEventListener('keydown', function (e) {
+    if (e.key !== '>' || st.mode !== 'xml' || e.isComposing) return;
+    var p = play.selectionStart;
+    if (p !== play.selectionEnd) return;
+    var ins = autoClose(play.value, p);
+    if (ins === null) return;
+    e.preventDefault();
+    var ok = false;
+    try { ok = document.execCommand('insertText', false, ins); } catch (x) {}   // keeps native undo in one step
+    if (!ok) play.setRangeText(ins, p, p, 'end');
+    play.selectionStart = play.selectionEnd = p + 1;
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('[data-type]'), function (b) {
+    b.onclick = function () {
+      var t = b.getAttribute('data-type');
+      play.value += (play.value && !/\n$/.test(play.value) ? '\n' : '') + t;
+      play.focus(); play.selectionStart = play.selectionEnd = play.value.length;
+    };
+  });
+  document.getElementById('t-clear').onclick = function () { play.value = ''; play.focus(); };
+  function setMode(m) { st.mode = m; st.closed = []; render(); }
+  document.getElementById('m-today').onclick = function () { setMode('today'); };
+  document.getElementById('m-xml').onclick = function () { setMode('xml'); };
+  document.getElementById('b-break').onclick = function () { st.broken = !st.broken; st.closed = []; render(); };
+  document.getElementById('k-down').onclick = function () { move(1); };
+  document.getElementById('k-up').onclick = function () { move(-1); };
+  document.getElementById('k-zc').onclick = zc;
+  document.getElementById('k-zo').onclick = zo;
+  document.getElementById('k-reset').onclick = function () { st = { mode: st.mode, cur: 34, closed: [], broken: false, zpend: false }; render(); };
+  Array.prototype.forEach.call(document.querySelectorAll('[data-jump]'), function (b) {
+    b.onclick = function () { jump(+b.getAttribute('data-jump')); };
+  });
+  render();
+})();
+</script>
+</body>
+</html>

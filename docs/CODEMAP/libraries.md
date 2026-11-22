@@ -586,7 +586,7 @@ treesitter/
 ├── init.lua             ← setup(opts), enable()/disable(), start_buf + auto-install trigger
 ├── config.lua           ← ensure_installed + fold/highlight/indent/context toggles
 ├── install.lua          ← async parser install + upstream query sync (incl. indents.scm)
-├── parsers.lua          ← parser URL/revision registry + status
+├── parsers.lua          ← parser URL/revision registry + status (unlisted langs fall back to tree-sitter/tree-sitter-<lang>, which does not exist for e.g. xml: list those with `location`)
 ├── indent.lua           ← indentexpr(): indents.scm capture-walking algorithm (no core equivalent)
 ├── query_predicates.lua ← registers `kind-eq?` (needed by ecma indents.scm's #not-kind-eq?)
 ├── highlights.lua       ← BeastTreesitter* groups
@@ -856,6 +856,8 @@ indent/
 ```
 
 Scope body (treesitter): starts after the node preceding the `body` field (comment siblings skipped, handles wrapped headers) and runs through the node's last line (python has no closing line; `end`/`}` dropped by indent filter). Underline starts at the vertical-line column (`scope.indent - sw`) on the header's last line.
+
+Scope node types: `scope.treesitter.scope_types` applies to every language; `scope_types_by_lang` (`xml = { "element" }`) adds types for one language only, because grammars reuse names (html also has `element`). A single-line match of a per-language type is skipped (the enclosing node is marked); an xml `STag` ends the header, so wrapped attributes are not body. Uneven indentation gives one segment per run of lines at least as deep as the first body line.
 
 API: `indent.setup(opts)` — registers decoration provider
 Loaded via: `packer.lazy()` on VimEnter (deferred)

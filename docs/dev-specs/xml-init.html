@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dev spec: XML language support</title>
+<style>
+  :root { --bg:#fbfaf7; --fg:#1c1b19; --muted:#6b675f; --line:#dcd8cf; --card:#fff; --accent:#b4540a;
+          --code:#f3f0e8; --good:#1b7a3d; --warn:#9a5b00; --box:#eef3fb; --boxl:#9db4d6; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#161513; --fg:#ece8df; --muted:#a29d92; --line:#3a3732; --card:#1f1d1a; --accent:#e08a3c;
+            --code:#262420; --good:#6fd08c; --warn:#e0b36a; --box:#1d2633; --boxl:#4b6a96; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, sans-serif; }
+  main { max-width:920px; margin:0 auto; padding:24px 16px 80px; }
+  h1 { font-size:28px; margin:0 0 8px; }
+  h2 { font-size:20px; margin:0 0 10px; border-bottom:1px solid var(--line); padding-bottom:6px; }
+  h3 { font-size:16px; margin:0 0 6px; }
+  section { margin:34px 0; }
+  p { margin:8px 0; }
+  code { background:var(--code); padding:0 4px; border-radius:4px; font:13px ui-monospace, Menlo, monospace; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin:10px 0; }
+  .tag { display:inline-block; font-size:12px; font-weight:600; padding:1px 8px; border-radius:99px; border:1px solid var(--line); margin-right:4px; }
+  .low { color:var(--good); border-color:var(--good); } .med { color:var(--warn); border-color:var(--warn); }
+  .muted { color:var(--muted); }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th, td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--muted); font-weight:600; }
+  .scroll { overflow-x:auto; }
+  ol.steps { padding-left:20px; } ol.steps li { margin:8px 0; }
+  .choice { border:1px solid var(--line); border-radius:8px; padding:8px 12px; margin:6px 0; }
+  .choice.rec { border-color:var(--accent); }
+  .choice b.r { color:var(--accent); }
+  ul.check { list-style:none; padding-left:0; } ul.check li::before { content:"☐ "; color:var(--muted); }
+  svg { width:100%; height:auto; color:var(--fg); }
+  svg .b { fill:var(--box); stroke:var(--boxl); stroke-width:1.2; }
+  svg .n { fill:var(--card); stroke:var(--accent); stroke-width:1.4; }
+  svg text { fill:currentColor; font:12.5px system-ui, sans-serif; }
+  svg .s { font-size:11px; opacity:.75; }
+  svg path.e { stroke:currentColor; stroke-width:1.3; fill:none; marker-end:url(#ar); opacity:.7; }
+</style>
+</head>
+<body>
+<main>
+
+<header data-spec="summary">
+  <h1>XML language support: dev spec</h1>
+  <p>New <code>xml.bvim</code> plugin (parser, auto-close tag) plus a small, XML-only addition to the indent scope lib. Parser gives folds and highlighting; the scope finder learns <code>element</code>; <code>&gt;</code> becomes a buffer-local insert mapping.</p>
+  <p class="muted">PM spec: <code>docs/pm-specs/xml-init.md</code></p>
+</header>
+
+<section data-spec="solution">
+  <h2>How it fits together</h2>
+  <svg viewBox="0 0 880 250" role="img" aria-label="Flow from opening an XML file to folds, scope and auto-close">
+    <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="currentColor"/></marker></defs>
+    <g id="n-open"><title>FileType xml fires</title><rect class="n" x="10" y="95" width="130" height="56" rx="8"/><text x="75" y="120" text-anchor="middle">open *.xml</text><text class="s" x="75" y="138" text-anchor="middle">FileType xml</text></g>
+    <g id="n-plugin"><title>xml.bvim lazy-loads on the filetype</title><rect class="b" x="185" y="95" width="150" height="56" rx="8"/><text x="260" y="120" text-anchor="middle">xml.bvim setup()</text><text class="s" x="260" y="138" text-anchor="middle">ensure_parser + map &gt;</text></g>
+    <g id="n-parser"><title>Parser install re-runs start_buf for open buffers</title><rect class="b" x="385" y="20" width="170" height="56" rx="8"/><text x="470" y="45" text-anchor="middle">parser + queries</text><text class="s" x="470" y="63" text-anchor="middle">parsers.lua entry (new)</text></g>
+    <g id="n-autoclose"><title>Run-time press() reads the buffer</title><rect class="b" x="385" y="170" width="170" height="56" rx="8"/><text x="470" y="195" text-anchor="middle">auto-close tag</text><text class="s" x="470" y="213" text-anchor="middle">&lt;Cmd&gt; press(), 1 undo</text></g>
+    <g id="n-folds"><title>folds.scm element</title><rect class="n" x="630" y="0" width="240" height="40" rx="8"/><text x="750" y="25" text-anchor="middle">fold signs on elements</text></g>
+    <g id="n-scope"><title>scope/treesitter.lua</title><rect class="n" x="630" y="55" width="240" height="40" rx="8"/><text x="750" y="80" text-anchor="middle">element line, two stretches</text></g>
+    <g id="n-hl"><title>highlights.scm, indents.scm</title><rect class="n" x="630" y="110" width="240" height="40" rx="8"/><text x="750" y="135" text-anchor="middle">colours + tree indent</text></g>
+    <g id="n-typed"><title>Typing &gt; after an opening tag</title><rect class="n" x="630" y="190" width="240" height="40" rx="8"/><text x="750" y="215" text-anchor="middle">&lt;class&gt;|&lt;/class&gt;</text></g>
+    <path class="e" d="M140 123H183"/><path class="e" d="M335 110L383 55"/><path class="e" d="M335 138L383 190"/>
+    <path class="e" d="M555 40L628 20"/><path class="e" d="M555 55L628 72"/><path class="e" d="M555 66L628 125"/><path class="e" d="M555 198H628"/>
+  </svg>
+  <p class="muted">Phase 1 builds the parser branch, Phase 2 the scope node, Phase 3 the auto-close branch. Each merges on its own.</p>
+</section>
+
+<section data-spec="research">
+  <h2>Research</h2>
+  <div class="card" data-spec="research-repo">
+    <h3>Repo search</h3>
+    <ul>
+      <li>No XML code anywhere; <code>parsers.lua</code> has no <code>xml</code> entry and the fallback URL <code>tree-sitter/tree-sitter-xml</code> does not exist. Real grammar: <code>tree-sitter-grammars/tree-sitter-xml</code>, <code>location = "xml"</code>, ships <code>parser.c</code>, pinned <code>5000ae8f</code>.</li>
+      <li>Installer already pulls <code>folds.scm</code>, <code>indents.scm</code>, <code>highlights.scm</code> from nvim-treesitter. Upstream XML folds: <code>element</code>, <code>doctypedecl</code>, <code>Comment</code>.</li>
+      <li><code>autopairs</code> has no <code>&gt;</code> mapping and no per-filetype scoping.</li>
+      <li><code>markdown.bvim</code> is the template: FileType + open-buffer loop, buffer-local <code>&lt;Cmd&gt;</code> mapping that calls <code>press</code>, fallback to the previous mapping, stubbed-globals test harness.</li>
+      <li><code>collect_segments</code> already splits on shallower lines, so finding an <code>element</code> node yields the two expected stretches.</li>
+    </ul>
+    <p><b>Reuse:</b> parser pipeline, scope segments, plugin template. <b>Build:</b> auto-close analysis, per-language scope types, start-tag anchoring.</p>
+  </div>
+  <div class="card" data-spec="research-builtin">
+    <h3>Built-in / existing lib check</h3>
+    <p><code>InsertCharPre</code> cannot edit text safely and fights blink.cmp; <code>autopairs</code> cannot host a per-filetype key. Decision: <b>Use</b> tree-sitter folds, <b>Reuse</b> the markdown plugin pattern, <b>Build</b> the rest.</p>
+  </div>
+</section>
+
+<section data-spec="decisions">
+  <h2>Decisions for you</h2>
+  <div class="card" data-spec="decision-scope-types">
+    <h3>1 · Where does <code>element</code> become a scope type?</h3>
+    <div class="choice rec"><b class="r">Recommended:</b> per language, <code>scope_types_by_lang = { xml = { "element" } }</code>. HTML also names its nodes <code>element</code>, so a global entry would change HTML, which the PM spec rules out.</div>
+    <div class="choice">Global entry: one line, but HTML scope drawing changes.</div>
+  </div>
+  <div class="card" data-spec="decision-folds">
+    <h3>2 · Upstream folds also fold multi-line comments and the doctype</h3>
+    <div class="choice rec"><b class="r">Recommended:</b> accept the upstream query. Same query set as every language, nothing to maintain. The PM rule becomes "elements fold; comments and doctype may too".</div>
+    <div class="choice">Ship a local <code>folds.scm</code> with elements only: exact PM wording, but BeastVim owns a query.</div>
+  </div>
+  <div class="card" data-spec="decision-autoclose-home">
+    <h3>3 · Auto-close lives in <code>xml.bvim</code></h3>
+    <div class="choice rec"><b class="r">Recommended:</b> in the plugin. It is XML-only and <code>autopairs</code> has no filetype scoping. The pure function can be lifted out if HTML or JSX want it later.</div>
+    <div class="choice">Extend <code>autopairs</code>: shared, but needs a new per-filetype mechanism first.</div>
+  </div>
+  <div class="card" data-spec="decision-indent-side-effect">
+    <h3>4 · Heads up: XML indenting changes too</h3>
+    <p>Upstream <code>indents.scm</code> exists, so BeastVim turns on tree-sitter indenting for XML: <code>o</code> and <code>&lt;CR&gt;</code> indent by element depth. Intended, but not in the PM spec. Say so if you want it off.</p>
+  </div>
+</section>
+
+<section data-spec="architecture-changes">
+  <h2>Files</h2>
+  <div class="scroll"><table>
+    <tr><th>Path</th><th></th><th>What</th></tr>
+    <tr><td colspan="3"><b>BeastVim</b></td></tr>
+    <tr><td><code>lua/beast/libs/treesitter/parsers.lua</code></td><td>mod</td><td><code>xml</code> entry (url, revision, location)</td></tr>
+    <tr><td><code>lua/beast/libs/indent/config.lua</code></td><td>mod</td><td><code>scope_types_by_lang</code></td></tr>
+    <tr><td><code>lua/beast/libs/indent/scope/treesitter.lua</code></td><td>mod</td><td>per-language set, skip single-line, start-tag anchor</td></tr>
+    <tr><td><code>tests/test-indent-scope-treesitter.lua</code></td><td>mod</td><td>XML cases</td></tr>
+    <tr><td><code>lua/beast/plugins/lang.lua</code></td><td>mod</td><td><code>xml</code> spec, lazy on filetype</td></tr>
+    <tr><td><code>docs/CODEMAP/libraries.md</code></td><td>mod</td><td>via <code>/update-codemap</code></td></tr>
+    <tr><td colspan="3"><b>xml.bvim</b> (<code>/Users/loctvl842/Documents/Beast/Developments/neovim_plugins/xml.bvim</code>)</td></tr>
+    <tr><td><code>lua/xml/init.lua</code></td><td>new</td><td>setup, ensure_parser, attach</td></tr>
+    <tr><td><code>lua/xml/autoclose.lua</code></td><td>new</td><td>pure <code>closing_tag</code> + <code>press</code></td></tr>
+    <tr><td><code>tests/test-autoclose.lua</code>, <code>README.md</code>, <code>stylua.toml</code>, <code>.luarc.json</code></td><td>new</td><td>tests and scaffold</td></tr>
+  </table></div>
+</section>
+
+<section data-spec="phases">
+  <h2>Phases</h2>
+
+  <div class="card" data-spec="phase-1">
+    <h3>Phase 1 · Parser and folds <span class="tag low">low</span></h3>
+    <p class="muted">Goal: highlighting and element folds. PM scenarios 1, 5, 6.</p>
+    <ol class="steps">
+      <li><b>Registry entry</b> in <code>parsers.lua</code>.</li>
+      <li><b>Scaffold plugin</b> (<code>new-lang</code> conventions, no LSP): <code>ensure_parser("xml")</code>, README, configs, <code>git init</code>.</li>
+      <li><b>Register</b> in <code>lang.lua</code> <span class="tag med">blocked</span> needs <code>BeastVim/xml.bvim</code> to exist on GitHub. Creating and pushing it is yours; until then I verify with the plugin on the runtimepath.</li>
+    </ol>
+  </div>
+
+  <div class="card" data-spec="phase-2">
+    <h3>Phase 2 · Element scope <span class="tag med">medium</span></h3>
+    <p class="muted">Goal: the reported bug. PM scenarios 2, 3, 4, 7. Depends on Phase 1 for the parser, not for code.</p>
+    <ol class="steps">
+      <li><b>Per-language scope types</b> in <code>config.lua</code> and <code>scope/treesitter.lua</code> (set built from the buffer's language, cached per language).</li>
+      <li><b>Skip single-line elements</b>: only for per-language types, so other languages keep today's nil-then-indent behaviour.</li>
+      <li><b>Anchor body after the start tag</b> when there is no <code>body</code> field, so wrapped attributes are not body.</li>
+      <li><b>Tests</b>: reported case (34 gives <code>{34,34}</code> and <code>{36,36}</code>), 35, 33, 37, nested, wrapped tag, broken XML, HTML unchanged.</li>
+    </ol>
+  </div>
+
+  <div class="card" data-spec="phase-3">
+    <h3>Phase 3 · Auto-close tag <span class="tag med">medium</span></h3>
+    <p class="muted">Goal: <code>&lt;class&gt;</code> closes itself. PM scenarios 8, 9.</p>
+    <ol class="steps">
+      <li><b>Pure analysis</b> <code>closing_tag(before, after)</code>: scan back at most 50 lines to the last <code>&lt;</code>; collapse quoted values; nil for open quote, existing <code>&gt;</code>, trailing <code>/</code>, <code>&lt;/</code>, <code>&lt;!</code>, <code>&lt;?</code>, <code>&lt; b</code>, or an existing closer after the cursor.</li>
+      <li><b>Mapping</b>: buffer-local <code>&gt;</code> returning a constant <code>&lt;Cmd&gt;</code>; <code>press</code> reads the buffer at run time, falls back to a plain or previous <code>&gt;</code>, otherwise inserts both tags and steps back with <code>&lt;C-g&gt;U&lt;Left&gt;</code> for one undo.</li>
+      <li><b>Attach</b> on FileType plus the already-open buffers.</li>
+      <li><b>Tests</b>: all scenario 8 and 9 lines, multi-line start tag, undo, dot-repeat, behind a global mapping and blink.cmp.</li>
+    </ol>
+  </div>
+
+  <div class="card" data-spec="phase-4">
+    <h3>Phase 4 · Docs <span class="tag low">low</span></h3>
+    <ol class="steps"><li><code>/update-codemap</code>, plugin README with install snippet and the new option. No CHANGELOG edits.</li></ol>
+  </div>
+</section>
+
+<section data-spec="testing-strategy">
+  <h2>Testing</h2>
+  <ul>
+    <li><b>Headless:</b> the three indent scope tests, <code>test-autoclose.lua</code> in the plugin, and the <code>lua-language-server --check</code> command from DEVELOPMENT.md.</li>
+    <li><b>Bench:</b> <code>tests/bench-scope.lua</code> before and after Phase 2 (scope runs on every cursor move); <code>./scripts/bench-ux.sh all</code> if folds or the statuscolumn are affected.</li>
+    <li><b>Manual E2E:</b> reproduce first in tmux on <code>complex.xml</code> at 34:12 (expect today's single run), then confirm two runs after. Walk PM scenarios 1 to 9; for scenario 6 delete the installed <code>xml</code> parser and reopen. Check sign position, element line column and closed-fold glyph by eye.</li>
+  </ul>
+</section>
+
+<section data-spec="success-criteria">
+  <h2>Success criteria</h2>
+  <ul class="check">
+    <li>No fold sign on 34, 35, 36; signs on 32 and 33 and every other multi-line element.</li>
+    <li>Cursor 34:12: element line on 34 and 36, not 35; <code>debug()</code> lists both stretches at <code>col=6</code>, <code>indent=8</code>.</li>
+    <li>Cursor on 35, 33 or 37 marks the annotation element.</li>
+    <li><code>zc</code> inside an element folds the whole element.</li>
+    <li>First open without the parser works without restart.</li>
+    <li>Missing closing tag: no errors, complete elements still fold and mark.</li>
+    <li>Auto-close behaves per scenarios 8 and 9; one undo reverts both.</li>
+    <li>HTML and existing indent scope tests unchanged; scope bench shows no regression.</li>
+    <li>Type check passes.</li>
+  </ul>
+</section>
+
+</main>
+</body>
+</html>
