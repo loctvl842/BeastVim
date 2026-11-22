@@ -146,12 +146,37 @@ New plugin repo (`/Users/loctvl842/Documents/Beast/Developments/neovim_plugins/x
 
 # Success Criteria
 
-- [ ] In `complex.xml`, no fold sign on lines 34, 35 or 36; signs on 32 and 33 and every other multi-line element.
-- [ ] Cursor at 34:12 draws the element line on 34 and 36, not 35; `debug()` lists `{from=34,to=34}` and `{from=36,to=36}`, both `col=6`, `indent=8`.
-- [ ] Cursor on line 35 (single-line element), on 33 (opening tag) and 37 (closing tag) marks the annotation element.
-- [ ] `zc` inside an element folds the whole element.
-- [ ] First open without the parser works without restart once installed.
-- [ ] A file with a missing closing tag opens with no errors and complete elements still fold and mark.
-- [ ] `<class` + `>` gives `<class>|</class>`; prefix names keep the prefix; self-closing, closing, comment, declaration, doctype, quoted `>` and existing closer add nothing; one undo reverts both.
-- [ ] HTML and all existing indent scope tests are unchanged; scope bench shows no regression.
-- [ ] `lua-language-server --check` passes.
+- [x] In `complex.xml`, no fold sign on lines 34, 35 or 36; signs on 32 and 33 and every other multi-line element.
+- [x] Cursor at 34:12 draws the element line on 34 and 36, not 35; `debug()` lists `{from=34,to=34}` and `{from=36,to=36}`, both `col=6`, `indent=8`.
+- [x] Cursor on line 35 (single-line element), on 33 (opening tag) and 37 (closing tag) marks the annotation element.
+- [x] `zc` inside an element folds the whole element.
+- [x] First open without the parser works without restart once installed.
+- [x] A file with a missing closing tag opens with no errors and complete elements still fold and mark.
+- [x] `<class` + `>` gives `<class>|</class>`; prefix names keep the prefix; self-closing, closing, comment, declaration, doctype, quoted `>` and existing closer add nothing; one undo reverts both.
+- [x] HTML and all existing indent scope tests are unchanged; scope bench shows no regression.
+- [x] `lua-language-server --check` passes.
+
+---
+
+# Completed
+
+2026-11-22. Phases 1 (except the `lang.lua` registration), 2, 3 and 4 done.
+
+BeastVim (`/Users/loctvl842/.config/BeastVim`):
+- `ff28f51` feat(treesitter): register the xml parser
+- `0cf0479` feat(indent): xml element scope with per-language scope types
+- `f06c9b4` docs: xml pm and dev specs, codemap notes for per-language scope types
+
+xml.bvim (`/Users/loctvl842/Documents/Beast/Developments/neovim_plugins/xml.bvim`, its own repo, no remote yet):
+- `77749af` feat: scaffold the xml plugin and ensure the xml parser
+- `0f2cb1c` feat: close the opening tag when > is typed
+- `7fc75b2` docs: describe the auto-close tag
+
+Not done: Phase 1 step 3, the `xml` spec in `lua/beast/plugins/lang.lua`. It is blocked on `BeastVim/xml.bvim` existing on GitHub; adding the spec first would make BeastVim try to fetch a missing repo. Verified with the plugin on the runtimepath instead.
+
+Deviations from the plan:
+- No fallback to a previous global `>` mapping (nothing maps `>` today); `>` falls back to the plain key. No blink.cmp wrapper test for the same reason.
+- Decision 4 did not materialise: XML buffers kept Neovim's own `XmlIndentGet` indentexpr (the tree-sitter `indentexpr` was not applied), so `o` and `<CR>` indenting is unchanged.
+- Known limit: typing `<b>` inside a comment or CDATA still closes the tag.
+
+Verification: `test-indent-scope-treesitter` 16/16, `test-indent-scope` 35/35, `test-indent-scope-draw` 6/6, plugin `test-autoclose` 36/36; `lua-language-server --check` clean; `stylua --check` clean. `bench-scope`: treesitter path 4.04 to 4.15 us/call (+0.1 us, on a 30 ms debounced path). E2E in tmux on `complex.xml` with the real config: signs only on 32 and 33 (not 34 to 36), scope line at column 6 on 34 and 36 and none on 35, `zc` inside folds the whole annotation, `<class>` + `>` gives `<class>|</class>` and one `u` undoes it, and with the parser removed beforehand the same session switched to tree-sitter folds and highlighting once it installed.
