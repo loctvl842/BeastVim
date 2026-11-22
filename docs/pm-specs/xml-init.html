@@ -194,8 +194,10 @@
   <div class="card" data-spec="state-3" style="margin-top:12px">
     <span class="tag good">State 3 · folded (zc on line 33)</span>
 <pre class="mock">  ▾     32    &lt;app:annotations&gt;
-  ▸     33      &lt;app:annotation key="multiline"&gt; …  (5 lines folded)
+  ▸     33      &lt;app:annotation key="multiline"&gt;
+        37      &lt;/app:annotation&gt;
         38    &lt;/app:annotations&gt;</pre>
+    <p class="muted">Lines 34 to 36 are hidden. The opening and the closing tag both stay on screen.</p>
   </div>
   <div class="card" data-spec="state-4" style="margin-top:12px">
     <span class="tag good">State 4 · auto-close tag (<code>|</code> is the cursor)</span>
@@ -239,11 +241,13 @@ After pressing &gt;:     &lt;app:label key="team"&gt;|&lt;/app:label&gt;</pre>
   <div class="card" data-spec="scenario-5" style="margin-top:12px">
     <h3>5 · Fold and unfold</h3>
     <div class="step"><b>Do</b><span><code>zc</code> on line 33.</span></div>
-    <div class="step"><b>See</b><span>Element collapses to one line, sign shows closed form.</span></div>
+    <div class="step"><b>See</b><span>Everything between the tags collapses. Line 33 (closed sign) and line 37 <code>&lt;/app:annotation&gt;</code> stay visible, one above the other.</span></div>
     <div class="step"><b>Do</b><span><code>zo</code>.</span></div>
     <div class="step"><b>See</b><span>Expands, sign open again.</span></div>
     <div class="step"><b>Do</b><span><code>zc</code> on line 34 (inside).</span></div>
-    <div class="step"><b>See</b><span>The whole <code>&lt;app:annotation&gt;</code> collapses, not one text line.</span></div>
+    <div class="step"><b>See</b><span>The whole <code>&lt;app:annotation&gt;</code> body collapses, not one text line.</span></div>
+    <div class="step"><b>Do</b><span><code>zc</code> on an element whose tags are on neighbouring lines, or on a one-line element.</span></div>
+    <div class="step"><b>See</b><span>Nothing sits between its tags, so it does not fold on its own; the enclosing element closes instead.</span></div>
   </div>
 
   <div class="card" data-spec="scenario-6" style="margin-top:12px">
@@ -288,8 +292,8 @@ After pressing &gt;:     &lt;app:label key="team"&gt;|&lt;/app:label&gt;</pre>
 <section data-spec="behavior-rules">
   <h2>Behavior rules</h2>
   <ul>
-    <li>A fold sign appears only on the first line of an element that spans more than one line.</li>
-    <li>A fold always covers one whole element, never a slice of its text.</li>
+    <li>A fold sign appears only on the opening tag line of an element that has at least one line between its tags.</li>
+    <li>A fold covers everything between one element's tags, never a slice of its text. The opening and closing tag lines are never hidden by that element's own fold.</li>
     <li>The element line is drawn at the indentation of the opening tag, so uneven body text never moves it.</li>
     <li>It is drawn on each stretch of the body indented at least as deep as the first body line. A shallower line breaks the stretch and gets no line. Two stretches in one element are both drawn.</li>
     <li>A blank line inside a stretch does not break it.</li>
@@ -311,7 +315,7 @@ After pressing &gt;:     &lt;app:label key="team"&gt;|&lt;/app:label&gt;</pre>
     <li>Cursor at 34:12 draws the element line on 34 and 36, not on 35.</li>
     <li>Scope report for that position lists two stretches (34 to 34, 36 to 36), both at column 6, body indent 8.</li>
     <li>Cursor on the single-line element (line 35) marks the enclosing element.</li>
-    <li><code>zc</code> anywhere inside an element folds the whole element.</li>
+    <li><code>zc</code> inside an element folds everything between its tags and leaves both the opening and the closing tag visible.</li>
     <li>First open on a clean machine works without a restart once support is fetched.</li>
     <li>A file with a missing closing tag opens without errors.</li>
     <li><code>&lt;class</code> then <code>&gt;</code> gives <code>&lt;class&gt;|&lt;/class&gt;</code>, cursor between the tags.</li>
@@ -397,7 +401,7 @@ After pressing &gt;:     &lt;app:label key="team"&gt;|&lt;/app:label&gt;</pre>
   function folds() {
     var out = [];
     if (st.mode === 'xml') {
-      elements().forEach(function (e) { if (e.to > e.from) out.push({ from: e.from, to: e.to }); });
+      elements().forEach(function (e) { if (e.to - 1 > e.from) out.push({ from: e.from, to: e.to - 1 }); });   // closing tag stays visible
       return out;
     }
     var lv = levels();

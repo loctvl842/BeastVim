@@ -99,6 +99,10 @@
     <div class="choice rec"><b class="r">Recommended:</b> accept the upstream query. Same query set as every language, nothing to maintain. The PM rule becomes "elements fold; comments and doctype may too".</div>
     <div class="choice">Ship a local <code>folds.scm</code> with elements only: exact PM wording, but BeastVim owns a query.</div>
   </div>
+  <div class="card" data-spec="amendment-fold-closing-tag">
+    <h3>Amendment · a folded element keeps its closing tag</h3>
+    <p>Supersedes decision 2. <code>xml.bvim</code> replaces the <code>folds</code> query for <code>xml</code> (via <code>vim.treesitter.query.set</code>, because a query file would lose to the synced upstream one depending on runtimepath order). <code>element</code> is captured with <code>#offset! @fold 0 0 -1 0</code> so the fold ends one line early. Elements with nothing between their tags get no fold of their own. Comments and doctype keep the upstream capture. Test: <code>xml.bvim/tests/test-folds.lua</code>.</p>
+  </div>
   <div class="card" data-spec="decision-autoclose-home">
     <h3>3 · Auto-close lives in <code>xml.bvim</code></h3>
     <div class="choice rec"><b class="r">Recommended:</b> in the plugin. It is XML-only and <code>autopairs</code> has no filetype scoping. The pure function can be lifted out if HTML or JSX want it later.</div>
@@ -184,7 +188,7 @@
     <li>No fold sign on 34, 35, 36; signs on 32 and 33 and every other multi-line element.</li>
     <li>Cursor 34:12: element line on 34 and 36, not 35; <code>debug()</code> lists both stretches at <code>col=6</code>, <code>indent=8</code>.</li>
     <li>Cursor on 35, 33 or 37 marks the annotation element.</li>
-    <li><code>zc</code> inside an element folds the whole element.</li>
+    <li><code>zc</code> inside an element folds everything between its tags; the opening and closing tag stay visible.</li>
     <li>First open without the parser works without restart.</li>
     <li>Missing closing tag: no errors, complete elements still fold and mark.</li>
     <li>Auto-close behaves per scenarios 8 and 9; one undo reverts both.</li>

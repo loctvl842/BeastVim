@@ -149,12 +149,18 @@ New plugin repo (`/Users/loctvl842/Documents/Beast/Developments/neovim_plugins/x
 - [x] In `complex.xml`, no fold sign on lines 34, 35 or 36; signs on 32 and 33 and every other multi-line element.
 - [x] Cursor at 34:12 draws the element line on 34 and 36, not 35; `debug()` lists `{from=34,to=34}` and `{from=36,to=36}`, both `col=6`, `indent=8`.
 - [x] Cursor on line 35 (single-line element), on 33 (opening tag) and 37 (closing tag) marks the annotation element.
-- [x] `zc` inside an element folds the whole element.
+- [x] `zc` inside an element folds everything between its tags; the opening and closing tag stay visible (amendment).
 - [x] First open without the parser works without restart once installed.
 - [x] A file with a missing closing tag opens with no errors and complete elements still fold and mark.
 - [x] `<class` + `>` gives `<class>|</class>`; prefix names keep the prefix; self-closing, closing, comment, declaration, doctype, quoted `>` and existing closer add nothing; one undo reverts both.
 - [x] HTML and all existing indent scope tests are unchanged; scope bench shows no regression.
 - [x] `lua-language-server --check` passes.
+
+---
+
+# Amendment 2026-11-22: folded element keeps its closing tag
+
+Feedback after implementation: a closed fold must still show the closing tag. This supersedes decision 2 (accept upstream folds): `xml.bvim` now replaces the `folds` query for `xml` with `vim.treesitter.query.set` in `setup()`, where `element` is captured with `(#offset! @fold 0 0 -1 0)` so the fold ends one line early and the closing tag line stays visible; `doctypedecl` and `Comment` keep the upstream capture. `query.set` is used over a `queries/xml/folds.scm` file because the file would lose to the one the installer syncs into `site/` depending on runtimepath order. Elements with nothing between their tags get no fold of their own (PM scenario 5, step 4). Test: `xml.bvim/tests/test-folds.lua`.
 
 ---
 
@@ -171,6 +177,7 @@ xml.bvim (`/Users/loctvl842/Documents/Beast/Developments/neovim_plugins/xml.bvim
 - `77749af` feat: scaffold the xml plugin and ensure the xml parser
 - `0f2cb1c` feat: close the opening tag when > is typed
 - `7fc75b2` docs: describe the auto-close tag
+- `53a44ed` feat: keep the closing tag visible when an element is folded (amendment above; `tests/test-folds.lua` 6/6)
 
 Not done: Phase 1 step 3, the `xml` spec in `lua/beast/plugins/lang.lua`. It is blocked on `BeastVim/xml.bvim` existing on GitHub; adding the spec first would make BeastVim try to fetch a missing repo. Verified with the plugin on the runtimepath instead.
 

@@ -75,11 +75,12 @@ STATE 3 — Folded (`zc` on line 33):
 
 ```
   ▾     32    <app:annotations>
-  ▸     33      <app:annotation key="multiline"> …  (5 lines folded)
+  ▸     33      <app:annotation key="multiline">
+        37      </app:annotation>
         38    </app:annotations>
 ```
 
-The sign on 33 flips to the closed form and the lines inside disappear, including their element line.
+The sign on 33 flips to the closed form and the lines inside (34 to 36) disappear, including their element line. The opening and the closing tag both stay on screen, so a folded element still reads as a complete pair.
 
 STATE 4 — Auto-close tag (`|` is the cursor):
 
@@ -147,13 +148,19 @@ Step 1: Move the cursor onto line 33 (the opening tag), then onto line 37 (the c
 
 ```
 Step 1: On line 33 press zc.
-  The element collapses to one line and its sign shows the closed form.
+  Everything between the tags collapses. Line 33 (opening tag, closed sign)
+  and line 37 (</app:annotation>) stay visible, one above the other.
 
 Step 2: Press zo.
   The element expands and the sign shows the open form again.
 
 Step 3: Press zc on line 34 (inside the element).
-  The whole <app:annotation> element collapses, not just one text line.
+  The whole <app:annotation> body collapses, not just one text line.
+
+Step 4: Press zc on an element whose opening and closing tag are on neighbouring lines,
+  or on a one-line element.
+  There is nothing between the tags to hide, so that element does not fold on its own;
+  zc closes the enclosing element instead.
 ```
 
 ## 6 — First time on a machine
@@ -228,8 +235,8 @@ Step 6: Put the cursor in <class|</class> where the closing tag already exists a
 
 # Behavior Rules
 
-- A fold sign appears only on the first line of an element that spans more than one line.
-- A fold always covers one whole element, never a slice of its text.
+- A fold sign appears only on the opening tag line of an element that has at least one line between its tags.
+- A fold always covers everything between one element's tags, never a slice of its text. The opening and closing tag lines are never hidden by that element's own fold.
 - The element line is drawn at the indentation of the opening tag, so uneven body text never moves it.
 - The element line is drawn on each stretch of the body that is indented at least as deep as the first body line. A shallower line breaks the stretch and gets no line. Two stretches in the same element are both drawn.
 - A blank line inside a stretch does not break it.
@@ -250,7 +257,7 @@ Step 6: Put the cursor in <class|</class> where the closing tag already exists a
 - [ ] Cursor at line 34, column 12 draws the element line on line 34 and on line 36, and not on line 35.
 - [ ] The scope report for that cursor position lists two stretches, 34 to 34 and 36 to 36, both at column 6 with body indent 8.
 - [ ] Cursor on single-line element (line 35) marks the enclosing element.
-- [ ] `zc` on any line inside an element folds the whole element.
+- [ ] `zc` on any line inside an element folds everything between its tags and leaves both the opening and the closing tag visible.
 - [ ] First open on a clean machine works without a restart once support has been fetched.
 - [ ] A file with a missing closing tag opens without errors.
 - [ ] Typing `<class` then `>` gives `<class>|</class>` with the cursor between the tags.
