@@ -7,21 +7,41 @@ local M = {}
 ---@type table<string, boolean>?
 local scope_set
 
+---@type table<string, table<string, boolean>>
+local lang_sets = {}
+
+---@param list string[]
+---@return table<string, boolean>
+local function to_set(list)
+	local set = {}
+	for _, t in ipairs(list) do
+		set[t] = true
+	end
+	return set
+end
+
 ---@return table<string, boolean>
 local function get_scope_set()
-	if scope_set then
-		return scope_set
-	end
-	scope_set = {}
-	for _, t in ipairs(config.scope.treesitter.scope_types) do
-		scope_set[t] = true
-	end
+	scope_set = scope_set or to_set(config.scope.treesitter.scope_types)
 	return scope_set
 end
 
---- Invalidate cached scope_set (call after config.setup).
+---Scope node types that only apply to one language.
+---@param lang string
+---@return table<string, boolean>
+local function get_lang_set(lang)
+	local set = lang_sets[lang]
+	if not set then
+		set = to_set(config.scope.treesitter.scope_types_by_lang[lang] or {})
+		lang_sets[lang] = set
+	end
+	return set
+end
+
+--- Invalidate cached sets (call after config.setup).
 function M.invalidate()
 	scope_set = nil
+	lang_sets = {}
 end
 
 -- ── Helpers ────────────────────────────────────────────────────────
@@ -50,14 +70,24 @@ end
 ---Walk up from node to find the innermost scope-defining ancestor.
 ---@param node TSNode
 ---@param root TSNode
+---@param lang string
 ---@return TSNode?
-local function find_scope_node(node, root)
+local function find_scope_node(node, root, lang)
 	local types = get_scope_set()
+	local lang_types = get_lang_set(lang)
 	---@type TSNode?
 	local current = node
 	while current and current ~= root do
-		if types[current:type()] then
+		local type = current:type()
+		if types[type] then
 			return current
+		end
+		if lang_types[type] then
+			-- A single-line node has no body to mark: keep climbing to the enclosing one
+			local from, _, to, to_col = current:range()
+			if (to_col == 0 and to - 1 or to) > from then
+				return current
+			end
 		end
 		current = current:parent()
 	end
@@ -150,7 +180,7 @@ function M.find(buf, pos)
 	-- stylua: ignore
 	if not node then return nil end
 
-	local scope_node = find_scope_node(node, root)
+	local scope_node = find_scope_node(node, root, parser:lang())
 	-- stylua: ignore
 	if not scope_node then return nil end
 
@@ -177,6 +207,14 @@ function M.find(buf, pos)
 	if prev then
 		local _, _, p_row = prev:range()
 		body_from = math.max(body_from, p_row + 2)
+	end
+
+	-- XML has no `body` field: its start tag ends the header and can wrap over
+	-- several lines, whose attributes are not body.
+	local start_tag = scope_node:child(0)
+	if start_tag and start_tag:type() == "STag" then
+		local _, _, tag_row = start_tag:range()
+		body_from = math.max(body_from, tag_row + 2)
 	end
 	-- stylua: ignore
 	if body_from > body_to then return nil end

@@ -178,6 +178,53 @@ check("body starts after the line holding `{`", "javascript", {
 }, 2, { 1, 0 }, { { from = 3, to = 6, indent = 2 } })
 
 -- =========================================================================
+-- XML: element scope, uneven indentation splits the body into two stretches
+-- =========================================================================
+io.write("\n== XML: element scope ==\n")
+local xml_uneven = {
+	"<app:metadata>",
+	"  <app:annotations>",
+	'    <app:annotation key="multiline">',
+	"      First line",
+	"  <app:code>literal</app:code>",
+	"      Final line",
+	"    </app:annotation>",
+	"  </app:annotations>",
+	"</app:metadata>",
+}
+local annotation_stretches = { { from = 4, to = 4, indent = 6 }, { from = 6, to = 6, indent = 6 } }
+check("cursor in the body marks both stretches", "xml", xml_uneven, 2, { 4, 6 }, annotation_stretches)
+check("cursor on a single-line element marks the enclosing element", "xml", xml_uneven, 2, { 5, 2 }, annotation_stretches)
+check("cursor on the opening tag marks the same element", "xml", xml_uneven, 2, { 3, 4 }, annotation_stretches)
+check("cursor on the closing tag marks the same element", "xml", xml_uneven, 2, { 7, 4 }, annotation_stretches)
+check("outer element marks its own stretches", "xml", xml_uneven, 2, { 2, 2 }, { { from = 3, to = 4, indent = 4 }, { from = 6, to = 7, indent = 4 } })
+
+check("wrapped start tag attributes are not body", "xml", {
+	"<root>",
+	"  <item",
+	'      a="1"',
+	'      b="2">',
+	"    text",
+	"  </item>",
+	"</root>",
+}, 2, { 5, 4 }, { { from = 5, to = 5, indent = 4 } })
+
+-- Missing closing tag: tree-sitter error recovery must not make detection throw
+if pcall(vim.treesitter.get_string_parser, "", "xml") then
+	local ok = pcall(scope_at, "xml", { "<a>", "  <b>", "    text", "</a>" }, 2, { 3, 4 })
+	assert_eq("missing closing tag does not error", ok, true)
+end
+
+-- Other grammars name their nodes `element` too: HTML must keep its behaviour
+check("html element is not a scope node", "html", {
+	"<div>",
+	"  <p>",
+	"    text",
+	"  </p>",
+	"</div>",
+}, 2, { 3, 4 }, nil)
+
+-- =========================================================================
 -- Summary
 -- =========================================================================
 

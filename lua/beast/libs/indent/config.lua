@@ -31,6 +31,13 @@ local defaults = {
 				"class_declaration",
 				"module",
 			},
+			---Extra scope node types for one language only (grammars reuse names like
+			---`element`). Unlike `scope_types`, a single-line match is skipped so the
+			---enclosing node is marked instead.
+			---@type table<string, string[]>
+			scope_types_by_lang = {
+				xml = { "element" },
+			},
 		},
 	},
 	exclude_filetypes = {
