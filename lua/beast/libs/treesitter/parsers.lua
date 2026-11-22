@@ -197,6 +197,11 @@ local M = {
 		url = "https://github.com/shunsambongi/tree-sitter-gitignore",
 		revision = "f4685bf11ac466dd278449bcfe5fd014e94aa504",
 	},
+	xml = {
+		url = "https://github.com/tree-sitter-grammars/tree-sitter-xml",
+		revision = "5000ae8f22d11fbe93939b05c1e37cf21117162d",
+		location = "xml",
+	},
 }
 
 --- Look up parser info, falling back to convention URL.
