@@ -92,6 +92,10 @@
     "which-key.nvim": {
       "rev": "3aab2147e74890957785941f0c1ad87d0a44c15a",
       "src": "https://github.com/folke/which-key.nvim"
+    },
+    "xml": {
+      "rev": "53a44eda7e67955444c299c2e4101d918e6355ad",
+      "src": "https://github.com/BeastVim/xml.bvim"
     }
   }
 }

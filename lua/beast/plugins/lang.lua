@@ -48,4 +48,12 @@ return {
 			require("json").setup()
 		end,
 	},
+	{
+		name = "xml",
+		src = gh("BeastVim/xml.bvim"),
+		lazy = { filetype = "xml" },
+		config = function()
+			require("xml").setup()
+		end,
+	},
 }
