@@ -19,7 +19,7 @@
     },
     "cpp": {
       "rev": "99a2c72c8734e41504833732cc07aec3bcf43594",
-      "src": "https://github.com/BeastVim/cpp"
+      "src": "https://github.com/BeastVim/cpp.bvim"
     },
     "friendly-snippets": {
       "rev": "6cd7280adead7f586db6fccbd15d2cac7e2188b9",
@@ -27,19 +27,19 @@
     },
     "json": {
       "rev": "3bb90567bbd5284b313575bccc383a5a936fd754",
-      "src": "https://github.com/BeastVim/json"
+      "src": "https://github.com/BeastVim/json.bvim"
     },
     "lazydev.nvim": {
       "rev": "ff2cbcba459b637ec3fd165a2be59b7bbaeedf0d",
       "src": "https://github.com/folke/lazydev.nvim"
     },
-    "lua_ls": {
-      "rev": "7af8d13fef81821323ed5eb983333c61fcd1ee1a",
-      "src": "https://github.com/BeastVim/lua_ls"
+    "lua": {
+      "rev": "c2da4d090a69cb7c423ff82ebbdfea9507dc9151",
+      "src": "https://github.com/BeastVim/lua.bvim"
     },
     "markdown": {
       "rev": "5cb1902d352b1e4fa93a6afea4d51a931794862f",
-      "src": "https://github.com/BeastVim/markdown"
+      "src": "https://github.com/BeastVim/markdown.bvim"
     },
     "markview.nvim": {
       "rev": "aadb6d817577d553bbef61e8b9073f1bf4b87e08",
@@ -63,7 +63,7 @@
     },
     "python": {
       "rev": "76a01daf58f313d7ee405c9fc2d9db3f7ef3db66",
-      "src": "https://github.com/BeastVim/python"
+      "src": "https://github.com/BeastVim/python.bvim"
     },
     "render-markdown": {
       "rev": "f422cb5c6855f150e2ddcfaf44e7157b98b34f6a",
@@ -87,7 +87,7 @@
     },
     "typescript": {
       "rev": "e995f8ca651fcf147d16c9d0aa0e4c6e88cfc628",
-      "src": "https://github.com/BeastVim/typescript"
+      "src": "https://github.com/BeastVim/typescript.bvim"
     },
     "which-key.nvim": {
       "rev": "3aab2147e74890957785941f0c1ad87d0a44c15a",

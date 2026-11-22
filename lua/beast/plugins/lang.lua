@@ -1,16 +1,16 @@
 ---@type Beast.Packer.PluginSpec[]
 return {
 	{
-		name = "lua_ls",
-		src = gh("BeastVim/lua_ls"),
+		name = "lua",
+		src = gh("BeastVim/lua.bvim"),
 		lazy = { filetype = "lua" },
 		config = function()
-			require("lua_ls").setup()
+			require("lua").setup()
 		end,
 	},
 	{
 		name = "typescript",
-		src = gh("BeastVim/typescript"),
+		src = gh("BeastVim/typescript.bvim"),
 		lazy = { filetype = { "javascript", "javascriptreact", "typescript", "typescriptreact" } },
 		config = function()
 			require("typescript").setup()
@@ -18,7 +18,7 @@ return {
 	},
 	{
 		name = "python",
-		src = gh("BeastVim/python"),
+		src = gh("BeastVim/python.bvim"),
 		lazy = { filetype = "python" },
 		config = function()
 			require("python").setup()
@@ -26,7 +26,7 @@ return {
 	},
 	{
 		name = "cpp",
-		src = gh("BeastVim/cpp"),
+		src = gh("BeastVim/cpp.bvim"),
 		lazy = { filetype = { "c", "cpp", "objc", "objcpp", "cuda" } },
 		config = function()
 			require("cpp").setup()
@@ -34,7 +34,7 @@ return {
 	},
 	{
 		name = "markdown",
-		src = gh("BeastVim/markdown"),
+		src = gh("BeastVim/markdown.bvim"),
 		lazy = { filetype = "markdown" },
 		config = function()
 			require("markdown").setup()
@@ -42,7 +42,7 @@ return {
 	},
 	{
 		name = "json",
-		src = gh("BeastVim/json"),
+		src = gh("BeastVim/json.bvim"),
 		lazy = { filetype = { "json", "jsonc" } },
 		config = function()
 			require("json").setup()
