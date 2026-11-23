@@ -366,6 +366,24 @@ ts_cases("markdown", {
 	"# Other",
 }, { { 1, 0, "Install" }, { 3, 1, "Install>Linux" }, { 6, 2, "Install>Linux" }, { 8, 2, "Other" } })
 
+ts_cases("xml", {
+	'<?xml version="1.0" encoding="UTF-8"?>',
+	'<project name="demo">',
+	"  <dependencies>",
+	"    <dependency>",
+	"      <groupId>org.example</groupId>",
+	"    </dependency>",
+	"  </dependencies>",
+	"  <build><plugins/></build>",
+	"</project>",
+}, {
+	{ 0, 5, "" },
+	{ 1, 3, "project" },
+	{ 4, 14, "project>dependencies>dependency>groupId" },
+	{ 5, 6, "project>dependencies>dependency" },
+	{ 7, 12, "project>build>plugins" },
+})
+
 assert_eq("unknown language: source has nothing", ts_names(scratch("text", { "plain" }), 0, 0), "nil")
 
 -- Source selection: the server wins; the trail is never a mix of both sources

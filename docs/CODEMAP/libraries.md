@@ -288,7 +288,7 @@ breadcrumb/
 └── symbols/
     ├── init.lua       ← trail(bufnr, winid): LSP first, else treesitter, else {} (never mixed); refresh/clear/on_change
     ├── lsp.lua        ← per-buffer documentSymbol tree (seq-guarded, both response shapes), binary-search find, byte->server column
-    ├── treesitter.lua ← ancestor walk + per-language node table (lua, python, js/ts/tsx, c, cpp, markdown)
+    ├── treesitter.lua ← ancestor walk + per-language node table (lua, python, js/ts/tsx, c, cpp, markdown, xml)
     └── kinds.lua      ← SymbolKind number -> Icon.kinds key, key -> colour family
 ```
 

@@ -85,6 +85,16 @@ local function heading_name(node, bufnr)
 	return name and vim.trim(name)
 end
 
+---XML: an `element` is named after the `Name` inside its opening (or self-closing) tag.
+---@param node TSNode
+---@param bufnr integer
+---@return string?
+local function element_name(node, bufnr)
+	local tag = node:named_child(0)
+	local name = tag and tag:named_child(0)
+	return name and name:type() == "Name" and text(name, bufnr) or nil
+end
+
 ---@type table<string, Beast.Breadcrumb.TsSpec>
 local ecma = {
 	class_declaration = { kind = "Class", name = field_text("name") },
@@ -126,6 +136,9 @@ local SPECS = {
 	}),
 	markdown = {
 		section = { kind = "Module", name = heading_name },
+	},
+	xml = {
+		element = { kind = "Struct", name = element_name },
 	},
 }
 
