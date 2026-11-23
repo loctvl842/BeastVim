@@ -129,6 +129,43 @@ local hot_us = bench(function()
 end)
 print(string.format("Beast breadcrumb (hot)  %.2f µs/render  (mean of %d×%d)", hot_us, RUNS, RENDERS_PER_RUN))
 
+-- Symbol lookup: binary search through a 5.4k-symbol tree (branching 4, depth 6)
+local lsp = require("beast.libs.breadcrumb.symbols.lsp")
+
+---@return table[]
+local function build_level(depth, first_row, rows)
+	local nodes = {}
+	local span = rows / 4
+	for i = 0, 3 do
+		local start = first_row + i * span
+		nodes[#nodes + 1] = {
+			name = "sym",
+			kind = "Function",
+			range = { start, 0, start + span, 0 },
+			children = depth > 1 and build_level(depth - 1, start, span) or {},
+		}
+	end
+	return nodes
+end
+local tree = build_level(6, 0, 4 ^ 7)
+local probe_row = 4 ^ 7 / 3
+local find_us = bench(function()
+	lsp.find(tree, probe_row, 0)
+end)
+print(string.format("Beast breadcrumb (find) %.2f µs/lookup  (mean of %d×%d)", find_us, RUNS, RENDERS_PER_RUN))
+
+-- Render with a 5-symbol trail (source excluded): segment building + truncation
+local filepath = require("beast.libs.breadcrumb.filepath")
+local ctx = { bufnr = vim.api.nvim_get_current_buf(), bufname = vim.fn.getcwd() .. "/" .. test_file, width = 80 }
+local trail = {}
+for i = 1, 5 do
+	trail[i] = { name = "symbol_" .. i, kind = "Function" }
+end
+local trail_us = bench(function()
+	filepath.render(ctx, "  ", "", trail)
+end)
+print(string.format("Beast breadcrumb (trail render) %.2f µs/render  (mean of %d×%d)", trail_us, RUNS, RENDERS_PER_RUN))
+
 -- Use cold render for the primary metric (worst case)
 local primary_us = cold_us
 
@@ -136,7 +173,21 @@ local primary_us = cold_us
 -- Summary line + exit code
 -- =========================================================================
 
-print(string.format("BENCH name=breadcrumb cold=%.2fus hot=%.2fus threshold=%dus", cold_us, hot_us, FAIL_THRESHOLD_US))
+print(
+	string.format(
+		"BENCH name=breadcrumb cold=%.2fus hot=%.2fus find=%.2fus trail=%.2fus threshold=%dus",
+		cold_us,
+		hot_us,
+		find_us,
+		trail_us,
+		FAIL_THRESHOLD_US
+	)
+)
+
+if math.max(primary_us, find_us, trail_us) > FAIL_THRESHOLD_US then
+	io.stderr:write(string.format("FAIL: find %.2f µs / trail render %.2f µs over %d µs\n", find_us, trail_us, FAIL_THRESHOLD_US))
+	os.exit(1)
+end
 
 if primary_us > FAIL_THRESHOLD_US then
 	io.stderr:write(string.format("FAIL: %.2f µs > %d µs threshold\n", primary_us, FAIL_THRESHOLD_US))
