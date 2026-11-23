@@ -24,7 +24,7 @@ function M.check()
 	-- =========================================================================
 	health.start("beast.libs.breadcrumb — modules")
 
-	local submodules = { "config", "context", "filepath", "highlights" }
+	local submodules = { "config", "context", "filepath", "highlights", "symbols", "symbols.kinds", "symbols.lsp", "symbols.treesitter" }
 	local missing_sub = {}
 	for _, name in ipairs(submodules) do
 		local ok, err = pcall(require, "beast.libs.breadcrumb." .. name)
@@ -33,7 +33,7 @@ function M.check()
 		end
 	end
 	if #missing_sub == 0 then
-		health.ok("All submodules load (config, context, filepath, highlights)")
+		health.ok("All submodules load (" .. table.concat(submodules, ", ") .. ")")
 	else
 		health.error("Failed submodules: " .. table.concat(missing_sub, "; "))
 		return
@@ -143,7 +143,17 @@ function M.check()
 	-- =========================================================================
 	health.start("beast.libs.breadcrumb — highlights")
 
-	local expected_hls = { "BeastBcFile", "BeastBcDir", "BeastBcSep", "BeastBcModified" }
+	local expected_hls = {
+		"BeastBcFile",
+		"BeastBcDir",
+		"BeastBcSep",
+		"BeastBcModified",
+		"BeastBcSymbol",
+		"BeastBcSymCallable",
+		"BeastBcSymType",
+		"BeastBcSymModule",
+		"BeastBcSymValue",
+	}
 	local missing_hls = {}
 	for _, name in ipairs(expected_hls) do
 		local hl = vim.api.nvim_get_hl(0, { name = name, link = false })
@@ -158,6 +168,38 @@ function M.check()
 	end
 
 	-- =========================================================================
+	-- Symbol trail (current buffer)
+	-- =========================================================================
+	health.start("beast.libs.breadcrumb — symbol trail")
+
+	if not (config_ok and config.symbols) then
+		health.info("symbols = false: symbol trail disabled")
+	else
+		local reported = 0
+		for _, win in ipairs(vim.api.nvim_list_wins()) do
+			if vim.wo[win].winbar == WINBAR_EXPR then
+				reported = reported + 1
+				local buf = vim.api.nvim_win_get_buf(win)
+				local ft = vim.bo[buf].filetype
+				local servers = vim.lsp.get_clients({ bufnr = buf, method = "textDocument/documentSymbol" })
+				if #servers > 0 then
+					local names = vim.tbl_map(function(c)
+						return c.name
+					end, servers)
+					health.ok(string.format("%s: language server (%s)", ft, table.concat(names, ", ")))
+				elseif require("beast.libs.breadcrumb.symbols.treesitter").trail(buf, 0, 0) then
+					health.ok(string.format("%s: syntax tree", ft))
+				else
+					health.info(string.format("%s: no symbol source (path only)", ft))
+				end
+			end
+		end
+		if reported == 0 then
+			health.info("No window with a breadcrumb open to report a symbol source")
+		end
+	end
+
+	-- =========================================================================
 	-- Configuration
 	-- =========================================================================
 	health.start("beast.libs.breadcrumb — configuration")
@@ -165,6 +207,7 @@ function M.check()
 	if config_ok then
 		health.info(string.format("separator = %q", config.separator))
 		health.info(string.format("modified_icon = %q", config.modified_icon))
+		health.info(string.format("symbols = %s", tostring(config.symbols)))
 		local ft_count = vim.tbl_count(config.ignored_filetypes or {})
 		local bt_count = vim.tbl_count(config.ignored_buftypes or {})
 		health.info(string.format("ignored: %d filetypes, %d buftypes", ft_count, bt_count))
