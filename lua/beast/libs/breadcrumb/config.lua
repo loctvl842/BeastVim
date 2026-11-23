@@ -29,6 +29,9 @@ local defaults = {
 
 	-- Modified indicator
 	modified_icon = "",
+
+	-- Show the chain of symbols (class > method > ...) at the cursor after the file name
+	symbols = true,
 }
 
 ---@type Beast.Breadcrumb.Config
