@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dev Spec: Breadcrumb Symbol Trail</title>
+<style>
+  :root { --bg:#fbfaf7; --fg:#1c1b19; --muted:#6b675f; --line:#dcd8cf; --card:#fff; --accent:#b4540a; --new:#2f7d4f; --mod:#2c6aa8; --hi:#fdf3e6; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#161513; --fg:#ece8df; --muted:#a29d92; --line:#3a3732; --card:#1f1d1a; --accent:#e08a3c; --new:#7fcf9c; --mod:#7fb2e6; --hi:#2a2118; }
+  }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, sans-serif; }
+  main { max-width:900px; margin:0 auto; padding:24px 16px 80px; }
+  section { margin:36px 0; }
+  h1 { margin:0 0 8px; font-size:28px; } h2 { margin:0 0 12px; font-size:20px; } h3 { margin:0 0 6px; font-size:16px; }
+  p { margin:8px 0; } .muted { color:var(--muted); font-size:14px; } .tag { font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
+  code { font:13px ui-monospace, Menlo, monospace; background:var(--card); border:1px solid var(--line); border-radius:4px; padding:0 4px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin:12px 0; }
+  .tldr { background:var(--hi); border-left:3px solid var(--accent); padding:10px 14px; border-radius:4px; }
+  svg { width:100%; height:auto; color:var(--fg); }
+  svg text { fill:currentColor; font:12px ui-monospace, Menlo, monospace; }
+  svg .box { fill:var(--card); stroke:var(--line); stroke-width:1.2; } svg .hot { fill:var(--hi); stroke:var(--accent); stroke-width:1.4; }
+  svg .arrow { stroke:var(--muted); stroke-width:1.3; fill:none; } svg .dash { stroke-dasharray:4 3; }
+  .tablewrap { overflow-x:auto; } table { border-collapse:collapse; width:100%; font-size:14px; }
+  th, td { text-align:left; border-bottom:1px solid var(--line); padding:6px 8px; vertical-align:top; } th { color:var(--muted); font-weight:600; }
+  .new { color:var(--new); font-weight:600; } .modf { color:var(--mod); font-weight:600; }
+  .rec { background:var(--hi); }
+  .phase h3 { display:flex; gap:8px; flex-wrap:wrap; align-items:baseline; }
+  .risk { font-size:12px; border:1px solid var(--line); border-radius:99px; padding:0 8px; color:var(--muted); }
+  .risk.hi { color:var(--accent); border-color:var(--accent); }
+  ol, ul { padding-left:20px; } li { margin:6px 0; }
+  ul.check { list-style:none; padding-left:0; } ul.check li::before { content:"\2610  "; color:var(--muted); }
+</style>
+</head>
+<body>
+<main>
+
+<header data-spec="summary">
+  <p class="tag">Dev spec / breadcrumb</p>
+  <h1>Symbol Trail</h1>
+  <p class="muted">PM spec: <code>docs/pm-specs/breadcrumb-symbol-trail.md</code></p>
+  <div class="tldr"><strong>TL;DR:</strong> add a <code>symbols/</code> submodule to the breadcrumb lib. It returns the chain of <code>{name, kind}</code> at a window's cursor, from LSP <code>documentSymbol</code> when a server answers, else from a treesitter ancestor walk. <code>filepath.lua</code> renders it with kind icons and a new truncation order. No new plugin, no new global, one new config key: <code>symbols</code>.</div>
+</header>
+
+<section data-spec="context">
+  <h2>What is missing in the code</h2>
+  <ul>
+    <li><code>filepath.render</code> draws path + file + marker only. The "code context" in <code>breadcrumb-init</code> was never built.</li>
+    <li>Nothing in the repo requests <code>documentSymbol</code>.</li>
+    <li>The cache reacts to buffer / name / modified only, never to cursor movement.</li>
+    <li>Truncation only knows about directories.</li>
+  </ul>
+</section>
+
+<section data-spec="flow">
+  <h2>How it works</h2>
+  <svg viewBox="0 0 860 330" role="img" aria-label="Symbol trail data flow">
+    <title>Symbol trail data flow</title>
+    <!-- events -->
+    <g id="n-events"><title>Refresh triggers</title>
+      <rect class="box" x="10" y="20" width="200" height="86" rx="8"/>
+      <text x="22" y="42">LspAttach (Lsp.on_attach)</text>
+      <text x="22" y="60">LspProgress end</text>
+      <text x="22" y="78">TextChanged / InsertLeave</text>
+      <text x="22" y="96">LspDetach / FileType</text>
+    </g>
+    <g id="n-cursor"><title>Cursor events</title>
+      <rect class="box" x="10" y="150" width="200" height="60" rx="8"/>
+      <text x="22" y="174">CursorMoved(I)</text>
+      <text x="22" y="194">60 ms quiet timer</text>
+    </g>
+    <g id="n-store"><title>LSP store</title>
+      <rect class="box" x="300" y="20" width="220" height="86" rx="8"/>
+      <text x="312" y="42">symbols/lsp.lua</text>
+      <text x="312" y="62">buf_request_all(documentSymbol)</text>
+      <text x="312" y="80">per-buffer tree + seq</text>
+      <text x="312" y="98">keeps old tree on refresh</text>
+    </g>
+    <g id="n-cache"><title>Window cache</title>
+      <rect class="box" x="300" y="150" width="220" height="60" rx="8"/>
+      <text x="312" y="174">init.lua cache[winid]</text>
+      <text x="312" y="194">invalidate_win / invalidate_buf</text>
+    </g>
+    <g id="n-trail"><title>trail()</title>
+      <rect class="hot" x="610" y="20" width="240" height="86" rx="8"/>
+      <text x="622" y="42">symbols/init.lua trail()</text>
+      <text x="622" y="62">1. LSP tree non-empty? use it</text>
+      <text x="622" y="80">2. else symbols/treesitter.lua</text>
+      <text x="622" y="98">3. else {}  (never mixed)</text>
+    </g>
+    <g id="n-render"><title>render</title>
+      <rect class="hot" x="610" y="150" width="240" height="60" rx="8"/>
+      <text x="622" y="174">filepath.render(..., symbols)</text>
+      <text x="622" y="194">dirs, file, symbols, marker</text>
+    </g>
+    <g id="n-winbar"><title>winbar</title>
+      <rect class="box" x="300" y="260" width="550" height="48" rx="8"/>
+      <text x="312" y="288">winbar:  init.lua  M  setup  ensure_autocmds ●</text>
+    </g>
+    <path class="arrow" d="M210 63 H300" marker-end="url(#a)"/>
+    <path class="arrow" d="M520 63 H610" marker-end="url(#a)"/>
+    <path class="arrow dash" d="M410 106 V150" marker-end="url(#a)"/><text x="418" y="132">on_change</text>
+    <path class="arrow" d="M210 180 H300" marker-end="url(#a)"/>
+    <path class="arrow" d="M520 180 H610" marker-end="url(#a)"/><text x="528" y="172">miss</text>
+    <path class="arrow dash" d="M730 106 V150" marker-end="url(#a)"/>
+    <path class="arrow" d="M730 210 V260" marker-end="url(#a)"/>
+    <defs><marker id="a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="currentColor"/></marker></defs>
+  </svg>
+  <p class="muted">Cache hit returns the stored string, so moving the cursor never recomputes anything until it has been still for 60 ms.</p>
+</section>
+
+<section data-spec="research">
+  <h2>Research</h2>
+  <div class="card">
+    <h3>Searched / found</h3>
+    <ul>
+      <li>No existing <code>documentSymbol</code> consumer. One precedent for the request shape: <code>finder/source/lsp.lua</code> (<code>buf_request_all</code>).</li>
+      <li><code>Icon.kinds</code> already has every LSP symbol kind name.</li>
+      <li><code>Lsp.on_attach</code> exists and runs after per-server handlers.</li>
+      <li>Treesitter <code>context.scm</code> has header ranges only (no names/kinds). <code>locals.scm</code> is on 14 languages and gives identifiers, not ranges. So the fallback needs its own tiny per-language node table.</li>
+    </ul>
+    <p><strong>Decision: Reuse + Build.</strong> Reuse platform APIs and breadcrumb scaffolding; build store, kind table, node table, render changes. nvim-navic is not used.</p>
+  </div>
+</section>
+
+<section data-spec="design-decisions">
+  <h2>Design decisions</h2>
+  <div class="tablewrap"><table>
+    <tr><th>Question</th><th>Choice</th><th>Why</th></tr>
+    <tr class="rec"><td>Symbol shape</td><td>Normalize both LSP forms to one tree <code>{name, kind, range, children}</code></td><td>One input type for lookup and tests</td></tr>
+    <tr class="rec"><td>Which client</td><td><code>buf_request_all</code>; first non-empty result in client order</td><td>Matches finder; no picking by name</td></tr>
+    <tr class="rec"><td>Source per buffer</td><td>LSP if tree non-empty, else treesitter, else none; whole trail from one source</td><td>PM: server wins, never mix</td></tr>
+    <tr class="rec"><td>Cursor tracking</td><td>Debounced <code>CursorMoved(I)</code> invalidates that window's cache entry</td><td>Cache-hit path untouched while moving</td></tr>
+    <tr class="rec"><td>Debounce</td><td>One shared timer, 60 ms, restarted per event, flushes a dirty-window set</td><td>Holding <code>j</code> recomputes nothing until release</td></tr>
+    <tr class="rec"><td>Stale tree</td><td>Keep last tree; apply a reply only if its sequence number is newest</td><td>No blanking, no out-of-order regressions</td></tr>
+    <tr class="rec"><td>Treesitter data</td><td>Per-language table: node type to kind + name field</td><td>No query files to ship or download</td></tr>
+  </table></div>
+  <p class="muted">Rows are recommended choices. Annotate any you want changed.</p>
+</section>
+
+<section data-spec="architecture-changes">
+  <h2>Files</h2>
+  <div class="tablewrap"><table>
+    <tr><th>Path (under <code>lua/beast/libs/breadcrumb/</code> unless noted)</th><th></th><th>What</th></tr>
+    <tr><td><code>config.lua</code></td><td class="modf">modified</td><td><code>symbols = true</code></td></tr>
+    <tr><td><code>highlights.lua</code></td><td class="modf">modified</td><td><code>BeastBcSymbol</code> + 4 icon-family groups</td></tr>
+    <tr><td><code>filepath.lua</code></td><td class="modf">modified</td><td>render symbols, new truncation order, marker last</td></tr>
+    <tr><td><code>symbols/kinds.lua</code></td><td class="new">new</td><td>SymbolKind number to icon key, key to color family</td></tr>
+    <tr><td><code>symbols/lsp.lua</code></td><td class="new">new</td><td>store, request, normalize, <code>find</code></td></tr>
+    <tr><td><code>symbols/treesitter.lua</code></td><td class="new">new</td><td>ancestor walk + per-language node table</td></tr>
+    <tr><td><code>symbols/init.lua</code></td><td class="new">new</td><td><code>trail(bufnr, winid)</code> source selection</td></tr>
+    <tr><td><code>init.lua</code></td><td class="modf">modified</td><td>call trail on miss, new autocmds, debounce timer</td></tr>
+    <tr><td><code>health.lua</code></td><td class="modf">modified</td><td>new submodules, per-buffer source report</td></tr>
+    <tr><td><code>scripts/bench-breadcrumb.lua</code></td><td class="modf">modified</td><td>trail lookup + render-with-trail cases</td></tr>
+    <tr><td><code>tests/test-breadcrumb-symbols.lua</code></td><td class="new">new</td><td>render, lookup, normalization, treesitter fixtures</td></tr>
+    <tr><td><code>docs/CODEMAP/libraries.md</code></td><td class="modf">regenerate</td><td>via <code>/update-codemap</code>, not by hand</td></tr>
+  </table></div>
+</section>
+
+<section data-spec="phases">
+  <h2>Phases</h2>
+
+  <div class="card phase" data-spec="phase-1">
+    <h3>Phase 1: Render a trail <span class="risk">risk: medium</span></h3>
+    <p><strong>Goal:</strong> given a symbol list, the bar renders and truncates correctly. Nothing supplies symbols yet, so the bar is unchanged.</p>
+    <ol>
+      <li data-spec="phase-1-step-1"><code>config.lua</code>: <code>symbols = true</code>.</li>
+      <li data-spec="phase-1-step-2"><code>symbols/kinds.lua</code>: kind number to <code>Icon.kinds</code> key; families Callable / Type / Module / Value.</li>
+      <li data-spec="phase-1-step-3"><code>highlights.lua</code>: <code>Symbol</code>, <code>SymCallable</code>, <code>SymType</code>, <code>SymModule</code>, <code>SymValue</code> from the treesitter palette.</li>
+      <li data-spec="phase-1-step-4"><code>filepath.lua</code>: new signature, symbol segments, one shared <code>drop_left</code> helper (dirs first, then symbols, innermost kept, <code>...</code> after file), marker appended last. Output with no symbols must match today's.</li>
+      <li data-spec="phase-1-step-5"><code>tests/test-breadcrumb-symbols.lua</code>: truncation stages, marker position, no-symbol parity; visual check in light and dark.</li>
+    </ol>
+    <p class="muted">Depends on: none.</p>
+  </div>
+
+  <div class="card phase" data-spec="phase-2">
+    <h3>Phase 2: LSP source <span class="risk hi">risk: high</span></h3>
+    <p><strong>Goal:</strong> language-server files get a live trail; others unchanged.</p>
+    <ol>
+      <li data-spec="phase-2-step-1"><code>symbols/lsp.lua</code>: per-buffer <code>{tree, seq}</code>, <code>refresh</code>, normalize both response shapes, <code>find(tree, row, col)</code>, <code>clear</code>. Empty or errored reply keeps the old tree.</li>
+      <li data-spec="phase-2-step-2"><code>symbols/init.lua</code>: <code>trail(bufnr, winid)</code> using the window's own cursor.</li>
+      <li data-spec="phase-2-step-3"><code>init.lua</code>: call trail on cache miss; <code>Lsp.on_attach</code>, <code>LspDetach</code>, <code>LspProgress</code> end, <code>TextChanged</code>, <code>InsertLeave</code>, <code>BufDelete</code>; 60 ms cursor timer; all inside the existing augroup; skipped when <code>symbols = false</code>; <code>setup()</code> resets the timer.</li>
+      <li data-spec="phase-2-step-4">Tests: lookup (nested, siblings, header line, between, outside), normalization, out-of-order replies, empty reply.</li>
+    </ol>
+    <p class="muted">Depends on: Phase 1 step 2. Risk is event ordering, timer lifetime, redraw storms.</p>
+  </div>
+
+  <div class="card phase" data-spec="phase-3">
+    <h3>Phase 3: Treesitter fallback <span class="risk">risk: medium</span></h3>
+    <p><strong>Goal:</strong> files with a parser but no server get a trail with the same look.</p>
+    <ol>
+      <li data-spec="phase-3-step-1"><code>symbols/treesitter.lua</code>: <code>get_node</code> + <code>:parent()</code> walk; v1 languages: lua, python, javascript, typescript, tsx, c, cpp, go, rust, markdown. Node names verified against installed parsers by tests.</li>
+      <li data-spec="phase-3-step-2"><code>symbols/init.lua</code>: fall back when the LSP tree is empty; never concatenate.</li>
+      <li data-spec="phase-3-step-3"><code>init.lua</code>: add <code>FileType</code> to buffer invalidation; edits invalidate when treesitter is the active source.</li>
+      <li data-spec="phase-3-step-4">Fixtures per language; uninstalled parser prints <code>SKIP</code>. Markdown fixture has a fenced block; Lua fixture has an anonymous callback.</li>
+    </ol>
+    <p class="muted">Depends on: Phase 1 step 2.</p>
+  </div>
+
+  <div class="card phase" data-spec="phase-4">
+    <h3>Phase 4: Health, bench, docs <span class="risk">risk: low</span></h3>
+    <ol>
+      <li data-spec="phase-4-step-1"><code>health.lua</code>: load checks, symbols toggle, LSP clients with <code>documentSymbol</code>, treesitter coverage for the filetype.</li>
+      <li data-spec="phase-4-step-2"><code>bench-breadcrumb.lua</code>: <code>find</code> on 5k symbols depth 6; cache-miss render with a 5-symbol trail; cache-hit must not regress.</li>
+      <li data-spec="phase-4-step-3">Codemap via <code>/update-codemap</code>. No hand edits, no <code>CHANGELOG.md</code>.</li>
+    </ol>
+    <p class="muted">Depends on: Phases 2-3.</p>
+  </div>
+</section>
+
+<section data-spec="testing-strategy">
+  <h2>Testing strategy</h2>
+  <ul>
+    <li><strong>Headless:</strong> <code>nvim --clean --headless -l tests/test-breadcrumb-symbols.lua</code></li>
+    <li><strong>Bench (mandatory):</strong> <code>bench-breadcrumb.lua</code>, <code>bench-startup.sh</code>, and <code>bench-ux.sh all</code> because new cursor autocmds touch input-to-paint latency.</li>
+    <li><strong>Types:</strong> <code>lua-language-server --check</code> at Warning level.</li>
+    <li><strong>Manual E2E</strong> (real editor, <code>NVIM_APPNAME=BeastVim</code>, via tmux), one pass per PM scenario: walk a file, cold-start on a big file, type/add/rename, <code>:vsplit</code>, shrink the window, <code>symbols = false</code>, markdown vs plain text, hold <code>j</code>. Check every state pixel by pixel in light and dark.</li>
+  </ul>
+</section>
+
+<section data-spec="success-criteria">
+  <h2>Success criteria</h2>
+  <ul class="check">
+    <li>Cursor in a function / method / class shows its name with a kind icon after the file name.</li>
+    <li>Nested symbols show outermost first; outside any symbol shows file only.</li>
+    <li>Two windows on one file show independent trails.</li>
+    <li>Trail appears by itself once a slow server is ready; typing never blanks it.</li>
+    <li>Truncation order: dirs, then outer symbols; file, innermost symbol and marker kept; marker last.</li>
+    <li>No server but a known language: same-look trail. Server wins when both exist; sources never mix.</li>
+    <li>Plain text and unknown languages look as today.</li>
+    <li><code>symbols = false</code> restores today's bar and issues no <code>documentSymbol</code> request.</li>
+    <li>No stutter holding <code>j</code> / <code>k</code>.</li>
+    <li>Gates: new test passes, breadcrumb bench passes with cache-hit time unchanged, <code>bench-ux.sh all</code> no regression, type check clean, no <code>vim.notify</code>, no lib keymaps.</li>
+  </ul>
+</section>
+
+</main>
+</body>
+</html>

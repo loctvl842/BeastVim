@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spec: Breadcrumb Symbol Trail</title>
+<style>
+  :root { --bg:#fbfaf7; --fg:#1c1b19; --muted:#6b675f; --line:#dcd8cf; --card:#fff; --accent:#b4540a;
+          --bar:#f1eee6; --dir:#8a857a; --file:#4a463f; --sym:#2f2c27; --fn:#2f7d4f; --ty:#a0561a; --mod:#2c6aa8; --val:#7a4fa3; --mark:#c2410c; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#161513; --fg:#ece8df; --muted:#a29d92; --line:#3a3732; --card:#1f1d1a; --accent:#e08a3c;
+            --bar:#272521; --dir:#8d887d; --file:#c9c4b8; --sym:#e4e0d6; --fn:#7fcf9c; --ty:#e5a263; --mod:#7fb2e6; --val:#b99be0; --mark:#f08a55; }
+  }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, sans-serif; }
+  main { max-width:880px; margin:0 auto; padding:24px 16px 80px; }
+  section { margin:36px 0; }
+  h1 { margin:0 0 8px; font-size:28px; } h2 { margin:0 0 12px; font-size:20px; } h3 { margin:18px 0 6px; font-size:15px; }
+  p { margin:8px 0; } .muted { color:var(--muted); font-size:14px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin:12px 0; }
+  .bar { font:14px/1.4 ui-monospace, Menlo, monospace; background:var(--bar); border:1px solid var(--line); border-radius:6px;
+         padding:6px 10px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; margin:8px 0; }
+  .d { color:var(--dir); } .f { color:var(--file); } .s { color:var(--sym); } .sep { color:var(--dir); opacity:.7; } .m { color:var(--mark); }
+  .k { display:inline-block; min-width:1.4em; text-align:center; border-radius:4px; font-size:12px; margin-right:2px; }
+  .k.fn { color:var(--fn); } .k.ty { color:var(--ty); } .k.mod { color:var(--mod); } .k.val { color:var(--val); }
+  .tag { font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
+  .pair { display:grid; gap:4px; }
+  details { border:1px solid var(--line); border-radius:10px; background:var(--card); margin:10px 0; padding:2px 14px; }
+  summary { cursor:pointer; padding:10px 0; font-weight:600; }
+  ol.steps { padding-left:20px; } ol.steps li { margin:10px 0; }
+  ul { padding-left:20px; } li { margin:4px 0; }
+  .callout { border-left:3px solid var(--accent); padding:4px 12px; margin:12px 0; background:var(--card); }
+  ul.check { list-style:none; padding-left:0; } ul.check li::before { content:"\2610  "; color:var(--muted); }
+</style>
+</head>
+<body>
+<main>
+
+<header data-spec="summary">
+  <p class="tag">PM spec / breadcrumb</p>
+  <h1>Symbol Trail</h1>
+  <p>The breadcrumb bar learns to show <em>where inside the file</em> the cursor is: the chain of symbols that contain it, each with a kind icon, right after the file name. Built in, replaces nvim-navic, and also works without a language server.</p>
+  <div class="bar" aria-label="example winbar"><span class="d">lua</span> <span class="sep">&rsaquo;</span> <span class="d">beast</span> <span class="sep">&rsaquo;</span> <span class="d">libs</span> <span class="sep">&rsaquo;</span> <span class="d">breadcrumb</span> <span class="sep">&rsaquo;</span> <span class="f">init.lua</span> <span class="sep">&rsaquo;</span> <span class="s"><span class="k mod">M</span>M</span> <span class="sep">&rsaquo;</span> <span class="s"><span class="k fn">ƒ</span>setup</span> <span class="sep">&rsaquo;</span> <span class="s"><span class="k fn">ƒ</span>ensure_autocmds</span></div>
+  <p class="muted">Panels use letter badges for kind icons; the real bar uses the same icons as the completion menu.</p>
+</header>
+
+<section data-spec="problem">
+  <h2>Problem</h2>
+  <p>The bar stops at the file name. The earlier breadcrumb spec promised "code context" after the file, but nothing is drawn there. In a 600-line file, once a function header scrolls off screen, there is no cue for which function, method or class the cursor is in.</p>
+  <p data-spec="why-now"><strong>Why now:</strong> the bar, its per-window behavior and its colors already exist, and the slot after the file name is empty. Filling it closes the gap with nvim-navic without a plugin or a second winbar owner.</p>
+</section>
+
+<section data-spec="target-behavior">
+  <h2>Target behavior</h2>
+
+  <div class="card" data-spec="state-1">
+    <h3>State 1 - cursor inside a nested function</h3>
+    <div class="bar"><span class="d">lua</span> <span class="sep">&rsaquo;</span> <span class="d">beast</span> <span class="sep">&rsaquo;</span> <span class="f">init.lua</span> <span class="sep">&rsaquo;</span> <span class="s"><span class="k mod">M</span>M</span> <span class="sep">&rsaquo;</span> <span class="s"><span class="k fn">ƒ</span>setup</span> <span class="sep">&rsaquo;</span> <span class="s"><span class="k fn">ƒ</span>ensure_autocmds</span></div>
+    <p class="muted">Directories and file look as today. Each symbol is icon + name, joined by the same separator. Icon color follows the kind family; names are one calm color.</p>
+  </div>
+
+  <div class="card" data-spec="state-2">
+    <h3>State 2 - cursor outside any symbol</h3>
+    <div class="bar"><span class="d">lua</span> <span class="sep">&rsaquo;</span> <span class="d">beast</span> <span class="sep">&rsaquo;</span> <span class="f">init.lua</span></div>
+  </div>
+
+  <div class="card" data-spec="state-3">
+    <h3>State 3 - cursor moves to a different method</h3>
+    <div class="pair">
+      <div class="bar"><span class="tag">before</span> &nbsp;<span class="f">init.lua</span> <span class="sep">&rsaquo;</span> <span class="s"><span class="k ty">C</span>Server</span> <span class="sep">&rsaquo;</span> <span class="s"><span class="k fn">ƒ</span>start</span></div>
+      <div class="bar"><span class="tag">after</span> &nbsp;&nbsp;<span class="f">init.lua</span> <span class="sep">&rsaquo;</span> <span class="s"><span class="k ty">C</span>Server</span> <span class="sep">&rsaquo;</span> <span class="s"><span class="k fn">ƒ</span>stop</span></div>
+    </div>
+  </div>
+
+  <div class="card" data-spec="state-4">
+    <h3>State 4 - narrow window</h3>
+    <div class="bar" style="max-width:340px"><span class="sep">&hellip;</span> <span class="sep">&rsaquo;</span> <span class="f">init.lua</span> <span class="sep">&rsaquo;</span> <span class="sep">&hellip;</span> <span class="sep">&rsaquo;</span> <span class="s"><span class="k fn">ƒ</span>ensure_autocmds</span></div>
+    <p class="muted">Outer directories go first, then outer symbols. File name and innermost symbol stay.</p>
+  </div>
+
+  <div class="card" data-spec="state-5">
+    <h3>State 5 - no language server</h3>
+    <div class="bar"><span class="d">docs</span> <span class="sep">&rsaquo;</span> <span class="f">guide.md</span> <span class="sep">&rsaquo;</span> <span class="s"><span class="k mod">#</span>Install</span> <span class="sep">&rsaquo;</span> <span class="s"><span class="k mod">#</span>Linux</span></div>
+    <p class="muted">Read from the file's structure (functions, classes, headings). Same look, same icons.</p>
+    <h3>State 5b - plain text / unknown language</h3>
+    <div class="bar"><span class="d">notes</span> <span class="sep">&rsaquo;</span> <span class="f">todo.txt</span></div>
+    <p class="muted">Same as today. No placeholder, spinner or error.</p>
+  </div>
+
+  <div class="card" data-spec="state-6">
+    <h3>State 6 - unsaved changes with a trail</h3>
+    <div class="bar"><span class="f">init.lua</span> <span class="sep">&rsaquo;</span> <span class="s"><span class="k mod">M</span>M</span> <span class="sep">&rsaquo;</span> <span class="s"><span class="k fn">ƒ</span>setup</span> <span class="m">&#9679;</span></div>
+    <p class="muted">The modified marker moves to the very end, after the last symbol.</p>
+  </div>
+</section>
+
+<section data-spec="scenarios">
+  <h2>Scenarios</h2>
+
+  <details open data-spec="scenario-1"><summary>1 - Walking through a file</summary>
+    <ol class="steps">
+      <li>Open a Lua file with a language server; cursor on line 1. <em>Path and file only.</em></li>
+      <li>Move into <code>M.setup</code>. <em>Trail: init.lua &rsaquo; M &rsaquo; setup.</em></li>
+      <li>Move into a callback inside <code>setup</code>. <em>Trail extends: ... &rsaquo; setup &rsaquo; callback.</em></li>
+      <li>Move below the end of <code>M.setup</code>. <em>Trail shrinks to what still contains the cursor.</em></li>
+    </ol>
+  </details>
+
+  <details data-spec="scenario-2"><summary>2 - Language server still starting</summary>
+    <ol class="steps">
+      <li>Open a file before the server answers. <em>Path and file only.</em></li>
+      <li>Server finishes loading. <em>Trail appears by itself, no keypress needed.</em></li>
+    </ol>
+  </details>
+
+  <details data-spec="scenario-3"><summary>3 - Editing while a trail is shown</summary>
+    <ol class="steps">
+      <li>Type inside <code>setup</code>. <em>Trail stays, never blinks or blanks.</em></li>
+      <li>Add a new function above, then pause. <em>Shortly after, trail reflects the new structure.</em></li>
+      <li>Rename the function you are in. <em>Once the server catches up, the new name shows.</em></li>
+    </ol>
+  </details>
+
+  <details data-spec="scenario-4"><summary>4 - Two splits on the same file</summary>
+    <ol class="steps">
+      <li>Split the window; both show <code>init.lua</code>. <em>Same trail in both.</em></li>
+      <li>Move the cursor in the left split only. <em>Left trail changes; right trail still matches its own cursor, though unfocused.</em></li>
+    </ol>
+  </details>
+
+  <details data-spec="scenario-5"><summary>5 - Window too narrow</summary>
+    <ol class="steps">
+      <li>Wide window. <em>Full path, file and all symbols.</em></li>
+      <li>Narrow it. <em>Outer directories become "&hellip;" first, then outer symbols. File name and innermost symbol always kept.</em></li>
+    </ol>
+  </details>
+
+  <details data-spec="scenario-6"><summary>6 - Turning it off</summary>
+    <ol class="steps">
+      <li>Set the symbol trail to off in config. <em>Bar behaves exactly as before; no symbol requests are made.</em></li>
+    </ol>
+  </details>
+
+  <details data-spec="scenario-7"><summary>7 - No language server</summary>
+    <ol class="steps">
+      <li>Open a markdown file with no server. <em>Trail shows headings from the file's structure.</em></li>
+      <li>A server attaches later. <em>Trail switches to the server's symbols without a blink.</em></li>
+      <li>Open plain text. <em>Path and file only; nothing reported.</em></li>
+    </ol>
+  </details>
+</section>
+
+<section data-spec="behavior-rules">
+  <h2>Behavior rules</h2>
+  <ul>
+    <li>The trail is the chain of symbols whose range contains the cursor, outermost first.</li>
+    <li>A cursor on a symbol's own header line counts as inside it. Outside every symbol, nothing is shown.</li>
+    <li>Each window shows the trail for its own cursor, including unfocused windows.</li>
+    <li>Symbols come from the language server when it provides them; otherwise from the file's structure when the language is understood; otherwise path only.</li>
+    <li>The server wins whenever both exist, so the two sources never mix.</li>
+    <li>A symbol with an empty name is skipped; its children still show.</li>
+    <li>Updates happen when the cursor stops moving, so holding <code>j</code> stays smooth.</li>
+    <li>While the server re-reads after an edit, the previous trail is kept rather than blanked.</li>
+    <li>Truncation order: outer directories, then outer symbols. File name, innermost symbol and modified marker are never dropped.</li>
+    <li>Hidden wherever the bar is hidden today. Fully switchable off.</li>
+  </ul>
+</section>
+
+<section data-spec="success-criteria">
+  <h2>Success criteria</h2>
+  <ul class="check">
+    <li>Moving into a function, method or class shows its name with a kind icon after the file name.</li>
+    <li>Nested symbols show as an ordered chain, outermost first.</li>
+    <li>Outside any symbol, only path and file name show.</li>
+    <li>Two windows on one file show independent trails.</li>
+    <li>The trail appears by itself once a slow server finishes starting.</li>
+    <li>Typing never blanks the trail; it refreshes shortly after typing pauses.</li>
+    <li>Narrow windows keep the file name and innermost symbol visible.</li>
+    <li>Files with no server but a known language still show a trail, same look.</li>
+    <li>Plain text and unknown languages look exactly as today.</li>
+    <li>Turning the feature off restores today's bar and stops symbol requests.</li>
+    <li>Holding <code>j</code> or <code>k</code> through a large file shows no stutter.</li>
+  </ul>
+</section>
+
+<section data-spec="out-of-scope">
+  <h2>Out of scope</h2>
+  <ul>
+    <li>Clickable segments and "jump to symbol" menus (separate feature).</li>
+    <li>Filtering symbol kinds and a max-depth setting; width truncation covers long trails for now.</li>
+    <li>Exposing the trail to other bars such as the statusline.</li>
+  </ul>
+</section>
+
+</main>
+</body>
+</html>
