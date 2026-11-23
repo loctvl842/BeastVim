@@ -7,6 +7,11 @@ function M.get()
 		Sep = { fg = p.dimmed3 },
 		File = { fg = p.dimmed2 },
 		Modified = { fg = p.accent3 },
+		Symbol = { fg = p.dimmed2 },
+		SymCallable = { fg = p.accent4 },
+		SymType = { fg = p.accent5 },
+		SymModule = { fg = p.accent2 },
+		SymValue = { fg = p.accent6 },
 	})
 	out.WinBar = { bg = p.background }
 	out.WinBarNC = { bg = p.background }
