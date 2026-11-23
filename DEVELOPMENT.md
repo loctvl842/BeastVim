@@ -8,6 +8,7 @@ A reference for benchmarking, profiling, and validating changes to BeastVim's li
 
 | Topic | File |
 |---|---|
+| Writing and running specs (`make test`) | [`docs/development/testing.md`](docs/development/testing.md) |
 | Bench contract, what each bench measures, workflow recipes | [`docs/development/benchmarking.md`](docs/development/benchmarking.md) |
 | wezterm UX harness deep-dive, leak diagnostic, git backend A/B | [`docs/development/bench-ux.md`](docs/development/bench-ux.md) |
 | When (and when not) to use `defer` on event triggers | [`docs/development/lazy-loading.md`](docs/development/lazy-loading.md) |
@@ -31,7 +32,8 @@ A reference for benchmarking, profiling, and validating changes to BeastVim's li
 # 1. Daily-ish: is startup still healthy?
 ./scripts/bench-startup.sh
 
-# 2. Before merging: do all component benches pass?
+# 2. Before merging: do the specs and component benches pass?
+make test
 for f in scripts/bench-*.lua; do
   nvim --clean --headless -l "$f" || echo "FAIL: $f"
 done
