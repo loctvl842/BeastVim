@@ -1,4 +1,5 @@
--- Fake WebSocket client shared by the review server tests.
+-- Fake WebSocket client shared by the review server specs (not a spec itself).
+-- Loaded inside the child Nvim: require("test.libs.review.ws_client").
 --
 -- Raw libuv TCP so the server is exercised exactly as a foreign client would:
 -- masked frames, hand-written upgrade request, byte-level reads.
