@@ -47,7 +47,7 @@ lua/beast/
 │   ├── animate.lua       ← shared animation engine (pure math, M.tween)
 │   ├── async.lua         ← cooperative coroutine scheduler (uv check loop)
 │   ├── autopairs/        ← native insert-mode autopairs (no plugin)
-│   ├── breadcrumb/       ← winbar breadcrumb (filepath + treesitter context)
+│   ├── breadcrumb/       ← winbar breadcrumb (filepath + symbol trail from LSP or treesitter)
 │   ├── confirm/          ← vim.fn.confirm drop-in (lazy via module trigger)
 │   ├── explorer/         ← file explorer (split panel + sticky headers + git)
 │   ├── finder/           ← fuzzy finder (files, buffers, grep, help, …)

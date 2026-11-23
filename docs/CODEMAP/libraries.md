@@ -275,24 +275,31 @@ Loaded via: `packer.lazy()` on VimEnter (deferred)
 
 ---
 
-## breadcrumb — Native `%!` Winbar Breadcrumb
+## breadcrumb - Native `%!` Winbar Breadcrumb + Symbol Trail
 
 ```
 breadcrumb/
-├── init.lua       ← setup(), render(), cache invalidation, winbar registration
-├── config.lua     ← separator, ignored filetypes/buftypes, modified marker
+├── init.lua       ← setup(), render(), cache invalidation, winbar registration, cursor/refresh debounce, LSP/edit autocmds
+├── config.lua     ← separator, ignored filetypes/buftypes, modified marker, symbols toggle
 ├── context.lua    ← per-render window context from g:statusline_winid
-├── filepath.lua   ← file path + icon + code-context string assembly
-├── highlights.lua ← BeastBc* groups + ColorScheme refresh hook
-└── health.lua     ← :checkhealth beast.libs.breadcrumb
+├── filepath.lua   ← path + icon + symbol trail assembly; truncation (dirs, then outer symbols); marker last
+├── highlights.lua ← BeastBc* groups (Dir/Sep/File/Modified/Symbol/Sym{Callable,Type,Module,Value})
+├── health.lua     ← :checkhealth beast.libs.breadcrumb (incl. symbol source per window)
+└── symbols/
+    ├── init.lua       ← trail(bufnr, winid): LSP first, else treesitter, else {} (never mixed); refresh/clear/on_change
+    ├── lsp.lua        ← per-buffer documentSymbol tree (seq-guarded, both response shapes), binary-search find, byte->server column
+    ├── treesitter.lua ← ancestor walk + per-language node table (lua, python, js/ts/tsx, c, cpp, markdown)
+    └── kinds.lua      ← SymbolKind number -> Icon.kinds key, key -> colour family
 ```
 
 API: `breadcrumb.setup(opts)`, `breadcrumb.render()`, `breadcrumb._invalidate()`
 Loaded via: `packer.lazy()` on `BufWinEnter` / `BufWritePost` (deferred)
 Type: native `%!` winbar; per-window cache; no View subclass
+Symbol trail: cursor settles 60 ms -> window cache entry invalidated; refresh requests debounced 300 ms (BufEnter, LspAttach/Detach/Progress end, TextChanged(I), InsertLeave, FileType). Config `symbols = false` registers none of it. No nvim-navic.
+Tests/bench: `tests/test-breadcrumb-symbols.lua`, `scripts/bench-breadcrumb.lua` (cold/hot/find/trail render)
 
 ### Dependencies
-- Internal: beast.libs.statusline.hlgroup, beast.libs.view (indirect via shared lib patterns), beast.util, beast.theme
+- Internal: beast.libs.statusline.hlgroup, beast.libs.view (indirect via shared lib patterns), beast.util, beast.theme, beast.icon (`Icon.kinds`)
 - Plugin: `nvim-web-devicons` (optional icon lookup)
 
 ### Highlights / Namespace
