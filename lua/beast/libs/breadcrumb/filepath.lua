@@ -2,6 +2,7 @@
 -- Stateless: receives context + config values, returns a statusline format string.
 
 local kinds = require("beast.libs.breadcrumb.symbols.kinds")
+local kind_icons = require("beast.icon").kinds
 
 local M = {}
 
@@ -60,7 +61,7 @@ end
 ---@param symbol Beast.Breadcrumb.Symbol
 ---@return Beast.Breadcrumb.Segment
 local function build_symbol_segment(symbol)
-	local icon = vim.trim(require("beast.icon").kinds[symbol.kind] or "")
+	local icon = vim.trim(kind_icons[symbol.kind] or "")
 	local fmt = "%#BeastBcSym" .. kinds.family(symbol.kind) .. "#" .. icon .. "%* %#BeastBcSymbol#" .. symbol.name .. "%*"
 	return {
 		text = symbol.name,
