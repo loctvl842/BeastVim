@@ -131,8 +131,8 @@
     <tr class="rec"><td>Which client</td><td><code>buf_request_all</code>; first non-empty result in client order</td><td>Matches finder; no picking by name</td></tr>
     <tr class="rec"><td>Source per buffer</td><td>LSP if tree non-empty, else treesitter, else none; whole trail from one source</td><td>PM: server wins, never mix</td></tr>
     <tr class="rec"><td>Cursor tracking</td><td>Debounced <code>CursorMoved(I)</code> invalidates that window's cache entry</td><td>Cache-hit path untouched while moving</td></tr>
-    <tr class="rec"><td>Debounce</td><td>One shared timer, 60 ms, restarted per event, flushes a dirty-window set</td><td>Holding <code>j</code> recomputes nothing until release</td></tr>
-    <tr class="rec"><td>Stale tree</td><td>Keep last tree; apply a reply only if its sequence number is newest</td><td>No blanking, no out-of-order regressions</td></tr>
+    <tr class="rec"><td>Debounce</td><td>Two timers: cursor 60 ms (dirty windows), refresh 300 ms (dirty buffers)</td><td>Holding <code>j</code> recomputes nothing until release; one request per typing pause</td></tr>
+    <tr class="rec"><td>Stale tree</td><td>Keep last tree on errors; a successful empty reply clears; apply only the newest reply</td><td>No blanking, no out-of-order regressions</td></tr>
     <tr class="rec"><td>Treesitter data</td><td>Per-language table: node type to kind + name field</td><td>No query files to ship or download</td></tr>
   </table></div>
   <p class="muted">Rows are recommended choices. Annotate any you want changed.</p>
@@ -179,7 +179,7 @@
     <ol>
       <li data-spec="phase-2-step-1"><code>symbols/lsp.lua</code>: per-buffer <code>{tree, seq}</code>, <code>refresh</code>, normalize both response shapes, <code>find(tree, row, col)</code>, <code>clear</code>. Empty or errored reply keeps the old tree.</li>
       <li data-spec="phase-2-step-2"><code>symbols/init.lua</code>: <code>trail(bufnr, winid)</code> using the window's own cursor.</li>
-      <li data-spec="phase-2-step-3"><code>init.lua</code>: call trail on cache miss; <code>Lsp.on_attach</code>, <code>LspDetach</code>, <code>LspProgress</code> end, <code>TextChanged</code>, <code>InsertLeave</code>, <code>BufDelete</code>; 60 ms cursor timer; all inside the existing augroup; skipped when <code>symbols = false</code>; <code>setup()</code> resets the timer.</li>
+      <li data-spec="phase-2-step-3"><code>init.lua</code>: call trail on cache miss; <code>LspAttach</code> autocmd (not <code>Lsp.on_attach</code>, which cannot be unsubscribed), <code>LspDetach</code>, <code>LspProgress</code> end, <code>TextChanged(I)</code>, <code>InsertLeave</code>, <code>BufEnter</code>, <code>BufDelete</code>; cursor (60 ms) and refresh (300 ms) timers; all inside the existing augroup; skipped when <code>symbols = false</code>; <code>setup()</code> resets the timer.</li>
       <li data-spec="phase-2-step-4">Tests: lookup (nested, siblings, header line, between, outside), normalization, out-of-order replies, empty reply.</li>
     </ol>
     <p class="muted">Depends on: Phase 1 step 2. Risk is event ordering, timer lifetime, redraw storms.</p>
