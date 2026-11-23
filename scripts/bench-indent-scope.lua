@@ -1,7 +1,7 @@
 -- =========================================================================
 -- Benchmark: BeastVim indent scope vs treesitter scope
 -- =========================================================================
--- Run as: nvim --clean --headless -l tests/bench-scope.lua
+-- Run as: nvim --clean --headless -l scripts/bench-indent-scope.lua
 -- =========================================================================
 
 vim.opt.runtimepath:prepend(vim.fn.getcwd())
