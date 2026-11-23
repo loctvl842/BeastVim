@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795331226534,
+  "lastUpdate": 1795418064708,
   "repoUrl": "https://github.com/loctvl842/BeastVim",
   "entries": {
     "BeastVim Startup": [
@@ -3737,6 +3737,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "BeastVim startup (warm) max",
             "value": 34.430716,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "committer": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "distinct": true,
+          "id": "eddc2ec80660ded64f2960d3fa30b3073088443b",
+          "message": "docs(coding): note supermaven free tier appears discontinued",
+          "timestamp": "2026-11-23T14:14:00+07:00",
+          "tree_id": "ae56484313704d2db01444dd08a804487bb660c0",
+          "url": "https://github.com/loctvl842/BeastVim/commit/eddc2ec80660ded64f2960d3fa30b3073088443b"
+        },
+        "date": 1795418064431,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "BeastVim startup (warm) mean",
+            "value": 35.15369990000001,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) stddev",
+            "value": 0.8531091304830024,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) min",
+            "value": 33.984894000000004,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) max",
+            "value": 37.254104000000005,
             "unit": "ms"
           }
         ]
