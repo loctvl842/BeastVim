@@ -183,8 +183,8 @@ Not every lib needs every file — only what the responsibility justifies.
   `BENCH name=<lib> ... status=PASS|FAIL`. Use exit code 0/1/2.
 - Hot paths (anything fired per keystroke, per render, per autocmd) MUST have
   a measurement in the bench.
-- Manual repros live at `tests/test-<lib>.lua`. Runnable with
-  `nvim --clean -u tests/test-<lib>.lua`.
+- Behaviour is covered by specs at `test/libs/<lib>/<name>_spec.lua`, run with
+  `make test TEST_FILE=test/libs/<lib>` (see [`testing.md`](./testing.md)).
 
 ## 9. Documentation
 

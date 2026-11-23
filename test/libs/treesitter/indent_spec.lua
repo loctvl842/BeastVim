@@ -4,7 +4,7 @@ local n = h.n
 
 -- Treesitter-driven indentexpr (lua/beast/libs/treesitter/indent.lua).
 --
--- Uses the vendored fixture at tests/fixtures/queries/lua/indents.scm (a copy of the
+-- Uses the vendored fixture at test/libs/treesitter/fixtures/queries/lua/indents.scm (a copy of the
 -- real, upstream-synced lua/indents.scm) so the spec doesn't depend on
 -- stdpath('data')/site being populated or on network access. Exercises get_indent()
 -- directly, matching the PM spec scenarios (docs/pm-specs/treesitter-indent.md).
@@ -12,7 +12,7 @@ t.describe("treesitter indent", function()
 	t.before_each(function()
 		h.clear()
 		n.exec_lua(function()
-			vim.opt.runtimepath:prepend(vim.fn.getcwd() .. "/tests/fixtures")
+			vim.opt.runtimepath:prepend(vim.fn.getcwd() .. "/test/libs/treesitter/fixtures")
 			---Scratch Lua buffer with treesitter started, sw=2.
 			_G.make_buf = function(lines)
 				local buf = vim.api.nvim_create_buf(false, true)

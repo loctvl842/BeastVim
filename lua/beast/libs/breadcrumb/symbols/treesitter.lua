@@ -3,7 +3,7 @@
 -- Walks the ancestors of the node under the cursor and keeps those listed in the
 -- buffer language's table. Each entry gives the symbol kind (an `Icon.kinds` key) and
 -- a function returning the symbol name (nil/empty skips the node). Node and field names
--- are grammar specific, so each language is verified by tests/test-breadcrumb-symbols.lua.
+-- are grammar specific, so each language is verified by test/libs/breadcrumb/symbols_spec.lua.
 
 local M = {}
 

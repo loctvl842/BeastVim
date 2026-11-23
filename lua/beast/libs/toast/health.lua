@@ -99,6 +99,7 @@ function M.check()
 
 	-- Test 8: __call metamethod on module
 	if toast_mod then
+		---@diagnostic disable-next-line: param-type-mismatch -- the module is callable through __call, which is what this check exercises
 		local ok8, err8 = pcall(toast_mod, "[health] __call test", vim.log.levels.DEBUG)
 		if ok8 then
 			health.ok("Module __call metamethod works")
