@@ -1,15 +1,18 @@
 ---@type Beast.Packer.PluginSpec[]
 return {
+	-- Supermaven appears to have discontinued its free tier (service sunset Nov 2025):
+	-- the agent connects but the server resets the connection, so no suggestions arrive.
 	{
 		name = "supermaven-nvim",
 		src = gh("supermaven-inc/supermaven-nvim"),
-		lazy = {
-			cmd = {
-				"SupermavenUseFree",
-				"SupermavenUsePro",
-			},
-			event = { "InsertEnter" },
-		},
+    lazy = nil,
+		-- lazy = {
+		-- 	cmd = {
+		-- 		"SupermavenUseFree",
+		-- 		"SupermavenUsePro",
+		-- 	},
+		-- 	event = { "InsertEnter" },
+		-- },
 		cond = function()
 			local fsize = vim.fn.getfsize(vim.fn.expand("%"))
 			-- Only load the plugin if the file is less than 5 MB
