@@ -193,18 +193,18 @@ Mergeable alone: files with a parser but no server get a trail.
 
 # Success Criteria
 
-- [ ] Moving the cursor into a function, method or class shows its name with a kind icon after the file name.
-- [ ] Nested symbols show as an ordered chain, outermost first.
-- [ ] Outside any symbol, only the path and file name show.
-- [ ] Two windows on one file show independent trails.
-- [ ] The trail appears by itself once a slow server finishes starting.
-- [ ] Typing never blanks the trail; it refreshes shortly after typing pauses.
-- [ ] Narrow windows keep the file name and innermost symbol visible; truncation order is dirs, then outer symbols; marker is last.
-- [ ] Files with no server but a known language show a trail with the same look; the server wins when both exist and sources never mix.
-- [ ] Plain text and unknown languages look exactly as they do today.
-- [ ] `symbols = false` restores today's bar and issues no `documentSymbol` request.
-- [ ] Holding `j` or `k` through a large file shows no stutter.
-- [ ] Technical gates: new headless test passes, breadcrumb bench passes with cache-hit time unchanged, `bench-ux.sh all` shows no regression, lua-language-server check is clean, no `vim.notify`, no keymaps added by the lib.
+- [x] Moving the cursor into a function, method or class shows its name with a kind icon after the file name.
+- [x] Nested symbols show as an ordered chain, outermost first.
+- [x] Outside any symbol, only the path and file name show.
+- [x] Two windows on one file show independent trails.
+- [x] The trail appears by itself once a slow server finishes starting.
+- [x] Typing never blanks the trail; it refreshes shortly after typing pauses.
+- [x] Narrow windows keep the file name and innermost symbol visible; truncation order is dirs, then outer symbols; marker is last.
+- [x] Files with no server but a known language show a trail with the same look; the server wins when both exist and sources never mix.
+- [x] Plain text and unknown languages look exactly as they do today.
+- [x] `symbols = false` restores today's bar and issues no `documentSymbol` request.
+- [x] Holding `j` or `k` through a large file shows no stutter.
+- [x] Technical gates: new headless test passes, breadcrumb bench passes with cache-hit time unchanged, `bench-ux.sh all` shows no regression, lua-language-server check is clean, no `vim.notify`, no keymaps added by the lib.
 
 ---
 
@@ -214,3 +214,26 @@ Mergeable alone: files with a parser but no server get a trail.
 - `health.lua` reports the symbol source per window that carries a breadcrumb (language server, syntax tree, or path only), not just the current buffer.
 - `scripts/bench-breadcrumb.lua` gained `find` (5.4k-symbol tree) and `trail render` (5 symbols) cases; the existing cold/hot metrics and thresholds are unchanged.
 - Noticed, not changed: lua_ls reports control-flow blocks (`if`) and call expressions (`vim.api.nvim_create_autocmd`) as symbols, so trails inside nested Lua callbacks get long. A kind filter is out of scope for v1 (see PM spec).
+
+---
+
+# Completed
+
+2026-11-23. Phase 1 render + truncation, Phase 2 LSP source and wiring, Phase 3 treesitter fallback, Phase 4 health, bench, codemap. Each phase passed a code-reviewer pass.
+
+- `a68036e` docs(breadcrumb): symbol trail pm and dev specs
+- `2b809bd` feat(breadcrumb): add symbols config key and kind table
+- `e77038a` feat(breadcrumb): add symbol highlight groups
+- `925fce2` feat(breadcrumb): render symbol trail with left-first truncation
+- `2f89256` refactor(breadcrumb): hoist icon table lookup
+- `ad69bbb` feat(breadcrumb): LSP document symbol store and lookup
+- `3ad223e` feat(breadcrumb): wire symbol trail into winbar with cursor and refresh debounce
+- `aaa5720` docs(breadcrumb): align dev spec with lsp source implementation
+- `cf71241` feat(breadcrumb): treesitter fallback for files without a symbol server
+- `3ab4488` feat(breadcrumb): report symbol source and new groups in health check
+- `b81e78d` bench(breadcrumb): add symbol lookup and trail render cases
+- `2d5703e` docs(breadcrumb): record implementation notes in dev spec
+- `ec3cd32` docs(codemap): breadcrumb symbol trail
+- (the `coding.lua` indentation change inside the LSP store commit is a stylua fix to an unrelated file, picked up by formatting `lua/`)
+
+Verification: `tests/test-breadcrumb-symbols.lua` 67 passed, 0 failed (no SKIPs); `bench-breadcrumb.lua` cold ~65 us (pre-change ~60 us, soft-target WARN pre-existing), hot ~0.9 us, find 0.17 us, trail render ~61 us, all far below the 1 ms limit; `bench-startup.sh` mean 38 ms (green); `bench-ux.sh all` keypress/scroll/bufswitch/extmarks/keymaps all PASS; lua-language-server check clean; stylua clean on touched files. Real-editor E2E in tmux with lua_ls and markdown (no server): nested trail, outside-symbol, split independence, narrow truncation, typing without blanking, `symbols = false` issuing 0 requests, `:checkhealth`.
