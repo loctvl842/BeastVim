@@ -137,7 +137,7 @@ Mergeable alone: LSP-backed files get a trail; others unchanged.
 Mergeable alone: files with a parser but no server get a trail.
 
 1. **Ancestor walk** (File: `lua/beast/libs/breadcrumb/symbols/treesitter.lua`)
-   - Action: `trail(bufnr, row, col)`: `vim.treesitter.get_parser(bufnr, nil, { error = false })` (nil -> `{}`), then `vim.treesitter.get_node({ bufnr = bufnr, pos = { row, col } })`, walk `:parent()`; for each node whose type is in `NODES[lang]` emit `{ name, kind }` (prepend, so outermost first). `NODES[lang]` maps node type to `{ kind = "Function", name = "name" }` (field name) or `{ kind, name = function(node, bufnr) ... end }` for cases without a `name` field. Names via `vim.treesitter.get_node_text`. Skip empty names. v1 languages: `lua`, `python`, `javascript`, `typescript`, `tsx`, `c`, `cpp`, `go`, `rust`, `markdown`. Lua: `function_declaration`, `function_definition` assigned to a name (name from the parent assignment/field), `table` fields are not symbols. Markdown: nested `section` nodes, name from the heading's inline text, kind `Module`. Node type names are verified against the installed parsers by fixture tests, not assumed.
+   - Action: `trail(bufnr, row, col)`: `vim.treesitter.get_parser(bufnr, nil, { error = false })` (nil -> `{}`), then `vim.treesitter.get_node({ bufnr = bufnr, pos = { row, col } })`, walk `:parent()`; for each node whose type is in `NODES[lang]` emit `{ name, kind }` (prepend, so outermost first). `NODES[lang]` maps node type to `{ kind = "Function", name = "name" }` (field name) or `{ kind, name = function(node, bufnr) ... end }` for cases without a `name` field. Names via `vim.treesitter.get_node_text`. Skip empty names. v1 languages: `lua`, `python`, `javascript`, `typescript`, `tsx`, `c`, `cpp`, `markdown`. Lua: `function_declaration`, `function_definition` assigned to a name (name from the parent assignment/field), `table` fields are not symbols. Markdown: nested `section` nodes, name from the heading's inline text, kind `Module`. Node type names are verified against the installed parsers by fixture tests, not assumed.
    - Why: covers files without a server, exactly what the PM spec promised.
    - Depends on: Phase 1 step 2
    - Risk: Medium (node/field names differ per grammar; unnamed function expressions)
@@ -154,8 +154,8 @@ Mergeable alone: files with a parser but no server get a trail.
    - Depends on: Step 2
    - Risk: Low
 
-4. **Fixtures + tests** (Files: `tests/fixtures/breadcrumb/*`, `tests/test-breadcrumb-symbols.lua`)
-   - Action: one small fixture per language with nested symbols; assert the chain at known cursor positions; skip (not fail) a language whose parser is not installed, printing `SKIP`. Include a markdown fixture with a fenced code block (headings only, fence ignored) and a Lua fixture with an anonymous callback.
+4. **Fixtures + tests** (File: `tests/test-breadcrumb-symbols.lua`; fixtures are inline scratch buffers, no fixture files)
+   - Action: one small inline fixture per language with nested symbols; assert the chain at known cursor positions; skip (not fail) a language whose parser is not installed, printing `SKIP`. Include a markdown fixture with a fenced code block (headings only, fence ignored) and a Lua fixture with an anonymous callback.
    - Why: lock grammar-specific node names.
    - Depends on: Step 1
    - Risk: Low
@@ -205,3 +205,12 @@ Mergeable alone: files with a parser but no server get a trail.
 - [ ] `symbols = false` restores today's bar and issues no `documentSymbol` request.
 - [ ] Holding `j` or `k` through a large file shows no stutter.
 - [ ] Technical gates: new headless test passes, breadcrumb bench passes with cache-hit time unchanged, `bench-ux.sh all` shows no regression, lua-language-server check is clean, no `vim.notify`, no keymaps added by the lib.
+
+---
+
+# Implementation Notes
+
+- Go and Rust are not in v1: their parsers are not installed in this environment, so node names could not be verified. Adding them is a table entry each plus a test case once a parser is available.
+- `health.lua` reports the symbol source per window that carries a breadcrumb (language server, syntax tree, or path only), not just the current buffer.
+- `scripts/bench-breadcrumb.lua` gained `find` (5.4k-symbol tree) and `trail render` (5 symbols) cases; the existing cold/hot metrics and thresholds are unchanged.
+- Noticed, not changed: lua_ls reports control-flow blocks (`if`) and call expressions (`vim.api.nvim_create_autocmd`) as symbols, so trails inside nested Lua callbacks get long. A kind filter is out of scope for v1 (see PM spec).

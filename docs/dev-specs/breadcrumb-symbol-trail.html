@@ -189,7 +189,7 @@
     <h3>Phase 3: Treesitter fallback <span class="risk">risk: medium</span></h3>
     <p><strong>Goal:</strong> files with a parser but no server get a trail with the same look.</p>
     <ol>
-      <li data-spec="phase-3-step-1"><code>symbols/treesitter.lua</code>: <code>get_node</code> + <code>:parent()</code> walk; v1 languages: lua, python, javascript, typescript, tsx, c, cpp, go, rust, markdown. Node names verified against installed parsers by tests.</li>
+      <li data-spec="phase-3-step-1"><code>symbols/treesitter.lua</code>: <code>get_node</code> + <code>:parent()</code> walk; v1 languages: lua, python, javascript, typescript, tsx, c, cpp, markdown (go/rust deferred: parsers not installed here). Node names verified against installed parsers by tests.</li>
       <li data-spec="phase-3-step-2"><code>symbols/init.lua</code>: fall back when the LSP tree is empty; never concatenate.</li>
       <li data-spec="phase-3-step-3"><code>init.lua</code>: add <code>FileType</code> to buffer invalidation; edits invalidate when treesitter is the active source.</li>
       <li data-spec="phase-3-step-4">Fixtures per language; uninstalled parser prints <code>SKIP</code>. Markdown fixture has a fenced block; Lua fixture has an anonymous callback.</li>
