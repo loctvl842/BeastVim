@@ -5,7 +5,7 @@ return {
 	{
 		name = "supermaven-nvim",
 		src = gh("supermaven-inc/supermaven-nvim"),
-    lazy = nil,
+		lazy = nil,
 		-- lazy = {
 		-- 	cmd = {
 		-- 		"SupermavenUseFree",
