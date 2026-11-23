@@ -88,8 +88,11 @@ local schedule_refresh, stop_refresh = debounce(REFRESH_SETTLE_MS, function()
 	local bufs = state.dirty_bufs
 	state.dirty_bufs = {}
 	for bufnr in pairs(bufs) do
+		-- The syntax tree has no push signal: a typing pause is when its trail may have changed
+		invalidate_buf(bufnr)
 		symbols.refresh(bufnr)
 	end
+	vim.cmd("redrawstatus")
 end)
 
 ---@param bufnr integer
@@ -226,7 +229,7 @@ local function ensure_autocmds()
 		end,
 	})
 
-	vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI", "InsertLeave" }, {
+	vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI", "InsertLeave", "FileType" }, {
 		group = state.augroup,
 		callback = function(args)
 			request_refresh(args.buf)

@@ -262,6 +262,144 @@ vim.lsp.get_clients, vim.lsp.buf_request_all, vim.lsp.get_client_by_id = orig_ge
 lsp.on_change = nil
 
 -- =========================================================================
+-- Treesitter fallback and source selection
+-- =========================================================================
+
+io.write("\nsymbols.treesitter\n")
+-- Parsers installed by the real config live outside --clean's runtimepath
+vim.opt.runtimepath:append(vim.fn.stdpath("data") .. "/../BeastVim/site")
+local ts = require("beast.libs.breadcrumb.symbols.treesitter")
+vim.treesitter.language.register("tsx", "typescriptreact") -- the real config does this in its treesitter lib
+
+---@param ft string
+---@param lines string[]
+local function scratch(ft, lines)
+	local b = vim.api.nvim_create_buf(false, false)
+	vim.api.nvim_buf_set_lines(b, 0, -1, false, lines)
+	vim.bo[b].filetype = ft
+	return b
+end
+
+local function ts_names(b, row, col)
+	local tr = ts.trail(b, row, col)
+	return tr and names(tr) or "nil"
+end
+
+---@param ft string
+---@param lines string[]
+---@param cases { [1]: integer, [2]: integer, [3]: string }[]  row, col, expected chain
+local function ts_cases(ft, lines, cases)
+	local lang = vim.treesitter.language.get_lang(ft)
+	local loaded = lang and select(2, pcall(vim.treesitter.language.add, lang))
+	if not loaded then
+		io.write(("  SKIP: %s (no parser installed)\n"):format(ft))
+		return
+	end
+	local b = scratch(ft, lines)
+	for _, c in ipairs(cases) do
+		assert_eq(("%s: (%d,%d)"):format(ft, c[1], c[2]), ts_names(b, c[1], c[2]), c[3])
+	end
+end
+
+ts_cases("lua", {
+	"local M = {}",
+	"function M.setup(opts)",
+	"  local f = function()",
+	"    return 1",
+	"  end",
+	'  vim.api.nvim_create_autocmd("X", { callback = function()',
+	"    print(1)",
+	"  end })",
+	"end",
+	"function M:method() end",
+}, { { 0, 0, "" }, { 3, 6, "M.setup>f" }, { 6, 6, "M.setup>callback" }, { 9, 21, "M:method" } })
+
+ts_cases("python", {
+	"class Server:",
+	"    def start(self):",
+	"        def inner():",
+	"            pass",
+	"async def run():",
+	"    pass",
+}, { { 0, 0, "Server" }, { 3, 12, "Server>start>inner" }, { 5, 4, "run" } })
+
+local js = {
+	"class Server {",
+	"  start() {",
+	"    const f = () => 1;",
+	"  }",
+	"}",
+	"function run() {}",
+	"const arrow = () => {};",
+}
+ts_cases("javascript", js, { { 2, 20, "Server>start>f" }, { 5, 16, "run" }, { 6, 21, "arrow" } })
+ts_cases("typescript", {
+	"interface Cfg { a: number }",
+	"enum Color { Red }",
+	"const o = { key: function() { return 1 } }",
+}, { { 0, 20, "Cfg" }, { 1, 14, "Color" }, { 2, 35, "key" } })
+ts_cases("typescriptreact", { "const C = () => <div/>;" }, { { 0, 20, "C" } })
+
+ts_cases("c", {
+	"struct S { int a; };",
+	"int main(void) {",
+	"  return 0;",
+	"}",
+}, { { 0, 13, "S" }, { 2, 4, "main" } })
+
+ts_cases("cpp", {
+	"namespace N {",
+	"class C { void m() { int x; } };",
+	"void C::f() { int y; }",
+	"}",
+}, { { 1, 22, "N>C>m" }, { 2, 15, "N>C::f" } })
+
+ts_cases("markdown", {
+	"# Install",
+	"text",
+	"## Linux",
+	"more",
+	"",
+	"```lua",
+	"local x = 1",
+	"```",
+	"# Other",
+}, { { 1, 0, "Install" }, { 3, 1, "Install>Linux" }, { 6, 2, "Install>Linux" }, { 8, 2, "Other" } })
+
+assert_eq("unknown language: source has nothing", ts_names(scratch("text", { "plain" }), 0, 0), "nil")
+
+-- Source selection: the server wins; the trail is never a mix of both sources
+local sym = require("beast.libs.breadcrumb.symbols")
+if select(2, pcall(vim.treesitter.language.add, "lua")) then
+	local sb = scratch("lua", { "local M = {}", "function M.setup()", "  return 1", "end" })
+	vim.api.nvim_win_set_buf(0, sb)
+	vim.api.nvim_win_set_cursor(0, { 3, 4 })
+	assert_eq("no server: trail comes from the syntax tree", names(sym.trail(sb, 0)), "M.setup")
+
+	vim.lsp.get_clients = function()
+		return { { id = 1 } }
+	end
+	vim.lsp.get_client_by_id = function()
+		return { offset_encoding = "utf-16" }
+	end
+	local replies = {}
+	vim.lsp.buf_request_all = function(_, _, _, cb)
+		replies[#replies + 1] = cb
+	end
+	sym.refresh(sb)
+	replies[1]({ [1] = { result = { { name = "ServerSaysSetup", kind = 12, range = rng(1, 0, 3, 3), selectionRange = rng(1, 9, 1, 14) } } } })
+	assert_eq("server answered: its symbols are used, not the syntax tree's", names(sym.trail(sb, 0)), "ServerSaysSetup")
+	vim.api.nvim_win_set_cursor(0, { 1, 0 })
+	assert_eq("server answered, cursor outside every symbol: stays empty", names(sym.trail(sb, 0)), "")
+
+	sym.clear(sb)
+	assert_eq("server gone: syntax tree again", names(sym.trail(sb, 0)), "")
+	vim.lsp.get_clients, vim.lsp.buf_request_all, vim.lsp.get_client_by_id = orig_get_clients, orig_request_all, orig_get_client_by_id
+else
+	io.write("  SKIP: source selection (lua parser unavailable)\n")
+end
+
+-- =========================================================================
 
 io.write(("\n%d passed, %d failed\n"):format(passed, failed))
 os.exit(failed == 0 and 0 or 1)
