@@ -18,6 +18,8 @@
 # ---------
 #   keypress    Baseline j/k/gg/G on a small file. Sanity floor.
 #   scroll      <C-d>/<C-u> through a 100k-line file. Tests TS + redraw cost.
+#   edit        Insert a char and undo it in the middle of the 100k-line file.
+#               Tests per-edit work (reparse, git diff, symbols, signs).
 #   bufswitch   :bnext through N pre-loaded buffers. Tests BufEnter/WinEnter
 #               handlers and FOR_ALL_BUFFERS-style autocmds.
 #   extmarks    Movement with N pre-placed extmarks (sign + inline virt_text).
@@ -108,6 +110,7 @@ SUMMARISE="$SCRIPT_DIR/bench-ux/summarise.py"
 # Silicon. If LOAD_USER_CONFIG=1 these will likely trip — that IS the signal.
 TH_KEYPRESS_P50=8    ; TH_KEYPRESS_P99=25
 TH_SCROLL_P50=20     ; TH_SCROLL_P99=80
+TH_EDIT_P50=20       ; TH_EDIT_P99=80
 TH_BUFSWITCH_P50=25  ; TH_BUFSWITCH_P99=120
 TH_EXTMARKS_P50=20   ; TH_EXTMARKS_P99=100
 TH_LONG_P50=30       ; TH_LONG_P99=150
@@ -618,6 +621,23 @@ run_scroll() {
   python3 "$SUMMARISE" "$WORK/scroll.log" "scroll" "$TH_SCROLL_P50" "$TH_SCROLL_P99"
 }
 
+run_edit() {
+  echo
+  echo "  ── edit ($SCROLL_LINES-line file, insert a char / undo mid-file) ──"
+  write_init_scroll
+  spawn_pane "$WORK/init-scroll.lua" "$WORK/edit.log" "$WORK" || return $?
+
+  send_text "$((SCROLL_LINES / 2))G"; sleep_key; sleep_key
+  i=1; while [ "$i" -le "$ITERS" ]; do
+    send_text "ix"; send_ctl esc; sleep_key
+    send_text "u"; sleep_key
+    i=$((i + 1))
+  done
+
+  quit_pane
+  python3 "$SUMMARISE" "$WORK/edit.log" "edit" "$TH_EDIT_P50" "$TH_EDIT_P99"
+}
+
 run_bufswitch() {
   echo
   echo "  ── bufswitch ($BUFSWITCH_N buffers, :bnext) ──"
@@ -729,7 +749,7 @@ usage() {
 
 cmd="${1:-help}"
 case "$cmd" in
-  keypress|scroll|bufswitch|extmarks|longsession|keymaps)
+  keypress|scroll|edit|bufswitch|extmarks|longsession|keymaps)
     print_header
     "run_${cmd}"
     ;;
