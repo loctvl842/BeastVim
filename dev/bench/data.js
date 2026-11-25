@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1795418064708,
+  "lastUpdate": 1795620301123,
   "repoUrl": "https://github.com/loctvl842/BeastVim",
   "entries": {
     "BeastVim Startup": [
@@ -3781,6 +3781,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "BeastVim startup (warm) max",
             "value": 37.254104000000005,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "committer": {
+            "email": "loclepnvx@gmail.com",
+            "name": "loctvl842",
+            "username": "loctvl842"
+          },
+          "distinct": true,
+          "id": "3d90f74b830cbe7ef50b0bb5e4be6f0e9d1eb262",
+          "message": "test: drop legacy tests dir, move last fixture, fix stale paths and toast health lint",
+          "timestamp": "2026-11-23T17:00:05+07:00",
+          "tree_id": "a572eb3f70149a594d5d4aafc6d9db9406e31451",
+          "url": "https://github.com/loctvl842/BeastVim/commit/3d90f74b830cbe7ef50b0bb5e4be6f0e9d1eb262"
+        },
+        "date": 1795620300238,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "BeastVim startup (warm) mean",
+            "value": 49.8379807,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) stddev",
+            "value": 0.7249200973204311,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) min",
+            "value": 48.563554,
+            "unit": "ms"
+          },
+          {
+            "name": "BeastVim startup (warm) max",
+            "value": 51.350395,
             "unit": "ms"
           }
         ]
