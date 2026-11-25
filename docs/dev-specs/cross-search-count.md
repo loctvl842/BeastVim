@@ -169,3 +169,13 @@ Deviations from this spec:
 - Edit-clears-count rule from the PM spec was dropped (count is recomputed live).
 
 Verification: `tests/test-searchcount.lua` 20/20 pass; `bench-startup.sh` mean 36ms; `bench-ux.sh keypress` PASS (p50 0.43ms, p99 0.76ms); headless end-to-end checks with the real config for statusline pill, eol label, `:noh`, not-found and wrap toasts. Not verified in a real terminal: error flash after a failed search, `Esc` clearing the pill, long-line case.
+
+## Post implementation update: 2026-11-25
+
+`get()` now reads a per window cache instead of calling `searchcount()` itself. `refresh()` recomputes and is driven by a 100 ms debounce on `CursorMoved`, `CursorMovedI`, `TextChanged`, `TextChangedI`, `WinEnter`, and `BufEnter`.
+
+Reason: on a 100k line buffer with an active search, the old `get()` spent about 6.6 ms per call in `searchcount()`, and the statusline plus end of line label called it on every redraw, so holding `j` or `k` felt unresponsive. Cached reads now measure about 0.2 ms per render, and one recompute runs after movement settles.
+
+The statusline component also no longer `require()`s the lib: it reads `package.loaded` and shows nothing until searchcount is loaded. This stops loading statusline in minimal mode from silently loading searchcount and its decoration provider.
+
+`tests/test-searchcount.lua` was updated: call `refresh()` before `get()` when a fresh value is required. Cached reads intentionally stay stale until the next refresh.
