@@ -60,7 +60,7 @@
 #                      when LOAD_USER_CONFIG=1 so we never silently fall through
 #                      to ~/.config/nvim. Override with NVIM_APPNAME=nvim to
 #                      bench the default config dir.
-#   FIXTURE_LANG       txt | lua | py — controls fixture file content for the
+#   FIXTURE_LANG       txt | lua | py | xml — controls fixture file content for the
 #                      scroll/bufswitch/longsession scenarios. txt is cheap
 #                      (no LSP/TS); lua and py trigger your real plugin stack
 #                      (LSP attach, Treesitter parse, ftplugin). Default txt.
@@ -283,6 +283,13 @@ with open(path, "w") as f:
         for i in range(1, n + 1):
             f.write(f'    Item(id={i}, name="item_{i:07d}", tag="alpha-bravo-charlie"),\n')
         f.write("]\n")
+    elif lang == "xml":
+        # Nested like a commerce export: depth 1 spans the whole file, rows are ~60 bytes.
+        f.write('<?xml version="1.0" encoding="UTF-8"?>\n<orders>\n')
+        for i in range(1, n // 6 + 1):
+            f.write(f'  <order id="ORD-{i:07d}" status="open">\n    <customer id="CUS-{i}">\n      <name>Olivia Kim</name>\n')
+            f.write(f'      <email>olivia.{i}@example.test</email>\n    </customer>\n  </order>\n')
+        f.write("</orders>\n")
     else:
         for i in range(1, n + 1):
             f.write(f"line {i:07d}  alpha bravo charlie delta echo foxtrot golf hotel india juliet\n")
