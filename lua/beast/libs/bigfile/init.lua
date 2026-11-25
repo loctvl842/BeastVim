@@ -71,13 +71,14 @@ function M.disabled(buf, feature)
 	return config.disable[feature] == true and M.is(buf)
 end
 
+---Decimal units, as `ls` and the Finder report them.
 ---@param bytes integer
 ---@return string
 local function human(bytes)
-	if bytes >= 1024 * 1024 then
-		return ("%.1f MB"):format(bytes / (1024 * 1024))
+	if bytes >= 1e6 then
+		return ("%.1f MB"):format(bytes / 1e6)
 	end
-	return ("%d KB"):format(math.max(1, math.floor(bytes / 1024 + 0.5)))
+	return ("%d KB"):format(math.max(1, math.floor(bytes / 1e3 + 0.5)))
 end
 
 ---@param buf integer
