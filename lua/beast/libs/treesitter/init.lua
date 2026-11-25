@@ -7,6 +7,7 @@
 -- this" signal, so it bypasses the `ensure_installed` allowlist that gates
 -- the automatic FileType-triggered install path.
 
+local Bigfile = require("beast.libs.bigfile")
 local config = require("beast.libs.treesitter.config")
 
 ---@class Beast.Treesitter
@@ -132,6 +133,8 @@ start_buf = function(buf)
 	if started[buf] and (not config.highlight.enable or vim.treesitter.highlighter.active[buf]) then return end
 	-- stylua: ignore
 	if not vim.api.nvim_buf_is_valid(buf) then return end
+	-- stylua: ignore
+	if Bigfile.disabled(buf, "treesitter") then return end
 
 	local lang = get_lang(buf)
 	-- stylua: ignore

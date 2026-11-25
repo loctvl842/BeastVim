@@ -13,6 +13,8 @@ M.meta = { name = "indent", description = "Indent guides and scope highlighting"
 ---@param buf integer
 ---@return boolean
 local function is_excluded(buf)
+	-- stylua: ignore
+	if require("beast.libs.bigfile").disabled(buf, "indent") then return true end
 	local ft = vim.bo[buf].filetype or ""
 	for _, excluded in ipairs(config.exclude_filetypes) do
 		-- stylua: ignore

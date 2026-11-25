@@ -67,7 +67,7 @@ end
 ---@param buf integer
 ---@return boolean
 local function buf_disabled(buf)
-	return vim.g.beast_scroll_disabled == true or vim.b[buf].beast_scroll_disabled == true
+	return vim.g.beast_scroll_disabled == true or vim.b[buf].beast_scroll_disabled == true or require("beast.libs.bigfile").disabled(buf, "scroll")
 end
 
 ---@param win integer

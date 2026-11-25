@@ -99,6 +99,9 @@ local function can_show(winid)
 	if vim.bo[bufnr].buftype ~= "" then
 		return false
 	end
+	if require("beast.libs.bigfile").disabled(bufnr, "treesitter") then
+		return false
+	end
 	if vim.wo[winid].previewwindow then
 		return false
 	end
