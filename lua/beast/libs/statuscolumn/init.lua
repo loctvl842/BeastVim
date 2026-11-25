@@ -1,3 +1,4 @@
+local Bigfile = require("beast.libs.bigfile")
 local cache = require("beast.libs.statuscolumn.cache")
 local config = require("beast.libs.statuscolumn.config")
 local ffi = require("beast.libs.statuscolumn.ffi")
@@ -173,11 +174,12 @@ local function rebuild_slots()
 end
 
 ---@param slot Beast.Statuscolumn.NormalizedSlot
-local function render_slot(slot, win, buf, lnum, relnum, virtnum, ws)
+---@param signs_off boolean Big buffer: sign producers are skipped and sign slots take no room
+local function render_slot(slot, win, buf, lnum, relnum, virtnum, ws, signs_off)
 	local list = slot.producers
 	for i = 1, #list do
 		local p = producers[list[i]]
-		if p then
+		if p and not (signs_off and SIGN_PRODUCERS[list[i]]) then
 			local out = p(win, buf, lnum, relnum, virtnum, ws, slot.width)
 			if out and out ~= "" then
 				return out
@@ -186,7 +188,7 @@ local function render_slot(slot, win, buf, lnum, relnum, virtnum, ws)
 	end
 	-- Sign-style slots pad to `width` cells when empty so the column doesn't
 	-- shift when a glyph appears on one line but not the next.
-	return slot.has_sign and slot.pad or ""
+	return slot.has_sign and not signs_off and slot.pad or ""
 end
 
 -- =========================================================================
@@ -242,10 +244,11 @@ local function render_inner()
 
 	local lnum, relnum, virtnum = v.lnum, v.relnum, v.virtnum
 	local tick = ffi.tick()
+	local signs_off = Bigfile.disabled(buf, "signs")
 
 	local ws, invalidated = cache.bump_window(win, tick, buf)
 	if invalidated then
-		ws.signs_by_lnum_by_class = signs.collect(buf)
+		ws.signs_by_lnum_by_class = signs_off and {} or signs.collect(buf)
 	end
 
 	local key = lnum .. ":" .. virtnum .. ":" .. relnum
@@ -264,11 +267,11 @@ local function render_inner()
 	-- Avoid table.concat allocation for the common single-slot case.
 	local out
 	if n == 1 then
-		out = render_slot(segments[1], win, buf, lnum, relnum, virtnum, ws)
+		out = render_slot(segments[1], win, buf, lnum, relnum, virtnum, ws, signs_off)
 	else
 		local parts = {}
 		for i = 1, n do
-			parts[i] = render_slot(segments[i], win, buf, lnum, relnum, virtnum, ws)
+			parts[i] = render_slot(segments[i], win, buf, lnum, relnum, virtnum, ws, signs_off)
 		end
 		out = table.concat(parts)
 	end

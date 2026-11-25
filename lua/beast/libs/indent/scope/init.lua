@@ -21,20 +21,26 @@ local M = {}
 
 -- ── Detection dispatcher ───────────────────────────────────────────
 
+-- A block of a big buffer can span the whole file; the guides only ever show a viewport of it.
+local BIG_SCOPE_LIMIT = 1000
+
 ---Find scope segments around a position.
----Tries treesitter first, falls back to indent-based detection.
+---Tries treesitter first, falls back to indent-based detection. A big buffer
+---skips treesitter (it would parse the whole file) and caps the indent walk.
 ---Must be called inside `nvim_buf_call` for the target buffer.
 ---@param buf integer
 ---@param pos {[1]: integer, [2]: integer} 1-indexed line, 0-indexed col
 ---@return Beast.Indent.Scope[]?
 function M.find(buf, pos)
-	if config.scope.treesitter.enabled then
+	local Bigfile = require("beast.libs.bigfile")
+	local big = Bigfile.is(buf)
+	if config.scope.treesitter.enabled and not Bigfile.disabled(buf, "treesitter") then
 		local result = find_by_treesitter(buf, pos)
 		if result then
 			return result
 		end
 	end
-	return find_by_indent(buf, pos)
+	return find_by_indent(buf, pos, big and BIG_SCOPE_LIMIT or nil)
 end
 
 -- Expose strategies for testing

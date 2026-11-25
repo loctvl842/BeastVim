@@ -1,6 +1,6 @@
 ---
 name: bigfile-init
-description: New `bigfile` lib that classifies a buffer as big once, and a one-line guard in each costly lib (treesitter, indent, lsp, git, breadcrumb symbols, scroll, statuscolumn) that consults it
+description: New `bigfile` lib that classifies a buffer as big once, and a one-line guard in each costly lib (treesitter, lsp, git, breadcrumb symbols, scroll, statuscolumn) that consults it, and a bounded scope search for the indent guides, which stay on
 generated: 2026-11-25
 ---
 
@@ -59,7 +59,7 @@ One lib owns the definition of "big" and the list of features to switch off. Lib
 - **Modified** `lua/beast/init.lua` - eager `require("beast.libs.bigfile").setup(cfg.bigfile or {})` (must exist before the first `FileType`), `_G.Bigfile` mod, `---@field bigfile? Beast.Bigfile.Config`.
 - **Modified** `lua/beast/libs/treesitter/init.lua` - `start_buf` early-return and `apply_indentexpr` guard when `disabled(buf, "treesitter")`.
 - **Modified** `lua/beast/libs/treesitter/context/init.lua` (or `context.lua`'s `can_show`) - no overlay for a window whose buffer is big.
-- **Modified** `lua/beast/libs/indent/init.lua` - `is_excluded` returns true for a big buffer.
+- **Modified** `lua/beast/libs/indent/scope/init.lua` + `scope/indent.lua` - indent guides and scope stay on for a big buffer (PM decision after review), but `find` skips the treesitter strategy (it parses the whole file) and caps the indent walk at 1000 lines each way (a depth-1 XML block spans the whole file). `is_excluded` still honors `disable.indent = true`.
 - **Modified** `lua/beast/libs/scroll/init.lua` - `buf_disabled` also asks bigfile (the existing `vim.b.beast_scroll_disabled` still works).
 - **Modified** `lua/beast/libs/lsp/init.lua` + `lua/beast/libs/lsp/attach.lua` - `register` wraps `root_dir`; the `LspAttach` dispatcher detaches a client from a big buffer as a backstop.
 - **Modified** `lua/beast/libs/git/init.lua` - `buffer_eligible` returns false for a big buffer.
@@ -85,7 +85,7 @@ Detection rules (from the PM spec): `buftype == ""`, non-empty name, buffer load
 
 ## Phase 1: Classifier + notice - the lib exists, nothing consumes it yet
 1. **Config** (File: `lua/beast/libs/bigfile/config.lua`)
-   - Action: defaults `{ enabled = true, notify = true, size = 1.5 * 1024 * 1024, line_length = 1000, disable = { treesitter = true, indent = true, lsp = true, git = true, breadcrumb = true, scroll = true, matchparen = true, fold = true, conceal = true, signs = true } }`, read-only proxy, `Beast.Bigfile.Config` class.
+   - Action: defaults `{ enabled = true, notify = true, size = 1.5 * 1024 * 1024, line_length = 1000, disable = { treesitter = true, indent = false, lsp = true, git = true, breadcrumb = true, scroll = true, matchparen = true, fold = true, conceal = true, signs = true } }`, read-only proxy, `Beast.Bigfile.Config` class.
    - Why: single source of truth (lib-conventions section 2); the `disable` table is the "list is configurable" rule.
    - Depends on: None
    - Risk: Low
@@ -106,9 +106,9 @@ Detection rules (from the PM spec): `buftype == ""`, non-empty name, buffer load
    - Why: highlighter and context are the largest per-redraw costs.
    - Depends on: Phase 1
    - Risk: Low
-2. **Indent guides** (File: `lua/beast/libs/indent/init.lua`)
-   - Action: `is_excluded` ORs in `Bigfile.disabled(buf, "indent")`.
-   - Why: the decoration provider and scope updates then skip the buffer.
+2. **Indent guides** (File: `lua/beast/libs/indent/init.lua`, `indent/scope/init.lua`, `indent/scope/indent.lua`)
+   - Action: guides and scope stay on by default (`disable.indent = false`). `is_excluded` still ORs in `Bigfile.disabled(buf, "indent")` for users who opt out. For a big buffer `scope.find` skips the treesitter strategy (`Bigfile.disabled(buf, "treesitter")`) and passes a 1000-line limit to the indent strategy's `expand`.
+   - Why: the decoration provider only draws the viewport, but treesitter scope parses the whole buffer and the indent walk is O(block size) with one Vimscript call per line; both are unbounded on a 121k-line file.
    - Depends on: Phase 1
    - Risk: Low
 3. **Scroll** (File: `lua/beast/libs/scroll/init.lua`)
@@ -163,7 +163,7 @@ Detection rules (from the PM spec): `buftype == ""`, non-empty name, buffer load
 # Testing Strategy
 - Headless specs (`make test`), code under test in the child Nvim, files written to a temp dir:
   - `test/libs/bigfile/bigfile_spec.lua`: small file is not big; over `size` is big; few huge lines (minified) is big; new/empty/unreadable file is not; `buftype ~= ""` is not; a not-yet-loaded buffer answers false and is not memoized; `enabled = false` disables everything; `disable.<feature> = false` keeps that feature on; the decision survives `:e`; memo cleared after `:bwipeout` then reopen; one Toast per open (stub `Toast` with a recorder, never `vim.notify`); `notify = false` silences it; filetype stays `xml`.
-  - Guard specs: treesitter highlighter not active and `indentexpr` empty for a big buffer, active for a small one in the same session; `indent` excluded; `scroll` skips; git does not attach; breadcrumb trail is `{}`; LSP: the wrapped `root_dir` does not call `on_dir`, and a client forced to attach is detached from the big buffer only; statuscolumn renders the number only.
+  - Guard specs: treesitter highlighter not active and `indentexpr` empty for a big buffer, active for a small one in the same session; `indent` scope walk capped and treesitter skipped (guides stay on); `scroll` skips; git does not attach; breadcrumb trail is `{}`; LSP: the wrapped `root_dir` does not call `on_dir`, and a client forced to attach is detached from the big buffer only; statuscolumn renders the number only.
   - Window options: split showing big + normal buffer keeps `foldmethod`/`conceallevel` per buffer; switching a window big -> normal restores them.
 - Bench: new `scripts/bench-bigfile.lua` (headless: open the fixture with guards on and off, time to ready and one `j`/`Ctrl-D` batch). Per DEVELOPMENT.md also run `./scripts/bench-startup.sh` (setup runs eagerly, so startup cost must be measured) and `LOAD_USER_CONFIG=1 NVIM_APPNAME=BeastVim FIXTURE_LANG=lua FIXTURE_GIT=1 ./scripts/bench-ux.sh all` to prove normal files did not regress. Read `docs/development/writing-benches.md` before writing the new bench.
 - Manual (the PM spec scenarios, as a checklist):
@@ -179,7 +179,7 @@ Detection rules (from the PM spec): `buftype == ""`, non-empty name, buffer load
 # Success Criteria
 - [ ] Opening `realistic_orders_120k.xml` shows exactly one "Big File" toast with name and size, including when launched from the shell.
 - [ ] In that file `j`, `Ctrl-D` and `G` feel instant; typing shows immediately (bench: key-to-paint no worse than a small file within the bench tolerance).
-- [ ] No treesitter highlighter, no context overlay, no indent guides, no LSP client attached, no git signs, no symbol trail in that buffer.
+- [ ] No treesitter highlighter, no context overlay, no LSP client attached, no git signs, no symbol trail in that buffer.
 - [ ] Line numbers, regex coloring, search, search count, undo, statusline still work.
 - [ ] A minified 900 KB file triggers the same behavior.
 - [ ] A small file in the same session (including a split next to the big one) keeps every feature.

@@ -65,7 +65,7 @@
     <text x="380" y="190" text-anchor="middle" class="sub">buffer must be loaded</text>
 
     <rect class="box" x="10" y="10" width="170" height="44" rx="8"/><text x="95" y="30" text-anchor="middle">treesitter</text><text x="95" y="45" text-anchor="middle" class="sub">start_buf, context</text>
-    <rect class="box" x="10" y="70" width="170" height="44" rx="8"/><text x="95" y="90" text-anchor="middle">indent</text><text x="95" y="105" text-anchor="middle" class="sub">is_excluded</text>
+    <rect class="box" x="10" y="70" width="170" height="44" rx="8"/><text x="95" y="90" text-anchor="middle">indent</text><text x="95" y="105" text-anchor="middle" class="sub">stays on, scope walk capped</text>
     <rect class="box" x="10" y="130" width="170" height="44" rx="8"/><text x="95" y="150" text-anchor="middle">scroll</text><text x="95" y="165" text-anchor="middle" class="sub">buf_disabled</text>
     <rect class="box" x="10" y="190" width="170" height="44" rx="8"/><text x="95" y="210" text-anchor="middle">lsp</text><text x="95" y="225" text-anchor="middle" class="sub">root_dir wrap + detach</text>
     <rect class="box" x="10" y="250" width="170" height="44" rx="8"/><text x="95" y="270" text-anchor="middle">git</text><text x="95" y="285" text-anchor="middle" class="sub">buffer_eligible</text>
@@ -85,7 +85,7 @@
 
 <section data-spec="context">
   <h2>Context</h2>
-  <p>Treesitter, guides, LSP, git, symbols, scroll and the statuscolumn all run per redraw, cursor move or edit, so a 121k-line file pays for all of them on every key. Each lib has its own exclusion point but none looks at size.</p>
+  <p>Treesitter, LSP, git, symbols, scroll, the statuscolumn and the guides' scope search all run per redraw, cursor move or edit, so a 121k-line file pays for all of them on every key. Each lib has its own exclusion point but none looks at size.</p>
   <p>After this change one lib owns the definition of "big" and the list of switched-off features, and each lib asks at its existing exclusion point. The filetype is untouched.</p>
 </section>
 
@@ -110,7 +110,7 @@
     <tr><td><code>lua/beast/libs/bigfile/health.lua</code></td><td>new</td><td><code>:checkhealth</code> verdict for the current buffer</td></tr>
     <tr><td><code>lua/beast/init.lua</code></td><td>mod</td><td>eager setup, <code>_G.Bigfile</code>, config type</td></tr>
     <tr><td><code>lua/beast/libs/treesitter/init.lua</code>, <code>context/</code></td><td>mod</td><td>skip highlight, indentexpr, context</td></tr>
-    <tr><td><code>lua/beast/libs/indent/init.lua</code></td><td>mod</td><td><code>is_excluded</code></td></tr>
+    <tr><td><code>lua/beast/libs/indent/scope/init.lua</code>, <code>scope/indent.lua</code></td><td>mod</td><td>guides stay on; skip treesitter scope, cap the indent walk at 1000 lines</td></tr>
     <tr><td><code>lua/beast/libs/scroll/init.lua</code></td><td>mod</td><td><code>buf_disabled</code></td></tr>
     <tr><td><code>lua/beast/libs/lsp/init.lua</code>, <code>attach.lua</code></td><td>mod</td><td>wrap <code>root_dir</code>; detach backstop</td></tr>
     <tr><td><code>lua/beast/libs/git/init.lua</code></td><td>mod</td><td><code>buffer_eligible</code></td></tr>
@@ -147,7 +147,7 @@ feature: treesitter indent lsp git breadcrumb scroll matchparen fold conceal sig
     <p class="meta">Goal: treesitter, indent, scroll honor the flag. Depends on phase 1.</p>
     <ol>
       <li><b>Treesitter</b>: early return in <code>start_buf</code>; context <code>can_show</code> false.</li>
-      <li><b>Indent guides</b>: <code>is_excluded</code> ORs the check in.</li>
+      <li><b>Indent guides</b>: stay on (<code>disable.indent = false</code>). For a big buffer <code>scope.find</code> skips the treesitter strategy (it parses the whole file) and caps the indent walk at 1000 lines each way.</li>
       <li><b>Scroll</b>: <code>buf_disabled</code> also asks the lib.</li>
     </ol>
   </div>
@@ -219,7 +219,7 @@ feature: treesitter indent lsp git breadcrumb scroll matchparen fold conceal sig
   <ul class="check">
     <li>One "Big File" toast with name and size on open, including from the shell.</li>
     <li><code>j</code>, <code>Ctrl-D</code>, <code>G</code> and typing feel instant on the sample.</li>
-    <li>No treesitter, context, guides, LSP client, git signs or symbol trail in that buffer.</li>
+    <li>No treesitter, context, LSP client, git signs or symbol trail in that buffer; indent guides and scope still shown.</li>
     <li>Line numbers, regex coloring, search, search count, undo and statusline still work.</li>
     <li>A minified 900 KB file behaves the same.</li>
     <li>A small file, even in a split next to the big one, keeps every feature.</li>

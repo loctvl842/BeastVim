@@ -1,7 +1,7 @@
 ---Which features are switched off for a big buffer. `false` keeps the feature on.
 ---@class Beast.Bigfile.Disable
 ---@field treesitter? boolean highlight, indentexpr and the sticky context
----@field indent? boolean indent guides and scope
+---@field indent? boolean indent guides and scope highlight (on by default: the decoration is viewport-bound)
 ---@field lsp? boolean language servers
 ---@field git? boolean hunk signs and blame
 ---@field breadcrumb? boolean winbar symbol trail (the file path stays)
@@ -24,7 +24,7 @@ local defaults = {
 	line_length = 1000,
 	disable = {
 		treesitter = true,
-		indent = true,
+		indent = false,
 		lsp = true,
 		git = true,
 		breadcrumb = true,

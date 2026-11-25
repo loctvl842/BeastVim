@@ -11,7 +11,7 @@ When you open a very large file (for example a 7 MB, 120,000-line XML export), t
 
 # Problem
 
-Opening a huge file today feels broken. Moving the cursor stutters, scrolling lags, and typing a character can freeze the editor for a moment. The editor is doing the same rich work it does for a 50-line file (coloring by grammar, drawing guides, computing the symbol trail, watching git changes, starting a language server) but on 120,000 lines, and every keypress pays for it.
+Opening a huge file today feels broken. Moving the cursor stutters, scrolling lags, and typing a character can freeze the editor for a moment. The editor is doing the same rich work it does for a 50-line file (coloring by grammar, computing the symbol trail, watching git changes, starting a language server) but on 120,000 lines, and every keypress pays for it.
 
 Today the only protection is a small cap on bracket matching. There is no general answer, and you cannot tell whether the lag is "the file is big" or "something is wrong".
 
@@ -56,13 +56,12 @@ STAYS ON                          SWITCHED OFF (this file only)
 ────────────────────────────────  ──────────────────────────────────────
 line numbers                      grammar-aware coloring (treesitter)
 simple (regex) coloring           smart indent from grammar
-search, search count, replace     sticky "enclosing scope" header
-editing, undo, copy/paste         indent guides and scope highlight
-autopairs                         symbol trail in the winbar
-statusline, tabline               language server (no LSP attach)
-file explorer, finder             git change marks and inline blame
-                                  smooth-scroll animation
-                                  bracket-pair highlight (matchparen)
+indent guides, scope highlight    sticky "enclosing scope" header
+search, search count, replace     symbol trail in the winbar
+editing, undo, copy/paste         language server (no LSP attach)
+autopairs                         git change marks and inline blame
+statusline, tabline               smooth-scroll animation
+file explorer, finder             bracket-pair highlight (matchparen)
                                   folding by grammar (manual only)
                                   concealed text (conceallevel 0)
                                   extra signs and fold marks in the gutter
@@ -76,7 +75,7 @@ STATE 3 - a normal file opened next to it:
 │ big.xml  (big file)         │ init.lua  (normal)          │
 │  1  <?xml ...?>             │  1  local M = {}            │
 │  2  <orders>                │  2  function M.setup()      │
-│ no guides, no git marks     │ │   guides, git marks, LSP  │
+│ guides, no git marks        │ │   guides, git marks, LSP  │
 └─────────────────────────────┴─────────────────────────────┘
 ```
 
@@ -163,7 +162,8 @@ Step 1: A 200 KB file is open; paste in 10 MB of text.
 - The file type is not changed (an XML file still says `XML`), so file-type specific settings such as tabs and comment strings still apply.
 - Exactly one notice per open. It is a toast, names the file, and shows the size in human units (KB / MB).
 - The notice can be turned off in configuration (the features are still switched off).
-- Search, search count, editing, undo, registers, the explorer and the finder are never switched off.
+- Search, search count, editing, undo, registers, indent guides, the explorer and the finder are never switched off.
+- Indent guides and the scope highlight stay on, but they only look at the lines around the cursor (a limited stretch), so they stay cheap on a huge file.
 - The list of switched-off features is configurable, so a feature can be kept on for big files if you accept its cost.
 - A feature that is switched off must stay off for the whole life of that buffer, including after `:e`, reload from disk, and re-attach events.
 - Files that cannot be measured (new, empty, unreadable) are treated as normal.
@@ -175,7 +175,7 @@ Step 1: A 200 KB file is open; paste in 10 MB of text.
 
 - [ ] Opening `realistic_orders_120k.xml` shows exactly one "Big File" notice with name and size.
 - [ ] In that file, holding `j`, `Ctrl-D` and `G` feels instant; typing a character shows immediately.
-- [ ] None of the switched-off features run in that buffer (no language server attached, no treesitter coloring, no guides, no git marks, no symbol trail, no sticky header).
+- [ ] None of the switched-off features run in that buffer (no language server attached, no treesitter coloring, no git marks, no symbol trail, no sticky header).
 - [ ] Line numbers, simple coloring, search, search count, undo and statusline still work in that buffer.
 - [ ] A minified 900 KB single-line-style file triggers the same behavior.
 - [ ] A small file opened in the same session keeps every feature.

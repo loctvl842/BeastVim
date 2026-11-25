@@ -217,4 +217,167 @@ t.describe("bigfile guards", function()
 			t.eq(0, trail_len(200))
 		end)
 	end)
+
+	t.describe("window options", function()
+		t.it("sets manual folds and no conceal for a big buffer", function()
+			t.eq(
+				{ "manual", 0 },
+				n.exec_lua(function()
+					vim.wo.foldmethod = "indent"
+					vim.wo.conceallevel = 2
+					open("big.lua", 200)
+					return { vim.wo.foldmethod, vim.wo.conceallevel }
+				end)
+			)
+		end)
+
+		t.it("leaves a small buffer alone", function()
+			t.eq(
+				{ "indent", 2 },
+				n.exec_lua(function()
+					vim.wo.foldmethod = "indent"
+					vim.wo.conceallevel = 2
+					open("small.lua", 3)
+					return { vim.wo.foldmethod, vim.wo.conceallevel }
+				end)
+			)
+		end)
+
+		t.it("puts the values back when the window shows a normal buffer", function()
+			t.eq(
+				{ "indent", 2 },
+				n.exec_lua(function()
+					vim.wo.foldmethod = "indent"
+					vim.wo.conceallevel = 2
+					open("big.lua", 200)
+					open("small.lua", 3)
+					return { vim.wo.foldmethod, vim.wo.conceallevel }
+				end)
+			)
+		end)
+
+		t.it("keeps the original values across :e of the big buffer", function()
+			t.eq(
+				{ "indent", 2 },
+				n.exec_lua(function()
+					vim.wo.foldmethod = "indent"
+					vim.wo.conceallevel = 2
+					open("big.lua", 200)
+					vim.cmd.edit()
+					open("small.lua", 3)
+					return { vim.wo.foldmethod, vim.wo.conceallevel }
+				end)
+			)
+		end)
+
+		t.it("keeps the big window forced and gives a split's normal buffer the global defaults", function()
+			t.eq(
+				{ { "manual", 0 }, { "manual", 0 }, "manual", 0 },
+				n.exec_lua(function()
+					vim.wo.foldmethod = "indent"
+					vim.wo.conceallevel = 2
+					open("big.lua", 200)
+					local big_win = vim.api.nvim_get_current_win()
+					vim.cmd.vsplit()
+					open("small.lua", 3)
+					local small_win = vim.api.nvim_get_current_win()
+					return {
+						{ vim.wo[big_win].foldmethod, vim.wo[big_win].conceallevel },
+						{ vim.wo[small_win].foldmethod, vim.wo[small_win].conceallevel },
+						vim.go.foldmethod,
+						vim.go.conceallevel,
+					}
+				end)
+			)
+		end)
+
+		t.it("honors disable.fold = false and disable.conceal = false", function()
+			t.eq(
+				{ "indent", 2 },
+				n.exec_lua(function()
+					Bigfile.setup({ size = 1000, disable = { fold = false, conceal = false } })
+					vim.wo.foldmethod = "indent"
+					vim.wo.conceallevel = 2
+					open("big.lua", 200)
+					return { vim.wo.foldmethod, vim.wo.conceallevel }
+				end)
+			)
+		end)
+
+		t.it("empties matchpairs for a big buffer only", function()
+			t.eq(
+				{ "", "(:),{:},[:]" },
+				n.exec_lua(function()
+					local big = open("big.lua", 200)
+					local small = open("small.lua", 3)
+					return { vim.bo[big].matchpairs, vim.bo[small].matchpairs }
+				end)
+			)
+		end)
+	end)
+
+	t.describe("statuscolumn", function()
+		t.before_each(function()
+			n.exec_lua(function()
+				_G.stc = function(buf, lnum)
+					vim.api.nvim_set_current_buf(buf)
+					vim.wo.number = true
+					local win = vim.api.nvim_get_current_win()
+					return vim.api.nvim_eval_statusline(vim.wo[win].statuscolumn, { winid = win, use_statuscol_lnum = lnum }).str
+				end
+				require("beast.libs.statuscolumn").setup({})
+			end)
+		end)
+
+		t.it("renders the sign slots next to the number for a small buffer", function()
+			t.eq(
+				true,
+				n.exec_lua(function()
+					-- diagnostic slot, number, git slot, 2-cell fold slot
+					return #stc(open("small.lua", 3), 1) > #tostring(1) + 1
+				end)
+			)
+		end)
+
+		t.it("renders only the number for a big buffer", function()
+			t.eq(
+				"1",
+				n.exec_lua(function()
+					return vim.trim(stc(open("big.lua", 200), 1))
+				end)
+			)
+		end)
+	end)
+
+	t.describe("indent scope", function()
+		---Size in lines of the scope around the middle of a 3000-line indented block.
+		---@param size integer bigfile size limit
+		---@return integer
+		local function scope_lines(size)
+			return n.exec_lua(function(limit)
+				Bigfile.setup({ size = limit })
+				local lines = { "do" }
+				for i = 1, 3000 do
+					lines[#lines + 1] = "  local v" .. i .. " = " .. i
+				end
+				lines[#lines + 1] = "end"
+				local path = dir .. "/block.lua"
+				vim.fn.writefile(lines, path)
+				vim.cmd.edit(vim.fn.fnameescape(path))
+				local buf = vim.api.nvim_get_current_buf()
+				local found = vim.api.nvim_buf_call(buf, function()
+					return require("beast.libs.indent.scope").find(buf, { 1500, 0 })
+				end)
+				return found[1].to - found[1].from + 1
+			end, size)
+		end
+
+		t.it("finds the whole block in a small buffer", function()
+			t.eq(3000, scope_lines(1e9))
+		end)
+
+		t.it("caps the walk in a big buffer", function()
+			t.eq(true, scope_lines(1000) <= 2001)
+		end)
+	end)
 end)

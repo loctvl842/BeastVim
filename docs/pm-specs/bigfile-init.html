@@ -51,7 +51,7 @@
 
 <section data-spec="problem">
   <h2>Problem</h2>
-  <p>Opening a huge file feels broken today: the cursor stutters, scrolling lags, and typing a character can freeze the editor. It does the same rich work as for a 50-line file (grammar coloring, guides, symbol trail, git marks, a language server) on 120,000 lines, and every keypress pays for it.</p>
+  <p>Opening a huge file feels broken today: the cursor stutters, scrolling lags, and typing a character can freeze the editor. It does the same rich work as for a 50-line file (grammar coloring, symbol trail, git marks, a language server) on 120,000 lines, and every keypress pays for it.</p>
   <p>Today the only protection is a cap on bracket matching. You cannot tell if the lag means "big file" or "something is wrong".</p>
   <p class="muted" data-spec="problem-why-now"><b>Why now:</b> logs, data exports, generated code and minified bundles are normal work. The editor should open them without a fight, and say plainly that it simplified itself.</p>
 </section>
@@ -91,6 +91,7 @@
         <ul>
           <li>line numbers</li>
           <li>simple (regex) coloring</li>
+          <li>indent guides and scope highlight</li>
           <li>search, search count, replace</li>
           <li>editing, undo, copy/paste</li>
           <li>autopairs</li>
@@ -104,7 +105,6 @@
           <li>grammar-aware coloring (treesitter)</li>
           <li>smart indent from grammar</li>
           <li>sticky "enclosing scope" header</li>
-          <li>indent guides and scope highlight</li>
           <li>symbol trail in the winbar</li>
           <li>language server (no LSP attach)</li>
           <li>git change marks and inline blame</li>
@@ -124,7 +124,7 @@
 │ big.xml  (big file)         │ init.lua  (normal)          │
 │  1  &lt;?xml ...?&gt;             │  1  local M = {}            │
 │  2  &lt;orders&gt;                │  2  function M.setup()      │
-│ no guides, no git marks     │ │   guides, git marks, LSP  │
+│ guides, no git marks        │ │   guides, git marks, LSP  │
 └─────────────────────────────┴─────────────────────────────┘</pre>
     <p>Decided per file. A big file never changes any other file.</p>
   </div>
@@ -182,7 +182,8 @@
     <li>Only that buffer is affected.</li>
     <li>The file type is not changed (XML still says <code>XML</code>), so tabs and comment settings still apply.</li>
     <li>Exactly one notice per open: a toast naming the file and its size in KB / MB. Can be turned off in configuration; features are still switched off.</li>
-    <li>Search, search count, editing, undo, registers, explorer and finder are never switched off.</li>
+    <li>Search, search count, editing, undo, registers, indent guides, explorer and finder are never switched off.</li>
+    <li>Indent guides and the scope highlight stay on, but only look at a limited stretch around the cursor, so they stay cheap on a huge file.</li>
     <li>The list of switched-off features is configurable, to keep one on at your own cost.</li>
     <li>Switched-off features stay off for the buffer's whole life, including <code>:e</code>, reload from disk and re-attach events.</li>
     <li>Files that cannot be measured (new, empty, unreadable) are normal.</li>
@@ -195,7 +196,7 @@
   <ul class="check">
     <li>Opening <code>realistic_orders_120k.xml</code> shows exactly one "Big File" notice with name and size.</li>
     <li>In that file, holding <code>j</code>, <code>Ctrl-D</code> and <code>G</code> feels instant; typing shows immediately.</li>
-    <li>None of the switched-off features run in that buffer (no LSP, no treesitter coloring, no guides, no git marks, no symbol trail, no sticky header).</li>
+    <li>None of the switched-off features run in that buffer (no LSP, no treesitter coloring, no git marks, no symbol trail, no sticky header).</li>
     <li>Line numbers, simple coloring, search, search count, undo and statusline still work.</li>
     <li>A minified 900 KB file triggers the same behavior.</li>
     <li>A small file opened in the same session keeps every feature.</li>

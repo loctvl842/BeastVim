@@ -108,6 +108,14 @@ function M.setup(opts)
 		end,
 	})
 
+	-- Fold, conceal and matchparen follow the window or buffer, so they are set as it is shown.
+	api.nvim_create_autocmd("BufWinEnter", {
+		group = group,
+		callback = function(ev)
+			require("beast.libs.bigfile.window").apply(api.nvim_get_current_win(), ev.buf)
+		end,
+	})
+
 	-- `:e` unloads and reloads the buffer, so the verdict is recomputed (the file may have changed)...
 	api.nvim_create_autocmd("BufUnload", {
 		group = group,

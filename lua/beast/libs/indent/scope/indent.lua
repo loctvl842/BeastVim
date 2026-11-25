@@ -13,15 +13,20 @@ end
 ---@param line integer 1-indexed starting line
 ---@param indent integer reference indent level
 ---@param up boolean true = expand upward
+---@param limit? integer stop this many lines from `line` (a block can span the whole file)
 ---@return integer edge_line
-local function expand(line, indent, up)
+local function expand(line, indent, up, limit)
 	local next = up and vim.fn.prevnonblank or vim.fn.nextnonblank
+	local stop = limit and (up and line - limit or line + limit)
 	while line do
 		local i, l = get_indent(next(line + (up and -1 or 1)))
 		if (i or 0) == 0 or i < indent or l == 0 then
 			return line
 		end
 		line = l
+		if stop and (up and line <= stop or not up and line >= stop) then
+			return line
+		end
 	end
 	return line
 end
@@ -34,8 +39,9 @@ local MIN_SIZE = 1
 ---Must be called inside `nvim_buf_call` for the target buffer.
 ---@param buf integer
 ---@param pos {[1]: integer, [2]: integer} 1-indexed line, 0-indexed col
+---@param limit? integer cap the scope to this many lines each side of the cursor block (big buffers)
 ---@return Beast.Indent.Scope[]?
-function M.find(buf, pos)
+function M.find(buf, pos, limit)
 	local line = pos[1]
 	local indent, resolved_line = get_indent(line)
 	local is_blank = vim.fn.prevnonblank(line) ~= line
@@ -88,8 +94,8 @@ function M.find(buf, pos)
 	-- stylua: ignore
 	if not indent or indent <= 0 then return nil end
 
-	local from = expand(resolved_line, indent, true)
-	local to = expand(resolved_line, indent, false)
+	local from = expand(resolved_line, indent, true, limit)
+	local to = expand(resolved_line, indent, false, limit)
 
 	-- Anchor the vertical line to the opener above the block. The body's own
 	-- first line indent can be off grid (or otherwise unreliable), while the
