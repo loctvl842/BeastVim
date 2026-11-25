@@ -89,6 +89,30 @@ t.describe("bigfile", function()
 			)
 		end)
 
+		t.it("does not call a read-in-progress buffer minified (BufReadPre)", function()
+			t.eq(
+				{ false, false },
+				n.exec_lua(function()
+					Bigfile.setup({ size = 1e9, line_length = 100 })
+					local path = dir .. "/pre.txt"
+					local lines = {}
+					for i = 1, 400 do
+						lines[i] = "row " .. i
+					end
+					vim.fn.writefile(lines, path)
+					local early
+					vim.api.nvim_create_autocmd("BufReadPre", {
+						once = true,
+						callback = function(ev)
+							early = Bigfile.is(ev.buf)
+						end,
+					})
+					vim.cmd.edit(vim.fn.fnameescape(path))
+					return { early, Bigfile.is(0) }
+				end)
+			)
+		end)
+
 		t.it("is false for a buffer that is not loaded, and does not remember it", function()
 			t.eq(
 				{ false, true },

@@ -43,6 +43,11 @@ local function classify(buf)
 		return true
 	end
 	local lines = api.nvim_buf_line_count(buf)
+	-- At BufReadPre the buffer is loaded but still holds one empty line, which would make any file
+	-- look minified: wait until it has been read.
+	if size > 1 and api.nvim_buf_get_offset(buf, lines) <= 1 then
+		return nil
+	end
 	return (size - lines) / lines > config.line_length
 end
 
@@ -58,7 +63,9 @@ function M.is(buf)
 	if not config.enabled or not api.nvim_buf_is_valid(buf) or not api.nvim_buf_is_loaded(buf) then return false end
 	-- stylua: ignore
 	if vim.bo[buf].buftype ~= "" or api.nvim_buf_get_name(buf) == "" then return false end
-	hit = classify(buf) or false
+	hit = classify(buf)
+	-- stylua: ignore
+	if hit == nil then return false end
 	memo[buf] = hit
 	return hit
 end

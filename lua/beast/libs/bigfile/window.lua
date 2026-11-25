@@ -16,6 +16,21 @@ local WIN_OPTS = {
 	conceal = { conceallevel = 0 },
 }
 
+---Window-local scope only: `vim.wo[win][name] = v` behaves like `:set` and would also write the global value.
+---@param win integer
+---@param name string
+---@return any
+local function get(win, name)
+	return vim.api.nvim_get_option_value(name, { scope = "local", win = win })
+end
+
+---@param win integer
+---@param name string
+---@param value any
+local function set(win, name, value)
+	vim.api.nvim_set_option_value(name, value, { scope = "local", win = win })
+end
+
 ---@param win integer
 ---@param buf integer the buffer `win` now shows
 function M.apply(win, buf)
@@ -27,12 +42,15 @@ function M.apply(win, buf)
 	for feature, opts in pairs(WIN_OPTS) do
 		if config.disable[feature] then
 			for name, forced in pairs(opts) do
+				local current = get(win, name)
 				if big then
-					if saved[name] == nil then
-						saved[name] = vim.wo[win][name]
+					-- Neovim hands a returning buffer its remembered window options before BufWinEnter,
+					-- so the current value may already be ours: never record that as the original.
+					if saved[name] == nil and current ~= forced then
+						saved[name] = current
 					end
-					vim.wo[win][name] = forced
-				elseif vim.wo[win][name] == forced then
+					set(win, name, forced)
+				elseif current == forced then
 					-- Still our value: put back what the window had. A split of a big window copies the
 					-- forced value but not the record, so fall back to the global default. A different
 					-- value was set since (an ftplugin, the user) and is left alone.
@@ -40,7 +58,7 @@ function M.apply(win, buf)
 					if original == nil then
 						original = vim.go[name]
 					end
-					vim.wo[win][name] = original
+					set(win, name, original)
 				end
 			end
 		end

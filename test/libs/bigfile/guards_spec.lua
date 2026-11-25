@@ -270,23 +270,44 @@ t.describe("bigfile guards", function()
 			)
 		end)
 
-		t.it("keeps the big window forced and gives a split's normal buffer the global defaults", function()
+		t.it("never writes the global option", function()
 			t.eq(
-				{ { "manual", 0 }, { "manual", 0 }, "manual", 0 },
+				{ "indent", 2 },
 				n.exec_lua(function()
-					vim.wo.foldmethod = "indent"
-					vim.wo.conceallevel = 2
+					vim.go.foldmethod = "indent"
+					vim.go.conceallevel = 2
 					open("big.lua", 200)
-					local big_win = vim.api.nvim_get_current_win()
+					return { vim.go.foldmethod, vim.go.conceallevel }
+				end)
+			)
+		end)
+
+		t.it("restores a split's normal file to the real defaults, not the forced values", function()
+			t.eq(
+				{ "indent", 2 },
+				n.exec_lua(function()
+					vim.go.foldmethod = "indent"
+					vim.go.conceallevel = 2
+					open("big.lua", 200)
 					vim.cmd.vsplit()
 					open("small.lua", 3)
-					local small_win = vim.api.nvim_get_current_win()
-					return {
-						{ vim.wo[big_win].foldmethod, vim.wo[big_win].conceallevel },
-						{ vim.wo[small_win].foldmethod, vim.wo[small_win].conceallevel },
-						vim.go.foldmethod,
-						vim.go.conceallevel,
-					}
+					return { vim.wo.foldmethod, vim.wo.conceallevel }
+				end)
+			)
+		end)
+
+		t.it("does not record the forced values as the original when a big buffer is re-entered", function()
+			t.eq(
+				{ "expr", 2 },
+				n.exec_lua(function()
+					vim.wo.foldmethod = "expr"
+					vim.wo.conceallevel = 2
+					local small = open("small.lua", 3)
+					open("big.lua", 200)
+					vim.cmd.buffer(small)
+					vim.cmd("buffer #")
+					open("small2.lua", 3)
+					return { vim.wo.foldmethod, vim.wo.conceallevel }
 				end)
 			)
 		end)
