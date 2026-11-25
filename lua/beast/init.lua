@@ -15,6 +15,7 @@ M.reload_highlights = hl.reload_highlights
 ---@field finder? Beast.Finder.Config
 ---@field indent? Beast.Indent.Config
 ---@field breadcrumb? Beast.Breadcrumb.Config
+---@field bigfile? Beast.Bigfile.Config
 ---@field scroll? Beast.Scroll.Config
 ---@field session? Beast.Session.Config
 ---@field image? Beast.Image.Viewer.Opts
@@ -77,6 +78,11 @@ function M.setup(opts)
 	local toast = require("beast.libs.toast")
 	_G.Toast = toast
 	toast.setup(cfg.toast or {})
+
+	-- Big file detection. Eager: `nvim file` fires FileType during startup, before any deferred
+	-- trigger, and the guards in other libs ask it from their first FileType/attach.
+	_G.Bigfile = Util.mod("beast.libs.bigfile") ---@type Beast.Bigfile
+	Bigfile.setup(cfg.bigfile or {})
 
 	-- Message UI (ui2 + toast routing). Eager: messages must never prompt, even at startup.
 	require("beast.libs.messages").setup(cfg.messages or {})

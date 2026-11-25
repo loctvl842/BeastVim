@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spec: Big file mode</title>
+<style>
+  :root { --bg:#fbfaf7; --fg:#1c1b19; --muted:#6b675f; --line:#dcd8cf; --card:#fff; --accent:#b4540a;
+          --bad:#b3261e; --good:#1b7a3d; --code:#f3f0e8; --hl:#fde9c8; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#161513; --fg:#ece8df; --muted:#a29d92; --line:#3a3732; --card:#1f1d1a; --accent:#e08a3c;
+            --bad:#ff8a80; --good:#6fd08c; --code:#262420; --hl:#4a3a1f; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.55 system-ui, sans-serif; }
+  main { max-width:900px; margin:0 auto; padding:24px 16px 80px; }
+  h1 { font-size:28px; margin:0 0 8px; }
+  h2 { font-size:20px; margin:0 0 10px; border-bottom:1px solid var(--line); padding-bottom:6px; }
+  h3 { font-size:15px; margin:14px 0 6px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
+  section { margin:34px 0; }
+  p { margin:8px 0; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin:10px 0; }
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  @media (max-width:700px) { .grid { grid-template-columns:1fr; } }
+  pre.mock { margin:8px 0 0; background:var(--code); border:1px solid var(--line); border-radius:8px;
+             padding:10px 12px; font:13px/1.5 ui-monospace, Menlo, monospace; overflow-x:auto; white-space:pre; }
+  .on-l { color:var(--good); font-weight:600; }
+  .off-l { color:var(--bad); font-weight:600; }
+  .step { display:grid; grid-template-columns:70px 1fr; gap:6px 12px; padding:8px 0; border-top:1px dashed var(--line); }
+  .step:first-of-type { border-top:0; }
+  .step b { color:var(--accent); }
+  @media (max-width:520px) { .step { grid-template-columns:1fr; } }
+  ul { padding-left:20px; } li { margin:4px 0; }
+  ul.check { list-style:none; padding-left:0; }
+  ul.check li::before { content:"\2610 "; color:var(--muted); }
+  .muted { color:var(--muted); }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th, td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--muted); font-weight:600; }
+  code { font:13px ui-monospace, Menlo, monospace; background:var(--code); padding:0 4px; border-radius:4px; }
+</style>
+</head>
+<body>
+<main>
+
+<header data-spec="summary">
+  <h1>Big file mode</h1>
+  <p>When you open a very large file (say a 7 MB, 120,000-line XML export) the editor switches off the costly features for that file only. You get one short notice, the file stays readable and editable, and every other file keeps everything.</p>
+  <p class="muted">Sample: <code>realistic_orders_120k.xml</code>, 7.4 MB, 121,112 lines.</p>
+</header>
+
+<section data-spec="problem">
+  <h2>Problem</h2>
+  <p>Opening a huge file feels broken today: the cursor stutters, scrolling lags, and typing a character can freeze the editor. It does the same rich work as for a 50-line file (grammar coloring, guides, symbol trail, git marks, a language server) on 120,000 lines, and every keypress pays for it.</p>
+  <p>Today the only protection is a cap on bracket matching. You cannot tell if the lag means "big file" or "something is wrong".</p>
+  <p class="muted" data-spec="problem-why-now"><b>Why now:</b> logs, data exports, generated code and minified bundles are normal work. The editor should open them without a fight, and say plainly that it simplified itself.</p>
+</section>
+
+<section data-spec="target-behavior">
+  <h2>Target behavior</h2>
+
+  <div data-spec="state-1">
+    <h3>State 1 - opening the sample file</h3>
+<pre class="mock">┌───────────────────────────────────────────────────────────────────────┐
+│                                       ┌───────────────────────────┐   │
+│                                       │ Big File                  │   │
+│                                       │ realistic_orders_120k.xml │   │
+│                                       │ (7.4 MB) is large. Some   │   │
+│                                       │ features are disabled.    │   │
+│                                       └───────────────────────────┘   │
+│   1  &lt;?xml version="1.0" encoding="UTF-8"?&gt;                           │
+│   2  &lt;!-- Synthetic deeply-nested commerce export fixture. --&gt;        │
+│   3  &lt;commerceExport xmlns="urn:example:commerce:orders:v3" ...&gt;      │
+│   4    &lt;orders&gt;                                                       │
+│   5      &lt;order id="ORD-0000001" status="backordered" ...&gt;            │
+│  ...                                                                  │
+│ NORMAL  realistic_orders_120k.xml            Ln 1, Col 1  XML  UTF-8  │
+└───────────────────────────────────────────────────────────────────────┘</pre>
+    <ul>
+      <li>One notice on open, naming the file and its size.</li>
+      <li>Line numbers stay. The statusline still says <code>XML</code>.</li>
+      <li>Text is still colored (simple, fast coloring), just not grammar-aware.</li>
+    </ul>
+  </div>
+
+  <div data-spec="state-2">
+    <h3>State 2 - what stays on, what is switched off (this file only)</h3>
+    <div class="grid">
+      <div class="card">
+        <b class="on-l">Stays on</b>
+        <ul>
+          <li>line numbers</li>
+          <li>simple (regex) coloring</li>
+          <li>search, search count, replace</li>
+          <li>editing, undo, copy/paste</li>
+          <li>autopairs</li>
+          <li>statusline, tabline</li>
+          <li>file explorer, finder</li>
+        </ul>
+      </div>
+      <div class="card">
+        <b class="off-l">Switched off</b>
+        <ul>
+          <li>grammar-aware coloring (treesitter)</li>
+          <li>smart indent from grammar</li>
+          <li>sticky "enclosing scope" header</li>
+          <li>indent guides and scope highlight</li>
+          <li>symbol trail in the winbar</li>
+          <li>language server (no LSP attach)</li>
+          <li>git change marks and inline blame</li>
+          <li>smooth-scroll animation</li>
+          <li>bracket-pair highlight (matchparen)</li>
+          <li>grammar folding (manual only)</li>
+          <li>concealed text</li>
+          <li>extra signs and fold marks in the gutter</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div data-spec="state-3">
+    <h3>State 3 - a normal file next to it</h3>
+<pre class="mock">┌─────────────────────────────┬─────────────────────────────┐
+│ big.xml  (big file)         │ init.lua  (normal)          │
+│  1  &lt;?xml ...?&gt;             │  1  local M = {}            │
+│  2  &lt;orders&gt;                │  2  function M.setup()      │
+│ no guides, no git marks     │ │   guides, git marks, LSP  │
+└─────────────────────────────┴─────────────────────────────┘</pre>
+    <p>Decided per file. A big file never changes any other file.</p>
+  </div>
+</section>
+
+<section data-spec="scenarios">
+  <h2>Scenarios</h2>
+
+  <div class="card" data-spec="scenario-1">
+    <h3>1 - Open a big file (happy path)</h3>
+    <div class="step"><b>Step 1</b><div>Run <code>nvim realistic_orders_120k.xml</code>. The file appears with a "Big File" notice showing name and size.</div></div>
+    <div class="step"><b>Step 2</b><div>Press <code>j</code> / <code>k</code>, <code>Ctrl-D</code> / <code>Ctrl-U</code>, <code>G</code>, <code>gg</code>, <code>50000G</code>. Cursor and view move immediately.</div></div>
+    <div class="step"><b>Step 3</b><div>Type a character mid-file. It appears at once; nothing freezes.</div></div>
+    <div class="step"><b>Step 4</b><div>Search <code>/ORD-0099999</code> then <code>n</code>. Match found, highlighted, count shown as usual.</div></div>
+  </div>
+
+  <div class="card" data-spec="scenario-2">
+    <h3>2 - Open a normal file</h3>
+    <div class="step"><b>Step 1</b><div>Open <code>lua/beast/option.lua</code> (a few KB). No notice, every feature as before.</div></div>
+  </div>
+
+  <div class="card" data-spec="scenario-3">
+    <h3>3 - Minified file: small but extremely long lines</h3>
+    <div class="step"><b>Step 1</b><div>Open <code>app.min.js</code> (900 KB, 3 lines, average line over 1,000 characters). The notice appears even though the size is under the limit; the long lines are the cost, so the same features go off.</div></div>
+  </div>
+
+  <div class="card" data-spec="scenario-4">
+    <h3>4 - Big file and normal file side by side</h3>
+    <div class="step"><b>Step 1</b><div><code>:vsplit init.lua</code> from the big file. Right window keeps all features; left stays simplified.</div></div>
+    <div class="step"><b>Step 2</b><div>Move between windows. Each keeps its own behavior, nothing leaks.</div></div>
+  </div>
+
+  <div class="card" data-spec="scenario-5">
+    <h3>5 - Open the same big file again later</h3>
+    <div class="step"><b>Step 1</b><div>Close the buffer, open it again. The notice shows again, once for that open.</div></div>
+    <div class="step"><b>Step 2</b><div>Re-enter the same open buffer from another window or <code>:b</code>. No new notice.</div></div>
+  </div>
+
+  <div class="card" data-spec="scenario-6">
+    <h3>6 - Edge: new or empty file</h3>
+    <div class="step"><b>Step 1</b><div><code>nvim new_file.xml</code> (not on disk) or an empty file is treated as normal. No notice.</div></div>
+  </div>
+
+  <div class="card" data-spec="scenario-7">
+    <h3>7 - Edge: file grows large while editing</h3>
+    <div class="step"><b>Step 1</b><div>A 200 KB file is open and you paste in 10 MB. Nothing changes mid-session; the decision is made on open. Reopen and it is treated as big.</div></div>
+  </div>
+</section>
+
+<section data-spec="behavior-rules">
+  <h2>Behavior rules</h2>
+  <ul>
+    <li>Big means either: size on disk over 1.5 MB, or average line length over 1,000 characters (looks minified). Both limits are configurable.</li>
+    <li>Decided per buffer, once, when the file opens. Later edits do not flip it.</li>
+    <li>Only that buffer is affected.</li>
+    <li>The file type is not changed (XML still says <code>XML</code>), so tabs and comment settings still apply.</li>
+    <li>Exactly one notice per open: a toast naming the file and its size in KB / MB. Can be turned off in configuration; features are still switched off.</li>
+    <li>Search, search count, editing, undo, registers, explorer and finder are never switched off.</li>
+    <li>The list of switched-off features is configurable, to keep one on at your own cost.</li>
+    <li>Switched-off features stay off for the buffer's whole life, including <code>:e</code>, reload from disk and re-attach events.</li>
+    <li>Files that cannot be measured (new, empty, unreadable) are normal.</li>
+    <li>Non-file buffers (help, finder, explorer, terminal, scratch) are never big.</li>
+  </ul>
+</section>
+
+<section data-spec="success-criteria">
+  <h2>Success criteria</h2>
+  <ul class="check">
+    <li>Opening <code>realistic_orders_120k.xml</code> shows exactly one "Big File" notice with name and size.</li>
+    <li>In that file, holding <code>j</code>, <code>Ctrl-D</code> and <code>G</code> feels instant; typing shows immediately.</li>
+    <li>None of the switched-off features run in that buffer (no LSP, no treesitter coloring, no guides, no git marks, no symbol trail, no sticky header).</li>
+    <li>Line numbers, simple coloring, search, search count, undo and statusline still work.</li>
+    <li>A minified 900 KB file triggers the same behavior.</li>
+    <li>A small file opened in the same session keeps every feature.</li>
+    <li>Big and normal files in split windows each keep their own behavior.</li>
+    <li>The file type of a big file is still shown (XML for the sample).</li>
+    <li>Turning the notice off silences it without re-enabling features.</li>
+    <li>Reopening the same big file shows the notice again once per open.</li>
+  </ul>
+</section>
+
+<section data-spec="out-of-scope">
+  <h2>Out of scope</h2>
+  <ul>
+    <li>A command or key to switch features back on for one big file. Deferred until the need is real.</li>
+    <li>Re-evaluating a buffer that grows past the limit mid-session.</li>
+    <li>A "BIG" indicator in the statusline. The notice is enough for v1.</li>
+    <li>Special handling of big files in the finder preview or explorer.</li>
+    <li>Streaming or partial loading. The whole file is still loaded.</li>
+    <li>Opening binary files differently.</li>
+  </ul>
+</section>
+
+</main>
+</body>
+</html>
