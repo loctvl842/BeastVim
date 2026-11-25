@@ -159,6 +159,15 @@ function M.setup()
 
 			require("beast.libs.lsp.capabilities").first_client_seen = true
 
+			-- Backstop for a client started some other way (a server registered outside `register`,
+			-- `:lsp start`): this buffer is big, so let go of it. Other buffers keep the client.
+			if require("beast.libs.bigfile").disabled(ev.buf, "lsp") then
+				vim.schedule(function()
+					vim.lsp.buf_detach_client(ev.buf, client.id)
+				end)
+				return
+			end
+
 			local server = M.servers[client.name]
 			if server then
 				if server.keys then

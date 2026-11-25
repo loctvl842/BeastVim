@@ -83,7 +83,7 @@ local function buffer_eligible(buf)
 	if ft_ignore_set[bo.filetype] then
 		return false
 	end
-	return true
+	return not require("beast.libs.bigfile").disabled(buf, "git")
 end
 
 -- =========================================================================

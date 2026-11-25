@@ -70,6 +70,22 @@ local function scored_root_dir(markers)
 	end
 end
 
+---Wrap `root_dir` so a big buffer never starts a client: Neovim only starts
+---one once `on_dir` is called. A static or absent `root_dir` is passed through
+---`on_dir` unchanged, which starts the client the same way Neovim would.
+---@param root_dir string|fun(bufnr: integer, on_dir: fun(root_dir?: string))|nil
+---@return fun(bufnr: integer, on_dir: fun(root_dir?: string))
+local function skip_big_buffers(root_dir)
+	return function(bufnr, on_dir)
+		-- stylua: ignore
+		if require("beast.libs.bigfile").disabled(bufnr, "lsp") then return end
+		if type(root_dir) == "function" then
+			return root_dir(bufnr, on_dir)
+		end
+		on_dir(root_dir)
+	end
+end
+
 ---Build a multi-line summary of LSP state focused on the current buffer.
 ---@return string
 local function build_info()
@@ -159,6 +175,7 @@ function M.register(name, cfg)
 	if lsp_cfg.root_markers and lsp_cfg.root_dir == nil then
 		lsp_cfg.root_dir = scored_root_dir(lsp_cfg.root_markers)
 	end
+	lsp_cfg.root_dir = skip_big_buffers(lsp_cfg.root_dir)
 
 	if lsp_cfg.capabilities == nil then
 		-- Snapshot so vim.lsp.start_client's validator accepts the cfg.
