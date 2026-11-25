@@ -1,4 +1,4 @@
-<!-- Generated: 2026-11-17 | Files scanned: 361 | Token estimate: ~3380 -->
+<!-- Generated: 2026-11-25 | Files scanned: 382 | Token estimate: ~3380 -->
 
 # Architecture
 
@@ -95,6 +95,7 @@ lua/beast/
 | `Treesitter` | beast.libs.treesitter | `ensure_parser` for `BeastVim/<Lang>` extensions (module only; `setup`/`enable` stay lazy) |
 | `Mason` | beast.libs.mason | `bin` / `ensure_package` for `BeastVim/<Lang>` extensions |
 | `Toast` | beast.libs.toast | Toast notifications (registered eagerly in setup) |
+| `Bigfile` | beast.libs.bigfile | `is(buf)` / `disabled(buf, feature)`: big-file verdict libs consult (set up eagerly, after Toast) |
 | `Lsp` | beast.libs.lsp | LSP infra: register, capabilities, on_attach |
 | `gh` | (closure) | `gh("user/repo") → "https://github.com/user/repo"` for plugin specs |
 
@@ -110,6 +111,7 @@ beast.setup(opts)
   3.  packer.lazy("beast.theme", VimEnter+defer) → Theme.setup() +
         hl_reload.setup() + Theme.refresh() + reload_highlights()
   4.  notify.setup(cfg.notify) + toast.setup(cfg.toast) — EAGER (_G.Toast set)
+  4a. Bigfile.setup(cfg.bigfile) - EAGER (`nvim file` fires FileType before any deferred trigger)
   4b. messages.setup(cfg.messages) - EAGER (ui2 + toast routing; messages
         must never prompt, even at startup)
   5.  packer.lazy confirm (module trigger: beast.libs.confirm)

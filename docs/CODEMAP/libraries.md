@@ -1,4 +1,4 @@
-<!-- Generated: 2026-11-17 | Files scanned: 361 | Token estimate: ~13964 -->
+<!-- Generated: 2026-11-25 | Files scanned: 382 | Token estimate: ~13964 -->
 
 # Libraries
 
@@ -742,6 +742,28 @@ Default routes: E486 → "Pattern not found" (warn); `search hit BOTTOM/TOP` →
 (cancelled when E486 follows); `search_count` dropped; other `emsg/echoerr/lua_error/rpc_error` → error toast,
 other `wmsg` → warn toast. Everything else (echo, `:ls`, …) stays in ui2 (msg window / pager). No hit-enter prompt.
 Loaded: eagerly in `beast.setup()` after toast. Experimental API: version-gated, falls back to native UI.
+
+---
+
+## bigfile — Big File Mode (switch costly features off per buffer)
+
+```
+bigfile/
+├── init.lua       ← is(buf) lazy + memoized verdict, disabled(buf, feature), setup(): FileType/BufReadPost toast
+│                    (once per open), BufWinEnter window opts, BufUnload clears verdict, BufDelete/Wipeout clears toast mark
+├── config.lua     ← enabled, notify, size (1.5 MiB), line_length (1000), disable{feature=bool} (read-only proxy)
+├── window.lua     ← apply(win, buf): foldmethod=manual + conceallevel=0 (window-local scope, original kept in w:beast_bigfile,
+│                    restored when still ours), matchpairs="" (matchparen off)
+└── health.lua     ← :checkhealth beast.libs.bigfile
+```
+
+Big = real file buffer, loaded, `getfsize > size`, or `(size - lines) / lines > line_length`; undecided (not memoized) while unloaded
+or still the BufReadPre placeholder. Filetype is never changed. Features: treesitter indent lsp git breadcrumb scroll matchparen fold conceal signs
+(all `true` except `indent = false`). Guards (each one call to `disabled`): `treesitter/init.lua start_buf` + `context can_show`,
+`indent/scope/init.lua find` (skips ts, caps walk at 1000 lines; `is_excluded` honors `disable.indent`), `scroll buf_disabled`,
+`lsp/init.lua register` (wraps `root_dir`) + `lsp/attach.lua` (detach backstop), `git buffer_eligible`,
+`breadcrumb/symbols` (trail `{}`, no refresh), `statuscolumn` (number slot only, no sign collect).
+Tests: `test/libs/bigfile/{bigfile,guards}_spec.lua`. Bench: `bench-ux.sh scroll|edit` with `FIXTURE_LANG=xml`.
 
 ---
 

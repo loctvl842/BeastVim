@@ -177,13 +177,31 @@ Detection rules (from the PM spec): `buftype == ""`, non-empty name, buffer load
 - The fixture `realistic_orders_120k.xml` is untracked at the repo root. Do not commit it; move it out of the repo (or generate it inside the bench) before the final commit.
 
 # Success Criteria
-- [ ] Opening `realistic_orders_120k.xml` shows exactly one "Big File" toast with name and size, including when launched from the shell.
-- [ ] In that file `j`, `Ctrl-D` and `G` feel instant; typing shows immediately (bench: key-to-paint no worse than a small file within the bench tolerance).
-- [ ] No treesitter highlighter, no context overlay, no LSP client attached, no git signs, no symbol trail in that buffer.
-- [ ] Line numbers, regex coloring, search, search count, undo, statusline still work.
-- [ ] A minified 900 KB file triggers the same behavior.
-- [ ] A small file in the same session (including a split next to the big one) keeps every feature.
-- [ ] Filetype of the big file is still `xml`.
-- [ ] `notify = false` silences the toast without re-enabling features; `disable.<feature> = false` keeps that feature.
-- [ ] Reopening the same big file shows the toast once per open.
-- [ ] `make test`, `lua-language-server --check` (Warning level) and `stylua` are clean; startup bench shows no measurable regression.
+- [x] Opening `realistic_orders_120k.xml` shows exactly one "Big File" toast with name and size, including when launched from the shell.
+- [x] In that file `j`, `Ctrl-D` and `G` feel instant; typing shows immediately (bench: key-to-paint no worse than a small file within the bench tolerance).
+- [x] No treesitter highlighter, no context overlay, no LSP client attached, no git signs, no symbol trail in that buffer.
+- [x] Line numbers, regex coloring, search, search count, undo, statusline still work.
+- [x] A minified 900 KB file triggers the same behavior.
+- [x] A small file in the same session (including a split next to the big one) keeps every feature.
+- [x] Filetype of the big file is still `xml`.
+- [x] `notify = false` silences the toast without re-enabling features; `disable.<feature> = false` keeps that feature.
+- [x] Reopening the same big file shows the toast once per open.
+- [x] `make test`, `lua-language-server --check` (Warning level) and `stylua` are clean; startup bench shows no measurable regression.
+
+## Completed
+
+2026-11-25 - all five phases, plus a mid-implementation change (indent guides stay on) and fixes from the code review.
+
+- `5f3d5fc` feat(bigfile): detect big buffers lazily and announce them with a toast
+- `5bc8ee5` feat(bigfile): switch off treesitter, indent guides and smooth scroll for big buffers (the indent part was reversed in `1a5ea38`: guides stay on)
+- `fa04e8e` feat(bigfile): keep LSP, git signs and breadcrumb symbols off big buffers
+- `1a5ea38` feat(bigfile): manual folds, no conceal, matchparen off and number-only gutter for big buffers (also: indent scope skips treesitter and caps its walk at 1000 lines)
+- `463a7b3` fix(bigfile): show the file size in decimal MB like ls and the Finder
+- `55df656` bench(ux): add an xml fixture language for the scroll scenario
+- `903ca85` bench(ux): add an edit scenario (insert and undo mid-file in the big fixture)
+- `45b2dce` fix(bigfile): write window options locally, keep the original on re-entry, wait for BufReadPre (code review findings)
+
+Deviations from this spec: guard specs live in `test/libs/bigfile/guards_spec.lua` rather than beside each lib; benchmarking used new `bench-ux.sh` scenarios (`FIXTURE_LANG=xml`, `edit`) instead of `scripts/bench-bigfile.lua`; a split window that never held a record restores to the global option default. Known, left as is: `Lsp.register` always replaces a previously merged `root_dir`, and the `LspAttach` backstop detaches but does not stop an idle client.
+
+Verification: `make test` 1997 passed (44 bigfile specs), `stylua --check` clean, `lua-language-server --check` no problems, startup 41.1 ms vs 40.7 ms before (noise), real `realistic_orders_120k.xml` in tmux (one toast "7.4 MB", guides and regex coloring on, number-only gutter, no symbol trail, split with a normal file keeps its features), jump to line 50000 about 35-60 ms vs 120-160 ms before. `bench-ux.sh scroll|edit` key-to-paint is flat (p50 under 2 ms before and after): the savings are in work between keys, not in paint.
+
